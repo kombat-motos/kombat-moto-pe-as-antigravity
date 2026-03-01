@@ -36,7 +36,8 @@ import {
     ArrowUpCircle,
     ArrowDownCircle,
     Truck,
-    ClipboardList
+    ClipboardList,
+    LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
@@ -184,9 +185,9 @@ interface PurchaseOrder {
 const SidebarItem = ({ icon: Icon, label, active, onClick }: any) => (
     <button
         onClick={onClick}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${active
-            ? 'bg-rose-600 text-white shadow-lg shadow-rose-200'
-            : 'text-slate-500 hover:bg-slate-100'
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${active
+            ? 'bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-lg shadow-rose-200 scale-[1.02] translate-x-1'
+            : 'text-slate-500 hover:bg-rose-50 hover:text-rose-600 hover:translate-x-1'
             }`}
     >
         <Icon size={20} />
@@ -250,6 +251,8 @@ export default function App() {
     const [loading, setLoading] = useState(true);
     const [authChecking, setAuthChecking] = useState(true);
     const [globalSearchTerm, setGlobalSearchTerm] = useState('');
+
+
 
     // Modal States
     const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
@@ -2912,7 +2915,7 @@ export default function App() {
     return (
         <div className="min-h-screen bg-slate-50 flex">
             {/* Sidebar */}
-            <aside className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-8">
+            <aside className="fixed left-6 top-6 bottom-6 w-72 bg-white/90 backdrop-blur-xl border border-slate-100 p-8 flex flex-col gap-8 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] z-50 overflow-y-auto transition-all duration-300 hover:shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
                 <div className="flex items-center gap-3 px-2">
                     <div className="w-10 h-10 bg-rose-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-rose-200">
                         <Bike size={24} />
@@ -2989,17 +2992,27 @@ export default function App() {
                     />
                 </nav>
 
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="text-xs font-bold text-slate-400 uppercase mb-2">Suporte</p>
-                    <button className="w-full flex items-center gap-2 text-sm text-slate-600 hover:text-rose-600 transition-colors">
-                        <MessageCircle size={16} />
-                        Ajuda do Sistema
+                <div className="mt-auto space-y-4">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <p className="text-xs font-bold text-slate-400 uppercase mb-2">Suporte</p>
+                        <button className="w-full flex items-center gap-2 text-sm text-slate-600 hover:text-rose-600 transition-colors">
+                            <MessageCircle size={16} />
+                            Ajuda do Sistema
+                        </button>
+                    </div>
+
+                    <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-6 py-4 bg-slate-50 text-slate-600 rounded-2xl font-bold hover:bg-rose-50 hover:text-rose-600 transition-all duration-300 border border-slate-100 group"
+                    >
+                        <LogOut size={20} className="group-hover:translate-x-1 transition-transform" />
+                        Sair do Sistema
                     </button>
                 </div>
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 p-8 overflow-y-auto">
+            <main className="flex-1 p-8 overflow-y-auto ml-80">
                 <header className="flex items-center justify-between mb-8">
                     <div>
                         <h2 className="text-3xl font-bold text-slate-900">
