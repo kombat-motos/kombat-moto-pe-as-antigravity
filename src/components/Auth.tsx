@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { User, Lock, LogIn, UserPlus, ShieldCheck } from 'lucide-react';
+import { User, Lock, LogIn, UserRoundPlus as UserPlus, ShieldCheck } from 'lucide-react';
 import { supabase } from '../supabase';
+
+// Validate environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("ERRO: VITE_SUPABASE_URL ou VITE_SUPABASE_ANON_KEY não estão configurados!");
+}
 
 interface AuthProps {
   onLogin: (user: any) => void;
@@ -14,9 +22,26 @@ export default function Auth({ onLogin }: AuthProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Safely render icons or fallback
+  const SafeIcon = ({ Icon, size = 20 }: { Icon: any; size?: number }) => {
+    try {
+      if (!Icon) return <User size={size} />;
+      return <Icon size={size} />;
+    } catch (e) {
+      console.warn("Error rendering icon, falling back to User", e);
+      return <User size={size} />;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      setError('Erro de configuração: Variáveis do Supabase não encontradas. Verifique o ambiente (Vercel/Local).');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -44,7 +69,8 @@ export default function Auth({ onLogin }: AuthProps) {
         setError('Conta criada com sucesso! Verifique seu e-mail (ou tente logar).');
       }
     } catch (err: any) {
-      setError(err.message === 'Invalid login credentials' ? 'Usuário ou senha inválidos' : err.message);
+      console.error('Auth error:', err);
+      setError(err.message === 'Invalid login credentials' ? 'Usuário ou senha inválidos' : (err.message || 'Erro ao processar autenticação'));
     } finally {
       setLoading(false);
     }
@@ -59,7 +85,7 @@ export default function Auth({ onLogin }: AuthProps) {
       >
         <div className="p-8 bg-rose-600 text-white text-center">
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-            <ShieldCheck size={32} />
+            <SafeIcon Icon={ShieldCheck} size={32} />
           </div>
           <h1 className="text-2xl font-bold">Kombat Moto</h1>
           <p className="text-rose-100 text-sm mt-1">Sistema de Gestão Segura</p>
@@ -69,12 +95,14 @@ export default function Auth({ onLogin }: AuthProps) {
           <div className="flex gap-4 mb-8">
             <button
               onClick={() => setIsLogin(true)}
+              type="button"
               className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${isLogin ? 'bg-rose-50 text-rose-600' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Login
             </button>
             <button
               onClick={() => setIsLogin(false)}
+              type="button"
               className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${!isLogin ? 'bg-rose-50 text-rose-600' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Cadastro
@@ -85,7 +113,9 @@ export default function Auth({ onLogin }: AuthProps) {
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase mb-1 ml-1">Usuário</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <SafeIcon Icon={User} size={18} />
+                </div>
                 <input
                   type="text"
                   required
@@ -100,7 +130,9 @@ export default function Auth({ onLogin }: AuthProps) {
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase mb-1 ml-1">Senha</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <SafeIcon Icon={Lock} size={18} />
+                </div>
                 <input
                   type="password"
                   required
@@ -116,7 +148,7 @@ export default function Auth({ onLogin }: AuthProps) {
               <motion.div
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className={`p-3 rounded-xl text-xs font-bold ${error.includes('sucesso') ? 'bg-rose-50 text-rose-600' : 'bg-rose-50 text-rose-600'}`}
+                className={`p-3 rounded-xl text-xs font-bold ${error.includes('sucesso') ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600'}`}
               >
                 {error}
               </motion.div>
@@ -131,12 +163,13 @@ export default function Auth({ onLogin }: AuthProps) {
                 <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  {isLogin ? <LogIn size={20} /> : <UserPlus size={20} />}
+                  <SafeIcon Icon={isLogin ? LogIn : UserPlus} size={20} />
                   {isLogin ? 'Entrar no Sistema' : 'Criar Conta'}
                 </>
               )}
             </button>
           </form>
+
 
           <div className="mt-8 pt-6 border-t border-slate-100 text-center">
             <p className="text-xs text-slate-400">

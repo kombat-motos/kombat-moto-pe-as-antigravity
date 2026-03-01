@@ -243,6 +243,7 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }: any)
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inventoryView, setInventoryView] = useState<'list' | 'grid'>('list');
   const [stats, setStats] = useState<Stats | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -251,6 +252,15 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [authChecking, setAuthChecking] = useState(true);
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
+
+  // Environment Check
+  useEffect(() => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("ERRO CRÍTICO: Variáveis do Supabase faltando!");
+    }
+  }, []);
 
   // Modal States
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
@@ -3216,88 +3226,106 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-8">
-        <div className="flex items-center gap-3 px-2">
-          {companyLogo ? (
-            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg shadow-rose-100 border border-slate-100">
-              <img src={companyLogo} alt="Logo" className="w-full h-full object-cover" />
-            </div>
-          ) : (
-            <div className="w-10 h-10 bg-rose-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-rose-200">
-              <Bike size={24} />
-            </div>
-          )}
-          <h1 className="font-bold text-xl text-slate-900 leading-tight">Kombat<br /><span className="text-rose-600">Moto Peças</span></h1>
+    <div className="min-h-screen bg-slate-50 flex relative overflow-hidden">
+      {/* Sidebar Trigger Area (Hover zone) */}
+      <div
+        className="fixed left-0 top-0 bottom-0 w-4 z-50"
+        onMouseEnter={() => setIsSidebarOpen(true)}
+      />
+
+      {/* Sidebar Drawer */}
+      <aside
+        className={`fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-8 z-50 transition-transform duration-300 ease-in-out shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        onMouseLeave={() => setIsSidebarOpen(false)}
+      >
+        <div className="flex items-center justify-between px-2">
+          <div className="flex items-center gap-3">
+            {companyLogo ? (
+              <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg shadow-rose-100 border border-slate-100">
+                <img src={companyLogo} alt="Logo" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="w-10 h-10 bg-rose-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-rose-200">
+                <Bike size={24} />
+              </div>
+            )}
+            <h1 className="font-bold text-xl text-slate-900 leading-tight">Kombat<br /><span className="text-rose-600">Moto Peças</span></h1>
+          </div>
+          <button
+            onClick={() => setIsSidebarOpen(false)}
+            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        <nav className="flex-1 space-y-2">
+        <nav className="flex-1 space-y-2 overflow-y-auto pr-2 custom-scrollbar">
           <SidebarItem
             icon={LayoutDashboard}
             label="Dashboard"
             active={activeTab === 'dashboard'}
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
             icon={Users}
             label="Clientes"
             active={activeTab === 'customers'}
-            onClick={() => setActiveTab('customers')}
+            onClick={() => { setActiveTab('customers'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
             icon={Package}
             label="Estoque"
             active={activeTab === 'inventory'}
-            onClick={() => setActiveTab('inventory')}
+            onClick={() => { setActiveTab('inventory'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
             icon={Truck}
             label="Pedidos de Peças"
             active={activeTab === 'orders'}
-            onClick={() => setActiveTab('orders')}
+            onClick={() => { setActiveTab('orders'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
             icon={Target}
             label="CRM / Vendas"
             active={activeTab === 'crm'}
-            onClick={() => setActiveTab('crm')}
+            onClick={() => { setActiveTab('crm'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
             icon={ShoppingCart}
             label="PDV / Caixa"
             active={activeTab === 'pdv'}
-            onClick={() => setActiveTab('pdv')}
+            onClick={() => { setActiveTab('pdv'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
             icon={Bike}
             label="Ordens de Serviço"
             active={activeTab === 'os'}
-            onClick={() => setActiveTab('os')}
+            onClick={() => { setActiveTab('os'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
             icon={DollarSign}
             label="Financeiro"
             active={activeTab === 'financial'}
-            onClick={() => setActiveTab('financial')}
+            onClick={() => { setActiveTab('financial'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
             icon={Users}
             label="Mecânicos"
             active={activeTab === 'mechanics'}
-            onClick={() => setActiveTab('mechanics')}
+            onClick={() => { setActiveTab('mechanics'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
             icon={MessageCircle}
             label="Catálogo Virtual"
             active={isCatalogModalOpen}
-            onClick={() => setIsCatalogModalOpen(true)}
+            onClick={() => { setIsCatalogModalOpen(true); setIsSidebarOpen(false); }}
           />
           <SidebarItem
             icon={Settings}
             label="Configurações"
             active={activeTab === 'settings'}
-            onClick={() => setActiveTab('settings')}
+            onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
           />
         </nav>
 
@@ -3310,8 +3338,21 @@ export default function App() {
         </div>
       </aside>
 
+      {/* Overlay when sidebar is open */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 transition-all"
+            onMouseEnter={() => setIsSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="flex-1 p-8 overflow-y-auto ml-0">
         <header className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold text-slate-900">
