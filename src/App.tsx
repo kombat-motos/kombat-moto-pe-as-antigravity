@@ -1920,8 +1920,7 @@ export default function App() {
         zip_code,
         credit_limit: parseFloat(customerForm.credit_limit.toString().replace(',', '.')) || 0,
         fine_rate: parseFloat((fine_rate || 0).toString().replace(',', '.')) || 0,
-        interest_rate: parseFloat((interest_rate || 0).toString().replace(',', '.')) || 0,
-        updated_at: new Date().toISOString()
+        interest_rate: parseFloat((interest_rate || 0).toString().replace(',', '.')) || 0
       };
 
       if (editingCustomer) {
