@@ -361,12 +361,19 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('companyData', JSON.stringify(companyData));
   }, [companyData]);
-  const [fiadoSettings, setFiadoSettings] = useState({
-    monthlyInterest: 2.5,
-    notificationDaysBefore: 3,
-    notificationDaysAfter: 5,
-    autoNotification: true
+  const [fiadoSettings, setFiadoSettings] = useState(() => {
+    const saved = localStorage.getItem('fiadoSettings');
+    return saved ? JSON.parse(saved) : {
+      monthlyInterest: 2.5,
+      notificationDaysBefore: 3,
+      notificationDaysAfter: 5,
+      autoNotification: true
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem('fiadoSettings', JSON.stringify(fiadoSettings));
+  }, [fiadoSettings]);
 
   // Financial State
   const [cashSessions, setCashSessions] = useState<CashSession[]>([]);
