@@ -2663,7 +2663,7 @@ export default function App() {
             <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-all group">
               <div className="h-48 bg-slate-50 relative overflow-hidden">
                 {p.image_url ? (
-                  <img src={p.image_url} alt={p.description} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <img src={p.image_url} alt={p.description} className="w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-500" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-slate-200">
                     <ImageIcon size={48} />
