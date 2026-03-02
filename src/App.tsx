@@ -2579,7 +2579,7 @@ export default function App() {
           <button
             onClick={() => {
               setEditingProduct(null);
-              setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '' });
+              setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '' });
               setIsProductModalOpen(true);
             }}
             className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium"
@@ -2623,7 +2623,10 @@ export default function App() {
                       </div>
                       <div>
                         <p className="font-bold text-slate-800">{p.description}</p>
-                        <p className="text-xs text-slate-400">{p.unit}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400">{p.unit}</span>
+                          {p.brand && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase">{p.brand}</span>}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -2725,6 +2728,7 @@ export default function App() {
               <div className="p-4">
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="font-bold text-slate-800 line-clamp-1">{p.description}</h3>
+                  {p.brand && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold uppercase">{p.brand}</span>}
                 </div>
                 <p className="text-xs text-slate-400 mb-3 font-mono">{p.sku}</p>
                 <div className="flex items-end justify-between">
