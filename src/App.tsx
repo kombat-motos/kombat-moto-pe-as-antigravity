@@ -1669,7 +1669,7 @@ export default function App() {
             <h3 className="font-bold text-slate-900">Mecânicos Cadastrados</h3>
           </div>
           <div className="divide-y divide-slate-50">
-            {mechanics.map(m => (
+            {mechanics.sort((a, b) => a.name.localeCompare(b.name)).map(m => (
               <div key={m.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold">
@@ -1714,7 +1714,7 @@ export default function App() {
             <h3 className="font-bold text-slate-900">Tabela de Repasses Fixos</h3>
           </div>
           <div className="divide-y divide-slate-50">
-            {fixedServices.map(fs => (
+            {fixedServices.sort((a, b) => a.name.localeCompare(b.name)).map(fs => (
               <div key={fs.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div>
                   <p className="font-bold text-slate-900">{fs.name}</p>
@@ -3296,7 +3296,7 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {customers.map(c => {
+                {customers.sort((a, b) => a.name.localeCompare(b.name)).map(c => {
                   const cSales = sales.filter(s => s.customer_id === c.id);
                   const totalSpent = cSales.reduce((acc, s) => acc + s.total, 0);
                   return (
@@ -3344,7 +3344,7 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {products.sort((a, b) => a.stock - b.stock).map(p => (
+                {products.sort((a, b) => a.description.localeCompare(b.description)).map(p => (
                   <tr key={p.id} className="border-b">
                     <td className="py-3 font-bold">{p.description}</td>
                     <td>{p.sku}</td>
@@ -4178,7 +4178,7 @@ export default function App() {
                   onChange={e => setPdvForm({ ...pdvForm, customer_id: e.target.value })}
                 >
                   <option value="">Consumidor Final</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {customers.sort((a, b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 {pdvForm.customer_id && (
                   <div className="mt-2 flex items-center justify-between px-2">
@@ -4204,7 +4204,7 @@ export default function App() {
                 </div>
                 {pdvSearchProduct && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                    {products.filter(p => p.description.toLowerCase().includes(pdvSearchProduct.toLowerCase())).map(p => (
+                    {products.filter(p => p.description.toLowerCase().includes(pdvSearchProduct.toLowerCase())).sort((a, b) => a.description.localeCompare(b.description)).map(p => (
                       <button
                         key={p.id}
                         onClick={() => handleAddPdvItem(p)}
@@ -4727,7 +4727,7 @@ export default function App() {
                   onChange={e => setOsForm({ ...osForm, customer_id: e.target.value, motorcycle_id: '' })}
                 >
                   <option value="">Selecione o Cliente</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {customers.sort((a, b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 {osForm.customer_id && (
                   <div className="mt-2 flex items-center justify-between px-2">
@@ -4779,7 +4779,7 @@ export default function App() {
                 </div>
                 {osSearchProduct && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                    {products.filter(p => p.description.toLowerCase().includes(osSearchProduct.toLowerCase())).map(p => (
+                    {products.filter(p => p.description.toLowerCase().includes(osSearchProduct.toLowerCase())).sort((a, b) => a.description.localeCompare(b.description)).map(p => (
                       <button
                         key={p.id}
                         onClick={() => handleAddOsItem(p)}
@@ -4845,7 +4845,7 @@ export default function App() {
                   onChange={e => setOsForm({ ...osForm, mechanic_id: e.target.value })}
                 >
                   <option value="">Selecione o Mecânico</option>
-                  {mechanics.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  {mechanics.sort((a, b) => a.name.localeCompare(b.name)).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </div>
 
@@ -5501,7 +5501,7 @@ export default function App() {
               onChange={e => setOrderForm({ ...orderForm, distributor_id: e.target.value })}
             >
               <option value="">Selecione um distribuidor</option>
-              {distributors.map(d => (
+              {distributors.sort((a, b) => a.name.localeCompare(b.name)).map(d => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
