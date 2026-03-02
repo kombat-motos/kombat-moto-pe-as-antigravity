@@ -2579,7 +2579,7 @@ export default function App() {
           <button
             onClick={() => {
               setEditingProduct(null);
-              setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '' });
+              setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '' });
               setIsProductModalOpen(true);
             }}
             className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium"
@@ -2623,7 +2623,7 @@ export default function App() {
                       </div>
                       <div>
                         <p className="font-bold text-slate-800">{p.description}</p>
-                        <p className="text-xs text-slate-400">{p.brand ? `${p.brand} • ` : ''}{p.unit}</p>
+                        <p className="text-xs text-slate-400">{p.unit}</p>
                       </div>
                     </div>
                   </td>
@@ -2726,7 +2726,6 @@ export default function App() {
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="font-bold text-slate-800 line-clamp-1">{p.description}</h3>
                 </div>
-                <p className="text-xs text-slate-500 mb-1 font-medium">{p.brand || 'Marca não informada'}</p>
                 <p className="text-xs text-slate-400 mb-3 font-mono">{p.sku}</p>
                 <div className="flex items-end justify-between">
                   <div>
@@ -3973,9 +3972,9 @@ export default function App() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Marca do Produto</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Marca</label>
               <input
-                type="text" placeholder="Ex: Honda, Nakata, etc."
+                type="text" placeholder="Ex: Honda, Pirelli, Mobil"
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                 value={productForm.brand}
                 onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
