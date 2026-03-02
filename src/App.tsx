@@ -80,6 +80,7 @@ interface Product {
   unit: string;
   image_url?: string;
   category?: string;
+  brand?: string;
 }
 
 interface Lead {
@@ -275,7 +276,7 @@ export default function App() {
 
   // Form States
   const [customerForm, setCustomerForm] = useState({ name: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
-  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '' });
+  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '' });
   const [motorcycleForm, setMotorcycleForm] = useState({ customer_id: '', plate: '', model: '', current_km: '' });
 
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -1977,7 +1978,8 @@ export default function App() {
         stock: parseInt(productForm.stock.toString()) || 0,
         unit: productForm.unit,
         image_url: productForm.image_url,
-        category: categorizeProduct(productForm.description)
+        category: categorizeProduct(productForm.description),
+        brand: productForm.brand
       };
 
       if (editingProduct) {
@@ -2003,7 +2005,8 @@ export default function App() {
         sale_price: '',
         stock: '',
         unit: 'Unitário',
-        image_url: ''
+        image_url: '',
+        brand: ''
       });
       fetchData();
     } catch (error: any) {
@@ -2023,7 +2026,8 @@ export default function App() {
       stock: product.stock.toString(),
       unit: product.unit || 'Unitário',
       image_url: product.image_url || '',
-      category: product.category || categorizeProduct(product.description)
+      category: product.category || categorizeProduct(product.description),
+      brand: product.brand || ''
     });
     setIsProductModalOpen(true);
   };
@@ -2575,7 +2579,7 @@ export default function App() {
           <button
             onClick={() => {
               setEditingProduct(null);
-              setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '' });
+              setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '' });
               setIsProductModalOpen(true);
             }}
             className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium"
@@ -2619,7 +2623,7 @@ export default function App() {
                       </div>
                       <div>
                         <p className="font-bold text-slate-800">{p.description}</p>
-                        <p className="text-xs text-slate-400">{p.unit}</p>
+                        <p className="text-xs text-slate-400">{p.brand ? `${p.brand} • ` : ''}{p.unit}</p>
                       </div>
                     </div>
                   </td>
@@ -2722,6 +2726,7 @@ export default function App() {
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="font-bold text-slate-800 line-clamp-1">{p.description}</h3>
                 </div>
+                <p className="text-xs text-slate-500 mb-1 font-medium">{p.brand || 'Marca não informada'}</p>
                 <p className="text-xs text-slate-400 mb-3 font-mono">{p.sku}</p>
                 <div className="flex items-end justify-between">
                   <div>
@@ -3953,7 +3958,7 @@ export default function App() {
           onClose={() => {
             setIsProductModalOpen(false);
             setEditingProduct(null);
-            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '' });
+            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '' });
           }}
           title={editingProduct ? "Editar Produto" : "Adicionar Produto ao Estoque"}
         >
@@ -3965,6 +3970,15 @@ export default function App() {
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                 value={productForm.description}
                 onChange={e => setProductForm({ ...productForm, description: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Marca do Produto</label>
+              <input
+                type="text" placeholder="Ex: Honda, Nakata, etc."
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                value={productForm.brand}
+                onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
