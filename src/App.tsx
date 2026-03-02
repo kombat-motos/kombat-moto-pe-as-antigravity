@@ -33,7 +33,8 @@ import {
   Truck,
   ClipboardList,
   Building2,
-  Edit
+  Edit,
+  Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
@@ -2144,6 +2145,26 @@ export default function App() {
     }
   };
 
+  const handleDuplicateProduct = async (product: Product) => {
+    if (confirm(`Deseja duplicar o produto "${product.description}"?`)) {
+      try {
+        const { id, ...productData } = product;
+        const { error } = await supabase.from('products').insert([{
+          ...productData,
+          description: `${product.description} (Cópia)`,
+          sku: `${product.sku}-copy`,
+          barcode: '' // Clear barcode as it should be unique
+        }]);
+        if (error) throw error;
+        alert('Produto duplicado com sucesso!');
+        fetchData();
+      } catch (error) {
+        console.error('Error duplicating product:', error);
+        alert('Erro ao duplicar produto.');
+      }
+    }
+  };
+
   const handleDeleteSale = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.')) {
       try {
@@ -2645,6 +2666,13 @@ export default function App() {
                       >
                         <Trash2 size={18} />
                       </button>
+                      <button
+                        onClick={() => handleDuplicateProduct(p)}
+                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        title="Duplicar Produto"
+                      >
+                        <Copy size={18} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -2712,6 +2740,13 @@ export default function App() {
                       className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                     >
                       <Trash2 size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDuplicateProduct(p)}
+                      className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="Duplicar Produto"
+                    >
+                      <Copy size={16} />
                     </button>
                   </div>
                 </div>
