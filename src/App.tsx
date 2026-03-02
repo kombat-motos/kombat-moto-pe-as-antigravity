@@ -341,6 +341,8 @@ export default function App() {
   const [salesSearchTerm, setSalesSearchTerm] = useState('');
   const [selectedCustomerForHistory, setSelectedCustomerForHistory] = useState<Customer | null>(null);
   const [selectedCustomerForPrint, setSelectedCustomerForPrint] = useState<{ customer: Customer; type: 'A4' | '80mm' } | null>(null);
+  const [isManagementReportModalOpen, setIsManagementReportModalOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<'customers' | 'inventory' | 'sales' | 'financial' | 'purchases' | null>(null);
   const [companyLogo, setCompanyLogo] = useState<string | null>(localStorage.getItem('companyLogo'));
   const [companyData, setCompanyData] = useState(() => {
     const saved = localStorage.getItem('companyData');
@@ -3135,6 +3137,44 @@ export default function App() {
 
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
         <div className="flex items-center gap-4 mb-6">
+          <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl">
+            <BarChart3 size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-slate-900">Central de Relatórios Profissionais</h3>
+            <p className="text-sm text-slate-500">Gere relatórios detalhados para impressão ou análise gerencial</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            { id: 'customers', label: 'Relatório de Clientes', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+            { id: 'inventory', label: 'Relatório de Estoque', icon: Package, color: 'text-amber-600', bg: 'bg-amber-50' },
+            { id: 'sales', label: 'Relatório de Vendas', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+            { id: 'financial', label: 'Relatório Financeiro', icon: DollarSign, color: 'text-rose-600', bg: 'bg-rose-50' },
+            { id: 'purchases', label: 'Relatório de Compras', icon: Truck, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+          ].map((rep) => (
+            <button
+              key={rep.id}
+              onClick={() => {
+                setSelectedReport(rep.id as any);
+                setIsManagementReportModalOpen(true);
+              }}
+              className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:border-rose-200 hover:shadow-md transition-all text-left bg-slate-50/50"
+            >
+              <div className={`p-3 rounded-xl ${rep.bg} ${rep.color}`}>
+                <rep.icon size={24} />
+              </div>
+              <div>
+                <p className="font-bold text-slate-900 text-sm">{rep.label}</p>
+                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Ver Detalhes</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+        <div className="flex items-center gap-4 mb-6">
           <div className="p-3 bg-blue-100 text-blue-600 rounded-2xl">
             <Settings size={24} />
           </div>
@@ -3154,23 +3194,24 @@ export default function App() {
       </div>
     </div>
   );
-
   const renderOrders = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-slate-900">Pedidos de Peças</h2>
-        <button
-          onClick={() => setIsOrderModalOpen(true)}
-          className="px-6 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 flex items-center gap-2"
-        >
-          <Plus size={18} /> Novo Pedido
-        </button>
-        <button
-          onClick={() => setIsDistributorModalOpen(true)}
-          className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2"
-        >
-          <Plus size={18} /> Cadastrar Distribuidor
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsOrderModalOpen(true)}
+            className="px-6 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 flex items-center gap-2"
+          >
+            <Plus size={18} /> Novo Pedido
+          </button>
+          <button
+            onClick={() => setIsDistributorModalOpen(true)}
+            className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2"
+          >
+            <Plus size={18} /> Cadastrar Distribuidor
+          </button>
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
@@ -3219,6 +3260,247 @@ export default function App() {
       </div>
     </div>
   );
+
+  const renderManagementReportContent = () => {
+    switch (selectedReport) {
+      case 'customers':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h2 className="text-2xl font-bold text-slate-900">Relatório Geral de Clientes</h2>
+              <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200"><Printer size={20} /></button>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                <p className="text-[10px] font-bold text-blue-500 uppercase">Total Cadastrados</p>
+                <p className="text-2xl font-black text-blue-700">{customers.length}</p>
+              </div>
+              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                <p className="text-[10px] font-bold text-emerald-500 uppercase">Clientes Ativos</p>
+                <p className="text-2xl font-black text-emerald-700">{new Set(sales.map(s => s.customer_id)).size}</p>
+              </div>
+              <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                <p className="text-[10px] font-bold text-rose-500 uppercase">Total em Aberto (Fiado)</p>
+                <p className="text-2xl font-black text-rose-700">
+                  R$ {sales.filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pendente').reduce((acc, s) => acc + s.total, 0).toFixed(2)}
+                </p>
+              </div>
+            </div>
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b text-slate-400">
+                  <th className="py-2">Nome</th>
+                  <th>WhatsApp</th>
+                  <th>Compras</th>
+                  <th>Total Gasto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customers.map(c => {
+                  const cSales = sales.filter(s => s.customer_id === c.id);
+                  const totalSpent = cSales.reduce((acc, s) => acc + s.total, 0);
+                  return (
+                    <tr key={c.id} className="border-b">
+                      <td className="py-3 font-bold">{c.name}</td>
+                      <td>{c.whatsapp}</td>
+                      <td>{cSales.length}</td>
+                      <td className="font-bold">R$ {totalSpent.toFixed(2)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      case 'inventory':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h2 className="text-2xl font-bold text-slate-900">Relatório de Estoque e Valoração</h2>
+              <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200"><Printer size={20} /></button>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                <p className="text-[10px] font-bold text-amber-500 uppercase">Total de Itens</p>
+                <p className="text-2xl font-black text-amber-700">{products.reduce((acc, p) => acc + p.stock, 0)}</p>
+              </div>
+              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                <p className="text-[10px] font-bold text-emerald-500 uppercase">Investimento Total</p>
+                <p className="text-2xl font-black text-emerald-700">R$ {products.reduce((acc, p) => acc + (p.purchase_price * p.stock), 0).toFixed(2)}</p>
+              </div>
+              <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                <p className="text-[10px] font-bold text-indigo-500 uppercase">Venda Estimada</p>
+                <p className="text-2xl font-black text-indigo-700">R$ {products.reduce((acc, p) => acc + (p.sale_price * p.stock), 0).toFixed(2)}</p>
+              </div>
+            </div>
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b text-slate-400">
+                  <th className="py-2">Descrição</th>
+                  <th>SKU</th>
+                  <th>Estoque</th>
+                  <th>Custo Unit.</th>
+                  <th>Valor Venda</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.sort((a, b) => a.stock - b.stock).map(p => (
+                  <tr key={p.id} className="border-b">
+                    <td className="py-3 font-bold">{p.description}</td>
+                    <td>{p.sku}</td>
+                    <td className={p.stock < 5 ? 'text-rose-600 font-bold' : ''}>{p.stock}</td>
+                    <td>R$ {p.purchase_price.toFixed(2)}</td>
+                    <td className="font-bold">R$ {p.sale_price.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      case 'sales':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h2 className="text-2xl font-bold text-slate-900">Relatório de Performance de Vendas</h2>
+              <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200"><Printer size={20} /></button>
+            </div>
+            <div className="grid grid-cols-4 gap-4">
+              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                <p className="text-[10px] font-bold text-emerald-500 uppercase">Vendas Totais</p>
+                <p className="text-xl font-black text-emerald-700">R$ {sales.reduce((acc, s) => acc + s.total, 0).toFixed(2)}</p>
+              </div>
+              <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                <p className="text-[10px] font-bold text-blue-500 uppercase">Ticket Médio</p>
+                <p className="text-xl font-black text-blue-700">R$ {(sales.reduce((acc, s) => acc + s.total, 0) / (sales.length || 1)).toFixed(2)}</p>
+              </div>
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                <p className="text-[10px] font-bold text-amber-500 uppercase">Vendas Oficina</p>
+                <p className="text-xl font-black text-amber-700">R$ {sales.filter(s => s.type === 'Oficina').reduce((acc, s) => acc + s.total, 0).toFixed(2)}</p>
+              </div>
+              <div className="p-4 bg-pink-50 rounded-2xl border border-pink-100">
+                <p className="text-[10px] font-bold text-pink-500 uppercase">Vendas Balcão</p>
+                <p className="text-xl font-black text-pink-700">R$ {sales.filter(s => s.type === 'Balcão').reduce((acc, s) => acc + s.total, 0).toFixed(2)}</p>
+              </div>
+            </div>
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b text-slate-400">
+                  <th className="py-2">Data</th>
+                  <th>ID</th>
+                  <th>Cliente</th>
+                  <th>Tipo</th>
+                  <th>Metodo</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(s => (
+                  <tr key={s.id} className="border-b">
+                    <td className="py-3">{new Date(s.date).toLocaleDateString()}</td>
+                    <td>{s.id.slice(-6)}</td>
+                    <td className="font-bold">{s.customer_name}</td>
+                    <td>{s.type}</td>
+                    <td>{s.payment_method}</td>
+                    <td className="font-bold">R$ {s.total.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      case 'financial':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h2 className="text-2xl font-bold text-slate-900">Relatório Financeiro e Lucratividade</h2>
+              <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200"><Printer size={20} /></button>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                <p className="text-[10px] font-bold text-emerald-500 uppercase">Receita Bruta</p>
+                <p className="text-2xl font-black text-emerald-700">R$ {sales.reduce((acc, s) => acc + s.total, 0).toFixed(2)}</p>
+              </div>
+              <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                <p className="text-[10px] font-bold text-rose-500 uppercase">Custo de Mercadoria (Estimado)</p>
+                <p className="text-2xl font-black text-rose-700">
+                  R$ {sales.reduce((acc, s) => acc + s.items.reduce((sum, i) => {
+                    const prod = products.find(p => p.id === i.product_id);
+                    return sum + ((prod?.purchase_price || 0) * i.quantity);
+                  }, 0), 0).toFixed(2)}
+                </p>
+              </div>
+              <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                <p className="text-[10px] font-bold text-indigo-500 uppercase">Lucro Bruto Estimado</p>
+                <p className="text-2xl font-black text-indigo-700">
+                  R$ {(sales.reduce((acc, s) => acc + s.total, 0) - sales.reduce((acc, s) => acc + s.items.reduce((sum, i) => {
+                    const prod = products.find(p => p.id === i.product_id);
+                    return sum + ((prod?.purchase_price || 0) * i.quantity);
+                  }, 0), 0)).toFixed(2)}
+                </p>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+              <h4 className="font-bold text-slate-800 mb-2">Resumo por Forma de Pagamento</h4>
+              <div className="grid grid-cols-4 gap-4">
+                {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => (
+                  <div key={method} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">{method}</p>
+                    <p className="text-lg font-black text-slate-800">R$ {sales.filter(s => s.payment_method === method).reduce((acc, s) => acc + s.total, 0).toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      case 'purchases':
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h2 className="text-2xl font-bold text-slate-900">Relatório de Compras e Fornecedores</h2>
+              <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200"><Printer size={20} /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                <p className="text-[10px] font-bold text-indigo-500 uppercase">Total de Pedidos</p>
+                <p className="text-2xl font-black text-indigo-700">{purchaseOrders.length}</p>
+              </div>
+              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                <p className="text-[10px] font-bold text-emerald-500 uppercase">Pedidos Recebidos</p>
+                <p className="text-2xl font-black text-emerald-700">{purchaseOrders.filter(o => o.status === 'Recebido').length}</p>
+              </div>
+            </div>
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b text-slate-400">
+                  <th className="py-2">Data</th>
+                  <th>ID</th>
+                  <th>Distribuidor</th>
+                  <th>Itens</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {purchaseOrders.map(o => (
+                  <tr key={o.id} className="border-b">
+                    <td className="py-3">{new Date(o.date).toLocaleDateString()}</td>
+                    <td>#{o.id.slice(-4)}</td>
+                    <td className="font-bold">{o.distributor_name}</td>
+                    <td>{o.items.length} itens</td>
+                    <td>
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${o.status === 'Recebido' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                        {o.status.toUpperCase()}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   if (authChecking) {
     return (
@@ -5306,6 +5588,20 @@ export default function App() {
           </button>
         </form>
       </Modal>
-    </div >
+
+      <Modal
+        isOpen={isManagementReportModalOpen}
+        onClose={() => {
+          setIsManagementReportModalOpen(false);
+          setSelectedReport(null);
+        }}
+        title="Visualizar Relatório Gerencial"
+        maxWidth="max-w-6xl"
+      >
+        <div className="bg-white">
+          {renderManagementReportContent()}
+        </div>
+      </Modal>
+    </div>
   );
 }
