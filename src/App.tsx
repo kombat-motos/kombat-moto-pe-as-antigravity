@@ -34,7 +34,9 @@ import {
   ClipboardList,
   Building2,
   Edit,
-  Copy
+  Copy,
+  FileText,
+  FileDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
@@ -131,6 +133,30 @@ interface Sale {
   paid_date?: string;
   service_description?: string;
   status?: 'Aberto' | 'Em Andamento' | 'Pronto' | 'Entregue';
+}
+
+interface QuoteItem {
+  id?: string;
+  description: string;
+  quantity: number;
+  price: number;
+  total: number;
+  type: 'Peça' | 'Serviço';
+}
+
+interface Quote {
+  id: string;
+  user_id?: string;
+  customer_name: string;
+  customer_id?: number;
+  motorcycle_details?: string;
+  total_value: number;
+  observations?: string;
+  warranty_terms?: string;
+  validity_days: number;
+  created_at: string;
+  status: 'Pendente' | 'Aprovado' | 'Recusado';
+  items: QuoteItem[];
 }
 
 interface Stats {
@@ -273,6 +299,23 @@ export default function App() {
   const [editingMotorcycle, setEditingMotorcycle] = useState<Motorcycle | null>(null);
   const [editingOS, setEditingOS] = useState<Sale | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+
+  // Quotes States
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [quoteSearchTerm, setQuoteSearchTerm] = useState('');
+  const [quoteForm, setQuoteForm] = useState<Omit<Quote, 'id' | 'created_at'>>({
+    customer_name: '',
+    customer_id: undefined,
+    motorcycle_details: '',
+    total_value: 0,
+    observations: '',
+    warranty_terms: 'Garantia de 90 dias conforme CDC sobre os itens relacionados.',
+    validity_days: 7,
+    status: 'Pendente',
+    items: []
+  });
+  const [isPrintingQuote, setIsPrintingQuote] = useState<Quote | null>(null);
 
   // Form States
   const [customerForm, setCustomerForm] = useState({ name: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
@@ -621,7 +664,8 @@ export default function App() {
         { data: distributorsData },
         { data: ordersData },
         { data: cashSessionsData },
-        { data: cashTransactionsData }
+        { data: cashTransactionsData },
+        { data: quotesData }
       ] = await Promise.all([
         supabase.from('products').select('*'),
         supabase.from('customers').select('*'),
@@ -633,7 +677,8 @@ export default function App() {
         supabase.from('distributors').select('*'),
         supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
         supabase.from('cash_sessions').select('*'),
-        supabase.from('cash_transactions').select('*')
+        supabase.from('cash_transactions').select('*'),
+        supabase.from('quotes').select('*')
       ]);
 
       if (productsData) setProducts(productsData);
@@ -666,6 +711,7 @@ export default function App() {
         items: o.purchase_order_items || [],
         distributor_id: o.distributor_id
       })));
+      if (quotesData) setQuotes(quotesData);
 
       if (cashSessionsData) {
         const sessions = cashSessionsData.map((s: any) => ({
@@ -1693,6 +1739,288 @@ export default function App() {
       </Modal>
     );
   };
+
+  const handleDeleteQuote = async (id: string) => {
+    if (confirm('Deseja realmente excluir este orçamento?')) {
+      try {
+        const { error } = await supabase.from('quotes').delete().eq('id', id);
+        if (error) throw error;
+        setQuotes(prev => prev.filter(q => q.id !== id));
+        alert('Orçamento excluído com sucesso!');
+      } catch (err) {
+        console.error('Error deleting quote:', err);
+        alert('Erro ao excluir orçamento.');
+      }
+    }
+  };
+
+  const handleCreateQuote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return alert('Você precisa estar logado.');
+    if (!quoteForm.customer_name) return alert('Informe o nome do cliente.');
+    if (quoteForm.items.length === 0) return alert('Adicione ao menos um item.');
+
+    try {
+      const { data, error } = await supabase.from('quotes').insert([{
+        user_id: user.id,
+        customer_name: quoteForm.customer_name,
+        customer_id: quoteForm.customer_id,
+        motorcycle_details: quoteForm.motorcycle_details,
+        total_value: quoteForm.total_value,
+        observations: quoteForm.observations,
+        warranty_terms: quoteForm.warranty_terms,
+        validity_days: quoteForm.validity_days,
+        status: quoteForm.status,
+        items: quoteForm.items
+      }]).select().single();
+
+      if (error) throw error;
+      setQuotes(prev => [data, ...prev]);
+      setIsQuoteModalOpen(false);
+      setQuoteForm({
+        customer_name: '',
+        customer_id: undefined,
+        motorcycle_details: '',
+        total_value: 0,
+        observations: '',
+        warranty_terms: 'Garantia de 90 dias conforme CDC sobre os itens relacionados.',
+        validity_days: 7,
+        status: 'Pendente',
+        items: []
+      });
+      alert('Orçamento criado com sucesso!');
+    } catch (err) {
+      console.error('Error creating quote:', err);
+      alert('Erro ao salvar orçamento.');
+    }
+  };
+
+  const renderQuotes = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-slate-900">Orçamentos Profissionais</h2>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              placeholder="Pesquisar orçamento..."
+              className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
+              value={quoteSearchTerm}
+              onChange={e => setQuoteSearchTerm(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={() => setIsQuoteModalOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-bold shadow-lg shadow-rose-100"
+          >
+            <Plus size={20} />
+            Novo Orçamento
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {quotes.filter(q =>
+          q.customer_name.toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||
+          q.motorcycle_details?.toLowerCase().includes(quoteSearchTerm.toLowerCase())
+        ).map((q) => (
+          <div key={q.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all group relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-3">
+              <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${q.status === 'Aprovado' ? 'bg-emerald-100 text-emerald-700' :
+                q.status === 'Recusado' ? 'bg-rose-100 text-rose-700' :
+                  'bg-amber-100 text-amber-700'
+                }`}>
+                {q.status}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
+                <FileText size={24} />
+              </div>
+              <div className="w-[calc(100%-60px)]">
+                <h4 className="font-bold text-slate-900 uppercase text-sm truncate">{q.customer_name}</h4>
+                <p className="text-xs text-slate-500">{new Date(q.created_at).toLocaleDateString('pt-BR')}</p>
+              </div>
+            </div>
+            <div className="space-y-2 mb-4">
+              <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded-lg font-medium truncate">
+                <Bike size={12} className="inline mr-1 text-slate-400" />
+                {q.motorcycle_details || 'Não informada'}
+              </p>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">Total Geral:</span>
+                <span className="font-black text-rose-600">R$ {q.total_value.toFixed(2)}</span>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-4 border-t border-slate-50">
+              <button
+                onClick={() => setIsPrintingQuote(q)}
+                className="flex-1 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-black transition-colors flex items-center justify-center gap-2"
+              >
+                <Printer size={14} /> Imprimir / PDF
+              </button>
+              <button
+                onClick={() => handleDeleteQuote(q.id)}
+                className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                title="Excluir Orçamento"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </div>
+        ))}
+        {quotes.length === 0 && (
+          <div className="col-span-full py-12 text-center bg-white rounded-2xl border border-dashed border-slate-200">
+            <FileText size={48} className="mx-auto text-slate-200 mb-4" />
+            <p className="text-slate-400">Nenhum orçamento cadastrado ainda.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Quote Print View / High Resolution Layout */}
+      {isPrintingQuote && (
+        <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:p-0">
+          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-100">
+            <div className="flex justify-between items-start border-b-4 border-rose-600 pb-8 mb-8">
+              <div className="flex gap-6 items-center">
+                <div className="w-24 h-24 bg-black rounded-2xl flex items-center justify-center overflow-hidden">
+                  {companyLogo ? (
+                    <img src={companyLogo} alt="Logo" className="w-full h-full object-contain" />
+                  ) : (
+                    <Bike size={48} className="text-white" />
+                  )}
+                </div>
+                <div>
+                  <h1 className="text-3xl font-black text-black tracking-tighter uppercase">{companyData.nomeFantasia || 'Kombat Moto Peças'}</h1>
+                  <p className="text-slate-500 font-bold text-sm">Oficina Mecânica Multimarcas & Acessórios</p>
+                  <div className="mt-2 text-xs text-slate-400 font-medium">
+                    <p>{companyData.endereco}, {companyData.bairro}</p>
+                    <p>Andirá - PR | {companyData.cep}</p>
+                    <p className="text-black font-bold">Contato: {companyData.telefone}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="bg-black text-white px-4 py-2 rounded-lg font-black text-sm uppercase mb-2">Orçamento #{isPrintingQuote.id.slice(0, 8)}</div>
+                <p className="text-slate-400 text-xs font-bold uppercase">Data: {new Date(isPrintingQuote.created_at).toLocaleDateString('pt-BR')}</p>
+                <p className="text-rose-600 text-xs font-black uppercase">Válido por {isPrintingQuote.validity_days} dias</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 text-white p-4 rounded-xl mb-8 flex flex-col md:flex-row justify-between gap-4">
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Cliente</p>
+                <p className="font-bold uppercase">{isPrintingQuote.customer_name}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Motocicleta / Detalhes</p>
+                <p className="font-bold uppercase">{isPrintingQuote.motorcycle_details || '--'}</p>
+              </div>
+            </div>
+
+            <div className="space-y-8">
+              <div className="overflow-x-auto">
+                <h3 className="text-xs font-black bg-black text-white px-3 py-1 inline-block uppercase mb-4 tracking-widest">Descrição de Peças e Acessórios</h3>
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-slate-900">
+                      <th className="py-3 text-[10px] font-black uppercase text-slate-400">Qtd</th>
+                      <th className="py-3 text-[10px] font-black uppercase text-slate-400">Descrição do Item</th>
+                      <th className="py-3 text-[10px] font-black uppercase text-slate-400 text-right">Valor Unit.</th>
+                      <th className="py-3 text-[10px] font-black uppercase text-slate-400 text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isPrintingQuote.items.filter(i => i.type === 'Peça').map((item, idx) => (
+                      <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="py-3 font-bold text-slate-800 text-sm">{item.quantity}</td>
+                        <td className="py-3 font-bold text-slate-800 text-sm uppercase">{item.description}</td>
+                        <td className="py-3 font-bold text-slate-800 text-sm text-right">R$ {item.price.toFixed(2)}</td>
+                        <td className="py-3 font-black text-black text-sm text-right">R$ {item.total.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                    {isPrintingQuote.items.filter(i => i.type === 'Peça').length === 0 && (
+                      <tr><td colSpan={4} className="py-4 text-center text-slate-300 text-xs italic">Nenhuma peça relacionada.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="overflow-x-auto">
+                <h3 className="text-xs font-black bg-rose-600 text-white px-3 py-1 inline-block uppercase mb-4 tracking-widest">Serviços / Mão de Obra</h3>
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-slate-900">
+                      <th className="py-3 text-[10px] font-black uppercase text-slate-400">Qtd</th>
+                      <th className="py-3 text-[10px] font-black uppercase text-slate-400">Descrição do Serviço</th>
+                      <th className="py-3 text-[10px] font-black uppercase text-slate-400 text-right">Valor Unit.</th>
+                      <th className="py-3 text-[10px] font-black uppercase text-slate-400 text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isPrintingQuote.items.filter(i => i.type === 'Serviço').map((item, idx) => (
+                      <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="py-3 font-bold text-slate-800 text-sm">{item.quantity}</td>
+                        <td className="py-3 font-bold text-slate-800 text-sm uppercase">{item.description}</td>
+                        <td className="py-3 font-bold text-slate-800 text-sm text-right">R$ {item.price.toFixed(2)}</td>
+                        <td className="py-3 font-black text-rose-600 text-sm text-right">R$ {item.total.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                    {isPrintingQuote.items.filter(i => i.type === 'Serviço').length === 0 && (
+                      <tr><td colSpan={4} className="py-4 text-center text-slate-300 text-xs italic">Nenhum serviço relacionado.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Observações Técnicas</p>
+                  <p className="text-xs text-slate-700 leading-relaxed italic">{isPrintingQuote.observations || 'Nenhuma observação técnica.'}</p>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Termos de Garantia</p>
+                  <p className="text-[10px] text-slate-600 leading-tight">{isPrintingQuote.warranty_terms}</p>
+                </div>
+              </div>
+              <div className="flex flex-col justify-end items-end space-y-4">
+                <div className="text-right">
+                  <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total das Peças</p>
+                  <p className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Peça').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total dos Serviços</p>
+                  <p className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
+                </div>
+                <div className="bg-black text-white p-6 rounded-2xl text-right w-full">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] mb-2">Total Geral do Orçamento</p>
+                  <p className="text-4xl font-black text-rose-500">R$ {isPrintingQuote.total_value.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-16 pt-8 border-t border-slate-100 flex flex-col items-center">
+              <div className="w-64 border-b border-slate-900 mb-2"></div>
+              <p className="text-xs font-black uppercase text-black tracking-widest">{isPrintingQuote.customer_name}</p>
+              <p className="text-[10px] text-slate-400 uppercase font-bold text-center">Autorização de Execução / Cliente</p>
+            </div>
+
+            <div className="mt-12 flex justify-center gap-4 no-print flex-wrap">
+              <button onClick={() => window.print()} className="px-8 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all flex items-center gap-2">
+                <Printer size={20} /> Imprimir Orçamento
+              </button>
+              <button onClick={() => setIsPrintingQuote(null)} className="px-8 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">
+                Fechar Visualização
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const renderMechanics = () => (
     <div className="space-y-8">
@@ -3687,6 +4015,12 @@ export default function App() {
             onClick={() => { setActiveTab('orders'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
+            icon={FileText}
+            label="Orçamentos"
+            active={activeTab === 'quotes'}
+            onClick={() => { setActiveTab('quotes'); setIsSidebarOpen(false); }}
+          />
+          <SidebarItem
             icon={Target}
             label="CRM / Vendas"
             active={activeTab === 'crm'}
@@ -3766,6 +4100,7 @@ export default function App() {
               {activeTab === 'financial' && 'Gestão Financeira'}
               {activeTab === 'orders' && 'Pedidos de Peças'}
               {activeTab === 'mechanics' && 'Gestão de Mecânicos'}
+              {activeTab === 'quotes' && 'Orçamentos Profissionais'}
               {activeTab === 'settings' && 'Configurações do Sistema'}
             </h2>
             <p className="text-slate-500">
@@ -3899,6 +4234,192 @@ export default function App() {
               </>
             )}
           </div>
+        </Modal>
+
+        {/* Orçamento Modal */}
+        <Modal
+          isOpen={isQuoteModalOpen}
+          onClose={() => setIsQuoteModalOpen(false)}
+          title="Novo Orçamento Profissional"
+          maxWidth="max-w-5xl"
+        >
+          <form onSubmit={handleCreateQuote} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Cliente / Razão Social</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
+                  placeholder="Nome Completo do Cliente..."
+                  value={quoteForm.customer_name}
+                  onChange={e => setQuoteForm({ ...quoteForm, customer_name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Motocicleta (Modelo/Placa/KM)</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
+                  placeholder="Ex: Honda CG 160 Titan - ABC-1234 - 15.000km"
+                  value={quoteForm.motorcycle_details}
+                  onChange={e => setQuoteForm({ ...quoteForm, motorcycle_details: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Itens do Orçamento (Peças e Serviços)</h3>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const desc = prompt('Descrição da Peça:');
+                      const qty = Number(prompt('Quantidade:', '1'));
+                      const val = Number(prompt('Valor Unitário:', '0'));
+                      if (desc && qty && val) {
+                        const newItem: QuoteItem = { description: desc, quantity: qty, price: val, total: qty * val, type: 'Peça' };
+                        setQuoteForm(prev => ({
+                          ...prev,
+                          items: [...prev.items, newItem],
+                          total_value: prev.total_value + (qty * val)
+                        }));
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-black text-white rounded-lg text-[10px] font-black uppercase hover:bg-slate-800 transition-all flex items-center gap-1"
+                  >
+                    <Plus size={14} /> Add Peça
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const desc = prompt('Descrição do Serviço:');
+                      const val = Number(prompt('Valor do Serviço:', '0'));
+                      if (desc && val) {
+                        const newItem: QuoteItem = { description: desc, quantity: 1, price: val, total: val, type: 'Serviço' };
+                        setQuoteForm(prev => ({
+                          ...prev,
+                          items: [...prev.items, newItem],
+                          total_value: prev.total_value + val
+                        }));
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-rose-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-rose-700 transition-all flex items-center gap-1"
+                  >
+                    <Plus size={14} /> Add Serviço
+                  </button>
+                </div>
+              </div>
+
+              <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                      <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 text-center w-16">Qtd</th>
+                      <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400">Descrição</th>
+                      <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 w-24">Tipo</th>
+                      <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 text-right w-32">Valor Unit.</th>
+                      <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 text-right w-32">Subtotal</th>
+                      <th className="px-4 py-3 w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 bg-white">
+                    {quoteForm.items.map((item, idx) => (
+                      <tr key={idx} className="group hover:bg-slate-50/50">
+                        <td className="px-4 py-3 text-center font-bold text-slate-900 text-sm">{item.quantity}</td>
+                        <td className="px-4 py-3 font-bold text-slate-900 text-sm uppercase">{item.description}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tight ${item.type === 'Peça' ? 'bg-black text-white' : 'bg-rose-100 text-rose-600'}`}>
+                            {item.type}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-slate-600 text-sm">R$ {item.price.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right font-black text-slate-900 text-sm">R$ {item.total.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newItems = [...quoteForm.items];
+                              newItems.splice(idx, 1);
+                              setQuoteForm({
+                                ...quoteForm,
+                                items: newItems,
+                                total_value: quoteForm.total_value - item.total
+                              });
+                            }}
+                            className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded transition-all opacity-0 group-hover:opacity-100"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {quoteForm.items.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-slate-300 text-xs italic">Nenhum item adicionado ao orçamento.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                  <tfoot className="bg-slate-900 text-white">
+                    <tr>
+                      <td colSpan={4} className="px-6 py-4 text-right text-xs font-black uppercase tracking-widest text-slate-400">Total do Orçamento:</td>
+                      <td className="px-6 py-4 text-right text-xl font-black text-rose-500">R$ {quoteForm.total_value.toFixed(2)}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Observações Técnicas</label>
+                <textarea
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-medium text-slate-700 min-h-[100px]"
+                  placeholder="Detalhes sobre o estado da moto, recomendações, etc..."
+                  value={quoteForm.observations}
+                  onChange={e => setQuoteForm({ ...quoteForm, observations: e.target.value })}
+                ></textarea>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Validade (Dias)</label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
+                    value={quoteForm.validity_days}
+                    onChange={e => setQuoteForm({ ...quoteForm, validity_days: Number(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Termos de Garantia</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
+                    value={quoteForm.warranty_terms}
+                    onChange={e => setQuoteForm({ ...quoteForm, warranty_terms: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsQuoteModalOpen(false)}
+                className="px-6 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="px-8 py-3 bg-black text-white rounded-xl font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-slate-100"
+              >
+                Salvar Orçamento
+              </button>
+            </div>
+          </form>
         </Modal>
 
         <Modal

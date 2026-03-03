@@ -6,7 +6,7 @@
 }
 
 @media print {
-  .no-print {
+  .no-print, .no-print-global {
     display: none !important;
   }
   body {
