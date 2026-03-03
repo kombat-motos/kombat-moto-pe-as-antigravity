@@ -2175,8 +2175,16 @@ export default function App() {
     if (confirm(`Deseja duplicar o produto "${product.description}"?`)) {
       try {
         const { id, ...productData } = product;
+
+        // Ensure image_url is also optimized during duplication if it wasn't already
+        let finalImageUrl = productData.image_url;
+        if (finalImageUrl && (finalImageUrl.startsWith('http') || finalImageUrl.startsWith('/images/'))) {
+          finalImageUrl = await shortenUrl(finalImageUrl);
+        }
+
         const { error } = await supabase.from('products').insert([{
           ...productData,
+          image_url: finalImageUrl,
           description: `${product.description} (Cópia)`,
           sku: `${product.sku}-copy`,
           barcode: '' // Clear barcode as it should be unique
