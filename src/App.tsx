@@ -2796,7 +2796,7 @@ export default function App() {
               </div>
               <div className="p-4">
                 <div className="flex justify-between items-start mb-1">
-                  <h3 className="font-bold text-slate-800 line-clamp-1">{p.description}</h3>
+                  <h3 className="text-[11px] font-bold text-slate-800 leading-tight uppercase line-clamp-3">{p.description}</h3>
                   {p.brand && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold uppercase">{p.brand}</span>}
                 </div>
                 <p className="text-xs text-slate-400 mb-3 font-mono">{p.sku}</p>
