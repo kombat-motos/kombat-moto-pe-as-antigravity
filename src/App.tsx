@@ -35,8 +35,7 @@ import {
   Building2,
   Edit,
   Copy,
-  FileText,
-  FileDown
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
