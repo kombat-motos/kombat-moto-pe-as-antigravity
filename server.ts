@@ -6,6 +6,12 @@ import { fileURLToPath } from "url";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
+import { createClient } from "@supabase/supabase-js";
+import "dotenv/config";
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+const supabaseServer = createClient(supabaseUrl, supabaseAnonKey);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -349,30 +355,40 @@ async function startServer() {
     res.json({ id: info.lastInsertRowid });
   });
 
-  // URL Shortener
-  app.post("/api/shorten", (req, res) => {
+  // URL Shortener using Supabase
+  app.post("/api/shorten", async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
+    // Check if it's already shortened (optional but good for performance)
+    const { data: existing } = await supabaseServer.from('short_links').select('code').eq('url', url).single();
+    if (existing) {
+      const shortUrl = `${req.protocol}://${req.get('host')}/s/${existing.code}`;
+      return res.json({ code: existing.code, shortUrl });
+    }
+
     const code = Math.random().toString(36).substring(2, 8);
     try {
-      db.prepare("INSERT INTO short_links (code, url) VALUES (?, ?)").run(code, url);
+      const { error } = await supabaseServer.from('short_links').insert([{ code, url }]);
+      if (error) throw error;
+
       const shortUrl = `${req.protocol}://${req.get('host')}/s/${code}`;
       res.json({ code, shortUrl });
     } catch (err) {
+      // Retry once if code collision
       const newCode = Math.random().toString(36).substring(2, 8);
-      db.prepare("INSERT INTO short_links (code, url) VALUES (?, ?)").run(newCode, url);
+      await supabaseServer.from('short_links').insert([{ code: newCode, url }]);
       const shortUrl = `${req.protocol}://${req.get('host')}/s/${newCode}`;
       res.json({ code: newCode, shortUrl });
     }
   });
 
-  app.get("/s/:code", (req, res) => {
-    const link = db.prepare("SELECT url FROM short_links WHERE code = ?").get(req.params.code) as any;
-    if (link) {
-      res.redirect(link.url);
+  app.get("/s/:code", async (req, res) => {
+    const { data, error } = await supabaseServer.from('short_links').select('url').eq('code', req.params.code).single();
+    if (data) {
+      res.redirect(data.url);
     } else {
-      res.status(404).send("Link não encontrado");
+      res.status(404).send("Link não encontrado ou expirado");
     }
   });
 

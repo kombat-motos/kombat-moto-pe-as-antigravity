@@ -513,7 +513,8 @@ export default function App() {
   };
 
   const shortenUrl = async (url: string): Promise<string> => {
-    if (!url || url.includes(window.location.host + '/s/')) return url;
+    // Shorten if it's Base64 or a long URL (> 100 characters)
+    if (!url || (url.length < 100 && !url.startsWith('data:')) || url.includes('/s/')) return url;
     try {
       const response = await fetch('/api/shorten', {
         method: 'POST',
@@ -5289,13 +5290,8 @@ export default function App() {
       </main>
       <FiadoModal isOpen={isFiadoModalOpen} onClose={() => setIsFiadoModalOpen(false)} />
       {/* Virtual Catalog Modal */}
-      <Modal
-        isOpen={isCatalogModalOpen}
-        onClose={() => setIsCatalogModalOpen(false)}
-        title="Catálogo Virtual"
-        maxWidth="max-w-[98%]"
-      >
-        <VirtualCatalogModal products={products} />
+      <Modal isOpen={isCatalogModalOpen} onClose={() => setIsCatalogModalOpen(false)} title="Gerador de Catálogo WhatsApp">
+        <VirtualCatalogModal products={products} shortenUrl={shortenUrl} />
       </Modal>
 
       {/* Financial Modals */}

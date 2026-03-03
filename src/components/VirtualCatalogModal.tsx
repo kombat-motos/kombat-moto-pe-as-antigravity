@@ -16,12 +16,14 @@ interface Product {
 
 interface VirtualCatalogModalProps {
   products: Product[];
+  shortenUrl: (url: string) => Promise<string>;
 }
 
-const VirtualCatalogModal: React.FC<VirtualCatalogModalProps> = ({ products }) => {
+const VirtualCatalogModal: React.FC<VirtualCatalogModalProps> = ({ products, shortenUrl }) => {
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const uniqueCategories = ['Todas', ...Array.from(new Set(products.map(p => p.category))).filter(Boolean).sort()];
 
@@ -33,40 +35,51 @@ const VirtualCatalogModal: React.FC<VirtualCatalogModalProps> = ({ products }) =
     );
   };
 
-  const generateWhatsAppMessage = () => {
+  const generateWhatsAppMessage = async () => {
     if (selectedProducts.length === 0) {
       alert('Selecione ao menos um produto para gerar o catálogo.');
       return;
     }
 
-    let message = "*Kombat Moto Peças - Catálogo Virtual*\n\n";
+    setIsGenerating(true);
+    try {
+      let message = "*Kombat Moto Peças - Catálogo Virtual*\n\n";
 
-    selectedProducts.forEach(product => {
-      message += "*---*\n\n"; // Horizontal rule for WhatsApp
-      message += `*📦 ${product.description}*\n`;
-      if (product.category) {
-        message += `*Categoria:* ${product.category}\n`;
+      for (const product of selectedProducts) {
+        message += "*---*\n\n"; // Horizontal rule for WhatsApp
+        message += `*📦 ${product.description}*\n`;
+        if (product.category) {
+          message += `*Categoria:* ${product.category}\n`;
+        }
+        message += `*Código:* ${product.sku}\n`;
+        message += `*Preço:* R$ ${product.sale_price.toFixed(2)}\n`;
+
+        if (product.image_url) {
+          const shortUrl = await shortenUrl(product.image_url);
+          message += `*Foto:* ${shortUrl}\n`;
+        }
+
+        message += `\n[BOTÃO: 📥 INCLUIR NO PEDIDO]\n`;
+        message += `(Link: https://wa.me/554335384537?text=Olá+Thiago,+quero+incluir+o+produto:+${encodeURIComponent(product.description)}+-+Código:+${encodeURIComponent(product.sku)})\n`;
       }
-      message += `*Código:* ${product.sku}\n`;
-      message += `*Preço:* R$ ${product.sale_price.toFixed(2)}\n`;
-      if (product.image_url) {
-        message += `*Foto:* ${product.image_url}\n`;
-      }
-      message += `\n[BOTÃO: 📥 INCLUIR NO PEDIDO]\n`;
-      message += `(Link: https://wa.me/554335384537?text=Olá+Thiago,+quero+incluir+o+produto:+${encodeURIComponent(product.description)}+-+Código:+${encodeURIComponent(product.sku)})\n`;
-    });
 
-    message += "*---*\n\n_Valores sujeitos a alteração e disponibilidade de estoque._\n_Entre em contato para mais informações!_";
+      message += "*---*\n\n_Valores sujeitos a alteração e disponibilidade de estoque._\n_Entre em contato para mais informações!_";
 
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
+    } catch (error) {
+      console.error('Error generating message:', error);
+      alert('Erro ao gerar catálogo. Tente novamente.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const filteredProducts = products.filter(p =>
     (selectedCategory === 'Todas' || p.category === selectedCategory) &&
     (p.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.category?.toLowerCase().includes(searchTerm.toLowerCase()))
+      p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.category?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -134,9 +147,16 @@ const VirtualCatalogModal: React.FC<VirtualCatalogModalProps> = ({ products }) =
       <div className="pt-4 border-t border-slate-100">
         <button
           onClick={generateWhatsAppMessage}
-          className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
+          disabled={isGenerating}
+          className={`w-full py-3 ${isGenerating ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'} text-white rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2`}
         >
-          <Send size={18} /> Gerar Catálogo WhatsApp ({selectedProducts.length})
+          {isGenerating ? (
+            <>Otimizando links...</>
+          ) : (
+            <>
+              <Send size={18} /> Gerar Catálogo WhatsApp ({selectedProducts.length})
+            </>
+          )}
         </button>
       </div>
     </div>
