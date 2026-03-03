@@ -273,33 +273,64 @@ const CARD_FEES: Record<number, number> = {
   7: 8.90, 8: 9.85, 9: 10.80, 10: 11.75, 11: 12.70, 12: 13.65
 };
 
-const PricingCalculator = ({ initialCost, onApply }: { initialCost: number, onApply?: (price: number) => void }) => {
+const VendaCalculator = ({ initialCost, onApply }: { initialCost: number, onApply?: (price: number) => void }) => {
   const [cost, setCost] = useState(initialCost);
-  const [tax, setTax] = useState(6);
-  const [profit, setProfit] = useState(30);
+  const [type, setType] = useState<'Cartão' | 'Fiado'>('Cartão');
   const [installments, setInstallments] = useState(1);
 
-  // Update cost if initialCost changes (e.g. from outer form)
   useEffect(() => {
     setCost(initialCost);
   }, [initialCost]);
 
   const cardFee = CARD_FEES[installments] || 0;
-  const divisor = 1 - (tax / 100 + cardFee / 100 + profit / 100);
+  const taxRate = type === 'Fiado' ? 0.15 : (cardFee / 100);
+  const divisor = 1 - taxRate;
   const finalPrice = divisor > 0 ? (cost / divisor) : 0;
   const installmentValue = finalPrice / installments;
-  const netProfit = finalPrice * (profit / 100);
+  const markupValue = finalPrice - cost;
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const content = `
+      <div style="font-family: monospace; width: 300px; padding: 20px;">
+        <h2 style="text-align: center; border-bottom: 2px solid black;">KOMBAT MOTO PEÇAS</h2>
+        <p style="text-align: center;">COMPROVANTE DE PRECIFICAÇÃO</p>
+        <p>Data: ${new Date().toLocaleString('pt-BR')}</p>
+        <hr />
+        ${type === 'Fiado' ? `
+          <p>Valor Original: R$ ${cost.toFixed(2)}</p>
+          <p>Taxa de Prazo (15%): R$ ${markupValue.toFixed(2)}</p>
+          <p style="font-size: 1.25em; font-weight: bold;">TOTAL: R$ ${finalPrice.toFixed(2)}</p>
+        ` : `
+          <p style="font-size: 1.25em; font-weight: bold;">VALOR TOTAL: R$ ${finalPrice.toFixed(2)}</p>
+          <p>Parcelamento: ${installments}x de R$ ${installmentValue.toFixed(2)}</p>
+        `}
+        <hr />
+        <p style="text-align: center; font-size: 0.8em;">Impresso em: ${new Date().toLocaleDateString()}</p>
+      </div>
+    `;
+
+    printWindow.document.write(`<html><head><title>Comprovante</title></head><body onload="window.print();window.close();">${content}</body></html>`);
+    printWindow.document.close();
+  };
 
   return (
-    <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 shadow-2xl space-y-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Calculator size={20} className="text-rose-500" />
-        <h3 className="font-black uppercase text-xs tracking-[0.2em]">Calculadora de Precificação</h3>
+    <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 shadow-2xl space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Calculator size={20} className="text-rose-500" />
+          <h3 className="font-black uppercase text-xs tracking-[0.2em]">Calculadora de Vendas</h3>
+        </div>
+        <button onClick={handlePrint} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all" title="Gerar Comprovante">
+          <Printer size={18} className="text-rose-400" />
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="space-y-4">
         <div>
-          <label className="block text-[10px] uppercase font-black text-slate-400 mb-1">Custo Total (R$)</label>
+          <label className="block text-[10px] uppercase font-black text-slate-400 mb-1">Valor Líquido (Quanto quer receber)</label>
           <input
             type="number"
             value={cost}
@@ -307,66 +338,70 @@ const PricingCalculator = ({ initialCost, onApply }: { initialCost: number, onAp
             className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-lg font-black focus:outline-none focus:border-rose-500 transition-all text-white"
           />
         </div>
-        <div>
-          <label className="block text-[10px] uppercase font-black text-slate-400 mb-1">Impostos (%)</label>
-          <input
-            type="number"
-            value={tax}
-            onChange={e => setTax(Number(e.target.value))}
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-lg font-black focus:outline-none focus:border-rose-500 transition-all text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] uppercase font-black text-slate-400 mb-1">Lucro Alvo (%)</label>
-          <input
-            type="number"
-            value={profit}
-            onChange={e => setProfit(Number(e.target.value))}
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-lg font-black focus:outline-none focus:border-rose-500 transition-all text-white"
-          />
-        </div>
-      </div>
 
-      <div>
-        <label className="block text-[10px] uppercase font-black text-slate-400 mb-2">Plano de Parcelamento</label>
-        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-          {Object.keys(CARD_FEES).map(n => (
+        <div>
+          <label className="block text-[10px] uppercase font-black text-slate-400 mb-2">Forma de Pagamento</label>
+          <div className="grid grid-cols-2 gap-2">
             <button
-              key={n}
-              type="button"
-              onClick={() => setInstallments(Number(n))}
-              className={`py-2 rounded-xl text-xs font-black transition-all border ${installments === Number(n) ? 'bg-rose-600 border-rose-600 text-white scale-105 shadow-lg shadow-rose-900/40' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+              onClick={() => { setType('Cartão'); setInstallments(1); }}
+              className={`py-3 rounded-xl font-black uppercase text-xs transition-all border ${type === 'Cartão' ? 'bg-rose-600 border-rose-600 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
             >
-              {n}x {CARD_FEES[Number(n)]}%
+              Cartão
             </button>
-          ))}
+            <button
+              onClick={() => { setType('Fiado'); setInstallments(1); }}
+              className={`py-3 rounded-xl font-black uppercase text-xs transition-all border ${type === 'Fiado' ? 'bg-amber-600 border-amber-600 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+            >
+              Fiado (30 Dias)
+            </button>
+          </div>
         </div>
+
+        {type === 'Cartão' && (
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+            {Object.keys(CARD_FEES).map(n => (
+              <button
+                key={n}
+                onClick={() => setInstallments(Number(n))}
+                className={`py-2 rounded-xl text-xs font-black transition-all border ${installments === Number(n) ? 'bg-rose-500 border-rose-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+              >
+                {n}x
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-800">
-        <div className="bg-rose-500/10 p-4 rounded-2xl border border-rose-500/20">
-          <p className="text-[10px] uppercase font-black text-rose-400 mb-1 tracking-tighter">Preço Sugerido</p>
-          <p className="text-3xl font-black text-rose-500">R$ {finalPrice.toFixed(2)}</p>
+      <div className="pt-6 border-t border-slate-800 space-y-4">
+        <div className="bg-rose-600 p-4 rounded-2xl flex justify-between items-center">
+          <div>
+            <p className="text-[10px] uppercase font-black text-rose-200 tracking-tighter">Valor Total a Cobrar</p>
+            <p className="text-3xl font-black">R$ {finalPrice.toFixed(2)}</p>
+          </div>
+          {type === 'Cartão' && installments > 1 && (
+            <div className="text-right">
+              <p className="text-[10px] uppercase font-black text-rose-200 tracking-tighter">Parcelas</p>
+              <p className="font-black">{installments}x R$ {installmentValue.toFixed(2)}</p>
+            </div>
+          )}
         </div>
-        <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700">
-          <p className="text-[10px] uppercase font-black text-slate-400 mb-1 tracking-tighter">Parcelas ({installments}x)</p>
-          <p className="text-xl font-black text-white">R$ {installmentValue.toFixed(2)}</p>
-        </div>
-        <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20">
-          <p className="text-[10px] uppercase font-black text-emerald-400 mb-1 tracking-tighter">Lucro Líquido Real</p>
-          <p className="text-xl font-black text-emerald-500">R$ {netProfit.toFixed(2)}</p>
-        </div>
-      </div>
 
-      {onApply && (
-        <button
-          type="button"
-          onClick={() => onApply(finalPrice)}
-          className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all mt-4 shadow-xl active:translate-y-1"
-        >
-          Aplicar este Preço Final
-        </button>
-      )}
+        {type === 'Fiado' && (
+          <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700">
+            <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Detalhamento Fiado (15% Taxa)</p>
+            <p className="text-xs font-bold text-slate-300">Valor Base: R$ {cost.toFixed(2)} + Taxa de Prazo: R$ {markupValue.toFixed(2)}</p>
+          </div>
+        )}
+
+        {onApply && (
+          <button
+            onClick={() => onApply(finalPrice)}
+            className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all mt-4"
+          >
+            Aplicar este Preço Final
+          </button>
+        )}
+      </div>
     </div>
   );
 };
@@ -404,6 +439,7 @@ export default function App() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [showPdvCalculator, setShowPdvCalculator] = useState(false);
   const [showQuoteCalculator, setShowQuoteCalculator] = useState(false);
+  const [showOsCalculator, setShowOsCalculator] = useState(false);
 
   // Quotes States
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -4522,7 +4558,7 @@ export default function App() {
 
               {showQuoteCalculator && (
                 <div className="animate-in slide-in-from-top-4 duration-300">
-                  <PricingCalculator
+                  <VendaCalculator
                     initialCost={quoteForm.items.reduce((acc, curr) => acc + curr.total, 0)}
                     onApply={(newTotal) => {
                       const currentTotal = quoteForm.items.reduce((acc, curr) => acc + curr.total, 0);
@@ -4532,7 +4568,7 @@ export default function App() {
                           ...quoteForm,
                           items: [
                             ...quoteForm.items,
-                            { description: 'AJUSTE DE JUROS/TAXAS CALCULADOS', quantity: 1, price: diff, total: diff, type: 'Serviço' }
+                            { description: 'AJUSTE DE TAXA/PRAZO CALCULADO', quantity: 1, price: diff, total: diff, type: 'Serviço' }
                           ],
                           total_value: newTotal
                         });
@@ -5093,7 +5129,7 @@ export default function App() {
 
                 {showPdvCalculator && (
                   <div className="mb-6 animate-in slide-in-from-top-4 duration-300">
-                    <PricingCalculator
+                    <VendaCalculator
                       initialCost={pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)}
                       onApply={(newTotal) => {
                         const currentTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
@@ -5103,10 +5139,10 @@ export default function App() {
                             ...pdvForm,
                             items: [
                               ...pdvForm.items,
-                              { description: 'AJUSTE DE JUROS/TAXAS CALCULADOS', quantity: 1, price: diff }
+                              { description: 'AJUSTE DE TAXA/PRAZO CALCULADO', quantity: 1, price: diff }
                             ]
                           });
-                          alert('Diferença de juros/taxas aplicada com sucesso!');
+                          alert('Diferença de taxa/prazo aplicada com sucesso!');
                         }
                       }}
                     />
@@ -5783,6 +5819,35 @@ export default function App() {
                     R$ {(osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + parseFloat(osForm.labor_value || '0')).toFixed(2)}
                   </span>
                 </div>
+
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowOsCalculator(!showOsCalculator)}
+                    className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-200"
+                  >
+                    <Calculator size={18} />
+                    {showOsCalculator ? 'Esconder Calculadora de Venda' : 'Abrir Calculadora de Taxas/Prazo'}
+                  </button>
+                </div>
+
+                {showOsCalculator && (
+                  <div className="mb-6 animate-in slide-in-from-top-4 duration-300">
+                    <VendaCalculator
+                      initialCost={osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + parseFloat(osForm.labor_value || '0')}
+                      onApply={(newTotal) => {
+                        const currentTotal = osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + parseFloat(osForm.labor_value || '0');
+                        const diff = newTotal - currentTotal;
+                        if (diff > 0) {
+                          const newLabor = parseFloat(osForm.labor_value || '0') + diff;
+                          setOsForm({ ...osForm, labor_value: newLabor.toString() });
+                          alert('Diferença aplicada na Mão de Obra!');
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
                 <button
                   onClick={handleCompleteOS}
                   className="w-full py-4 bg-amber-600 text-white rounded-2xl font-bold text-lg hover:bg-amber-700 transition-all shadow-lg shadow-amber-100"
