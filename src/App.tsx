@@ -515,14 +515,27 @@ export default function App() {
   const shortenUrl = async (url: string): Promise<string> => {
     // Shorten if it's Base64 or a long URL (> 100 characters)
     if (!url || (url.length < 100 && !url.startsWith('data:')) || url.includes('/s/')) return url;
+
     try {
-      const response = await fetch('/api/shorten', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      });
-      const data = await response.json();
-      return data.shortUrl || url;
+      // Check if already exists in Supabase
+      const { data: existing } = await supabase
+        .from('short_links')
+        .select('code')
+        .eq('url', url)
+        .maybeSingle();
+
+      if (existing) {
+        return `${window.location.origin}/s/${existing.code}`;
+      }
+
+      // Create new short code
+      const code = Math.random().toString(36).substring(2, 8);
+      const { error } = await supabase
+        .from('short_links')
+        .insert([{ code, url }]);
+
+      if (error) throw error;
+      return `${window.location.origin}/s/${code}`;
     } catch (error) {
       console.error('Error shortening URL:', error);
       return url;
@@ -530,6 +543,31 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Handle URL Redirection for Shortened Links
+    const handleRedirect = async () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/s/')) {
+        const code = path.split('/s/')[1];
+        if (code) {
+          try {
+            const { data, error } = await supabase
+              .from('short_links')
+              .select('url')
+              .eq('code', code)
+              .single();
+
+            if (data?.url) {
+              window.location.href = data.url;
+              return;
+            }
+          } catch (err) {
+            console.error('Redirection error:', err);
+          }
+        }
+      }
+    };
+    handleRedirect();
+
     checkUser();
 
     // Listen for auth changes

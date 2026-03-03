@@ -355,43 +355,6 @@ async function startServer() {
     res.json({ id: info.lastInsertRowid });
   });
 
-  // URL Shortener using Supabase
-  app.post("/api/shorten", async (req, res) => {
-    const { url } = req.body;
-    if (!url) return res.status(400).json({ error: "URL is required" });
-
-    // Check if it's already shortened (optional but good for performance)
-    const { data: existing } = await supabaseServer.from('short_links').select('code').eq('url', url).single();
-    if (existing) {
-      const shortUrl = `${req.protocol}://${req.get('host')}/s/${existing.code}`;
-      return res.json({ code: existing.code, shortUrl });
-    }
-
-    const code = Math.random().toString(36).substring(2, 8);
-    try {
-      const { error } = await supabaseServer.from('short_links').insert([{ code, url }]);
-      if (error) throw error;
-
-      const shortUrl = `${req.protocol}://${req.get('host')}/s/${code}`;
-      res.json({ code, shortUrl });
-    } catch (err) {
-      // Retry once if code collision
-      const newCode = Math.random().toString(36).substring(2, 8);
-      await supabaseServer.from('short_links').insert([{ code: newCode, url }]);
-      const shortUrl = `${req.protocol}://${req.get('host')}/s/${newCode}`;
-      res.json({ code: newCode, shortUrl });
-    }
-  });
-
-  app.get("/s/:code", async (req, res) => {
-    const { data, error } = await supabaseServer.from('short_links').select('url').eq('code', req.params.code).single();
-    if (data) {
-      res.redirect(data.url);
-    } else {
-      res.status(404).send("Link não encontrado ou expirado");
-    }
-  });
-
   // Seed data if empty
   const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get() as any;
   if (userCount.count === 0) {
