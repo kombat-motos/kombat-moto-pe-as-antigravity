@@ -4087,7 +4087,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto ml-0">
+      <main className="flex-1 p-8 overflow-y-auto lg:ml-64">
         <header className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold text-slate-900">
@@ -4147,6 +4147,7 @@ export default function App() {
                 {activeTab === 'financial' && renderFinancial()}
                 {activeTab === 'orders' && renderOrders()}
                 {activeTab === 'mechanics' && renderMechanics()}
+                {activeTab === 'quotes' && renderQuotes()}
                 {activeTab === 'settings' && renderSettings()}
               </>
             )}
