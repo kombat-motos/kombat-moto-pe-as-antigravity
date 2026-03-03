@@ -35,7 +35,8 @@ import {
   Building2,
   Edit,
   Copy,
-  FileText
+  FileText,
+  Calculator
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
@@ -267,6 +268,109 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }: any)
   </AnimatePresence>
 );
 
+const CARD_FEES: Record<number, number> = {
+  1: 3.05, 2: 4.3, 3: 5.25, 4: 6.20, 5: 7.15, 6: 8.01,
+  7: 8.90, 8: 9.85, 9: 10.80, 10: 11.75, 11: 12.70, 12: 13.65
+};
+
+const PricingCalculator = ({ initialCost, onApply }: { initialCost: number, onApply?: (price: number) => void }) => {
+  const [cost, setCost] = useState(initialCost);
+  const [tax, setTax] = useState(6);
+  const [profit, setProfit] = useState(30);
+  const [installments, setInstallments] = useState(1);
+
+  // Update cost if initialCost changes (e.g. from outer form)
+  useEffect(() => {
+    setCost(initialCost);
+  }, [initialCost]);
+
+  const cardFee = CARD_FEES[installments] || 0;
+  const divisor = 1 - (tax / 100 + cardFee / 100 + profit / 100);
+  const finalPrice = divisor > 0 ? (cost / divisor) : 0;
+  const installmentValue = finalPrice / installments;
+  const netProfit = finalPrice * (profit / 100);
+
+  return (
+    <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 shadow-2xl space-y-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Calculator size={20} className="text-rose-500" />
+        <h3 className="font-black uppercase text-xs tracking-[0.2em]">Calculadora de Precificação</h3>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-[10px] uppercase font-black text-slate-400 mb-1">Custo Total (R$)</label>
+          <input
+            type="number"
+            value={cost}
+            onChange={e => setCost(Number(e.target.value))}
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-lg font-black focus:outline-none focus:border-rose-500 transition-all text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] uppercase font-black text-slate-400 mb-1">Impostos (%)</label>
+          <input
+            type="number"
+            value={tax}
+            onChange={e => setTax(Number(e.target.value))}
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-lg font-black focus:outline-none focus:border-rose-500 transition-all text-white"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] uppercase font-black text-slate-400 mb-1">Lucro Alvo (%)</label>
+          <input
+            type="number"
+            value={profit}
+            onChange={e => setProfit(Number(e.target.value))}
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-lg font-black focus:outline-none focus:border-rose-500 transition-all text-white"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-[10px] uppercase font-black text-slate-400 mb-2">Plano de Parcelamento</label>
+        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+          {Object.keys(CARD_FEES).map(n => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setInstallments(Number(n))}
+              className={`py-2 rounded-xl text-xs font-black transition-all border ${installments === Number(n) ? 'bg-rose-600 border-rose-600 text-white scale-105 shadow-lg shadow-rose-900/40' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+            >
+              {n}x {CARD_FEES[Number(n)]}%
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-800">
+        <div className="bg-rose-500/10 p-4 rounded-2xl border border-rose-500/20">
+          <p className="text-[10px] uppercase font-black text-rose-400 mb-1 tracking-tighter">Preço Sugerido</p>
+          <p className="text-3xl font-black text-rose-500">R$ {finalPrice.toFixed(2)}</p>
+        </div>
+        <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700">
+          <p className="text-[10px] uppercase font-black text-slate-400 mb-1 tracking-tighter">Parcelas ({installments}x)</p>
+          <p className="text-xl font-black text-white">R$ {installmentValue.toFixed(2)}</p>
+        </div>
+        <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20">
+          <p className="text-[10px] uppercase font-black text-emerald-400 mb-1 tracking-tighter">Lucro Líquido Real</p>
+          <p className="text-xl font-black text-emerald-500">R$ {netProfit.toFixed(2)}</p>
+        </div>
+      </div>
+
+      {onApply && (
+        <button
+          type="button"
+          onClick={() => onApply(finalPrice)}
+          className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all mt-4 shadow-xl active:translate-y-1"
+        >
+          Aplicar este Preço Final
+        </button>
+      )}
+    </div>
+  );
+};
+
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -298,6 +402,8 @@ export default function App() {
   const [editingMotorcycle, setEditingMotorcycle] = useState<Motorcycle | null>(null);
   const [editingOS, setEditingOS] = useState<Sale | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [showPdvCalculator, setShowPdvCalculator] = useState(false);
+  const [showQuoteCalculator, setShowQuoteCalculator] = useState(false);
 
   // Quotes States
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -4404,20 +4510,54 @@ export default function App() {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
+            <div className="pt-6 border-t border-slate-100 space-y-4">
               <button
                 type="button"
-                onClick={() => setIsQuoteModalOpen(false)}
-                className="px-6 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all"
+                onClick={() => setShowQuoteCalculator(!showQuoteCalculator)}
+                className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-200"
               >
-                Cancelar
+                <Calculator size={18} />
+                {showQuoteCalculator ? 'Esconder Calculadora de Juros' : 'Abrir Calculadora de Juros/Taxas'}
               </button>
-              <button
-                type="submit"
-                className="px-8 py-3 bg-black text-white rounded-xl font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-slate-100"
-              >
-                Salvar Orçamento
-              </button>
+
+              {showQuoteCalculator && (
+                <div className="animate-in slide-in-from-top-4 duration-300">
+                  <PricingCalculator
+                    initialCost={quoteForm.items.reduce((acc, curr) => acc + curr.total, 0)}
+                    onApply={(newTotal) => {
+                      const currentTotal = quoteForm.items.reduce((acc, curr) => acc + curr.total, 0);
+                      const diff = newTotal - currentTotal;
+                      if (diff > 0) {
+                        setQuoteForm({
+                          ...quoteForm,
+                          items: [
+                            ...quoteForm.items,
+                            { description: 'AJUSTE DE JUROS/TAXAS CALCULADOS', quantity: 1, price: diff, total: diff, type: 'Serviço' }
+                          ],
+                          total_value: newTotal
+                        });
+                        alert('Diferença aplicada ao orçamento!');
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsQuoteModalOpen(false)}
+                  className="px-6 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-8 py-3 bg-black text-white rounded-xl font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-slate-100"
+                >
+                  Salvar Orçamento
+                </button>
+              </div>
             </div>
           </form>
         </Modal>
@@ -4939,6 +5079,40 @@ export default function App() {
                     R$ {pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}
                   </span>
                 </div>
+
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowPdvCalculator(!showPdvCalculator)}
+                    className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-200"
+                  >
+                    <Calculator size={18} />
+                    {showPdvCalculator ? 'Esconder Calculadora de Juros' : 'Abrir Calculadora de Juros/Taxas'}
+                  </button>
+                </div>
+
+                {showPdvCalculator && (
+                  <div className="mb-6 animate-in slide-in-from-top-4 duration-300">
+                    <PricingCalculator
+                      initialCost={pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)}
+                      onApply={(newTotal) => {
+                        const currentTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+                        const diff = newTotal - currentTotal;
+                        if (diff > 0) {
+                          setPdvForm({
+                            ...pdvForm,
+                            items: [
+                              ...pdvForm.items,
+                              { description: 'AJUSTE DE JUROS/TAXAS CALCULADOS', quantity: 1, price: diff }
+                            ]
+                          });
+                          alert('Diferença de juros/taxas aplicada com sucesso!');
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
                 <button
                   onClick={handleCompleteSale}
                   className="w-full py-4 bg-rose-600 text-white rounded-2xl font-bold text-lg hover:bg-rose-700 transition-all shadow-lg shadow-rose-100"
