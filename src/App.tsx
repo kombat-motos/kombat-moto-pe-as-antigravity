@@ -4086,7 +4086,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto lg:ml-64">
+      <main className="flex-1 p-8 overflow-y-auto ml-0">
         <header className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold text-slate-900">
