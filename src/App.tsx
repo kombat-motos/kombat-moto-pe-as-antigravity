@@ -277,13 +277,14 @@ const VendaCalculator = ({ initialCost, onApply }: { initialCost: number, onAppl
   const [cost, setCost] = useState(initialCost);
   const [type, setType] = useState<'Cartão' | 'Fiado'>('Cartão');
   const [installments, setInstallments] = useState(1);
+  const [fiadoTax, setFiadoTax] = useState(10);
 
   useEffect(() => {
     setCost(initialCost);
   }, [initialCost]);
 
   const cardFee = CARD_FEES[installments] || 0;
-  const taxRate = type === 'Fiado' ? 0.15 : (cardFee / 100);
+  const taxRate = type === 'Fiado' ? (fiadoTax / 100) : (cardFee / 100);
   const divisor = 1 - taxRate;
   const finalPrice = divisor > 0 ? (cost / divisor) : 0;
   const installmentValue = finalPrice / installments;
@@ -301,7 +302,7 @@ const VendaCalculator = ({ initialCost, onApply }: { initialCost: number, onAppl
         <hr />
         ${type === 'Fiado' ? `
           <p>Valor Original: R$ ${cost.toFixed(2)}</p>
-          <p>Taxa de Prazo (15%): R$ ${markupValue.toFixed(2)}</p>
+          <p>Taxa de Prazo (${fiadoTax}%): R$ ${markupValue.toFixed(2)}</p>
           <p style="font-size: 1.25em; font-weight: bold;">TOTAL: R$ ${finalPrice.toFixed(2)}</p>
         ` : `
           <p style="font-size: 1.25em; font-weight: bold;">VALOR TOTAL: R$ ${finalPrice.toFixed(2)}</p>
@@ -357,6 +358,18 @@ const VendaCalculator = ({ initialCost, onApply }: { initialCost: number, onAppl
           </div>
         </div>
 
+        {type === 'Fiado' && (
+          <div>
+            <label className="block text-[10px] uppercase font-black text-slate-400 mb-1">Taxa de Prazo FIXA (%)</label>
+            <input
+              type="number"
+              value={fiadoTax}
+              onChange={e => setFiadoTax(Number(e.target.value))}
+              className="w-full bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-2 text-base font-black text-amber-500 focus:outline-none focus:border-amber-500 transition-all"
+            />
+          </div>
+        )}
+
         {type === 'Cartão' && (
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
             {Object.keys(CARD_FEES).map(n => (
@@ -388,7 +401,7 @@ const VendaCalculator = ({ initialCost, onApply }: { initialCost: number, onAppl
 
         {type === 'Fiado' && (
           <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700">
-            <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Detalhamento Fiado (15% Taxa)</p>
+            <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Detalhamento Fiado ({fiadoTax}% Taxa)</p>
             <p className="text-xs font-bold text-slate-300">Valor Base: R$ {cost.toFixed(2)} + Taxa de Prazo: R$ {markupValue.toFixed(2)}</p>
           </div>
         )}
