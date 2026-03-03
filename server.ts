@@ -90,6 +90,12 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users (id),
     FOREIGN KEY (product_id) REFERENCES products (id)
   );
+
+  CREATE TABLE IF NOT EXISTS short_links (
+    code TEXT PRIMARY KEY,
+    url TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 async function startServer() {
@@ -341,6 +347,33 @@ async function startServer() {
     const { product_id, quantity } = req.body;
     const info = db.prepare("INSERT INTO sales (user_id, product_id, quantity) VALUES (?, ?, ?)").run(req.user!.id, product_id, quantity);
     res.json({ id: info.lastInsertRowid });
+  });
+
+  // URL Shortener
+  app.post("/api/shorten", (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: "URL is required" });
+
+    const code = Math.random().toString(36).substring(2, 8);
+    try {
+      db.prepare("INSERT INTO short_links (code, url) VALUES (?, ?)").run(code, url);
+      const shortUrl = `${req.protocol}://${req.get('host')}/s/${code}`;
+      res.json({ code, shortUrl });
+    } catch (err) {
+      const newCode = Math.random().toString(36).substring(2, 8);
+      db.prepare("INSERT INTO short_links (code, url) VALUES (?, ?)").run(newCode, url);
+      const shortUrl = `${req.protocol}://${req.get('host')}/s/${newCode}`;
+      res.json({ code: newCode, shortUrl });
+    }
+  });
+
+  app.get("/s/:code", (req, res) => {
+    const link = db.prepare("SELECT url FROM short_links WHERE code = ?").get(req.params.code) as any;
+    if (link) {
+      res.redirect(link.url);
+    } else {
+      res.status(404).send("Link não encontrado");
+    }
   });
 
   // Seed data if empty

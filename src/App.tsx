@@ -512,6 +512,22 @@ export default function App() {
     }
   };
 
+  const shortenUrl = async (url: string): Promise<string> => {
+    if (!url || url.includes(window.location.host + '/s/')) return url;
+    try {
+      const response = await fetch('/api/shorten', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = await response.json();
+      return data.shortUrl || url;
+    } catch (error) {
+      console.error('Error shortening URL:', error);
+      return url;
+    }
+  };
+
   useEffect(() => {
     checkUser();
 
@@ -1969,6 +1985,12 @@ export default function App() {
     }
 
     try {
+      let finalImageUrl = productForm.image_url;
+      if (finalImageUrl && (finalImageUrl.startsWith('http') || finalImageUrl.startsWith('/images/'))) {
+        const urlToShorten = finalImageUrl.startsWith('/') ? window.location.origin + finalImageUrl : finalImageUrl;
+        finalImageUrl = await shortenUrl(urlToShorten);
+      }
+
       const productData = {
         description: productForm.description,
         sku: productForm.sku,
@@ -1977,7 +1999,7 @@ export default function App() {
         sale_price: parseFloat(productForm.sale_price.toString().replace(',', '.')) || 0,
         stock: parseInt(productForm.stock.toString()) || 0,
         unit: productForm.unit,
-        image_url: productForm.image_url,
+        image_url: finalImageUrl,
         category: categorizeProduct(productForm.description),
         brand: productForm.brand
       };
