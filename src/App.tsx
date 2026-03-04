@@ -711,11 +711,17 @@ export default function App() {
   };
 
   const shortenUrl = async (url: string): Promise<string> => {
-    // Shorten if it's Base64 or a long URL (> 100 characters)
-    if (!url || (url.length < 100 && !url.startsWith('data:')) || url.includes('/s/')) return url;
+    // Determine if it's "heavy" (Base64 is always heavy, URLs over 200 chars are heavy)
+    const isHeavy = url.startsWith('data:') || url.length > 200;
+
+    // If not heavy and not already a short link, don't shorten for storage
+    if (!isHeavy && !url.includes('/s/')) return url;
+
+    // If it's already a short link, return as is
+    if (url.includes('/s/')) return url;
 
     try {
-      // Check if already exists in Supabase
+      // Check if already exists in Supabase to avoid duplicates
       const { data: existing } = await supabase
         .from('short_links')
         .select('code')
@@ -723,7 +729,7 @@ export default function App() {
         .maybeSingle();
 
       if (existing) {
-        return `${window.location.origin}/s/${existing.code}`;
+        return `/s/${existing.code}`;
       }
 
       // Create new short code
@@ -733,7 +739,7 @@ export default function App() {
         .insert([{ code, url }]);
 
       if (error) throw error;
-      return `${window.location.origin}/s/${code}`;
+      return `/s/${code}`;
     } catch (error) {
       console.error('Error shortening URL:', error);
       return url;
@@ -836,7 +842,35 @@ export default function App() {
         supabase.from('quotes').select('*')
       ]);
 
-      if (productsData) setProducts(productsData);
+      let finalProducts = productsData || [];
+
+      // Resolve Short Links for Products
+      const shortLinkCodes = finalProducts
+        .map(p => p.image_url)
+        .filter(url => url && url.startsWith('/s/'))
+        .map(url => url?.split('/s/')[1]);
+
+      if (shortLinkCodes.length > 0) {
+        const { data: links } = await supabase
+          .from('short_links')
+          .select('code, url')
+          .in('code', shortLinkCodes);
+
+        if (links) {
+          const linksMap: Record<string, string> = {};
+          links.forEach(l => { linksMap[l.code] = l.url; });
+
+          finalProducts = finalProducts.map(p => {
+            if (p.image_url && p.image_url.startsWith('/s/')) {
+              const code = p.image_url.split('/s/')[1];
+              return { ...p, image_url: linksMap[code] || p.image_url };
+            }
+            return p;
+          });
+        }
+      }
+
+      if (finalProducts) setProducts(finalProducts);
       if (customersData) setCustomers(customersData);
       if (motorcyclesData) setMotorcycles(motorcyclesData.map((m: any) => ({
         ...m,
@@ -2581,15 +2615,19 @@ export default function App() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const imageUrl = reader.result as string;
+        const originalUrl = reader.result as string;
 
-        // Optimistic update
-        setProducts(products.map(p => p.id === productId ? { ...p, image_url: imageUrl } : p));
-
-        // Update in database
         try {
-          const { error } = await supabase.from('products').update({ image_url: imageUrl }).eq('id', productId);
+          // Use shortenUrl to keep the products table light
+          const finalUrl = await shortenUrl(originalUrl);
+
+          // Optimistic update (show the full image immediately)
+          setProducts(products.map(p => p.id === productId ? { ...p, image_url: originalUrl } : p));
+
+          // Update in database with the lightweight URL
+          const { error } = await supabase.from('products').update({ image_url: finalUrl }).eq('id', productId);
           if (error) throw error;
+
           fetchData();
         } catch (error) {
           console.error("Failed to update product image", error);
@@ -2603,13 +2641,16 @@ export default function App() {
   const handleProductImageUrl = async (productId: number) => {
     const url = prompt("Insira a URL da imagem do produto:");
     if (url) {
-      // Optimistic update
-      setProducts(products.map(p => p.id === productId ? { ...p, image_url: url } : p));
-
-      // Update in database
       try {
-        const { error } = await supabase.from('products').update({ image_url: url }).eq('id', productId);
+        const finalUrl = await shortenUrl(url);
+
+        // Optimistic update
+        setProducts(products.map(p => p.id === productId ? { ...p, image_url: url } : p));
+
+        // Update in database
+        const { error } = await supabase.from('products').update({ image_url: finalUrl }).eq('id', productId);
         if (error) throw error;
+
         fetchData();
       } catch (error) {
         console.error("Failed to update product image URL", error);
@@ -2828,6 +2869,9 @@ export default function App() {
         sale_price: parseFloat(item['Preço de Venda'] || item.SalePrice || item.sale_price || 0),
         stock: parseInt(item.Estoque || item.Stock || item.stock || 0),
         unit: item.Unidade || item.Unit || item.unit || 'Unitário',
+        image_url: item.Imagem || item.Image || item.image_url || '',
+        category: categorizeProduct(item.Descrição || item.description || ''),
+        brand: item.Marca || item.Brand || item.brand || ''
       }));
 
       setProducts(prev => [...prev, ...newProducts]);
