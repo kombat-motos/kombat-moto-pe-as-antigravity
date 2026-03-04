@@ -542,6 +542,7 @@ export default function App() {
   const [selectedCustomerForPrint, setSelectedCustomerForPrint] = useState<{ customer: Customer; type: 'A4' | '80mm' } | null>(null);
   const [isManagementReportModalOpen, setIsManagementReportModalOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<'customers' | 'inventory' | 'sales' | 'financial' | 'purchases' | null>(null);
+  const [inventoryReportSearchTerm, setInventoryReportSearchTerm] = useState('');
   const [companyLogo, setCompanyLogo] = useState<string | null>(localStorage.getItem('companyLogo'));
   const [companyData, setCompanyData] = useState(() => {
     const saved = localStorage.getItem('companyData');
@@ -3907,24 +3908,41 @@ export default function App() {
           </div>
         );
       case 'inventory':
+        const filteredInventory = products.filter(p =>
+          p.description.toLowerCase().includes(inventoryReportSearchTerm.toLowerCase()) ||
+          p.sku.toLowerCase().includes(inventoryReportSearchTerm.toLowerCase())
+        ).sort((a, b) => a.description.localeCompare(b.description));
+
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
               <h2 className="text-2xl font-bold text-slate-900">Relatório de Estoque e Valoração</h2>
-              <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200"><Printer size={20} /></button>
+              <div className="flex items-center gap-4">
+                <div className="relative no-print">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Filtrar por nome ou SKU..."
+                    className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none w-64"
+                    value={inventoryReportSearchTerm}
+                    onChange={(e) => setInventoryReportSearchTerm(e.target.value)}
+                  />
+                </div>
+                <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200"><Printer size={20} /></button>
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-4 font-sans">
               <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
                 <p className="text-[10px] font-bold text-amber-500 uppercase">Total de Itens</p>
-                <p className="text-2xl font-black text-amber-700">{products.reduce((acc, p) => acc + p.stock, 0)}</p>
+                <p className="text-2xl font-black text-amber-700">{filteredInventory.reduce((acc, p) => acc + p.stock, 0)}</p>
               </div>
               <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
                 <p className="text-[10px] font-bold text-emerald-500 uppercase">Investimento Total</p>
-                <p className="text-2xl font-black text-emerald-700">R$ {products.reduce((acc, p) => acc + (p.purchase_price * p.stock), 0).toFixed(2)}</p>
+                <p className="text-2xl font-black text-emerald-700">R$ {filteredInventory.reduce((acc, p) => acc + (p.purchase_price * p.stock), 0).toFixed(2)}</p>
               </div>
               <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
                 <p className="text-[10px] font-bold text-indigo-500 uppercase">Venda Estimada</p>
-                <p className="text-2xl font-black text-indigo-700">R$ {products.reduce((acc, p) => acc + (p.sale_price * p.stock), 0).toFixed(2)}</p>
+                <p className="text-2xl font-black text-indigo-700">R$ {filteredInventory.reduce((acc, p) => acc + (p.sale_price * p.stock), 0).toFixed(2)}</p>
               </div>
             </div>
             <table className="w-full text-left text-sm">
@@ -3938,7 +3956,7 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {products.sort((a, b) => a.description.localeCompare(b.description)).map(p => (
+                {filteredInventory.map(p => (
                   <tr key={p.id} className="border-b">
                     <td className="py-3 font-bold">{p.description}</td>
                     <td>{p.sku}</td>
@@ -6483,6 +6501,7 @@ export default function App() {
         onClose={() => {
           setIsManagementReportModalOpen(false);
           setSelectedReport(null);
+          setInventoryReportSearchTerm('');
         }}
         title="Visualizar Relatório Gerencial"
         maxWidth="max-w-6xl"
