@@ -5452,13 +5452,29 @@ export default function App() {
                     <div className="flex-1">
                       <p className="text-sm font-bold text-slate-900">{item.description}</p>
                       <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={e => handlePdvItemQuantityChange(idx, parseInt(e.target.value) || 1)}
-                          className="w-12 px-1 py-0.5 bg-white border border-slate-200 rounded-md text-center text-slate-900"
-                        />
+                        <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-7">
+                          <button
+                            type="button"
+                            onClick={() => handlePdvItemQuantityChange(idx, Math.max(1, item.quantity - 1))}
+                            className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                          >
+                            <MinusCircle size={14} />
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={e => handlePdvItemQuantityChange(idx, parseInt(e.target.value) || 1)}
+                            className="w-10 h-full text-center text-slate-900 font-bold outline-none border-x border-slate-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handlePdvItemQuantityChange(idx, item.quantity + 1)}
+                            className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                          >
+                            <PlusCircle size={14} />
+                          </button>
+                        </div>
                         x
                         <input
                           type="number"
@@ -5475,7 +5491,7 @@ export default function App() {
                         onClick={() => handleRemovePdvItem(item.product_id)}
                         className="p-1 text-rose-400 hover:text-rose-600"
                       >
-                        <MinusCircle size={18} />
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </div>
@@ -6082,7 +6098,39 @@ export default function App() {
                   <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                     <div className="flex-1">
                       <p className="text-sm font-bold text-slate-900">{item.description}</p>
-                      <p className="text-xs text-slate-500">{item.quantity}x R$ {item.price.toFixed(2)}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-7">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newQty = Math.max(1, item.quantity - 1);
+                              setOsForm({
+                                ...osForm,
+                                items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: newQty } : it)
+                              });
+                            }}
+                            className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                          >
+                            <MinusCircle size={14} />
+                          </button>
+                          <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-200 min-w-[32px]">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOsForm({
+                                ...osForm,
+                                items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it)
+                              });
+                            }}
+                            className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                          >
+                            <PlusCircle size={14} />
+                          </button>
+                        </div>
+                        <p className="text-xs text-slate-500">x R$ {item.price.toFixed(2)}</p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-bold text-slate-900">R$ {(item.price * item.quantity).toFixed(2)}</span>
@@ -6090,7 +6138,7 @@ export default function App() {
                         onClick={() => handleRemoveOsItem(item.product_id)}
                         className="p-1 text-rose-400 hover:text-rose-600"
                       >
-                        <MinusCircle size={18} />
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </div>
@@ -6160,7 +6208,39 @@ export default function App() {
                     <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                       <div className="flex-1">
                         <p className="text-sm font-bold text-slate-900">{sfs.name}</p>
-                        <p className="text-xs text-slate-500">{sfs.quantity}x Repasse: R$ {sfs.payout.toFixed(2)}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-7">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newQty = Math.max(1, sfs.quantity - 1);
+                                setOsForm({
+                                  ...osForm,
+                                  selected_fixed_services: osForm.selected_fixed_services.map((it, i) => i === idx ? { ...it, quantity: newQty } : it)
+                                });
+                              }}
+                              className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                            >
+                              <MinusCircle size={14} />
+                            </button>
+                            <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-200 min-w-[32px]">
+                              {sfs.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOsForm({
+                                  ...osForm,
+                                  selected_fixed_services: osForm.selected_fixed_services.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it)
+                                });
+                              }}
+                              className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                            >
+                              <PlusCircle size={14} />
+                            </button>
+                          </div>
+                          <p className="text-xs text-slate-500">x Repasse: R$ {sfs.payout.toFixed(2)}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="font-bold text-slate-900">Total Repasse: R$ {(sfs.payout * sfs.quantity).toFixed(2)}</span>
@@ -6171,7 +6251,7 @@ export default function App() {
                           })}
                           className="p-1 text-rose-400 hover:text-rose-600"
                         >
-                          <MinusCircle size={18} />
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     </div>
