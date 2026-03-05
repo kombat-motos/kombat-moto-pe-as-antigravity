@@ -44,7 +44,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Ban,
-  CheckCircle
+  CheckCircle,
+  Percent
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
@@ -3521,6 +3522,12 @@ export default function App() {
     });
 
     const productSales = monthlySales.reduce((acc, s) => acc + s.items.reduce((sum, i) => sum + (i.price * i.quantity), 0), 0);
+    const productCosts = monthlySales.reduce((acc, s) => acc + s.items.reduce((sum, i) => {
+      const product = products.find(p => p.id === i.product_id);
+      return sum + ((product?.purchase_price || 0) * i.quantity);
+    }, 0), 0);
+    const productProfit = productSales - productCosts;
+    const profitMargin = productSales > 0 ? (productProfit / productSales) * 100 : 0;
     const serviceSales = monthlySales.reduce((acc, s) => acc + s.labor_value, 0);
     const totalRevenue = productSales + serviceSales;
 
@@ -3617,6 +3624,39 @@ export default function App() {
                   <p className="text-sm font-bold text-white/70 uppercase tracking-wider">Líquido em Caixa</p>
                 </div>
                 <h4 className="text-2xl font-black">R$ {totalRevenue.toFixed(2)}</h4>
+              </div>
+            </div>
+
+            {/* Métricas de Lucro em Peças */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-slate-50 text-slate-600 rounded-lg">
+                    <Truck size={20} />
+                  </div>
+                  <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Custo das Peças</p>
+                </div>
+                <h4 className="text-2xl font-black text-slate-900">R$ {productCosts.toFixed(2)}</h4>
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                    <DollarSign size={20} />
+                  </div>
+                  <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Lucro Líquido (Peças)</p>
+                </div>
+                <h4 className="text-2xl font-black text-emerald-600">R$ {productProfit.toFixed(2)}</h4>
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                    <Percent size={20} />
+                  </div>
+                  <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Margem de Lucro</p>
+                </div>
+                <h4 className="text-2xl font-black text-indigo-600">{profitMargin.toFixed(1)}%</h4>
               </div>
             </div>
 
