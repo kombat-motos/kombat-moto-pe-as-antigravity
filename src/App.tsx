@@ -5417,7 +5417,11 @@ export default function App() {
                 </div>
                 {pdvSearchProduct && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                    {products.filter(p => p.description.toLowerCase().includes(pdvSearchProduct.toLowerCase())).sort((a, b) => a.description.localeCompare(b.description)).map(p => (
+                    {products.filter(p =>
+                      p.description.toLowerCase().includes(pdvSearchProduct.toLowerCase()) ||
+                      (p.brand && p.brand.toLowerCase().includes(pdvSearchProduct.toLowerCase())) ||
+                      p.sku.toLowerCase().includes(pdvSearchProduct.toLowerCase())
+                    ).sort((a, b) => a.description.localeCompare(b.description)).map(p => (
                       <button
                         key={p.id}
                         onClick={() => handleAddPdvItem(p)}
@@ -5425,7 +5429,14 @@ export default function App() {
                       >
                         <div>
                           <p className="text-sm font-medium text-slate-900">{p.description}</p>
-                          <p className="text-[10px] text-slate-500">Estoque: {p.stock} {p.unit}</p>
+                          <p className="text-[10px] text-slate-500 flex items-center gap-2">
+                            Estoque: {p.stock} {p.unit}
+                            {p.brand && (
+                              <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase tracking-tighter">
+                                {p.brand}
+                              </span>
+                            )}
+                          </p>
                         </div>
                         <span className="text-sm font-bold text-rose-600">R$ {p.sale_price.toFixed(2)}</span>
                       </button>
@@ -6027,7 +6038,11 @@ export default function App() {
                 </div>
                 {osSearchProduct && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                    {products.filter(p => p.description.toLowerCase().includes(osSearchProduct.toLowerCase())).sort((a, b) => a.description.localeCompare(b.description)).map(p => (
+                    {products.filter(p =>
+                      p.description.toLowerCase().includes(osSearchProduct.toLowerCase()) ||
+                      (p.brand && p.brand.toLowerCase().includes(osSearchProduct.toLowerCase())) ||
+                      p.sku.toLowerCase().includes(osSearchProduct.toLowerCase())
+                    ).sort((a, b) => a.description.localeCompare(b.description)).map(p => (
                       <button
                         key={p.id}
                         onClick={() => handleAddOsItem(p)}
@@ -6035,7 +6050,14 @@ export default function App() {
                       >
                         <div>
                           <p className="text-sm font-medium text-slate-900">{p.description}</p>
-                          <p className="text-[10px] text-slate-500">Estoque: {p.stock} {p.unit}</p>
+                          <p className="text-[10px] text-slate-500 flex items-center gap-2">
+                            Estoque: {p.stock} {p.unit}
+                            {p.brand && (
+                              <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase tracking-tighter">
+                                {p.brand}
+                              </span>
+                            )}
+                          </p>
                         </div>
                         <span className="text-sm font-bold text-rose-600">R$ {p.sale_price.toFixed(2)}</span>
                       </button>
