@@ -89,9 +89,9 @@ interface Product {
   sale_price: number;
   stock: number;
   unit: string;
-  image_url?: string;
   category?: string;
   brand?: string;
+  location?: string;
 }
 
 interface Lead {
@@ -483,7 +483,7 @@ export default function App() {
 
   // Form States
   const [customerForm, setCustomerForm] = useState({ name: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
-  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '' });
+  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '' });
   const [motorcycleForm, setMotorcycleForm] = useState({ customer_id: '', plate: '', model: '', current_km: '' });
 
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -2581,7 +2581,8 @@ export default function App() {
         unit: productForm.unit,
         image_url: finalImageUrl,
         category: categorizeProduct(productForm.description),
-        brand: productForm.brand
+        brand: productForm.brand,
+        location: productForm.location
       };
 
       if (editingProduct) {
@@ -2608,7 +2609,8 @@ export default function App() {
         stock: '',
         unit: 'Unitário',
         image_url: '',
-        brand: ''
+        brand: '',
+        location: ''
       });
       fetchData();
     } catch (error: any) {
@@ -2629,7 +2631,8 @@ export default function App() {
       unit: product.unit || 'Unitário',
       image_url: product.image_url || '',
       category: product.category || categorizeProduct(product.description),
-      brand: product.brand || ''
+      brand: product.brand || '',
+      location: product.location || ''
     });
     setIsProductModalOpen(true);
   };
@@ -2832,6 +2835,7 @@ export default function App() {
       'Preço de Venda': p.sale_price,
       Estoque: p.stock,
       Unidade: p.unit,
+      Localização: p.location,
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -2895,7 +2899,8 @@ export default function App() {
         unit: item.Unidade || item.Unit || item.unit || 'Unitário',
         image_url: item.Imagem || item.Image || item.image_url || '',
         category: categorizeProduct(item.Descrição || item.description || ''),
-        brand: item.Marca || item.Brand || item.brand || ''
+        brand: item.Marca || item.Brand || item.brand || '',
+        location: item.Localização || item.Location || item.location || ''
       }));
 
       setProducts(prev => [...prev, ...newProducts]);
@@ -3199,7 +3204,7 @@ export default function App() {
           <button
             onClick={() => {
               setEditingProduct(null);
-              setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '' });
+              setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '' });
               setIsProductModalOpen(true);
             }}
             className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium"
@@ -3228,6 +3233,7 @@ export default function App() {
                 return (
                   p.description.toLowerCase().includes(search) ||
                   p.sku.toLowerCase().includes(search) ||
+                  (p.location && p.location.toLowerCase().includes(search)) ||
                   p.barcode?.toLowerCase().includes(search)
                 );
               }).sort((a, b) => a.description.localeCompare(b.description)).map((p) => (
@@ -3246,6 +3252,7 @@ export default function App() {
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-slate-400">{p.unit}</span>
                           {p.brand && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase">{p.brand}</span>}
+                          {p.location && <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-bold uppercase">Loc: {p.location}</span>}
                         </div>
                       </div>
                     </div>
@@ -3314,6 +3321,7 @@ export default function App() {
             return (
               p.description.toLowerCase().includes(search) ||
               p.sku.toLowerCase().includes(search) ||
+              (p.location && p.location.toLowerCase().includes(search)) ||
               p.barcode?.toLowerCase().includes(search)
             );
           }).sort((a, b) => a.description.localeCompare(b.description)).map((p) => (
@@ -3348,8 +3356,9 @@ export default function App() {
               <div className="p-4">
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="text-[11px] font-bold text-slate-800 leading-tight uppercase line-clamp-3">{p.description}</h3>
-                  {p.brand && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold uppercase">{p.brand}</span>}
+                  {p.location && <span className="text-[10px] font-bold text-indigo-600 uppercase border border-indigo-100 bg-indigo-50 px-1 rounded whitespace-nowrap">{p.location}</span>}
                 </div>
+                {p.brand && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold uppercase">{p.brand}</span>}
                 <p className="text-xs text-slate-400 mb-3 font-mono">{p.sku}</p>
                 <div className="flex items-end justify-between">
                   <div>
@@ -5162,7 +5171,7 @@ export default function App() {
           onClose={() => {
             setIsProductModalOpen(false);
             setEditingProduct(null);
-            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '' });
+            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '' });
           }}
           title={editingProduct ? "Editar Produto" : "Adicionar Produto ao Estoque"}
         >
@@ -5183,6 +5192,15 @@ export default function App() {
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                 value={productForm.brand}
                 onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Localização no Estoque</label>
+              <input
+                type="text" placeholder="Ex: Prateleira A, Corredor 2"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                value={productForm.location}
+                onChange={e => setProductForm({ ...productForm, location: e.target.value })}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
