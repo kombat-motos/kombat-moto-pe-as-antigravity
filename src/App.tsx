@@ -480,6 +480,8 @@ export default function App() {
     items: []
   });
   const [isPrintingQuote, setIsPrintingQuote] = useState<Quote | null>(null);
+  const [isStockSelectorOpen, setIsStockSelectorOpen] = useState(false);
+  const [stockSearchTerm, setStockSearchTerm] = useState('');
 
   // Form States
   const [customerForm, setCustomerForm] = useState({ name: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
@@ -4859,6 +4861,13 @@ export default function App() {
                 <div className="flex gap-2">
                   <button
                     type="button"
+                    onClick={() => setIsStockSelectorOpen(true)}
+                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-indigo-700 transition-all flex items-center gap-1"
+                  >
+                    <Package size={14} /> Add do Estoque
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => {
                       const desc = prompt('Descrição da Peça:');
                       const qty = Number(prompt('Quantidade:', '1'));
@@ -5040,6 +5049,103 @@ export default function App() {
               </div>
             </div>
           </form>
+        </Modal>
+
+        {/* Stock Selector Modal for Quotes */}
+        <Modal
+          isOpen={isStockSelectorOpen}
+          onClose={() => setIsStockSelectorOpen(false)}
+          title="Selecionar Peça do Estoque"
+          maxWidth="max-w-4xl"
+        >
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                type="text"
+                placeholder="Pesquisar no estoque..."
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-medium"
+                value={stockSearchTerm}
+                onChange={e => setStockSearchTerm(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="max-h-[50vh] overflow-y-auto border border-slate-100 rounded-2xl">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 tracking-widest">Produto / SKU</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Preço de Venda</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Disponível</th>
+                    <th className="px-4 py-3 w-16"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {products
+                    .filter(p => {
+                      const search = stockSearchTerm.toLowerCase();
+                      return (
+                        p.description.toLowerCase().includes(search) ||
+                        p.sku.toLowerCase().includes(search) ||
+                        p.barcode?.toLowerCase().includes(search)
+                      );
+                    })
+                    .sort((a, b) => a.description.localeCompare(b.description))
+                    .map(product => (
+                      <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
+                        <td className="px-4 py-3">
+                          <p className="font-bold text-slate-900 text-sm uppercase">{product.description}</p>
+                          <p className="text-[10px] text-slate-500 font-mono">{product.sku}</p>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <p className="font-black text-slate-900 text-sm">R$ {product.sale_price.toFixed(2)}</p>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${product.stock > 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                            {product.stock} {product.unit}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newItem: QuoteItem = {
+                                description: product.description,
+                                quantity: 1,
+                                price: product.sale_price,
+                                total: product.sale_price,
+                                type: 'Peça'
+                              };
+                              setQuoteForm(prev => ({
+                                ...prev,
+                                items: [...prev.items, newItem],
+                                total_value: prev.total_value + product.sale_price
+                              }));
+                              setIsStockSelectorOpen(false);
+                              setStockSearchTerm('');
+                            }}
+                            className="p-2 bg-black text-white rounded-lg hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  {products.filter(p => {
+                    const search = stockSearchTerm.toLowerCase();
+                    return (
+                      p.description.toLowerCase().includes(search) ||
+                      p.sku.toLowerCase().includes(search)
+                    );
+                  }).length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-8 text-center text-slate-400 text-xs italic">Nenhum produto encontrado.</td>
+                      </tr>
+                    )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </Modal>
 
         <Modal
