@@ -2010,6 +2010,29 @@ export default function App() {
     }
   };
 
+  const handleShareQuoteWhatsApp = (quote: Quote) => {
+    const customer = customers.find(c => c.id === quote.customer_id);
+    const phone = customer?.whatsapp || '';
+
+    let message = `*ORÇAMENTO PROFISSIONAL - ${companyData.nomeFantasia || 'Kombat Moto Peças'}*\n\n`;
+    message += `*Cliente:* ${quote.customer_name}\n`;
+    message += `*Veículo:* ${quote.motorcycle_details || 'Não informado'}\n`;
+    message += `*Data:* ${new Date(quote.created_at).toLocaleDateString('pt-BR')}\n\n`;
+
+    message += `*ITENS DO ORÇAMENTO:*\n`;
+    quote.items.forEach(item => {
+      message += `- ${item.quantity}x ${item.description}: R$ ${item.total.toFixed(2)}\n`;
+    });
+
+    message += `\n*VALOR TOTAL: R$ ${quote.total_value.toFixed(2)}*\n\n`;
+    message += `_Validade: ${quote.validity_days} dias._\n`;
+    message += `_Observações: ${quote.observations || 'N/A'}_`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodedMessage}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   const renderQuotes = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -2074,6 +2097,13 @@ export default function App() {
                 className="flex-1 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-black transition-colors flex items-center justify-center gap-2"
               >
                 <Printer size={14} /> Imprimir / PDF
+              </button>
+              <button
+                onClick={() => handleShareQuoteWhatsApp(q)}
+                className="p-2 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                title="Compartilhar no WhatsApp"
+              >
+                <MessageCircle size={16} />
               </button>
               <button
                 onClick={() => handleDeleteQuote(q.id)}
@@ -2226,6 +2256,9 @@ export default function App() {
             <div className="mt-12 flex justify-center gap-4 no-print flex-wrap">
               <button onClick={() => window.print()} className="px-8 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all flex items-center gap-2">
                 <Printer size={20} /> Imprimir Orçamento
+              </button>
+              <button onClick={() => handleShareQuoteWhatsApp(isPrintingQuote!)} className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center gap-2">
+                <MessageCircle size={20} /> Compartilhar WhatsApp
               </button>
               <button onClick={() => setIsPrintingQuote(null)} className="px-8 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">
                 Fechar Visualização
