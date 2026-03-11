@@ -94,6 +94,7 @@ interface Product {
   category?: string;
   brand?: string;
   location?: string;
+  image_url?: string;
 }
 
 interface Lead {
@@ -2040,11 +2041,16 @@ export default function App() {
     if (!element) return;
 
     try {
+      // Add a small delay to ensure all styles/images are rendered
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 1.5, // Reduced scale slightly for better performance/memory
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
       });
 
       const imgData = canvas.toDataURL('image/png');
@@ -2082,7 +2088,8 @@ export default function App() {
       }
     } catch (err) {
       console.error('Error generating PDF:', err);
-      alert('Erro ao gerar PDF. Tente usar a função de imprimir.');
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      alert(`Erro ao gerar PDF: ${errorMessage}\nTente usar a função de imprimir.`);
     }
   };
 
