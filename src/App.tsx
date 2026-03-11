@@ -2042,12 +2042,21 @@ export default function App() {
 
     try {
       // Add a small delay to ensure all styles/images are rendered
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
+      // Force a standard width (896px = max-w-4xl) to avoid mobile cutoff
       const dataUrl = await htmlToImage.toPng(element, {
-        quality: 0.95,
+        quality: 1,
         backgroundColor: '#ffffff',
-        pixelRatio: 1.5 // Reduced slightly for better mobile compatibility
+        pixelRatio: 2,
+        width: 896,
+        height: element.scrollHeight,
+        style: {
+          width: '896px',
+          height: 'auto',
+          margin: '0',
+          padding: '0'
+        }
       });
 
       const pdf = new jsPDF({
@@ -2058,9 +2067,25 @@ export default function App() {
 
       const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth;
+      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
 
-      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      // Add subsequent pages if content is longer than A4
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, 'PNG', 0, position / 1, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+
       const pdfBlob = pdf.output('blob');
       const fileName = `Orcamento_${quote.customer_name.replace(/\s+/g, '_')}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
