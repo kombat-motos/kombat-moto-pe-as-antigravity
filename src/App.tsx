@@ -53,7 +53,7 @@ import VirtualCatalogModal from './components/VirtualCatalogModal';
 import Auth from './components/Auth';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import html2canvas from 'html2canvas';
+import * as htmlToImage from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { supabase } from './supabase';
 
@@ -2042,29 +2042,25 @@ export default function App() {
 
     try {
       // Add a small delay to ensure all styles/images are rendered
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-      const canvas = await html2canvas(element, {
-        scale: 1.5, // Reduced scale slightly for better performance/memory
-        useCORS: true,
-        logging: false,
+      const dataUrl = await htmlToImage.toPng(element, {
+        quality: 0.95,
         backgroundColor: '#ffffff',
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight
+        pixelRatio: 1.5 // Reduced slightly for better mobile compatibility
       });
 
-      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'
       });
 
-      const imgProps = pdf.getImageProperties(imgData);
+      const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
       const pdfBlob = pdf.output('blob');
       const fileName = `Orcamento_${quote.customer_name.replace(/\s+/g, '_')}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
