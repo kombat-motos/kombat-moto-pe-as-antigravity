@@ -2044,15 +2044,15 @@ export default function App() {
       // Add a small delay to ensure all styles/images are rendered
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Force a standard width (896px = max-w-4xl) to avoid mobile cutoff
+      // Use 800px width which fits well on A4 with margins
       const dataUrl = await htmlToImage.toPng(element, {
-        quality: 1,
+        quality: 0.95,
         backgroundColor: '#ffffff',
         pixelRatio: 2,
-        width: 896,
+        width: 800,
         height: element.scrollHeight,
         style: {
-          width: '896px',
+          width: '800px',
           height: 'auto',
           margin: '0',
           padding: '0'
@@ -2068,22 +2068,26 @@ export default function App() {
       const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth;
+
+      // Calculate dimensions to fit with 10mm margins on sides
+      const margin = 10;
+      const drawableWidth = pdfWidth - (margin * 2);
+      const imgWidth = drawableWidth;
       const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
 
       let heightLeft = imgHeight;
-      let position = 0;
+      let position = margin; // Start with top margin
 
       // Add first page
-      pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
+      pdf.addImage(dataUrl, 'PNG', margin, position, imgWidth, imgHeight);
+      heightLeft -= (pdfHeight - margin * 2);
 
-      // Add subsequent pages if content is longer than A4
+      // Add subsequent pages
       while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
         pdf.addPage();
-        pdf.addImage(dataUrl, 'PNG', 0, position / 1, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
+        position = heightLeft - imgHeight + margin;
+        pdf.addImage(dataUrl, 'PNG', margin, position, imgWidth, imgHeight);
+        heightLeft -= (pdfHeight - margin * 2);
       }
 
       const pdfBlob = pdf.output('blob');
