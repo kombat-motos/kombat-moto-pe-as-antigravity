@@ -2247,24 +2247,24 @@ export default function App() {
               </div>
 
               <div className="space-y-6">
-                <div className="overflow-x-auto">
+                <div className="overflow-hidden">
                   <h3 className="text-xs font-black bg-black text-white px-3 py-1 inline-block uppercase mb-2 tracking-widest">Descrição de Peças e Acessórios</h3>
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse table-fixed">
                     <thead>
                       <tr className="border-b-2 border-slate-900">
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400">Qtd</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 w-[40px]">Qtd</th>
                         <th className="py-2 text-[10px] font-black uppercase text-slate-400">Descrição do Item</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right">Valor Unit.</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right">Subtotal</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Valor Unit.</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Subtotal</th>
                       </tr>
                     </thead>
                     <tbody>
                       {isPrintingQuote.items.filter(i => i.type === 'Peça').map((item, idx) => (
                         <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="py-2 font-bold text-slate-800 text-sm">{item.quantity}</td>
-                          <td className="py-2 font-bold text-slate-800 text-sm uppercase">{item.description}</td>
-                          <td className="py-2 font-bold text-slate-800 text-sm text-right pr-2">R$ {item.price.toFixed(2)}</td>
-                          <td className="py-2 font-black text-black text-sm text-right min-w-[80px]">R$ {item.total.toFixed(2)}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] align-top">{item.quantity}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4">{item.description}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top">R$ {item.price.toFixed(2)}</td>
+                          <td className="py-2 font-black text-black text-[11px] text-right align-top">R$ {item.total.toFixed(2)}</td>
                         </tr>
                       ))}
                       {isPrintingQuote.items.filter(i => i.type === 'Peça').length === 0 && (
@@ -2274,24 +2274,24 @@ export default function App() {
                   </table>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="overflow-hidden">
                   <h3 className="text-xs font-black bg-rose-600 text-white px-3 py-1 inline-block uppercase mb-2 tracking-widest">Serviços / Mão de Obra</h3>
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse table-fixed">
                     <thead>
                       <tr className="border-b-2 border-slate-900">
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400">Qtd</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 w-[40px]">Qtd</th>
                         <th className="py-2 text-[10px] font-black uppercase text-slate-400">Descrição do Serviço</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right">Valor Unit.</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right">Subtotal</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Valor Unit.</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Subtotal</th>
                       </tr>
                     </thead>
                     <tbody>
                       {isPrintingQuote.items.filter(i => i.type === 'Serviço').map((item, idx) => (
                         <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="py-2 font-bold text-slate-800 text-sm">{item.quantity}</td>
-                          <td className="py-2 font-bold text-slate-800 text-sm uppercase">{item.description}</td>
-                          <td className="py-2 font-bold text-slate-800 text-sm text-right pr-2">R$ {item.price.toFixed(2)}</td>
-                          <td className="py-2 font-black text-rose-600 text-sm text-right min-w-[80px]">R$ {item.total.toFixed(2)}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] align-top">{item.quantity}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4">{item.description}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top">R$ {item.price.toFixed(2)}</td>
+                          <td className="py-2 font-black text-rose-600 text-[11px] text-right align-top">R$ {item.total.toFixed(2)}</td>
                         </tr>
                       ))}
                       {isPrintingQuote.items.filter(i => i.type === 'Serviço').length === 0 && (
