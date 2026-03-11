@@ -95,6 +95,7 @@ interface Product {
   brand?: string;
   location?: string;
   image_url?: string;
+  application?: string;
 }
 
 interface Lead {
@@ -463,6 +464,7 @@ export default function App() {
   const [editingMotorcycle, setEditingMotorcycle] = useState<Motorcycle | null>(null);
   const [editingOS, setEditingOS] = useState<Sale | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
   const [showPdvCalculator, setShowPdvCalculator] = useState(false);
   const [showQuoteCalculator, setShowQuoteCalculator] = useState(false);
   const [showOsCalculator, setShowOsCalculator] = useState(false);
@@ -488,7 +490,7 @@ export default function App() {
 
   // Form States
   const [customerForm, setCustomerForm] = useState({ name: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
-  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '' });
+  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '', application: '' });
   const [motorcycleForm, setMotorcycleForm] = useState({ customer_id: '', plate: '', model: '', current_km: '' });
 
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -2703,7 +2705,8 @@ export default function App() {
         image_url: finalImageUrl,
         category: categorizeProduct(productForm.description),
         brand: productForm.brand,
-        location: productForm.location
+        location: productForm.location,
+        application: productForm.application
       };
 
       if (editingProduct) {
@@ -2731,7 +2734,8 @@ export default function App() {
         unit: 'Unitário',
         image_url: '',
         brand: '',
-        location: ''
+        location: '',
+        application: ''
       });
       fetchData();
     } catch (error: any) {
@@ -2753,7 +2757,8 @@ export default function App() {
       image_url: product.image_url || '',
       category: product.category || categorizeProduct(product.description),
       brand: product.brand || '',
-      location: product.location || ''
+      location: product.location || '',
+      application: product.application || ''
     });
     setIsProductModalOpen(true);
   };
@@ -2898,7 +2903,8 @@ export default function App() {
           image_url: finalImageUrl,
           description: `${product.description} (Cópia)`,
           sku: `${product.sku}-copy`,
-          barcode: '' // Clear barcode as it should be unique
+          barcode: '', // Clear barcode as it should be unique
+          application: product.application || ''
         }]);
         if (error) throw error;
         alert('Produto duplicado com sucesso!');
@@ -3363,7 +3369,12 @@ export default function App() {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
                         {p.image_url ? (
-                          <img src={p.image_url} alt={p.description} className="w-full h-full object-cover" />
+                          <img
+                            src={p.image_url}
+                            alt={p.description}
+                            className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => setSelectedProductDetail(p)}
+                          />
                         ) : (
                           <ImageIcon size={20} className="text-slate-300" />
                         )}
@@ -3449,7 +3460,12 @@ export default function App() {
             <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-all group">
               <div className="h-48 bg-slate-50 relative overflow-hidden">
                 {p.image_url ? (
-                  <img src={p.image_url} alt={p.description} className="w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-500" />
+                  <img
+                    src={p.image_url}
+                    alt={p.description}
+                    className="w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-500 cursor-pointer"
+                    onClick={() => setSelectedProductDetail(p)}
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-slate-200">
                     <ImageIcon size={48} />
@@ -5494,6 +5510,15 @@ export default function App() {
                 />
               </div>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Aplicação das Peças</label>
+              <textarea
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all resize-none h-24"
+                placeholder="Ex: Honda CG 160 (2016-2023), Fan, Titan..."
+                value={productForm.application}
+                onChange={e => setProductForm({ ...productForm, application: e.target.value })}
+              />
+            </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">URL da Imagem</label>
@@ -7260,6 +7285,79 @@ export default function App() {
         <div className="bg-white">
           {renderManagementReportContent()}
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!selectedProductDetail}
+        onClose={() => setSelectedProductDetail(null)}
+        title="Detalhes do Produto"
+        maxWidth="max-w-2xl"
+      >
+        {selectedProductDetail && (
+          <div className="space-y-6">
+            <div className="aspect-square bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 flex items-center justify-center">
+              {selectedProductDetail.image_url ? (
+                <img src={selectedProductDetail.image_url} alt={selectedProductDetail.description} className="w-full h-full object-contain p-4" />
+              ) : (
+                <ImageIcon size={64} className="text-slate-200" />
+              )}
+            </div>
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-xl font-bold text-slate-900 uppercase">{selectedProductDetail.description}</h4>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {selectedProductDetail.brand && (
+                    <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase">
+                      Marca: {selectedProductDetail.brand}
+                    </span>
+                  )}
+                  <span className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold uppercase">
+                    SKU: {selectedProductDetail.sku}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <h5 className="text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">Aplicação das Peças</h5>
+                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  {selectedProductDetail.application || "Nenhuma especificação de aplicação cadastrada para este item."}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-4">
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Preço de Venda</p>
+                  <p className="text-3xl font-black text-slate-900">R$ {selectedProductDetail.sale_price.toFixed(2)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Disponibilidade</p>
+                  <p className={`text-xl font-black ${selectedProductDetail.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {selectedProductDetail.stock} {selectedProductDetail.unit}(s)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-6">
+                <button
+                  onClick={() => {
+                    handleEditProduct(selectedProductDetail);
+                    setSelectedProductDetail(null);
+                  }}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <Pencil size={18} />
+                  Editar Produto
+                </button>
+                <button
+                  onClick={() => setSelectedProductDetail(null)}
+                  className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
