@@ -53,6 +53,8 @@ import VirtualCatalogModal from './components/VirtualCatalogModal';
 import Auth from './components/Auth';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { supabase } from './supabase';
 
 // --- Types ---
@@ -2033,6 +2035,57 @@ export default function App() {
     window.open(whatsappUrl, '_blank');
   };
 
+  const handleShareQuotePDF = async (quote: Quote) => {
+    const element = document.getElementById('quote-capture-area');
+    if (!element) return;
+
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const pdfBlob = pdf.output('blob');
+      const fileName = `Orcamento_${quote.customer_name.replace(/\s+/g, '_')}.pdf`;
+      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      // @ts-ignore
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Orçamento',
+          text: `Segue orçamento em PDF para ${quote.customer_name}`
+        });
+      } else {
+        // Fallback: Download and explain
+        saveAs(pdfBlob, fileName);
+        alert('O PDF foi baixado. Agora você pode anexá-lo manualmente no WhatsApp do cliente.');
+        const customer = customers.find(c => c.id === quote.customer_id);
+        const phone = customer?.whatsapp || '';
+        if (phone) {
+          window.open(`https://wa.me/${phone.replace(/\D/g, '')}`, '_blank');
+        }
+      }
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert('Erro ao gerar PDF. Tente usar a função de imprimir.');
+    }
+  };
+
   const renderQuotes = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -2126,7 +2179,7 @@ export default function App() {
       {/* Quote Print View / High Resolution Layout */}
       {isPrintingQuote && (
         <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:p-0">
-          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-100">
+          <div id="quote-capture-area" className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-100">
             <div className="flex justify-between items-start border-b-4 border-rose-600 pb-8 mb-8">
               <div className="flex gap-6 items-center">
                 <div className="w-24 h-24 bg-black rounded-2xl flex items-center justify-center overflow-hidden">
@@ -2257,8 +2310,11 @@ export default function App() {
               <button onClick={() => window.print()} className="px-8 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all flex items-center gap-2">
                 <Printer size={20} /> Imprimir Orçamento
               </button>
+              <button onClick={() => handleShareQuotePDF(isPrintingQuote!)} className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center gap-2">
+                <FileText size={20} /> Enviar PDF WhatsApp
+              </button>
               <button onClick={() => handleShareQuoteWhatsApp(isPrintingQuote!)} className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center gap-2">
-                <MessageCircle size={20} /> Compartilhar WhatsApp
+                <MessageCircle size={20} /> Enviar Texto WhatsApp
               </button>
               <button onClick={() => setIsPrintingQuote(null)} className="px-8 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">
                 Fechar Visualização
