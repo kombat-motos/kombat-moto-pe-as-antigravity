@@ -2041,21 +2041,18 @@ export default function App() {
     if (!element) return;
 
     try {
-      // Add a small delay to ensure all styles/images are rendered
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Add a small delay
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-      // Use 800px width which fits well on A4 with margins
+      // Capture at a wider resolution to prevent column clipping
       const dataUrl = await htmlToImage.toPng(element, {
         quality: 0.95,
         backgroundColor: '#ffffff',
         pixelRatio: 2,
-        width: 800,
-        height: element.scrollHeight,
+        width: 1024, // Wider capture
         style: {
-          width: '800px',
-          height: 'auto',
-          margin: '0',
-          padding: '0'
+          width: '1024px',
+          height: 'auto'
         }
       });
 
@@ -2069,26 +2066,25 @@ export default function App() {
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      // Calculate dimensions to fit with 10mm margins on sides
       const margin = 10;
       const drawableWidth = pdfWidth - (margin * 2);
-      const imgWidth = drawableWidth;
-      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+      const drawableHeight = pdfHeight - (margin * 2);
 
-      let heightLeft = imgHeight;
-      let position = margin; // Start with top margin
+      // Fit content to a single page
+      let imgWidth = drawableWidth;
+      let imgHeight = (imgProps.height * imgWidth) / imgProps.width;
 
-      // Add first page
-      pdf.addImage(dataUrl, 'PNG', margin, position, imgWidth, imgHeight);
-      heightLeft -= (pdfHeight - margin * 2);
-
-      // Add subsequent pages
-      while (heightLeft > 0) {
-        pdf.addPage();
-        position = heightLeft - imgHeight + margin;
-        pdf.addImage(dataUrl, 'PNG', margin, position, imgWidth, imgHeight);
-        heightLeft -= (pdfHeight - margin * 2);
+      // If content is too long, shrink it further to stay on one page
+      if (imgHeight > drawableHeight) {
+        const ratio = drawableHeight / imgHeight;
+        imgHeight = drawableHeight;
+        imgWidth = imgWidth * ratio;
       }
+
+      // Center horizontally if shrunk
+      const xOffset = margin + (drawableWidth - imgWidth) / 2;
+
+      pdf.addImage(dataUrl, 'PNG', xOffset, margin, imgWidth, imgHeight);
 
       const pdfBlob = pdf.output('blob');
       const fileName = `Orcamento_${quote.customer_name.replace(/\s+/g, '_')}.pdf`;
@@ -2211,134 +2207,136 @@ export default function App() {
       {/* Quote Print View / High Resolution Layout */}
       {isPrintingQuote && (
         <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:p-0">
-          <div id="quote-capture-area" className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-100">
-            <div className="flex justify-between items-start border-b-4 border-rose-600 pb-8 mb-8">
-              <div className="flex gap-6 items-center">
-                <div className="w-24 h-24 bg-black rounded-2xl flex items-center justify-center overflow-hidden">
-                  {companyLogo ? (
-                    <img src={companyLogo} alt="Logo" className="w-full h-full object-contain" />
-                  ) : (
-                    <Bike size={48} className="text-white" />
-                  )}
+          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-100 relative">
+            <div id="quote-capture-area" className="p-10 bg-white">
+              <div className="flex justify-between items-start border-b-4 border-rose-600 pb-6 mb-6">
+                <div className="flex gap-6 items-center">
+                  <div className="w-24 h-24 bg-black rounded-2xl flex items-center justify-center overflow-hidden">
+                    {companyLogo ? (
+                      <img src={companyLogo} alt="Logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <Bike size={48} className="text-white" />
+                    )}
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-black text-black tracking-tighter uppercase">{companyData.nomeFantasia || 'Kombat Moto Peças'}</h1>
+                    <p className="text-slate-500 font-bold text-sm">Oficina Mecânica Multimarcas & Acessórios</p>
+                    <div className="mt-2 text-xs text-slate-400 font-medium">
+                      <p>{companyData.endereco}, {companyData.bairro}</p>
+                      <p>Andirá - PR | {companyData.cep}</p>
+                      <p className="text-black font-bold">Contato: {companyData.telefone}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="bg-black text-white px-4 py-2 rounded-lg font-black text-sm uppercase mb-2">Orçamento #{isPrintingQuote.id.slice(0, 8)}</div>
+                  <p className="text-slate-400 text-xs font-bold uppercase">Data: {new Date(isPrintingQuote.created_at).toLocaleDateString('pt-BR')}</p>
+                  <p className="text-rose-600 text-xs font-black uppercase">Válido por {isPrintingQuote.validity_days} dias</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-900 text-white p-4 rounded-xl mb-6 flex flex-col md:flex-row justify-between gap-4">
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Cliente</p>
+                  <p className="font-bold uppercase">{isPrintingQuote.customer_name}</p>
                 </div>
                 <div>
-                  <h1 className="text-3xl font-black text-black tracking-tighter uppercase">{companyData.nomeFantasia || 'Kombat Moto Peças'}</h1>
-                  <p className="text-slate-500 font-bold text-sm">Oficina Mecânica Multimarcas & Acessórios</p>
-                  <div className="mt-2 text-xs text-slate-400 font-medium">
-                    <p>{companyData.endereco}, {companyData.bairro}</p>
-                    <p>Andirá - PR | {companyData.cep}</p>
-                    <p className="text-black font-bold">Contato: {companyData.telefone}</p>
+                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Motocicleta / Detalhes</p>
+                  <p className="font-bold uppercase">{isPrintingQuote.motorcycle_details || '--'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="overflow-x-auto">
+                  <h3 className="text-xs font-black bg-black text-white px-3 py-1 inline-block uppercase mb-2 tracking-widest">Descrição de Peças e Acessórios</h3>
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b-2 border-slate-900">
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400">Qtd</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400">Descrição do Item</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right">Valor Unit.</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {isPrintingQuote.items.filter(i => i.type === 'Peça').map((item, idx) => (
+                        <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="py-2 font-bold text-slate-800 text-sm">{item.quantity}</td>
+                          <td className="py-2 font-bold text-slate-800 text-sm uppercase">{item.description}</td>
+                          <td className="py-2 font-bold text-slate-800 text-sm text-right pr-2">R$ {item.price.toFixed(2)}</td>
+                          <td className="py-2 font-black text-black text-sm text-right min-w-[80px]">R$ {item.total.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                      {isPrintingQuote.items.filter(i => i.type === 'Peça').length === 0 && (
+                        <tr><td colSpan={4} className="py-4 text-center text-slate-300 text-xs italic">Nenhuma peça relacionada.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <h3 className="text-xs font-black bg-rose-600 text-white px-3 py-1 inline-block uppercase mb-2 tracking-widest">Serviços / Mão de Obra</h3>
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b-2 border-slate-900">
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400">Qtd</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400">Descrição do Serviço</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right">Valor Unit.</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {isPrintingQuote.items.filter(i => i.type === 'Serviço').map((item, idx) => (
+                        <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="py-2 font-bold text-slate-800 text-sm">{item.quantity}</td>
+                          <td className="py-2 font-bold text-slate-800 text-sm uppercase">{item.description}</td>
+                          <td className="py-2 font-bold text-slate-800 text-sm text-right pr-2">R$ {item.price.toFixed(2)}</td>
+                          <td className="py-2 font-black text-rose-600 text-sm text-right min-w-[80px]">R$ {item.total.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                      {isPrintingQuote.items.filter(i => i.type === 'Serviço').length === 0 && (
+                        <tr><td colSpan={4} className="py-4 text-center text-slate-300 text-xs italic">Nenhum serviço relacionado.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Observações Técnicas</p>
+                    <p className="text-xs text-slate-700 leading-relaxed italic">{isPrintingQuote.observations || 'Nenhuma observação técnica.'}</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Termos de Garantia</p>
+                    <p className="text-[10px] text-slate-600 leading-tight">{isPrintingQuote.warranty_terms}</p>
+                  </div>
+                </div>
+                <div className="flex flex-col justify-end items-end space-y-4">
+                  <div className="text-right">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total das Peças</p>
+                    <p className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Peça').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total dos Serviços</p>
+                    <p className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
+                  </div>
+                  <div className="bg-black text-white p-6 rounded-2xl text-right w-full">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] mb-2">Total Geral do Orçamento</p>
+                    <p className="text-4xl font-black text-rose-500">R$ {isPrintingQuote.total_value.toFixed(2)}</p>
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="bg-black text-white px-4 py-2 rounded-lg font-black text-sm uppercase mb-2">Orçamento #{isPrintingQuote.id.slice(0, 8)}</div>
-                <p className="text-slate-400 text-xs font-bold uppercase">Data: {new Date(isPrintingQuote.created_at).toLocaleDateString('pt-BR')}</p>
-                <p className="text-rose-600 text-xs font-black uppercase">Válido por {isPrintingQuote.validity_days} dias</p>
-              </div>
-            </div>
 
-            <div className="bg-slate-900 text-white p-4 rounded-xl mb-8 flex flex-col md:flex-row justify-between gap-4">
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Cliente</p>
-                <p className="font-bold uppercase">{isPrintingQuote.customer_name}</p>
+              <div className="mt-12 pt-6 border-t border-slate-100 flex flex-col items-center">
+                <div className="w-64 border-b border-slate-900 mb-2"></div>
+                <p className="text-xs font-black uppercase text-black tracking-widest">{isPrintingQuote.customer_name}</p>
+                <p className="text-[10px] text-slate-400 uppercase font-bold text-center">Autorização de Execução / Cliente</p>
               </div>
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Motocicleta / Detalhes</p>
-                <p className="font-bold uppercase">{isPrintingQuote.motorcycle_details || '--'}</p>
-              </div>
-            </div>
+            </div> {/* End of quote-capture-area */}
 
-            <div className="space-y-8">
-              <div className="overflow-x-auto">
-                <h3 className="text-xs font-black bg-black text-white px-3 py-1 inline-block uppercase mb-4 tracking-widest">Descrição de Peças e Acessórios</h3>
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b-2 border-slate-900">
-                      <th className="py-3 text-[10px] font-black uppercase text-slate-400">Qtd</th>
-                      <th className="py-3 text-[10px] font-black uppercase text-slate-400">Descrição do Item</th>
-                      <th className="py-3 text-[10px] font-black uppercase text-slate-400 text-right">Valor Unit.</th>
-                      <th className="py-3 text-[10px] font-black uppercase text-slate-400 text-right">Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {isPrintingQuote.items.filter(i => i.type === 'Peça').map((item, idx) => (
-                      <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="py-3 font-bold text-slate-800 text-sm">{item.quantity}</td>
-                        <td className="py-3 font-bold text-slate-800 text-sm uppercase">{item.description}</td>
-                        <td className="py-3 font-bold text-slate-800 text-sm text-right">R$ {item.price.toFixed(2)}</td>
-                        <td className="py-3 font-black text-black text-sm text-right">R$ {item.total.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                    {isPrintingQuote.items.filter(i => i.type === 'Peça').length === 0 && (
-                      <tr><td colSpan={4} className="py-4 text-center text-slate-300 text-xs italic">Nenhuma peça relacionada.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="overflow-x-auto">
-                <h3 className="text-xs font-black bg-rose-600 text-white px-3 py-1 inline-block uppercase mb-4 tracking-widest">Serviços / Mão de Obra</h3>
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b-2 border-slate-900">
-                      <th className="py-3 text-[10px] font-black uppercase text-slate-400">Qtd</th>
-                      <th className="py-3 text-[10px] font-black uppercase text-slate-400">Descrição do Serviço</th>
-                      <th className="py-3 text-[10px] font-black uppercase text-slate-400 text-right">Valor Unit.</th>
-                      <th className="py-3 text-[10px] font-black uppercase text-slate-400 text-right">Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {isPrintingQuote.items.filter(i => i.type === 'Serviço').map((item, idx) => (
-                      <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="py-3 font-bold text-slate-800 text-sm">{item.quantity}</td>
-                        <td className="py-3 font-bold text-slate-800 text-sm uppercase">{item.description}</td>
-                        <td className="py-3 font-bold text-slate-800 text-sm text-right">R$ {item.price.toFixed(2)}</td>
-                        <td className="py-3 font-black text-rose-600 text-sm text-right">R$ {item.total.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                    {isPrintingQuote.items.filter(i => i.type === 'Serviço').length === 0 && (
-                      <tr><td colSpan={4} className="py-4 text-center text-slate-300 text-xs italic">Nenhum serviço relacionado.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Observações Técnicas</p>
-                  <p className="text-xs text-slate-700 leading-relaxed italic">{isPrintingQuote.observations || 'Nenhuma observação técnica.'}</p>
-                </div>
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Termos de Garantia</p>
-                  <p className="text-[10px] text-slate-600 leading-tight">{isPrintingQuote.warranty_terms}</p>
-                </div>
-              </div>
-              <div className="flex flex-col justify-end items-end space-y-4">
-                <div className="text-right">
-                  <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total das Peças</p>
-                  <p className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Peça').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total dos Serviços</p>
-                  <p className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
-                </div>
-                <div className="bg-black text-white p-6 rounded-2xl text-right w-full">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] mb-2">Total Geral do Orçamento</p>
-                  <p className="text-4xl font-black text-rose-500">R$ {isPrintingQuote.total_value.toFixed(2)}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-16 pt-8 border-t border-slate-100 flex flex-col items-center">
-              <div className="w-64 border-b border-slate-900 mb-2"></div>
-              <p className="text-xs font-black uppercase text-black tracking-widest">{isPrintingQuote.customer_name}</p>
-              <p className="text-[10px] text-slate-400 uppercase font-bold text-center">Autorização de Execução / Cliente</p>
-            </div>
-
-            <div className="mt-12 flex justify-center gap-4 no-print flex-wrap">
+            <div className="mt-8 flex justify-center gap-4 no-print flex-wrap pb-10">
               <button onClick={() => window.print()} className="px-8 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all flex items-center gap-2">
                 <Printer size={20} /> Imprimir Orçamento
               </button>
