@@ -73,6 +73,7 @@ db.exec(`
     unit TEXT DEFAULT 'Unitário',
     category TEXT,
     image_url TEXT,
+    application TEXT,
     FOREIGN KEY (user_id) REFERENCES users (id)
   );
 
@@ -239,8 +240,8 @@ async function startServer() {
   });
 
   app.post("/api/products", authenticateToken, (req, res) => {
-    const { description, sku, barcode, purchase_price, sale_price, stock, unit, image_url } = req.body;
-    const info = db.prepare("INSERT INTO products (user_id, description, sku, barcode, purchase_price, sale_price, stock, unit, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(req.user!.id, description, sku, barcode, purchase_price, sale_price, stock, unit, image_url);
+    const { description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, application } = req.body;
+    const info = db.prepare("INSERT INTO products (user_id, description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, application) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(req.user!.id, description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, application);
     res.json({ id: info.lastInsertRowid });
   });
 
@@ -250,9 +251,9 @@ async function startServer() {
   });
 
   app.put("/api/products/:id", authenticateToken, (req, res) => {
-    const { description, sku, barcode, purchase_price, sale_price, stock, unit, image_url } = req.body;
-    db.prepare("UPDATE products SET description = ?, sku = ?, barcode = ?, purchase_price = ?, sale_price = ?, stock = ?, unit = ?, image_url = ? WHERE id = ? AND user_id = ?")
-      .run(description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, req.params.id, req.user!.id);
+    const { description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, application } = req.body;
+    db.prepare("UPDATE products SET description = ?, sku = ?, barcode = ?, purchase_price = ?, sale_price = ?, stock = ?, unit = ?, image_url = ?, application = ? WHERE id = ? AND user_id = ?")
+      .run(description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, application, req.params.id, req.user!.id);
     res.json({ success: true });
   });
 
