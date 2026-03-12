@@ -3915,11 +3915,20 @@ export default function App() {
                             <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
 
                             {/* Totals Section */}
+                            <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
                             <table style={{ width: '100%', fontSize: '11px', fontWeight: 'bold' }}>
                                 <tbody>
                                     <tr>
-                                        <td style={{ textAlign: 'left' }}>Subtotal:</td>
-                                        <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                                        <td style={{ textAlign: 'left' }}>Total Peças:</td>
+                                        <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.items || []).reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style={{ textAlign: 'left' }}>Total Serviços:</td>
+                                        <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.labor_value || 0).toFixed(2)}</td>
+                                    </tr>
+                                    <tr style={{ borderTop: '1px dotted black' }}>
+                                        <td style={{ textAlign: 'left', paddingTop: '4px', fontSize: '12px' }}>TOTAL GERAL:</td>
+                                        <td style={{ textAlign: 'right', paddingTop: '4px', fontSize: '12px' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
                                     </tr>
                                     <tr>
                                         <td style={{ textAlign: 'left' }}>Desconto:</td>
@@ -4300,9 +4309,21 @@ export default function App() {
                                 </div>
                             </div>
 
-                            <div className="pt-4 border-t border-slate-100">
-                                <div className="flex justify-between items-center mb-4">
-                                    <span className="text-slate-500 font-medium">Total da O.S.</span>
+                            <div className="pt-4 border-t border-slate-100 space-y-2">
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-500 font-medium">Total em Peças:</span>
+                                    <span className="font-bold text-slate-700">
+                                        R$ {osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-500 font-medium">Total em Serviços:</span>
+                                    <span className="font-bold text-slate-700">
+                                        R$ {parseFloat(osForm.labor_value || '0').toFixed(2)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                                    <span className="text-slate-500 font-bold">Total da O.S.</span>
                                     <span className="text-2xl font-black text-slate-900">
                                         R$ {(osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + parseFloat(osForm.labor_value || '0')).toFixed(2)}
                                     </span>
