@@ -6,22 +6,28 @@
 }
 
 @media print {
-  .no-print, .no-print-global {
+
+  .no-print,
+  .no-print-global {
     display: none !important;
   }
+
   body {
     background: white !important;
   }
-  aside, header, nav {
+
+  aside,
+  header,
+  nav {
     display: none !important;
   }
+
   main {
     padding: 0 !important;
     margin: 0 !important;
   }
-  .print-landscape {
-    @page {
-      size: landscape;
-    }
-  }
+}
+
+@page {
+  margin: 10mm;
 }
