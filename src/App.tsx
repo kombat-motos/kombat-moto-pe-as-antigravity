@@ -449,7 +449,19 @@ export default function App() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [registeredServices, setRegisteredServices] = useState<RegisteredService[]>([]);
+  const [registeredServices, setRegisteredServices] = useState<RegisteredService[]>(() => {
+    const saved = localStorage.getItem('registeredServices');
+    return saved ? JSON.parse(saved) : [
+      { id: '1', description: 'Mão de Obra Básica', price: 50.00 },
+      { id: '2', description: 'Troca de Óleo', price: 30.00 },
+      { id: '3', description: 'Limpeza de Relação', price: 40.00 }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('registeredServices', JSON.stringify(registeredServices));
+  }, [registeredServices]);
+
   const [loading, setLoading] = useState(true);
   const [authChecking, setAuthChecking] = useState(true);
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
@@ -869,8 +881,7 @@ export default function App() {
         { data: ordersData },
         { data: cashSessionsData },
         { data: cashTransactionsData },
-        { data: quotesData },
-        { data: registeredServicesData }
+        { data: quotesData }
       ] = await Promise.all([
         supabase.from('products').select('*'),
         supabase.from('customers').select('*'),
@@ -883,8 +894,7 @@ export default function App() {
         supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
         supabase.from('cash_sessions').select('*'),
         supabase.from('cash_transactions').select('*'),
-        supabase.from('quotes').select('*'),
-        supabase.from('registered_services').select('*')
+        supabase.from('quotes').select('*')
       ]);
 
       let finalProducts = productsData || [];
@@ -947,7 +957,6 @@ export default function App() {
         distributor_id: o.distributor_id
       })));
       if (quotesData) setQuotes(quotesData);
-      if (registeredServicesData) setRegisteredServices(registeredServicesData);
 
       if (cashSessionsData) {
         const sessions = cashSessionsData.map((s: any) => ({
@@ -3301,29 +3310,23 @@ export default function App() {
     </div>
   );
 
-  const handleSaveService = async () => {
+  const handleSaveService = () => {
     const data = {
+      id: editingService ? editingService.id : Math.random().toString(36).substr(2, 9).toUpperCase(),
       description: serviceForm.description,
       price: parseFloat(serviceForm.price.replace(',', '.')) || 0,
       category: serviceForm.category
     };
 
-    try {
-      if (editingService) {
-        const { error } = await supabase.from('registered_services').update(data).eq('id', editingService.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('registered_services').insert([{ ...data, id: Math.random().toString(36).substr(2, 9).toUpperCase() }]);
-        if (error) throw error;
-      }
-      fetchData();
-      setIsServiceModalOpen(false);
-      setEditingService(null);
-      setServiceForm({ description: '', price: '', category: '' });
-    } catch (error) {
-      console.error('Erro ao salvar serviço:', error);
-      alert('Erro ao salvar serviço.');
+    if (editingService) {
+      setRegisteredServices(registeredServices.map(s => s.id === editingService.id ? data : s));
+    } else {
+      setRegisteredServices([...registeredServices, data]);
     }
+
+    setIsServiceModalOpen(false);
+    setEditingService(null);
+    setServiceForm({ description: '', price: '', category: '' });
   };
 
   const renderServices = () => (
@@ -3384,11 +3387,9 @@ export default function App() {
                       <Pencil size={18} />
                     </button>
                     <button
-                      onClick={async () => {
+                      onClick={() => {
                         if (confirm(`Excluir serviço "${s.description}"?`)) {
-                          const { error } = await supabase.from('registered_services').delete().eq('id', s.id);
-                          if (!error) fetchData();
-                          else alert('Erro ao excluir serviço.');
+                          setRegisteredServices(registeredServices.filter(item => item.id !== s.id));
                         }
                       }}
                       className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
