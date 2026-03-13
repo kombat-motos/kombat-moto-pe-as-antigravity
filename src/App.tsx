@@ -119,6 +119,13 @@ interface FixedService {
   payout: number;
 }
 
+interface RegisteredService {
+  id: string;
+  description: string;
+  price: number;
+  category?: string;
+}
+
 interface SaleItem {
   product_id?: number;
   description: string;
@@ -442,6 +449,7 @@ export default function App() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [registeredServices, setRegisteredServices] = useState<RegisteredService[]>([]);
   const [loading, setLoading] = useState(true);
   const [authChecking, setAuthChecking] = useState(true);
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
@@ -462,6 +470,7 @@ export default function App() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [editingMotorcycle, setEditingMotorcycle] = useState<Motorcycle | null>(null);
+  const [editingService, setEditingService] = useState<RegisteredService | null>(null);
   const [editingOS, setEditingOS] = useState<Sale | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
@@ -491,6 +500,7 @@ export default function App() {
   // Form States
   const [customerForm, setCustomerForm] = useState({ name: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
   const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '', application: '' });
+  const [serviceForm, setServiceForm] = useState({ description: '', price: '', category: '' });
   const [motorcycleForm, setMotorcycleForm] = useState({ customer_id: '', plate: '', model: '', current_km: '' });
 
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -502,6 +512,7 @@ export default function App() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [isPdvModalOpen, setIsPdvModalOpen] = useState(false);
   const [isOsModalOpen, setIsOsModalOpen] = useState(false);
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [pdvForm, setPdvForm] = useState<{
     customer_id: string;
     items: SaleItem[];
@@ -540,6 +551,8 @@ export default function App() {
   });
   const [pdvSearchProduct, setPdvSearchProduct] = useState('');
   const [osSearchProduct, setOsSearchProduct] = useState('');
+  const [osSearchService, setOsSearchService] = useState('');
+  const [serviceSearchTerm, setServiceSearchTerm] = useState('');
   const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<Sale | null>(null);
   const [selectedSaleForOS, setSelectedSaleForOS] = useState<Sale | null>(null);
   const [mechanics, setMechanics] = useState<Mechanic[]>([]);
@@ -856,7 +869,8 @@ export default function App() {
         { data: ordersData },
         { data: cashSessionsData },
         { data: cashTransactionsData },
-        { data: quotesData }
+        { data: quotesData },
+        { data: registeredServicesData }
       ] = await Promise.all([
         supabase.from('products').select('*'),
         supabase.from('customers').select('*'),
@@ -869,7 +883,8 @@ export default function App() {
         supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
         supabase.from('cash_sessions').select('*'),
         supabase.from('cash_transactions').select('*'),
-        supabase.from('quotes').select('*')
+        supabase.from('quotes').select('*'),
+        supabase.from('registered_services').select('*')
       ]);
 
       let finalProducts = productsData || [];
@@ -932,6 +947,7 @@ export default function App() {
         distributor_id: o.distributor_id
       })));
       if (quotesData) setQuotes(quotesData);
+      if (registeredServicesData) setRegisteredServices(registeredServicesData);
 
       if (cashSessionsData) {
         const sessions = cashSessionsData.map((s: any) => ({
@@ -3285,6 +3301,110 @@ export default function App() {
     </div>
   );
 
+  const handleSaveService = async () => {
+    const data = {
+      description: serviceForm.description,
+      price: parseFloat(serviceForm.price.replace(',', '.')) || 0,
+      category: serviceForm.category
+    };
+
+    try {
+      if (editingService) {
+        const { error } = await supabase.from('registered_services').update(data).eq('id', editingService.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('registered_services').insert([{ ...data, id: Math.random().toString(36).substr(2, 9).toUpperCase() }]);
+        if (error) throw error;
+      }
+      fetchData();
+      setIsServiceModalOpen(false);
+      setEditingService(null);
+      setServiceForm({ description: '', price: '', category: '' });
+    } catch (error) {
+      console.error('Erro ao salvar serviço:', error);
+      alert('Erro ao salvar serviço.');
+    }
+  };
+
+  const renderServices = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-slate-900">Cadastro de Serviços</h2>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              placeholder="Pesquisar serviços..."
+              className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
+              value={serviceSearchTerm}
+              onChange={e => setServiceSearchTerm(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={() => {
+              setEditingService(null);
+              setServiceForm({ description: '', price: '', category: '' });
+              setIsServiceModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium"
+          >
+            <Plus size={18} />
+            Novo Serviço
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-50 border-bottom border-slate-100">
+              <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Descrição / Serviço</th>
+              <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Preço Sugerido</th>
+              <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {registeredServices.filter(s =>
+              s.description.toLowerCase().includes(serviceSearchTerm.toLowerCase())
+            ).map(s => (
+              <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                <td className="px-6 py-4 font-bold text-slate-900">{s.description}</td>
+                <td className="px-6 py-4 text-rose-600 font-bold">R$ {s.price.toFixed(2)}</td>
+                <td className="px-6 py-4 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingService(s);
+                        setServiceForm({ description: s.description, price: s.price.toString(), category: s.category || '' });
+                        setIsServiceModalOpen(true);
+                      }}
+                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (confirm(`Excluir serviço "${s.description}"?`)) {
+                          const { error } = await supabase.from('registered_services').delete().eq('id', s.id);
+                          if (!error) fetchData();
+                          else alert('Erro ao excluir serviço.');
+                        }
+                      }}
+                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   const renderInventory = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -4730,6 +4850,12 @@ export default function App() {
             onClick={() => { setActiveTab('inventory'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
+            icon={Settings}
+            label="Serviços"
+            active={activeTab === 'services'}
+            onClick={() => { setActiveTab('services'); setIsSidebarOpen(false); }}
+          />
+          <SidebarItem
             icon={Truck}
             label="Pedidos de Peças"
             active={activeTab === 'orders'}
@@ -4815,6 +4941,7 @@ export default function App() {
               {activeTab === 'dashboard' && 'Bem-vindo de volta!'}
               {activeTab === 'customers' && 'Gestão de Clientes'}
               {activeTab === 'inventory' && 'Controle de Estoque'}
+              {activeTab === 'services' && 'Cadastro de Serviços'}
               {activeTab === 'crm' && 'CRM de Vendas'}
               {activeTab === 'pdv' && 'Frente de Caixa (PDV)'}
               {activeTab === 'os' && 'Ordens de Serviço'}
@@ -4862,6 +4989,7 @@ export default function App() {
                 {activeTab === 'dashboard' && renderDashboard()}
                 {activeTab === 'customers' && renderCustomers()}
                 {activeTab === 'inventory' && renderInventory()}
+                {activeTab === 'services' && renderServices()}
                 {activeTab === 'crm' && renderCRM()}
                 {activeTab === 'pdv' && renderPDV()}
                 {activeTab === 'os' && renderOS()}
@@ -5899,6 +6027,41 @@ export default function App() {
         </Modal>
 
         <Modal
+          isOpen={isServiceModalOpen}
+          onClose={() => setIsServiceModalOpen(false)}
+          title={editingService ? "Editar Serviço" : "Cadastrar Novo Serviço"}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Descrição do Serviço</label>
+              <input
+                type="text"
+                placeholder="Ex: Troca de Óleo, Limpeza de Carburador..."
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                value={serviceForm.description}
+                onChange={e => setServiceForm({ ...serviceForm, description: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Preço Sugerido (R$)</label>
+              <input
+                type="text"
+                placeholder="0,00"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none font-bold"
+                value={serviceForm.price}
+                onChange={e => setServiceForm({ ...serviceForm, price: e.target.value })}
+              />
+            </div>
+            <button
+              onClick={handleSaveService}
+              className="w-full py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 mt-4"
+            >
+              {editingService ? "Salvar Alterações" : "Cadastrar Serviço"}
+            </button>
+          </div>
+        </Modal>
+
+        <Modal
           isOpen={!!selectedCustomerForPrint}
           onClose={() => setSelectedCustomerForPrint(null)}
           title={selectedCustomerForPrint?.type === 'A4' ? "Relatório de Histórico (A4)" : "Recibo de Histórico (80mm)"}
@@ -6364,46 +6527,85 @@ export default function App() {
                 </div>
               )}
 
-              <div className="relative">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Adicionar Peça / Produto</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input
-                    type="text"
-                    placeholder="Buscar no estoque..."
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
-                    value={osSearchProduct}
-                    onChange={e => setOsSearchProduct(e.target.value)}
-                  />
-                </div>
-                {osSearchProduct && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                    {products.filter(p =>
-                      p.description.toLowerCase().includes(osSearchProduct.toLowerCase()) ||
-                      (p.brand && p.brand.toLowerCase().includes(osSearchProduct.toLowerCase())) ||
-                      p.sku.toLowerCase().includes(osSearchProduct.toLowerCase())
-                    ).sort((a, b) => a.description.localeCompare(b.description)).map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => handleAddOsItem(p)}
-                        className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-50 last:border-none"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-slate-900">{p.description}</p>
-                          <p className="text-[10px] text-slate-500 flex items-center gap-2">
-                            Estoque: {p.stock} {p.unit}
-                            {p.brand && (
-                              <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase tracking-tighter">
-                                {p.brand}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <span className="text-sm font-bold text-rose-600">R$ {p.sale_price.toFixed(2)}</span>
-                      </button>
-                    ))}
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Adicionar Peça / Produto</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      type="text"
+                      placeholder="Buscar no estoque..."
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
+                      value={osSearchProduct}
+                      onChange={e => setOsSearchProduct(e.target.value)}
+                    />
                   </div>
-                )}
+                  {osSearchProduct && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                      {products.filter(p =>
+                        p.description.toLowerCase().includes(osSearchProduct.toLowerCase()) ||
+                        (p.brand && p.brand.toLowerCase().includes(osSearchProduct.toLowerCase())) ||
+                        p.sku.toLowerCase().includes(osSearchProduct.toLowerCase())
+                      ).sort((a, b) => a.description.localeCompare(b.description)).map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => handleAddOsItem(p)}
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-50 last:border-none"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{p.description}</p>
+                            <p className="text-[10px] text-slate-500 flex items-center gap-2">
+                              Estoque: {p.stock} {p.unit}
+                            </p>
+                          </div>
+                          <span className="text-sm font-bold text-rose-600">R$ {p.sale_price.toFixed(2)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Adicionar Serviço Cadastrado</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      type="text"
+                      placeholder="Buscar serviço..."
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
+                      value={osSearchService}
+                      onChange={e => setOsSearchService(e.target.value)}
+                    />
+                  </div>
+                  {osSearchService && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                      {registeredServices.filter(s =>
+                        s.description.toLowerCase().includes(osSearchService.toLowerCase())
+                      ).map(s => (
+                        <button
+                          key={s.id}
+                          onClick={() => {
+                            const currentLabor = parseFloat(osForm.labor_value.replace(',', '.')) || 0;
+                            const newLabor = currentLabor + s.price;
+                            setOsForm({
+                              ...osForm,
+                              labor_value: newLabor.toFixed(2),
+                              service_description: osForm.service_description ? `${osForm.service_description}\n${s.description}` : s.description
+                            });
+                            setOsSearchService('');
+                            alert(`Serviço "${s.description}" adicionado à mão de obra!`);
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-50 last:border-none"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{s.description}</p>
+                          </div>
+                          <span className="text-sm font-bold text-blue-600">R$ {s.price.toFixed(2)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
