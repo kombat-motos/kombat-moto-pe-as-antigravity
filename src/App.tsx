@@ -1551,19 +1551,19 @@ export default function App() {
                     </div>
 
                     <div className="flex flex-wrap gap-2 mt-2">
-                      <div className="px-2 py-1 bg-slate-100 rounded text-[10px] text-slate-600">
-                        <span className="font-bold">Total:</span> R$ {sale.total.toFixed(2)}
+                      <div className="px-2 py-1 bg-slate-900 rounded text-[10px] text-white">
+                        <span className="font-bold">TOTAL GERAL:</span> R$ {sale.total.toFixed(2)}
                       </div>
-                      <div className="px-2 py-1 bg-slate-100 rounded text-[10px] text-slate-600">
-                        <span className="font-bold">Peças:</span> R$ {sale.items.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}
+                      <div className="px-2 py-1 bg-blue-50 rounded text-[10px] text-blue-700">
+                        <span className="font-bold">TOTAL PEÇAS:</span> R$ {sale.items.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}
+                      </div>
+                      <div className="px-2 py-1 bg-amber-50 rounded text-[10px] text-amber-700">
+                        <span className="font-bold">TOTAL SERVIÇOS:</span> R$ {(sale.labor_value || 0).toFixed(2)}
                       </div>
                       {sale.type === 'Oficina' && (
                         <>
-                          <div className="px-2 py-1 bg-amber-50 rounded text-[10px] text-amber-700">
+                          <div className="px-2 py-1 bg-green-50 rounded text-[10px] text-green-700">
                             <span className="font-bold">Comissão ({sale.mechanic_name}):</span> R$ {sale.commission.toFixed(2)}
-                          </div>
-                          <div className="px-2 py-1 bg-rose-50 rounded text-[10px] text-rose-700">
-                            <span className="font-bold">Líquido Loja:</span> R$ {(sale.total - sale.commission).toFixed(2)}
                           </div>
                         </>
                       )}
@@ -5838,55 +5838,62 @@ export default function App() {
                 </div>
               )}
 
-              <div className="pt-4 border-t border-slate-100">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-slate-500 font-medium">Total da Venda</span>
-                  <span className="text-2xl font-black text-slate-900">
+              <div className="pt-4 border-t border-slate-100 space-y-1">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-500">Total Peças:</span>
+                  <span className="font-bold text-slate-700">R$ {pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm mb-4">
+                  <span className="text-slate-500">Total Serviços:</span>
+                  <span className="font-bold text-slate-700">R$ 0.00</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-t border-slate-200">
+                  <span className="text-slate-600 font-bold text-lg">TOTAL DA VENDA</span>
+                  <span className="text-2xl font-black text-rose-600">
                     R$ {pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}
                   </span>
                 </div>
-
-                <div className="mb-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowPdvCalculator(!showPdvCalculator)}
-                    className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-200"
-                  >
-                    <Calculator size={18} />
-                    {showPdvCalculator ? 'Esconder Calculadora de Juros' : 'Abrir Calculadora de Juros/Taxas'}
-                  </button>
-                </div>
-
-                {showPdvCalculator && (
-                  <div className="mb-6 animate-in slide-in-from-top-4 duration-300">
-                    <VendaCalculator
-                      initialCost={pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)}
-                      cardFees={cardFeesSettings}
-                      onApply={(newTotal) => {
-                        const currentTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-                        const diff = newTotal - currentTotal;
-                        if (diff > 0) {
-                          setPdvForm({
-                            ...pdvForm,
-                            items: [
-                              ...pdvForm.items,
-                              { description: 'AJUSTE DE TAXA/PRAZO CALCULADO', quantity: 1, price: diff }
-                            ]
-                          });
-                          alert('Diferença de taxa/prazo aplicada com sucesso!');
-                        }
-                      }}
-                    />
-                  </div>
-                )}
-
+              </div>
+              <div className="mb-4">
                 <button
-                  onClick={handleCompleteSale}
-                  className="w-full py-4 bg-rose-600 text-white rounded-2xl font-bold text-lg hover:bg-rose-700 transition-all shadow-lg shadow-rose-100"
+                  type="button"
+                  onClick={() => setShowPdvCalculator(!showPdvCalculator)}
+                  className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-200"
                 >
-                  Finalizar Venda
+                  <Calculator size={18} />
+                  {showPdvCalculator ? 'Esconder Calculadora de Juros' : 'Abrir Calculadora de Juros/Taxas'}
                 </button>
               </div>
+
+              {showPdvCalculator && (
+                <div className="mb-6 animate-in slide-in-from-top-4 duration-300">
+                  <VendaCalculator
+                    initialCost={pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)}
+                    cardFees={cardFeesSettings}
+                    onApply={(newTotal) => {
+                      const currentTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+                      const diff = newTotal - currentTotal;
+                      if (diff > 0) {
+                        setPdvForm({
+                          ...pdvForm,
+                          items: [
+                            ...pdvForm.items,
+                            { description: 'AJUSTE DE TAXA/PRAZO CALCULADO', quantity: 1, price: diff }
+                          ]
+                        });
+                        alert('Diferença de taxa/prazo aplicada com sucesso!');
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
+              <button
+                onClick={handleCompleteSale}
+                className="w-full py-4 bg-rose-600 text-white rounded-2xl font-bold text-lg hover:bg-rose-700 transition-all shadow-lg shadow-rose-100"
+              >
+                Finalizar Venda
+              </button>
             </div>
           </div>
         </Modal>
@@ -6148,11 +6155,20 @@ export default function App() {
               <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
 
               {/* Totals Section */}
-              <table style={{ width: '100%', fontSize: '13px', fontWeight: '900' }}>
+              <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
+              <table style={{ width: '100%', fontSize: '11px', fontWeight: 'bold' }}>
                 <tbody>
                   <tr>
-                    <td style={{ textAlign: 'left' }}>Subtotal:</td>
-                    <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                    <td style={{ textAlign: 'left' }}>Total Peças:</td>
+                    <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.items || []).reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ textAlign: 'left' }}>Total Serviços:</td>
+                    <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.labor_value || 0).toFixed(2)}</td>
+                  </tr>
+                  <tr style={{ borderTop: '1px dotted black' }}>
+                    <td style={{ textAlign: 'left', paddingTop: '4px', fontSize: '12px' }}>TOTAL GERAL:</td>
+                    <td style={{ textAlign: 'right', paddingTop: '4px', fontSize: '12px' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ textAlign: 'left' }}>Desconto:</td>
@@ -7359,6 +7375,6 @@ export default function App() {
           </div>
         )}
       </Modal>
-    </div>
+    </div >
   );
 }
