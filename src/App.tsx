@@ -131,6 +131,7 @@ interface SaleItem {
   description: string;
   quantity: number;
   price: number;
+  type?: 'Peça' | 'Serviço';
 }
 
 interface Sale {
@@ -449,19 +450,7 @@ export default function App() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [registeredServices, setRegisteredServices] = useState<RegisteredService[]>(() => {
-    const saved = localStorage.getItem('registeredServices');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', description: 'Mão de Obra Básica', price: 50.00 },
-      { id: '2', description: 'Troca de Óleo', price: 30.00 },
-      { id: '3', description: 'Limpeza de Relação', price: 40.00 }
-    ];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('registeredServices', JSON.stringify(registeredServices));
-  }, [registeredServices]);
-
+  const [registeredServices, setRegisteredServices] = useState<RegisteredService[]>([]);
   const [loading, setLoading] = useState(true);
   const [authChecking, setAuthChecking] = useState(true);
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
@@ -865,7 +854,6 @@ export default function App() {
       console.error('Erro ao sair', error);
     }
   };
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -881,7 +869,8 @@ export default function App() {
         { data: ordersData },
         { data: cashSessionsData },
         { data: cashTransactionsData },
-        { data: quotesData }
+        { data: quotesData },
+        { data: registeredServicesData }
       ] = await Promise.all([
         supabase.from('products').select('*'),
         supabase.from('customers').select('*'),
@@ -894,7 +883,8 @@ export default function App() {
         supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
         supabase.from('cash_sessions').select('*'),
         supabase.from('cash_transactions').select('*'),
-        supabase.from('quotes').select('*')
+        supabase.from('quotes').select('*'),
+        supabase.from('registered_services').select('*')
       ]);
 
       let finalProducts = productsData || [];
@@ -957,6 +947,7 @@ export default function App() {
         distributor_id: o.distributor_id
       })));
       if (quotesData) setQuotes(quotesData);
+      if (registeredServicesData) setRegisteredServices(registeredServicesData);
 
       if (cashSessionsData) {
         const sessions = cashSessionsData.map((s: any) => ({
@@ -1170,10 +1161,10 @@ export default function App() {
     setOsSearchProduct('');
   };
 
-  const handleRemoveOsItem = (productId?: number) => {
+  const handleRemoveOsItem = (index: number) => {
     setOsForm({
       ...osForm,
-      items: osForm.items.filter(i => i.product_id !== productId)
+      items: osForm.items.filter((_, i) => i !== index)
     });
   };
 
@@ -1316,8 +1307,10 @@ export default function App() {
       return;
     }
 
-    const totalItems = osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-    const laborValue = parseFloat(osForm.labor_value.toString().replace(',', '.')) || 0;
+    const totalItems = osForm.items.filter(i => i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    const laborValueFromItems = osForm.items.filter(i => !i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    const laborValueManual = parseFloat(osForm.labor_value.toString().replace(',', '.')) || 0;
+    const laborValue = laborValueFromItems + laborValueManual;
     const total = totalItems + laborValue;
     const customer = osForm.customer_id ? customers.find(c => c.id === parseInt(osForm.customer_id)) : null;
     const motorcycle = osForm.motorcycle_id ? motorcycles.find(m => m.id === parseInt(osForm.motorcycle_id)) : null;
@@ -1429,7 +1422,8 @@ export default function App() {
           product_id: item.product_id,
           description: item.description,
           quantity: item.quantity,
-          price: item.price
+          price: item.price,
+          type: item.type || 'Peça'
         }));
 
         const { error: itemsError } = await supabase.from('sale_items').insert(saleItems);
@@ -1580,7 +1574,7 @@ export default function App() {
                         <span className="font-bold">TOTAL GERAL:</span> R$ {sale.total.toFixed(2)}
                       </div>
                       <div className="px-2 py-1 bg-blue-50 rounded text-[10px] text-blue-700">
-                        <span className="font-bold">TOTAL PEÇAS:</span> R$ {sale.items.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}
+                        <span className="font-bold">TOTAL PEÇAS:</span> R$ {(sale.total - (sale.labor_value || 0)).toFixed(2)}
                       </div>
                       <div className="px-2 py-1 bg-amber-50 rounded text-[10px] text-amber-700">
                         <span className="font-bold">TOTAL SERVIÇOS:</span> R$ {(sale.labor_value || 0).toFixed(2)}
@@ -3310,23 +3304,29 @@ export default function App() {
     </div>
   );
 
-  const handleSaveService = () => {
+  const handleSaveService = async () => {
     const data = {
-      id: editingService ? editingService.id : Math.random().toString(36).substr(2, 9).toUpperCase(),
       description: serviceForm.description,
       price: parseFloat(serviceForm.price.replace(',', '.')) || 0,
       category: serviceForm.category
     };
 
-    if (editingService) {
-      setRegisteredServices(registeredServices.map(s => s.id === editingService.id ? data : s));
-    } else {
-      setRegisteredServices([...registeredServices, data]);
+    try {
+      if (editingService) {
+        const { error } = await supabase.from('registered_services').update(data).eq('id', editingService.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('registered_services').insert([{ ...data, id: Math.random().toString(36).substr(2, 9).toUpperCase() }]);
+        if (error) throw error;
+      }
+      fetchData();
+      setIsServiceModalOpen(false);
+      setEditingService(null);
+      setServiceForm({ description: '', price: '', category: '' });
+    } catch (error) {
+      console.error('Erro ao salvar serviço:', error);
+      alert('Erro ao salvar serviço.');
     }
-
-    setIsServiceModalOpen(false);
-    setEditingService(null);
-    setServiceForm({ description: '', price: '', category: '' });
   };
 
   const renderServices = () => (
@@ -3387,9 +3387,16 @@ export default function App() {
                       <Pencil size={18} />
                     </button>
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         if (confirm(`Excluir serviço "${s.description}"?`)) {
-                          setRegisteredServices(registeredServices.filter(item => item.id !== s.id));
+                          try {
+                            const { error } = await supabase.from('registered_services').delete().eq('id', s.id);
+                            if (error) throw error;
+                            fetchData();
+                          } catch (error) {
+                            console.error('Erro ao excluir serviço:', error);
+                            alert('Erro ao excluir serviço.');
+                          }
                         }
                       }}
                       className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
@@ -3788,14 +3795,14 @@ export default function App() {
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
 
-    const productSales = monthlySales.reduce((acc, s) => acc + s.items.reduce((sum, i) => sum + (i.price * i.quantity), 0), 0);
-    const productCosts = monthlySales.reduce((acc, s) => acc + s.items.reduce((sum, i) => {
+    const productSales = monthlySales.reduce((acc, s) => acc + s.items.filter(i => i.product_id).reduce((sum, i) => sum + (i.price * i.quantity), 0), 0);
+    const productCosts = monthlySales.reduce((acc, s) => acc + s.items.filter(i => i.product_id).reduce((sum, i) => {
       const product = products.find(p => p.id === i.product_id);
       return sum + ((product?.purchase_price || 0) * i.quantity);
     }, 0), 0);
     const productProfit = productSales - productCosts;
     const profitMargin = productSales > 0 ? (productProfit / productSales) * 100 : 0;
-    const serviceSales = monthlySales.reduce((acc, s) => acc + s.labor_value, 0);
+    const serviceSales = monthlySales.reduce((acc, s) => acc + (s.labor_value || 0), 0);
     const totalRevenue = productSales + serviceSales;
 
     return (
@@ -6274,41 +6281,58 @@ export default function App() {
 
               {/* Items Table */}
               <div className="py-1">
-                <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
-                  <thead>
-                    <tr style={{ fontWeight: '900', borderBottom: '1.5px solid black' }}>
-                      <th style={{ textAlign: 'left', width: '20%' }}>Código</th>
-                      <th style={{ textAlign: 'left', width: '80%' }}>Item</th>
-                    </tr>
-                    <tr style={{ fontWeight: '900', borderBottom: '1.5px solid black' }}>
-                      <th style={{ textAlign: 'left' }}>Quant.</th>
-                      <th style={{ textAlign: 'left' }}>Preço Unit.</th>
-                      <th style={{ textAlign: 'right' }}>Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(selectedSaleForReceipt.items || []).map((item, idx) => (
-                      <React.Fragment key={idx}>
-                        <tr>
-                          <td style={{ paddingTop: '4px' }}>{item.product_id || '---'}</td>
-                          <td style={{ paddingTop: '4px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
-                        </tr>
-                        <tr style={{ borderBottom: '1px dotted black' }}>
-                          <td style={{ textAlign: 'left', paddingLeft: '8px' }}>{item.quantity}</td>
-                          <td style={{ textAlign: 'left' }}>x R$ {(item.price || 0).toFixed(2)} =</td>
-                          <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
-                        </tr>
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
+                {(selectedSaleForReceipt.items || []).filter(i => i.product_id).length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <p style={{ fontSize: '10px', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>PEÇAS E PRODUTOS</p>
+                    <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
+                      <tbody>
+                        {(selectedSaleForReceipt.items || []).filter(i => i.product_id).map((item, idx) => (
+                          <React.Fragment key={idx}>
+                            <tr>
+                              <td style={{ paddingTop: '4px', width: '20%' }}>{item.product_id || '---'}</td>
+                              <td style={{ paddingTop: '4px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px dotted black' }}>
+                              <td style={{ textAlign: 'left', paddingLeft: '8px' }}>{item.quantity}</td>
+                              <td style={{ textAlign: 'left' }}>x R$ {(item.price || 0).toFixed(2)} =</td>
+                              <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
+                            </tr>
+                          </React.Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {(selectedSaleForReceipt.items || []).filter(i => !i.product_id).length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <p style={{ fontSize: '10px', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>SERVIÇOS EXECUTADOS</p>
+                    <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
+                      <tbody>
+                        {(selectedSaleForReceipt.items || []).filter(i => !i.product_id).map((item, idx) => (
+                          <React.Fragment key={idx}>
+                            <tr>
+                              <td style={{ paddingTop: '4px', width: '20%' }}>---</td>
+                              <td style={{ paddingTop: '4px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px dotted black' }}>
+                              <td style={{ textAlign: 'left', paddingLeft: '8px' }}>{item.quantity}</td>
+                              <td style={{ textAlign: 'left' }}>x R$ {(item.price || 0).toFixed(2)} =</td>
+                              <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
+                            </tr>
+                          </React.Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
                 {(selectedSaleForReceipt.labor_value || 0) > 0 && (
                   <div style={{ marginTop: '8px', paddingTop: '4px', borderTop: '1px dotted black' }}>
                     <table style={{ width: '100%', fontSize: '10px', fontWeight: 'bold' }}>
                       <tbody>
                         <tr>
-                          <td style={{ textAlign: 'left' }}>MÃO DE OBRA / SERVIÇOS</td>
+                          <td style={{ textAlign: 'left' }}>MÃO DE OBRA / SERVIÇOS AVULSOS</td>
                           <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.labor_value || 0).toFixed(2)}</td>
                         </tr>
                       </tbody>
@@ -6324,7 +6348,7 @@ export default function App() {
                 <tbody>
                   <tr>
                     <td style={{ textAlign: 'left' }}>Total Peças:</td>
-                    <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.items || []).reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</td>
+                    <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total - (selectedSaleForReceipt.labor_value || 0)).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ textAlign: 'left' }}>Total Serviços:</td>
@@ -6586,15 +6610,17 @@ export default function App() {
                         <button
                           key={s.id}
                           onClick={() => {
-                            const currentLabor = parseFloat(osForm.labor_value.replace(',', '.')) || 0;
-                            const newLabor = currentLabor + s.price;
+                            const newServiceItem: SaleItem = {
+                              description: s.description,
+                              quantity: 1,
+                              price: s.price,
+                              type: 'Serviço'
+                            };
                             setOsForm({
                               ...osForm,
-                              labor_value: newLabor.toFixed(2),
-                              service_description: osForm.service_description ? `${osForm.service_description}\n${s.description}` : s.description
+                              items: [...osForm.items, newServiceItem]
                             });
                             setOsSearchService('');
-                            alert(`Serviço "${s.description}" adicionado à mão de obra!`);
                           }}
                           className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-50 last:border-none"
                         >
@@ -6620,56 +6646,124 @@ export default function App() {
               </div>
 
               {/* Items List */}
-              <div className="space-y-2">
-                {osForm.items.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-900">{item.description}</p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-7">
+              <div className="space-y-6">
+                {/* Peças Section */}
+                {osForm.items.filter(i => i.product_id).length > 0 && (
+                  <div className="space-y-2">
+                    <h5 className="text-[10px] font-black text-rose-500 uppercase tracking-widest px-2">Peças e Produtos</h5>
+                    {osForm.items.map((item, idx) => item.product_id && (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-slate-900">{item.description}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-7">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newQty = Math.max(1, item.quantity - 1);
+                                  setOsForm({
+                                    ...osForm,
+                                    items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: newQty } : it)
+                                  });
+                                }}
+                                className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                              >
+                                <MinusCircle size={14} />
+                              </button>
+                              <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-200 min-w-[32px]">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOsForm({
+                                    ...osForm,
+                                    items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it)
+                                  });
+                                }}
+                                className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                              >
+                                <PlusCircle size={14} />
+                              </button>
+                            </div>
+                            <p className="text-xs text-slate-500">x R$ {item.price.toFixed(2)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-slate-900">R$ {(item.price * item.quantity).toFixed(2)}</span>
                           <button
-                            type="button"
-                            onClick={() => {
-                              const newQty = Math.max(1, item.quantity - 1);
-                              setOsForm({
-                                ...osForm,
-                                items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: newQty } : it)
-                              });
-                            }}
-                            className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                            onClick={() => handleRemoveOsItem(idx)}
+                            className="p-1 text-rose-400 hover:text-rose-600"
                           >
-                            <MinusCircle size={14} />
-                          </button>
-                          <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-200 min-w-[32px]">
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOsForm({
-                                ...osForm,
-                                items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it)
-                              });
-                            }}
-                            className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
-                          >
-                            <PlusCircle size={14} />
+                            <Trash2 size={18} />
                           </button>
                         </div>
-                        <p className="text-xs text-slate-500">x R$ {item.price.toFixed(2)}</p>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-slate-900">R$ {(item.price * item.quantity).toFixed(2)}</span>
-                      <button
-                        onClick={() => handleRemoveOsItem(item.product_id)}
-                        className="p-1 text-rose-400 hover:text-rose-600"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                    ))}
+                    <div className="flex justify-end pr-4">
+                      <p className="text-xs font-bold text-rose-600">Subtotal Peças: R$ {osForm.items.filter(i => i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</p>
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* Serviços Section */}
+                {osForm.items.filter(i => !i.product_id).length > 0 && (
+                  <div className="space-y-2">
+                    <h5 className="text-[10px] font-black text-amber-500 uppercase tracking-widest px-2">Serviços Descriminados</h5>
+                    {osForm.items.map((item, idx) => !item.product_id && (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-amber-50/30 rounded-xl border border-amber-100">
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-slate-900">{item.description}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-7">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newQty = Math.max(1, item.quantity - 1);
+                                  setOsForm({
+                                    ...osForm,
+                                    items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: newQty } : it)
+                                  });
+                                }}
+                                className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                              >
+                                <MinusCircle size={14} />
+                              </button>
+                              <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-200 min-w-[32px]">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOsForm({
+                                    ...osForm,
+                                    items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it)
+                                  });
+                                }}
+                                className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                              >
+                                <PlusCircle size={14} />
+                              </button>
+                            </div>
+                            <p className="text-xs text-slate-500">x R$ {item.price.toFixed(2)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-slate-900">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                          <button
+                            onClick={() => handleRemoveOsItem(idx)}
+                            className="p-1 text-rose-400 hover:text-rose-600"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex justify-end pr-4">
+                      <p className="text-xs font-bold text-amber-600">Subtotal Serviços: R$ {osForm.items.filter(i => !i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -6838,11 +6932,21 @@ export default function App() {
               </div>
 
               <div className="pt-4 border-t border-slate-100">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-slate-500 font-medium">Total da O.S.</span>
-                  <span className="text-2xl font-black text-slate-900">
-                    R$ {(osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + parseFloat(osForm.labor_value || '0')).toFixed(2)}
-                  </span>
+                <div className="bg-slate-50 p-4 rounded-2xl mb-4 border border-slate-100 flex flex-col gap-2">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-500 font-bold uppercase">Total em Peças:</span>
+                    <span className="font-bold text-slate-700">R$ {osForm.items.filter(i => i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-500 font-bold uppercase">Total em Serviços:</span>
+                    <span className="font-bold text-slate-700">R$ {(osForm.items.filter(i => !i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-200 mt-1">
+                    <span className="text-slate-900 font-black uppercase text-sm">Valor Total da O.S.</span>
+                    <span className="text-2xl font-black text-rose-600">
+                      R$ {(osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)).toFixed(2)}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="mb-4">
@@ -7082,7 +7186,7 @@ export default function App() {
                     <div className="w-1/3 text-xs">
                       <div className="flex justify-between p-2 bg-slate-50 rounded-t-md">
                         <span className="font-bold">Total Peças:</span>
-                        <span>R$ {selectedSaleForOS.items.reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</span>
+                        <span>R$ {(selectedSaleForOS.total - selectedSaleForOS.labor_value).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between p-2 bg-slate-50">
                         <span className="font-bold">Total Serviços:</span>
