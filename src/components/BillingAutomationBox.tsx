@@ -176,21 +176,23 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
   };
 
   const getNotificationMessage = (sale: Sale, type: 'before' | 'on' | 'after', totalWithCharges: number) => {
-    const customerName = sale.customer_name.split(' ')[0]; // Só o primeiro nome para ficar amigável
-    const totalOriginal = sale.total.toFixed(2);
+    const customerName = sale.customer_name.split(' ')[0];
     const paidTotal = sale.paid_total || 0;
     const remaining = sale.total - paidTotal;
     const totalFinal = (totalWithCharges > remaining ? totalWithCharges : remaining).toFixed(2);
     const dueDate = sale.due_date ? format(new Date(sale.due_date), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
     const docId = sale.id.substring(0, 8).toUpperCase();
+    
+    const itemsList = sale.items.map((item: any) => `- ${item.quantity}x ${item.description}`).join('\n');
+    const labor = sale.labor_value > 0 ? `\nMão de Obra: R$ ${sale.labor_value.toFixed(2)}` : '';
 
     switch (type) {
       case 'before':
-        return `Olá, ${customerName}! Passando para lembrar que seu título ${docId} vence em ${dueDate}. Segue a nota para sua organização.\n\nKombat Moto Peças`;
+        return `Olá, ${customerName}! Passando para lembrar que seu título ${docId} vence em ${dueDate}.\n\n*Itens:*\n${itemsList}${labor}\n\nSegue a nota para sua organização.\n\nKombat Moto Peças`;
       case 'on':
-        return `Hoje vence seu título na Kombat Moto Peças. Para sua comodidade, segue a nota em anexo. Caso já tenha pago, desconsidere.\n\nValor: R$ ${totalFinal}`;
+        return `Hoje vence seu título na Kombat Moto Peças. Para sua comodidade, segue a nota em anexo.\n\n*Itens:*\n${itemsList}${labor}\n\n*Valor: R$ ${totalFinal}*\n\nCaso já tenha pago, desconsidere.\n\nKombat Moto Peças`;
       case 'after':
-        return `Atenção, ${customerName}. Identificamos que o título ${docId} está em atraso. O valor foi atualizado com juros e multa conforme o contrato. Segue PDF atualizado para pagamento imediato.\n\nNovo Valor: R$ ${totalFinal}`;
+        return `Atenção, ${customerName}. Identificamos que o título ${docId} está em atraso.\n\n*Itens:*\n${itemsList}${labor}\n\nO valor foi atualizado conforme o contrato.\n\n*Novo Valor: R$ ${totalFinal}*\n\nSegue PDF atualizado para pagamento imediato.\n\nKombat Moto Peças`;
       default:
         return '';
     }
@@ -337,10 +339,16 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                             const original = sale.total;
                             const charges = totalWithCharges - (original - paid);
 
+                            const itemsList = sale.items.map((item: any) => `${item.quantity}x ${item.description.substring(0, 15)}.. R$ ${(item.quantity * item.price).toFixed(2)}`).join('\n');
+                            const labor = sale.labor_value > 0 ? `SERVIÇOS: R$ ${sale.labor_value.toFixed(2)}\n` : '';
+
                             const thermalMsg = `*--- 📝 NOTA DE COBRANÇA ---*\n` +
                               `*ID:* #${docId}\n` +
                               `*CLIENTE:* ${sale.customer_name.toUpperCase()}\n` +
                               `*VENCIMENTO:* ${dueDate}\n\n` +
+                              `*--- ITENS DA VENDA ---*\n` +
+                              `${itemsList}\n` +
+                              `${labor}` +
                               `------------------------------------\n` +
                               `*VALOR ORIGINAL:* R$ ${original.toFixed(2)}\n` +
                               `*VALOR JÁ PAGO:* - R$ ${paid.toFixed(2)}\n` +
@@ -429,7 +437,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                       Nota de Cobrança (PDF)
                     </button>
                     <a
-                      href={generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, notificationType || 'on'))}
+                      href={generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, notificationType || 'on', totalWithCharges))}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`flex items-center gap-1 px-3 py-1.5 text-white text-xs rounded-lg transition-colors font-bold ${notificationType === 'after' ? 'bg-rose-500 hover:bg-rose-600' :
@@ -519,6 +527,22 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
               <strong> R$ {(selectedPromissory.totalWithCharges || selectedPromissory.total).toFixed(2)}</strong> (<em>{valorPorExtenso(selectedPromissory.totalWithCharges || selectedPromissory.total)}</em>).
               {selectedPromissory.totalWithCharges > selectedPromissory.total && (
                 <span> Este valor já inclui multa e juros por atraso calculados até a presente data.</span>
+              )}
+            </div>
+
+            <div style={{ marginTop: '15px', border: '1px solid #eee', padding: '10px', fontSize: '14px' }}>
+              <strong style={{ display: 'block', borderBottom: '1px solid #eee', paddingBottom: '5px', marginBottom: '5px' }}>DESCRIÇÃO DOS ITENS E SERVIÇOS</strong>
+              {selectedPromissory.items.map((item: any, idx: number) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                  <span>{item.quantity}x {item.description}</span>
+                  <span>R$ {(item.quantity * item.price).toFixed(2)}</span>
+                </div>
+              ))}
+              {selectedPromissory.labor_value > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginTop: '5px', borderTop: '1px dashed #eee', paddingTop: '5px' }}>
+                  <span>SERVIÇOS / MÃO DE OBRA</span>
+                  <span>R$ {selectedPromissory.labor_value.toFixed(2)}</span>
+                </div>
               )}
             </div>
 
