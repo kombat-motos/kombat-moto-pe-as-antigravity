@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Send, MessageCircle, Pencil, X, Check, Printer } from 'lucide-react';
+import { Send, MessageCircle, Pencil, X, Check, Printer, FileText, DollarSign } from 'lucide-react';
 
 interface Sale {
   id: string;
@@ -139,13 +139,13 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
   const [tempRates, setTempRates] = React.useState({ fine: 2, interest: 1 });
   const [selectedPromissory, setSelectedPromissory] = React.useState<any>(null);
 
-  const handlePrintPromissory = (sale: any) => {
-    setSelectedPromissory(sale);
+  const handlePrintPromissory = (sale: any, totalWithCharges: number) => {
+    setSelectedPromissory({ ...sale, totalWithCharges });
     setTimeout(() => {
       const content = document.getElementById('promissory-note-print');
       if (content) {
         const win = window.open('', '', 'height=600,width=800');
-        win?.document.write('<html><head><title>Nota Promissória</title>');
+        win?.document.write('<html><head><title>Nota de Cobrança</title>');
         win?.document.write('<style>@media print { body { -webkit-print-color-adjust: exact; } }</style>');
         win?.document.write('</head><body style="margin:0;padding:20px;font-family:sans-serif;">');
         win?.document.write(content.innerHTML);
@@ -325,6 +325,22 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                           <Send size={14} />
                         </a>
                       </div>
+                      <div className="w-4 h-[1px] bg-slate-100 mt-3"></div>
+
+                      <div className="flex flex-col items-center">
+                        <span className="text-[8px] font-black uppercase text-slate-400 mb-1">Envio PDF</span>
+                        <button
+                          onClick={() => {
+                            const msg = `Olá, estou te enviando a Nota de Cobrança atualizada referente ao título ${sale.id.substring(0, 8).toUpperCase()}. O valor atualizado com encargos é R$ ${totalWithCharges.toFixed(2)}. Favor desconsiderar a nota anterior.`;
+                            handlePrintPromissory(sale, totalWithCharges);
+                            window.open(generateWhatsAppLink(customerWhatsapp, msg), '_blank');
+                          }}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all bg-slate-800 text-white hover:scale-110 shadow-lg`}
+                          title="Gerar PDF e Notificar via WhatsApp"
+                        >
+                          <FileText size={14} />
+                        </button>
+                      </div>
                     </div>
                     
                     <div className="relative group/rates ml-auto">
@@ -388,7 +404,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                 <div className="flex flex-col gap-2 items-end">
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handlePrintPromissory(sale)}
+                      onClick={() => handlePrintPromissory(sale, totalWithCharges)}
                       className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-lg hover:bg-slate-900 transition-colors font-bold shadow-sm"
                     >
                       <Printer size={14} />
@@ -473,17 +489,42 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
             margin: '0 auto'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #5d4037', paddingBottom: '10px', marginBottom: '20px' }}>
-              <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', letterSpacing: '2px' }}>NOTA PROMISSÓRIA</h1>
+              <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', letterSpacing: '2px' }}>NOTA DE COBRANÇA</h1>
               <div style={{ border: '2px solid #5d4037', padding: '5px 15px', fontWeight: 'bold' }}>
                 VENCIMENTO: {selectedPromissory.due_date ? format(new Date(selectedPromissory.due_date), 'dd/MM/yyyy') : '___/___/_____'}
               </div>
             </div>
 
             <div style={{ fontSize: '18px', lineHeight: '1.8', textAlign: 'justify' }}>
-              No dia <strong>{selectedPromissory.due_date ? format(new Date(selectedPromissory.due_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : '__________________'}</strong>,
-              pagarei(emos) por esta via única de NOTA PROMISSÓRIA a <strong>{companyData.nomeFantasia.toUpperCase()}</strong> ou à sua ordem, a quantia de
-              <strong> R$ {selectedPromissory.total.toFixed(2)}</strong> (<em>{valorPorExtenso(selectedPromissory.total)}</em>),
-              em moeda corrente deste país.
+              Referente ao título de ID <strong>#{selectedPromissory.id.substring(0, 8).toUpperCase()}</strong>,
+              registramos que o valor pendente atualizado para pagamento é de 
+              <strong> R$ {(selectedPromissory.totalWithCharges || selectedPromissory.total).toFixed(2)}</strong> (<em>{valorPorExtenso(selectedPromissory.totalWithCharges || selectedPromissory.total)}</em>).
+              {selectedPromissory.totalWithCharges > selectedPromissory.total && (
+                <span> Este valor já inclui multa e juros por atraso calculados até a presente data.</span>
+              )}
+            </div>
+
+            <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #dcdcdc', backgroundColor: '#fff' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                <span>Valor Original:</span>
+                <span>R$ {selectedPromissory.total.toFixed(2)}</span>
+              </div>
+              {selectedPromissory.paid_total > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', color: '#10b981' }}>
+                  <span>Total Já Pago:</span>
+                  <span>- R$ {selectedPromissory.paid_total.toFixed(2)}</span>
+                </div>
+              )}
+              {selectedPromissory.totalWithCharges > (selectedPromissory.total - (selectedPromissory.paid_total || 0)) && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', color: '#ef4444' }}>
+                  <span>Encargos (Atraso):</span>
+                  <span>+ R$ {(selectedPromissory.totalWithCharges - (selectedPromissory.total - (selectedPromissory.paid_total || 0))).toFixed(2)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', borderTop: '2px solid #eee', paddingTop: '10px', fontWeight: 'bold', fontSize: '20px' }}>
+                <span>SALDO PARA PAGAMENTO:</span>
+                <span>R$ {(selectedPromissory.totalWithCharges || selectedPromissory.total).toFixed(2)}</span>
+              </div>
             </div>
 
             <div style={{ marginTop: '40px', padding: '15px', border: '1px solid #dcdcdc' }}>
