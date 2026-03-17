@@ -6579,17 +6579,34 @@ export default function App() {
               ) : (
                 <div className="space-y-4">
                   {sales.filter(s => s.customer_id === selectedCustomerForPrint.customer.id).map(sale => (
-                    <div key={sale.id} className="border-b border-dashed border-slate-400 pb-2">
-                      <div className="flex justify-between font-bold">
-                        <span>{new Date(sale.date).toLocaleDateString('pt-BR')} - {sale.id}</span>
+                    <div key={sale.id} className="border-b border-dashed border-slate-900 pb-2 mb-2">
+                      <div className="flex justify-between font-black">
+                        <span>{new Date(sale.date).toLocaleDateString('pt-BR')} - {sale.id.substring(0,8).toUpperCase()}</span>
                         <span>R$ {sale.total.toFixed(2)}</span>
                       </div>
-                      <p className="text-[9px] text-slate-500 italic">
+                      <p className="text-[8px] text-slate-500 uppercase font-black mb-1">
                         {sale.type === 'Oficina' ? 'Ordem de Serviço' : 'Venda Balcão'}
                       </p>
+                      
+                      {/* LISTA DE PRODUTOS NO RECIBO TÉRMICO */}
+                      <div className="pl-1 space-y-0.5 mb-1">
+                        {sale.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-[8px] text-slate-600">
+                            <span>{item.quantity}x {item.description.substring(0, 22)}..</span>
+                            <span className="font-mono">R$ {(item.quantity * item.price).toFixed(2)}</span>
+                          </div>
+                        ))}
+                        {sale.labor_value > 0 && (
+                          <div className="flex justify-between text-[8px] text-slate-800 font-bold border-t border-slate-200 pt-0.5">
+                            <span>MÃO DE OBRA / SERVIÇOS</span>
+                            <span className="font-mono">R$ {sale.labor_value.toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+
                       {sale.service_description && (
-                        <p className="text-[8px] text-slate-400 italic mt-1 border-l border-slate-400 pl-2">
-                          {sale.service_description}
+                        <p className="text-[7px] text-slate-400 italic bg-slate-50 p-1 border-l border-slate-300">
+                          OBS: {sale.service_description}
                         </p>
                       )}
                     </div>
