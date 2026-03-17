@@ -446,6 +446,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inventoryView, setInventoryView] = useState<'list' | 'grid'>('list');
+  const [customerViewMode, setCustomerViewMode] = useState<'grid' | 'list'>('grid');
   const [stats, setStats] = useState<Stats | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
@@ -3155,7 +3156,24 @@ export default function App() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-slate-900">Clientes e Motos</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <div className="flex bg-slate-100 p-1 rounded-xl no-print">
+            <button
+              onClick={() => setCustomerViewMode('list')}
+              className={`p-2 rounded-lg transition-all ${customerViewMode === 'list' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}
+              title="Visualização em Lista"
+            >
+              <List size={18} />
+            </button>
+            <button
+              onClick={() => setCustomerViewMode('grid')}
+              className={`p-2 rounded-lg transition-all ${customerViewMode === 'grid' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}
+              title="Visualização em Cards"
+            >
+              <LayoutGrid size={18} />
+            </button>
+          </div>
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
@@ -3197,6 +3215,7 @@ export default function App() {
         </div>
       </div>
 
+      {customerViewMode === 'grid' ? (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {customers.filter(c => {
           const search = (customerSearchTerm + globalSearchTerm).toLowerCase();
@@ -3301,6 +3320,102 @@ export default function App() {
           </div>
         ))}
       </div>
+      ) : (
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-100">
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Cliente</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contato / CPF</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Financeiro</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customers.filter(c => {
+                  const search = (customerSearchTerm + globalSearchTerm).toLowerCase();
+                  return (
+                    c.name.toLowerCase().includes(search) ||
+                    c.cpf.toLowerCase().includes(search) ||
+                    c.whatsapp.toLowerCase().includes(search) ||
+                    c.cnpj?.toLowerCase().includes(search) ||
+                    c.city?.toLowerCase().includes(search)
+                  );
+                }).map(c => (
+                  <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-slate-900">{c.name}</p>
+                      <p className="text-[10px] text-slate-400">{motorcycles.filter(m => m.customer_id === c.id).length} moto(s) cadastrada(s)</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-slate-700 font-bold">{c.whatsapp}</p>
+                      <p className="text-[10px] text-slate-400 font-mono">CPF: {c.cpf || '---'}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-slate-400">
+                          <span>Disponível</span>
+                          <span className="text-rose-600">R$ {getCustomerRemainingCredit(c.id).toFixed(2)}</span>
+                        </div>
+                        <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-rose-600 rounded-full"
+                            style={{ width: `${Math.max(0, Math.min(100, (getCustomerRemainingCredit(c.id) / (c.credit_limit || 1)) * 100))}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-center gap-1">
+                        <button
+                          onClick={() => {
+                            setEditingMotorcycle(null);
+                            setMotorcycleForm({ customer_id: c.id.toString(), plate: '', model: '', current_km: '' });
+                            setIsMotorcycleModalOpen(true);
+                          }}
+                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                          title="Nova Moto"
+                        >
+                          <Bike size={18} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingCustomer(c);
+                            setCustomerForm({
+                              name: c.name,
+                              cpf: c.cpf,
+                              cnpj: c.cnpj || '',
+                              whatsapp: c.whatsapp,
+                              address: c.address,
+                              neighborhood: c.neighborhood,
+                              city: c.city || '',
+                              zip_code: c.zip_code,
+                              credit_limit: c.credit_limit || 0,
+                              fine_rate: c.fine_rate || 2,
+                              interest_rate: c.interest_rate || 1
+                            });
+                            setIsCustomerModalOpen(true);
+                          }}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button
+                          onClick={() => setSelectedCustomerForHistory(c)}
+                          className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"
+                        >
+                          <List size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 
