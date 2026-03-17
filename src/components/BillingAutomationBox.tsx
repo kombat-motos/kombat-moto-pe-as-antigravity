@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Send, MessageCircle, Pencil, X, Check, Printer, FileText, DollarSign } from 'lucide-react';
 
@@ -359,6 +359,30 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                           <FileText size={14} />
                         </button>
                       </div>
+                    </div>
+
+                    {/* AVISO DE DIAS FALTANTES - ÁREA MARCADA COM X */}
+                    <div className="flex-1 flex justify-center px-4">
+                      {dueDate && (
+                        <div className={`flex flex-col items-center px-4 py-1.5 rounded-xl border transition-all ${
+                          differenceInDays(dueDate, today) < 0 
+                            ? 'bg-rose-50 border-rose-100 text-rose-600 animate-pulse' 
+                            : differenceInDays(dueDate, today) <= 3
+                            ? 'bg-amber-50 border-amber-100 text-amber-600'
+                            : 'bg-emerald-50 border-emerald-100 text-emerald-600'
+                        }`}>
+                          <span className="text-[10px] font-black uppercase tracking-wider mb-0.5">Prazo</span>
+                          <span className="text-sm font-black flex items-center gap-1">
+                            {differenceInDays(dueDate, today) === 0 ? (
+                              "VENCE HOJE"
+                            ) : differenceInDays(dueDate, today) < 0 ? (
+                              `ATRASADO ${Math.abs(differenceInDays(dueDate, today))} DIAS`
+                            ) : (
+                              `FALTAM ${differenceInDays(dueDate, today)} DIAS`
+                            )}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="relative group/rates ml-auto">
