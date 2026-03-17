@@ -476,6 +476,7 @@ export default function App() {
   const [editingOS, setEditingOS] = useState<Sale | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
+  const [labelPreviewProduct, setLabelPreviewProduct] = useState<Product | null>(null);
   const [showPdvCalculator, setShowPdvCalculator] = useState(false);
   const [showQuoteCalculator, setShowQuoteCalculator] = useState(false);
   const [showOsCalculator, setShowOsCalculator] = useState(false);
@@ -7888,7 +7889,7 @@ export default function App() {
               <div className="flex gap-3 pt-6">
                 <button
                   onClick={() => {
-                    handlePrintLabel(selectedProductDetail);
+                    setLabelPreviewProduct(selectedProductDetail);
                   }}
                   className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
                 >
@@ -7912,6 +7913,67 @@ export default function App() {
                   Fechar
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!labelPreviewProduct}
+        onClose={() => setLabelPreviewProduct(null)}
+        title="Prévia de Impressão da Etiqueta"
+        maxWidth="max-w-md"
+      >
+        {labelPreviewProduct && (
+          <div className="space-y-6">
+            <div className="bg-slate-100 p-8 rounded-2xl flex items-center justify-center">
+              <div className="bg-white" style={{ width: '63.5mm', height: '31mm', padding: '3mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px dashed #cbd5e1' }}>
+                <div style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.1, maxHeight: '18px', overflow: 'hidden', color: '#000' }}>
+                  {labelPreviewProduct.description}
+                </div>
+                <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 900, letterSpacing: '0.5px', color: '#000' }}>
+                  {labelPreviewProduct.sku || labelPreviewProduct.barcode || 'S/ SKU'}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '2mm' }}>
+                  <div style={{ fontSize: '6px', fontWeight: 'bold', textTransform: 'uppercase', maxWidth: '45%', lineHeight: 1.2, color: '#000' }}>
+                    LOC:<br />{labelPreviewProduct.location || 'ESTOQUE PADRÃO'}
+                  </div>
+                  <div style={{ maxWidth: '50%', textAlign: 'right' }}>
+                    <img 
+                      src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(labelPreviewProduct.barcode || labelPreviewProduct.sku || labelPreviewProduct.id.toString())}&scale=2&height=5&includetext`} 
+                      alt="Barcode" 
+                      style={{ maxWidth: '100%', height: 'auto', maxHeight: '8mm', display: 'block', marginLeft: 'auto' }} 
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-sm text-indigo-800">
+              <p className="font-bold mb-1">Avisos de Impressão:</p>
+              <ul className="list-disc pl-5 space-y-1 text-xs">
+                <li>O layout acima é uma prévia do conteúdo da etiqueta de <strong>63,5mm x 31mm</strong>.</li>
+                <li>Ao clicar em imprimir, uma nova guia será aberta pronta para enviar à impressora.</li>
+                <li>Lembre-se de configurar a impressão para <strong>Tamanho A4</strong> e <strong>Margens zeradas / Sem margem</strong>.</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => {
+                  handlePrintLabel(labelPreviewProduct);
+                }}
+                className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all flex items-center justify-center gap-2"
+              >
+                <Printer size={18} />
+                Confirmar Impressão
+              </button>
+              <button
+                onClick={() => setLabelPreviewProduct(null)}
+                className="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-all"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         )}
