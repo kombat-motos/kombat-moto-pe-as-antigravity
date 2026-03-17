@@ -246,7 +246,7 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }: any) => (
 );
 
 const StatCard = ({ title, value, icon: Icon, color, subtitle }: any) => (
-  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-start justify-between">
+  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 flex items-start justify-between">
     <div>
       <p className="text-sm font-medium text-slate-500 mb-1">{title}</p>
       <h3 className="text-2xl font-bold text-slate-900">{value}</h3>
@@ -275,7 +275,7 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }: any)
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           className={`relative bg-white w-full ${maxWidth} rounded-3xl shadow-2xl overflow-hidden`}
         >
-          <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <div className="flex items-center justify-between p-6 border-b border-slate-400">
             <h3 className="text-xl font-bold text-slate-900">{title}</h3>
             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
               <X size={20} className="text-slate-400" />
@@ -1497,7 +1497,7 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Sales Summary Card */}
           <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-rose-100 text-rose-600 rounded-lg">
                   <TrendingUp size={20} />
@@ -1507,7 +1507,7 @@ export default function App() {
               <p className="text-3xl font-bold text-slate-900">R$ {totalToday.toFixed(2)}</p>
               <p className="text-sm text-slate-500 mt-1">{todaySales.length} atendimentos realizados</p>
 
-              <div className="mt-6 pt-6 border-t border-slate-50 space-y-3">
+              <div className="mt-6 pt-6 border-t border-slate-400 space-y-3">
                 <p className="text-xs font-bold text-slate-400 uppercase">Por Meio de Pagamento</p>
                 {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => {
                   const amount = todaySales.filter(s => s.payment_method === method).reduce((acc, curr) => acc + curr.total, 0);
@@ -1532,21 +1532,21 @@ export default function App() {
 
           {/* Recent Sales List */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
+              <div className="p-6 border-b border-slate-400 flex items-center justify-between">
                 <h3 className="font-bold text-slate-900">Últimas Movimentações</h3>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <input
                     type="text"
                     placeholder="Buscar vendas..."
-                    className="pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none text-sm w-48"
+                    className="pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none text-sm w-48"
                     value={salesSearchTerm}
                     onChange={e => setSalesSearchTerm(e.target.value)}
                   />
                 </div>
               </div>
-              <div className="divide-y divide-slate-50 max-h-[600px] overflow-y-auto">
+              <div className="divide-y divide-slate-300 max-h-[600px] overflow-y-auto">
                 {sales.filter(s => {
                   const search = (salesSearchTerm + globalSearchTerm).toLowerCase();
                   return (
@@ -1655,7 +1655,7 @@ export default function App() {
               <input
                 type="text"
                 placeholder="Buscar leads..."
-                className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none w-64"
+                className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none w-64"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
@@ -1676,8 +1676,8 @@ export default function App() {
 
         <div className="flex gap-4 overflow-x-auto pb-4 flex-1 min-h-[600px]">
           {columns.map(column => (
-            <div key={column} className="flex-shrink-0 w-80 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col">
-              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div key={column} className="flex-shrink-0 w-80 bg-slate-50/50 rounded-2xl border border-slate-400 flex flex-col">
+              <div className="p-4 border-b border-slate-400 flex items-center justify-between">
                 <h3 className="font-bold text-slate-700 flex items-center gap-2">
                   {column}
                   <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">
@@ -1691,7 +1691,7 @@ export default function App() {
                   <motion.div
                     layoutId={lead.id}
                     key={lead.id}
-                    className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
+                    className="bg-white p-4 rounded-xl border border-slate-400 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${lead.priority === 'Alta' ? 'bg-rose-100 text-rose-600' :
@@ -1729,7 +1729,7 @@ export default function App() {
                     </div>
                     <h4 className="font-bold text-slate-900 mb-1">{lead.name}</h4>
                     <p className="text-xs text-slate-500 mb-3">{lead.company}</p>
-                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-50">
+                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-400">
                       <span className="text-sm font-bold text-slate-900">R$ {lead.value.toFixed(2)}</span>
                       <select
                         className="text-[10px] bg-slate-50 border-none rounded-md p-1 focus:ring-0 cursor-pointer"
@@ -1765,7 +1765,7 @@ export default function App() {
               <input
                 type="text"
                 placeholder="Buscar O.S..."
-                className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none w-64"
+                className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none w-64"
                 value={salesSearchTerm}
                 onChange={e => setSalesSearchTerm(e.target.value)}
               />
@@ -1806,7 +1806,7 @@ export default function App() {
               os.mechanic_name?.toLowerCase().includes(search)
             );
           }).map(os => (
-            <div key={os.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+            <div key={os.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start">
                 <div className="flex gap-4">
                   <div className="p-3 bg-amber-100 text-amber-600 rounded-xl h-fit">
@@ -1852,7 +1852,7 @@ export default function App() {
                   <div className="flex gap-2 mt-4 justify-end">
                     <button
                       onClick={() => handleEditOS(os)}
-                      className="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-100 transition-colors flex items-center gap-1 border border-slate-200"
+                      className="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-100 transition-colors flex items-center gap-1 border border-slate-400"
                     >
                       <Edit size={14} /> Editar O.S.
                     </button>
@@ -1872,7 +1872,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="mt-6 pt-6 border-t border-slate-50 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="mt-6 pt-6 border-t border-slate-400 grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-slate-50 p-3 rounded-xl">
                   <p className="text-[9px] font-bold text-slate-400 uppercase">Peças</p>
                   <p className="font-bold text-slate-700">R$ {(os.total - os.labor_value).toFixed(2)}</p>
@@ -1893,7 +1893,7 @@ export default function App() {
             </div>
           ))}
           {osSales.length === 0 && (
-            <div className="bg-white p-12 rounded-2xl border border-dashed border-slate-200 text-center">
+            <div className="bg-white p-12 rounded-2xl border border-dashed border-slate-400 text-center">
               <Bike size={48} className="mx-auto text-slate-200 mb-4" />
               <h3 className="text-lg font-bold text-slate-400">Nenhuma Ordem de Serviço encontrada</h3>
               <p className="text-sm text-slate-400 mt-1">Clique em "Nova O.S." para começar um atendimento na oficina.</p>
@@ -1960,7 +1960,7 @@ export default function App() {
           ) : (
             <div className="space-y-3">
               {pendingFiadoSales.map(sale => (
-                <div key={sale.id} className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                <div key={sale.id} className="bg-slate-50 p-4 rounded-xl border border-slate-400 flex justify-between items-center">
                   <div>
                     <p className="font-bold text-slate-800">Venda #{sale.id} - {sale.customer_name}</p>
                     <p className="text-sm text-slate-500">Total: R$ {sale.total.toFixed(2)}</p>
@@ -2147,7 +2147,7 @@ export default function App() {
             <input
               type="text"
               placeholder="Pesquisar orçamento..."
-              className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
+              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
               value={quoteSearchTerm}
               onChange={e => setQuoteSearchTerm(e.target.value)}
             />
@@ -2167,7 +2167,7 @@ export default function App() {
           q.customer_name.toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||
           q.motorcycle_details?.toLowerCase().includes(quoteSearchTerm.toLowerCase())
         ).map((q) => (
-          <div key={q.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all group relative overflow-hidden">
+          <div key={q.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-all group relative overflow-hidden">
             <div className="absolute top-0 right-0 p-3">
               <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${q.status === 'Aprovado' ? 'bg-emerald-100 text-emerald-700' :
                 q.status === 'Recusado' ? 'bg-rose-100 text-rose-700' :
@@ -2195,7 +2195,7 @@ export default function App() {
                 <span className="font-black text-rose-600">R$ {q.total_value.toFixed(2)}</span>
               </div>
             </div>
-            <div className="flex gap-2 pt-4 border-t border-slate-50">
+            <div className="flex gap-2 pt-4 border-t border-slate-400">
               <button
                 onClick={() => setIsPrintingQuote(q)}
                 className="flex-1 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-black transition-colors flex items-center justify-center gap-2"
@@ -2220,7 +2220,7 @@ export default function App() {
           </div>
         ))}
         {quotes.length === 0 && (
-          <div className="col-span-full py-12 text-center bg-white rounded-2xl border border-dashed border-slate-200">
+          <div className="col-span-full py-12 text-center bg-white rounded-2xl border border-dashed border-slate-400">
             <FileText size={48} className="mx-auto text-slate-200 mb-4" />
             <p className="text-slate-400">Nenhum orçamento cadastrado ainda.</p>
           </div>
@@ -2230,7 +2230,7 @@ export default function App() {
       {/* Quote Print View / High Resolution Layout */}
       {isPrintingQuote && (
         <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:p-0">
-          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-100 relative">
+          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-400 relative">
             <div id="quote-capture-area" className="p-10 bg-white">
               <div className="flex justify-between items-start border-b-4 border-rose-600 pb-6 mb-6">
                 <div className="flex gap-6 items-center">
@@ -2283,7 +2283,7 @@ export default function App() {
                     </thead>
                     <tbody>
                       {isPrintingQuote.items.filter(i => i.type === 'Peça').map((item, idx) => (
-                        <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                        <tr key={idx} className="border-b border-slate-400 hover:bg-slate-50">
                           <td className="py-2 font-bold text-slate-800 text-[11px] align-top">{item.quantity}</td>
                           <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4">{item.description}</td>
                           <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top">R$ {item.price.toFixed(2)}</td>
@@ -2310,7 +2310,7 @@ export default function App() {
                     </thead>
                     <tbody>
                       {isPrintingQuote.items.filter(i => i.type === 'Serviço').map((item, idx) => (
-                        <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                        <tr key={idx} className="border-b border-slate-400 hover:bg-slate-50">
                           <td className="py-2 font-bold text-slate-800 text-[11px] align-top">{item.quantity}</td>
                           <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4">{item.description}</td>
                           <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top">R$ {item.price.toFixed(2)}</td>
@@ -2327,11 +2327,11 @@ export default function App() {
 
               <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-400">
                     <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Observações Técnicas</p>
                     <p className="text-xs text-slate-700 leading-relaxed italic">{isPrintingQuote.observations || 'Nenhuma observação técnica.'}</p>
                   </div>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-400">
                     <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Termos de Garantia</p>
                     <p className="text-[10px] text-slate-600 leading-tight">{isPrintingQuote.warranty_terms}</p>
                   </div>
@@ -2339,11 +2339,11 @@ export default function App() {
                 <div className="flex flex-col justify-end items-end space-y-4">
                   <div className="text-right">
                     <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total das Peças</p>
-                    <p className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Peça').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
+                    <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Peça').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total dos Serviços</p>
-                    <p className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
+                    <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
                   </div>
                   <div className="bg-black text-white p-6 rounded-2xl text-right w-full">
                     <p className="text-xs font-black uppercase tracking-[0.2em] mb-2">Total Geral do Orçamento</p>
@@ -2352,7 +2352,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="mt-12 pt-6 border-t border-slate-100 flex flex-col items-center">
+              <div className="mt-12 pt-6 border-t border-slate-400 flex flex-col items-center">
                 <div className="w-64 border-b border-slate-900 mb-2"></div>
                 <p className="text-xs font-black uppercase text-black tracking-widest">{isPrintingQuote.customer_name}</p>
                 <p className="text-[10px] text-slate-400 uppercase font-bold text-center">Autorização de Execução / Cliente</p>
@@ -2389,7 +2389,7 @@ export default function App() {
         <div className="flex gap-3">
           <button
             onClick={() => setIsFixedServiceModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-400 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-medium"
           >
             <Settings size={18} />
             Tabela de Serviços
@@ -2406,11 +2406,11 @@ export default function App() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Mechanics List */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-6 border-b border-slate-100">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
+          <div className="p-6 border-b border-slate-400">
             <h3 className="font-bold text-slate-900">Mecânicos Cadastrados</h3>
           </div>
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-slate-300">
             {mechanics.sort((a, b) => a.name.localeCompare(b.name)).map(m => (
               <div key={m.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-3">
@@ -2451,11 +2451,11 @@ export default function App() {
         </div>
 
         {/* Fixed Services Table */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-6 border-b border-slate-100">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
+          <div className="p-6 border-b border-slate-400">
             <h3 className="font-bold text-slate-900">Tabela de Repasses Fixos</h3>
           </div>
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-slate-300">
             {fixedServices.sort((a, b) => a.name.localeCompare(b.name)).map(fs => (
               <div key={fs.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div>
@@ -3201,7 +3201,7 @@ export default function App() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400">
           <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
             <TrendingUp size={20} className="text-rose-500" />
             Top 5 Produtos Mais Vendidos
@@ -3210,7 +3210,7 @@ export default function App() {
             {stats?.topProducts.map((p, i) => (
               <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <span className="w-8 h-8 flex items-center justify-center bg-white rounded-lg text-sm font-bold text-slate-400 border border-slate-200">
+                  <span className="w-8 h-8 flex items-center justify-center bg-white rounded-lg text-sm font-bold text-slate-400 border border-slate-400">
                     {i + 1}
                   </span>
                   <span className="font-medium text-slate-700">{p.description}</span>
@@ -3224,7 +3224,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400">
           <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
             <Bike size={20} className="text-amber-500" />
             Próximas Revisões (CRM)
@@ -3290,7 +3290,7 @@ export default function App() {
             <input
               type="text"
               placeholder="Pesquisar clientes..."
-              className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
+              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
               value={customerSearchTerm}
               onChange={e => setCustomerSearchTerm(e.target.value)}
             />
@@ -3338,7 +3338,7 @@ export default function App() {
             c.city?.toLowerCase().includes(search)
           );
         }).map(c => (
-          <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+          <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h4 className="font-bold text-slate-900 text-lg">{c.name}</h4>
@@ -3399,7 +3399,7 @@ export default function App() {
                 <List size={20} />
               </button>
             </div>
-            <div className="pt-4 border-t border-slate-50">
+            <div className="pt-4 border-t border-slate-400">
               <p className="text-xs font-bold text-slate-400 uppercase mb-3">Motos Cadastradas</p>
               <div className="space-y-2">
                 {motorcycles.filter(m => m.customer_id === c.id).map(m => (
@@ -3432,11 +3432,11 @@ export default function App() {
         ))}
       </div>
       ) : (
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-400 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/50 border-b border-slate-100">
+                <tr className="bg-slate-50/50 border-b border-slate-400">
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Cliente</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contato / CPF</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Financeiro</th>
@@ -3454,7 +3454,7 @@ export default function App() {
                     c.city?.toLowerCase().includes(search)
                   );
                 }).map(c => (
-                  <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                  <tr key={c.id} className="border-b border-slate-400 hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <p className="font-bold text-slate-900">{c.name}</p>
                       <p className="text-[10px] text-slate-400">{motorcycles.filter(m => m.customer_id === c.id).length} moto(s) cadastrada(s)</p>
@@ -3565,7 +3565,7 @@ export default function App() {
             <input
               type="text"
               placeholder="Pesquisar serviços..."
-              className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
+              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
               value={serviceSearchTerm}
               onChange={e => setServiceSearchTerm(e.target.value)}
             />
@@ -3584,16 +3584,16 @@ export default function App() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-bottom border-slate-100">
+            <tr className="bg-slate-50 border-bottom border-slate-400">
               <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Descrição / Serviço</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Preço Sugerido</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-300">
             {registeredServices.filter(s =>
               s.description.toLowerCase().includes(serviceSearchTerm.toLowerCase())
             ).map(s => (
@@ -3649,7 +3649,7 @@ export default function App() {
             <input
               type="text"
               placeholder="Pesquisar produtos..."
-              className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
+              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
               value={inventorySearchTerm}
               onChange={e => setInventorySearchTerm(e.target.value)}
             />
@@ -3697,10 +3697,10 @@ export default function App() {
       </div>
 
       {inventoryView === 'list' ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-bottom border-slate-100">
+              <tr className="bg-slate-50 border-bottom border-slate-400">
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Produto</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">SKU / EAN</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Preços (C/V)</th>
@@ -3708,7 +3708,7 @@ export default function App() {
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-300">
               {products.filter(p => {
                 const search = (inventorySearchTerm + globalSearchTerm).toLowerCase();
                 return (
@@ -3721,7 +3721,7 @@ export default function App() {
                 <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-200">
+                      <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-400">
                         {p.image_url ? (
                           <img
                             src={p.image_url}
@@ -3811,7 +3811,7 @@ export default function App() {
               p.barcode?.toLowerCase().includes(search)
             );
           }).sort((a, b) => a.description.localeCompare(b.description)).map((p) => (
-            <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-all group">
+            <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden hover:shadow-md transition-all group">
               <div className="h-48 bg-slate-50 relative overflow-hidden">
                 {p.image_url ? (
                   <img
@@ -4055,7 +4055,7 @@ export default function App() {
         {financialTab === 'caixa' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
             {/* Cash Control Header */}
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="flex items-center gap-4">
                 <div className={`p-4 rounded-2xl ${activeSession ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'}`}>
                   <Wallet size={32} />
@@ -4096,7 +4096,7 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
                     <Package size={20} />
@@ -4106,7 +4106,7 @@ export default function App() {
                 <h4 className="text-2xl font-black text-slate-900">R$ {productSales.toFixed(2)}</h4>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
                     <Bike size={20} />
@@ -4116,7 +4116,7 @@ export default function App() {
                 <h4 className="text-2xl font-black text-slate-900">R$ {serviceSales.toFixed(2)}</h4>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 bg-gradient-to-br from-rose-600 to-rose-700 text-white border-none">
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 bg-gradient-to-br from-rose-600 to-rose-700 text-white border-none">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 bg-white/20 text-white rounded-lg">
                     <TrendingUp size={20} />
@@ -4129,7 +4129,7 @@ export default function App() {
 
             {/* Métricas de Lucro em Peças */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 bg-slate-50 text-slate-600 rounded-lg">
                     <Truck size={20} />
@@ -4139,7 +4139,7 @@ export default function App() {
                 <h4 className="text-2xl font-black text-slate-900">R$ {productCosts.toFixed(2)}</h4>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
                     <DollarSign size={20} />
@@ -4149,7 +4149,7 @@ export default function App() {
                 <h4 className="text-2xl font-black text-emerald-600">R$ {productProfit.toFixed(2)}</h4>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                     <Percent size={20} />
@@ -4160,7 +4160,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
               <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
                 <BarChart3 size={20} className="text-indigo-500" />
                 Meios de Recebimento
@@ -4205,8 +4205,8 @@ export default function App() {
               ))}
             </div>
 
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-400 overflow-hidden">
+              <div className="p-6 border-b border-slate-400 flex justify-between items-center">
                 <h3 className="font-extrabold text-slate-900 flex items-center gap-2">
                   <Gavel size={20} className="text-rose-500" />
                   Listagem de Débitos Ativos
@@ -4223,7 +4223,7 @@ export default function App() {
                       <th className="px-6 py-4">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-300">
                     {sales.filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pendente').sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime()).map(sale => {
                       const isOverdue = new Date(sale.due_date!) < now;
                       const score = getCustomerScore(sale.customer_id || 0);
@@ -4288,7 +4288,7 @@ export default function App() {
         )}
 
         {financialTab === 'taxas' && (
-          <div className="max-w-2xl bg-white p-8 rounded-3xl shadow-sm border border-slate-100 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="max-w-2xl bg-white p-8 rounded-3xl shadow-sm border border-slate-400 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
               <Calculator size={24} className="text-blue-500" />
               Configuração de Repasse de Juros
@@ -4308,7 +4308,7 @@ export default function App() {
                         const newFees = { ...cardFeesSettings, [Number(parcela)]: parseFloat(e.target.value) || 0 };
                         setCardFeesSettings(newFees);
                       }}
-                      className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-blue-500/20 outline-none text-blue-600 text-lg"
+                      className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-400 rounded-xl font-bold focus:ring-2 focus:ring-blue-500/20 outline-none text-blue-600 text-lg"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-300">%</span>
                   </div>
@@ -4316,7 +4316,7 @@ export default function App() {
               ))}
             </div>
 
-            <div className="mt-8 pt-6 border-t border-slate-100">
+            <div className="mt-8 pt-6 border-t border-slate-400">
               <button
                 onClick={() => {
                   localStorage.setItem('cardFeesSettings', JSON.stringify(cardFeesSettings));
@@ -4332,7 +4332,7 @@ export default function App() {
 
         {financialTab === 'automacao' && (
           <div className="max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
               <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
                 <Bell size={24} className="text-emerald-500" />
                 Régua de Cobrança e Automação
@@ -4345,7 +4345,7 @@ export default function App() {
                   { title: 'Notificação Jurídica', desc: 'Gerar aviso de protesto após 15 dias de inadimplência.', active: false },
                   { title: 'Obrigado pelo Pagamento', desc: 'Enviar agradecimento automático após liquidação do débito.', active: true }
                 ].map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-400">
                     <div className="flex gap-4">
                       <div className="p-3 bg-white rounded-xl shadow-sm text-slate-400"><MessageCircle size={20} /></div>
                       <div>
@@ -4361,7 +4361,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
               <h3 className="text-xl font-bold text-slate-900 mb-6">Regras de Encargos</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -4370,7 +4370,7 @@ export default function App() {
                     type="number"
                     value={fiadoSettings.lateFeeRate}
                     onChange={e => setFiadoSettings({ ...fiadoSettings, lateFeeRate: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                   />
                 </div>
                 <div>
@@ -4379,7 +4379,7 @@ export default function App() {
                     type="number"
                     value={fiadoSettings.lateInterestRate}
                     onChange={e => setFiadoSettings({ ...fiadoSettings, lateInterestRate: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                   />
                 </div>
               </div>
@@ -4392,7 +4392,7 @@ export default function App() {
 
   const renderSettings = () => (
     <div className="max-w-4xl space-y-8">
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
         <div className="flex items-center gap-4 mb-8">
           <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
             <Building2 size={24} />
@@ -4409,7 +4409,7 @@ export default function App() {
               <label className="block text-sm font-bold text-slate-700 mb-2">Razão Social</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                 placeholder="Ex: Kombat Peças e Serviços Ltda"
                 value={companyData.razaoSocial}
                 onChange={e => setCompanyData({ ...companyData, razaoSocial: e.target.value })}
@@ -4419,7 +4419,7 @@ export default function App() {
               <label className="block text-sm font-bold text-slate-700 mb-2">Nome Fantasia</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                 placeholder="Ex: Kombat Moto Peças"
                 value={companyData.nomeFantasia}
                 onChange={e => setCompanyData({ ...companyData, nomeFantasia: e.target.value })}
@@ -4431,7 +4431,7 @@ export default function App() {
             <label className="block text-sm font-bold text-slate-700 mb-2">CNPJ</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
               placeholder="00.000.000/0000-00"
               value={companyData.cnpj}
               onChange={e => setCompanyData({ ...companyData, cnpj: e.target.value })}
@@ -4442,7 +4442,7 @@ export default function App() {
             <label className="block text-sm font-bold text-slate-700 mb-2">Telefone / WhatsApp</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
               placeholder="(00) 00000-0000"
               value={companyData.telefone}
               onChange={e => setCompanyData({ ...companyData, telefone: e.target.value })}
@@ -4453,7 +4453,7 @@ export default function App() {
             <label className="block text-sm font-bold text-slate-700 mb-2">E-mail de Contato</label>
             <input
               type="email"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
               placeholder="contato@empresa.com"
               value={companyData.email}
               onChange={e => setCompanyData({ ...companyData, email: e.target.value })}
@@ -4464,7 +4464,7 @@ export default function App() {
             <label className="block text-sm font-bold text-slate-700 mb-2">CEP</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
               placeholder="00000-000"
               value={companyData.cep}
               onChange={e => setCompanyData({ ...companyData, cep: e.target.value })}
@@ -4475,7 +4475,7 @@ export default function App() {
             <label className="block text-sm font-bold text-slate-700 mb-2">Endereço Completo</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
               placeholder="Rua, Número, Complemento"
               value={companyData.endereco}
               onChange={e => setCompanyData({ ...companyData, endereco: e.target.value })}
@@ -4486,7 +4486,7 @@ export default function App() {
             <label className="block text-sm font-bold text-slate-700 mb-2">Bairro</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
               value={companyData.bairro}
               onChange={e => setCompanyData({ ...companyData, bairro: e.target.value })}
             />
@@ -4497,7 +4497,7 @@ export default function App() {
               <label className="block text-sm font-bold text-slate-700 mb-2">Cidade</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                 value={companyData.cidade}
                 onChange={e => setCompanyData({ ...companyData, cidade: e.target.value })}
               />
@@ -4506,7 +4506,7 @@ export default function App() {
               <label className="block text-sm font-bold text-slate-700 mb-2">Estado</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                 placeholder="UF"
                 value={companyData.estado}
                 onChange={e => setCompanyData({ ...companyData, estado: e.target.value })}
@@ -4519,7 +4519,7 @@ export default function App() {
           Alterações salvas automaticamente
         </div>
       </div>
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
         <div className="flex items-center gap-4 mb-8">
           <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl">
             <Wallet size={24} />
@@ -4538,7 +4538,7 @@ export default function App() {
                 <input
                   type="number"
                   step="0.1"
-                  className="w-32 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                  className="w-32 px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                   value={fiadoSettings.monthlyInterest}
                   onChange={e => setFiadoSettings({ ...fiadoSettings, monthlyInterest: parseFloat(e.target.value) || 0 })}
                 />
@@ -4547,7 +4547,7 @@ export default function App() {
               <p className="text-xs text-slate-400 mt-2 italic">Os juros serão aplicados automaticamente após o vencimento.</p>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-400">
               <div>
                 <p className="font-bold text-slate-900 text-sm">Notificações Automáticas</p>
                 <p className="text-xs text-slate-500">Enviar lembretes via WhatsApp/E-mail</p>
@@ -4567,7 +4567,7 @@ export default function App() {
               <div className="flex items-center gap-3">
                 <input
                   type="number"
-                  className="w-32 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                  className="w-32 px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                   value={fiadoSettings.notificationDaysBefore}
                   onChange={e => setFiadoSettings({ ...fiadoSettings, notificationDaysBefore: parseInt(e.target.value) || 0 })}
                 />
@@ -4580,7 +4580,7 @@ export default function App() {
               <div className="flex items-center gap-3">
                 <input
                   type="number"
-                  className="w-32 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                  className="w-32 px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                   value={fiadoSettings.notificationDaysAfter}
                   onChange={e => setFiadoSettings({ ...fiadoSettings, notificationDaysAfter: parseInt(e.target.value) || 0 })}
                 />
@@ -4591,7 +4591,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
         <div className="flex items-center gap-4 mb-6">
           <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl">
             <ImageIcon size={24} />
@@ -4603,7 +4603,7 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-8">
-          <div className="w-32 h-32 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden">
+          <div className="w-32 h-32 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-400 flex items-center justify-center overflow-hidden">
             {companyLogo ? (
               <img src={companyLogo} alt="Logo" className="w-full h-full object-contain" />
             ) : (
@@ -4633,7 +4633,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
         <div className="flex items-center gap-4 mb-6">
           <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl">
             <BarChart3 size={24} />
@@ -4657,7 +4657,7 @@ export default function App() {
                 setSelectedReport(rep.id as any);
                 setIsManagementReportModalOpen(true);
               }}
-              className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:border-rose-200 hover:shadow-md transition-all text-left bg-slate-50/50"
+              className="flex items-center gap-4 p-4 rounded-2xl border border-slate-400 hover:border-rose-200 hover:shadow-md transition-all text-left bg-slate-50/50"
             >
               <div className={`p-3 rounded-xl ${rep.bg} ${rep.color}`}>
                 <rep.icon size={24} />
@@ -4671,7 +4671,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
         <div className="flex items-center gap-4 mb-6">
           <div className="p-3 bg-blue-100 text-blue-600 rounded-2xl">
             <Settings size={24} />
@@ -4712,14 +4712,14 @@ export default function App() {
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
         <h3 className="text-lg font-bold text-slate-900 mb-4">Pedidos Recentes</h3>
         <div className="space-y-4">
           {purchaseOrders.length === 0 ? (
             <p className="text-center text-slate-400 py-8 italic">Nenhum pedido de peças registrado ainda.</p>
           ) : (
             purchaseOrders.map(order => (
-              <div key={order.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+              <div key={order.id} className="p-4 bg-slate-50 rounded-xl border border-slate-400 flex items-center justify-between">
                 <div>
                   <p className="font-bold text-slate-800">Pedido #{order.id}</p>
                   <p className="text-sm text-slate-500">Distribuidor: {order.distributor_name}</p>
@@ -4826,7 +4826,7 @@ export default function App() {
                   <input
                     type="text"
                     placeholder="Filtrar por nome ou SKU..."
-                    className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none w-64"
+                    className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none w-64"
                     value={inventoryReportSearchTerm}
                     onChange={(e) => setInventoryReportSearchTerm(e.target.value)}
                   />
@@ -4954,11 +4954,11 @@ export default function App() {
                 </p>
               </div>
             </div>
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400">
               <h4 className="font-bold text-slate-800 mb-2">Resumo por Forma de Pagamento</h4>
               <div className="grid grid-cols-4 gap-4">
                 {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => (
-                  <div key={method} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                  <div key={method} className="bg-white p-3 rounded-xl border border-slate-400 shadow-sm">
                     <p className="text-[10px] font-bold text-slate-400 uppercase">{method}</p>
                     <p className="text-lg font-black text-slate-800">R$ {sales.filter(s => s.payment_method === method).reduce((acc, s) => acc + s.total, 0).toFixed(2)}</p>
                   </div>
@@ -5039,14 +5039,14 @@ export default function App() {
 
       {/* Sidebar Drawer */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-8 z-50 transition-transform duration-300 ease-in-out shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-slate-400 p-6 flex flex-col gap-8 z-50 transition-transform duration-300 ease-in-out shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         onMouseLeave={() => setIsSidebarOpen(false)}
       >
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-3">
             {companyLogo ? (
-              <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg shadow-rose-100 border border-slate-100">
+              <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg shadow-rose-100 border border-slate-400">
                 <img src={companyLogo} alt="Logo" className="w-full h-full object-cover" />
               </div>
             ) : (
@@ -5145,7 +5145,7 @@ export default function App() {
           />
         </nav>
 
-        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400">
           <p className="text-xs font-bold text-slate-400 uppercase mb-2">Suporte</p>
           <button className="w-full flex items-center gap-2 text-sm text-slate-600 hover:text-rose-600 transition-colors">
             <MessageCircle size={16} />
@@ -5195,7 +5195,7 @@ export default function App() {
               <input
                 type="text"
                 placeholder="Pesquisar..."
-                className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
+                className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
                 value={globalSearchTerm}
                 onChange={e => setGlobalSearchTerm(e.target.value)}
               />
@@ -5281,7 +5281,7 @@ export default function App() {
                     <p className="text-center text-slate-400 py-8 italic">Nenhuma movimentação encontrada para este cliente.</p>
                   ) : (
                     sales.filter(s => s.customer_id === selectedCustomerForHistory.id).map(sale => (
-                      <div key={sale.id} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                      <div key={sale.id} className="p-4 bg-slate-50 rounded-xl border border-slate-400">
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block ${sale.type === 'Oficina' ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'
@@ -5300,13 +5300,13 @@ export default function App() {
                             </div>
                           ))}
                           {sale.labor_value > 0 && (
-                            <div className="flex justify-between text-[11px] text-amber-600 font-medium pt-1 border-t border-slate-200">
+                            <div className="flex justify-between text-[11px] text-amber-600 font-medium pt-1 border-t border-slate-400">
                               <span>Mão de Obra</span>
                               <span>R$ {sale.labor_value.toFixed(2)}</span>
                             </div>
                           )}
                           {sale.service_description && (
-                            <div className="mt-2 p-2 bg-white rounded-lg border border-slate-100 italic text-[10px] text-slate-500">
+                            <div className="mt-2 p-2 bg-white rounded-lg border border-slate-400 italic text-[10px] text-slate-500">
                               {sale.service_description}
                             </div>
                           )}
@@ -5328,13 +5328,13 @@ export default function App() {
           maxWidth="max-w-5xl"
         >
           <form onSubmit={handleCreateQuote} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-400">
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Cliente / Razão Social</label>
                 <input
                   type="text"
                   required
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
+                  className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
                   placeholder="Nome Completo do Cliente..."
                   value={quoteForm.customer_name}
                   onChange={e => setQuoteForm({ ...quoteForm, customer_name: e.target.value })}
@@ -5344,7 +5344,7 @@ export default function App() {
                 <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Motocicleta (Modelo/Placa/KM)</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
+                  className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
                   placeholder="Ex: Honda CG 160 Titan - ABC-1234 - 15.000km"
                   value={quoteForm.motorcycle_details}
                   onChange={e => setQuoteForm({ ...quoteForm, motorcycle_details: e.target.value })}
@@ -5403,9 +5403,9 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="border border-slate-100 rounded-2xl overflow-hidden">
+              <div className="border border-slate-400 rounded-2xl overflow-hidden">
                 <table className="w-full text-left">
-                  <thead className="bg-slate-50 border-b border-slate-100">
+                  <thead className="bg-slate-50 border-b border-slate-400">
                     <tr>
                       <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 text-center w-16">Qtd</th>
                       <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400">Descrição</th>
@@ -5415,7 +5415,7 @@ export default function App() {
                       <th className="px-4 py-3 w-12"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50 bg-white">
+                  <tbody className="divide-y divide-slate-300 bg-white">
                     {quoteForm.items.map((item, idx) => (
                       <tr key={idx} className="group hover:bg-slate-50/50">
                         <td className="px-4 py-3 text-center font-bold text-slate-900 text-sm">{item.quantity}</td>
@@ -5467,7 +5467,7 @@ export default function App() {
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Observações Técnicas</label>
                 <textarea
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-medium text-slate-700 min-h-[100px]"
+                  className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-medium text-slate-700 min-h-[100px]"
                   placeholder="Detalhes sobre o estado da moto, recomendações, etc..."
                   value={quoteForm.observations}
                   onChange={e => setQuoteForm({ ...quoteForm, observations: e.target.value })}
@@ -5478,7 +5478,7 @@ export default function App() {
                   <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Validade (Dias)</label>
                   <input
                     type="number"
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
+                    className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
                     value={quoteForm.validity_days}
                     onChange={e => setQuoteForm({ ...quoteForm, validity_days: Number(e.target.value) })}
                   />
@@ -5487,7 +5487,7 @@ export default function App() {
                   <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Termos de Garantia</label>
                   <input
                     type="text"
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
+                    className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
                     value={quoteForm.warranty_terms}
                     onChange={e => setQuoteForm({ ...quoteForm, warranty_terms: e.target.value })}
                   />
@@ -5495,11 +5495,11 @@ export default function App() {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 space-y-4">
+            <div className="pt-6 border-t border-slate-400 space-y-4">
               <button
                 type="button"
                 onClick={() => setShowQuoteCalculator(!showQuoteCalculator)}
-                className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-200"
+                className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-400"
               >
                 <Calculator size={18} />
                 {showQuoteCalculator ? 'Esconder Calculadora de Juros' : 'Abrir Calculadora de Juros/Taxas'}
@@ -5561,13 +5561,13 @@ export default function App() {
               <input
                 type="text"
                 placeholder="Pesquisar no estoque..."
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-medium"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-medium"
                 value={stockSearchTerm}
                 onChange={e => setStockSearchTerm(e.target.value)}
                 autoFocus
               />
             </div>
-            <div className="max-h-[50vh] overflow-y-auto border border-slate-100 rounded-2xl">
+            <div className="max-h-[50vh] overflow-y-auto border border-slate-400 rounded-2xl">
               <table className="w-full text-left">
                 <thead className="bg-slate-50 sticky top-0 z-10">
                   <tr>
@@ -5577,7 +5577,7 @@ export default function App() {
                     <th className="px-4 py-3 w-16"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-300">
                   {products
                     .filter(p => {
                       const search = stockSearchTerm.toLowerCase();
@@ -5661,7 +5661,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
                 <input
                   type="text" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.name}
                   onChange={e => setCustomerForm({ ...customerForm, name: e.target.value })}
                 />
@@ -5670,7 +5670,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">CPF</label>
                 <input
                   type="text" required placeholder="000.000.000-00"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.cpf}
                   onChange={e => setCustomerForm({ ...customerForm, cpf: e.target.value })}
                 />
@@ -5679,7 +5679,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">CNPJ (Opcional)</label>
                 <input
                   type="text" placeholder="00.000.000/0000-00"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.cnpj}
                   onChange={e => setCustomerForm({ ...customerForm, cnpj: e.target.value })}
                 />
@@ -5690,7 +5690,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Celular</label>
                 <input
                   type="text" required placeholder="5511999999999"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.whatsapp}
                   onChange={e => setCustomerForm({ ...customerForm, whatsapp: e.target.value })}
                 />
@@ -5699,7 +5699,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Limite de Crédito (R$)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600"
                   value={customerForm.credit_limit}
                   onChange={e => setCustomerForm({ ...customerForm, credit_limit: parseFloat(e.target.value) || 0 })}
                 />
@@ -5708,7 +5708,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">CEP</label>
                 <input
                   type="text" required placeholder="00000-000"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.zip_code}
                   onChange={e => setCustomerForm({ ...customerForm, zip_code: e.target.value })}
                 />
@@ -5719,7 +5719,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Cidade</label>
                 <input
                   type="text" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.city}
                   onChange={e => setCustomerForm({ ...customerForm, city: e.target.value })}
                 />
@@ -5728,7 +5728,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Bairro</label>
                 <input
                   type="text" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.neighborhood}
                   onChange={e => setCustomerForm({ ...customerForm, neighborhood: e.target.value })}
                 />
@@ -5737,7 +5737,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Endereço</label>
                 <input
                   type="text" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.address}
                   onChange={e => setCustomerForm({ ...customerForm, address: e.target.value })}
                 />
@@ -5748,7 +5748,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Multa por Atraso (%)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700"
                   value={customerForm.fine_rate}
                   onChange={e => setCustomerForm({ ...customerForm, fine_rate: parseFloat(e.target.value) || 0 })}
                 />
@@ -5757,7 +5757,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Juros Mensais (%)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700"
                   value={customerForm.interest_rate}
                   onChange={e => setCustomerForm({ ...customerForm, interest_rate: parseFloat(e.target.value) || 0 })}
                 />
@@ -5783,7 +5783,7 @@ export default function App() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Descrição do Produto</label>
               <input
                 type="text" required placeholder="Ex: Pneu Traseiro 90/90-18"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                 value={productForm.description}
                 onChange={e => setProductForm({ ...productForm, description: e.target.value })}
               />
@@ -5792,7 +5792,7 @@ export default function App() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Marca</label>
               <input
                 type="text" placeholder="Ex: Honda, Pirelli, Mobil"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                 value={productForm.brand}
                 onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
               />
@@ -5801,7 +5801,7 @@ export default function App() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Localização no Estoque</label>
               <input
                 type="text" placeholder="Ex: Prateleira A, Corredor 2"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                 value={productForm.location}
                 onChange={e => setProductForm({ ...productForm, location: e.target.value })}
               />
@@ -5811,7 +5811,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">SKU / Código Interno</label>
                 <input
                   type="text" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={productForm.sku}
                   onChange={e => setProductForm({ ...productForm, sku: e.target.value })}
                 />
@@ -5820,7 +5820,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Código de Barras (EAN)</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={productForm.barcode}
                   onChange={e => setProductForm({ ...productForm, barcode: e.target.value })}
                 />
@@ -5830,7 +5830,7 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Unidade de Medida</label>
                 <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={productForm.unit}
                   onChange={e => setProductForm({ ...productForm, unit: e.target.value })}
                 >
@@ -5846,7 +5846,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Estoque Inicial</label>
                 <input
                   type="number" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={productForm.stock}
                   onChange={e => setProductForm({ ...productForm, stock: e.target.value })}
                 />
@@ -5857,7 +5857,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Preço de Compra (R$)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={productForm.purchase_price}
                   onChange={e => setProductForm({ ...productForm, purchase_price: e.target.value })}
                 />
@@ -5866,7 +5866,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Preço de Venda (R$)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={productForm.sale_price}
                   onChange={e => setProductForm({ ...productForm, sale_price: e.target.value })}
                 />
@@ -5875,7 +5875,7 @@ export default function App() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Aplicação das Peças</label>
               <textarea
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all resize-none h-24"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all resize-none h-24"
                 placeholder="Ex: Honda CG 160 (2016-2023), Fan, Titan..."
                 value={productForm.application}
                 onChange={e => setProductForm({ ...productForm, application: e.target.value })}
@@ -5886,13 +5886,13 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">URL da Imagem</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   placeholder="https://exemplo.com/imagem.jpg"
                   value={productForm.image_url}
                   onChange={e => setProductForm({ ...productForm, image_url: e.target.value })}
                 />
               </div>
-              <div className="flex items-center justify-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden aspect-video mt-6">
+              <div className="flex items-center justify-center bg-slate-50 border border-slate-400 rounded-xl overflow-hidden aspect-video mt-6">
                 {productForm.image_url ? (
                   <img src={productForm.image_url} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
@@ -5916,7 +5916,7 @@ export default function App() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Modelo da Moto</label>
               <input
                 type="text" required placeholder="Ex: Honda CG 160"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                 value={motorcycleForm.model}
                 onChange={e => setMotorcycleForm({ ...motorcycleForm, model: e.target.value })}
               />
@@ -5926,7 +5926,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Placa</label>
                 <input
                   type="text" required placeholder="ABC-1234"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={motorcycleForm.plate}
                   onChange={e => setMotorcycleForm({ ...motorcycleForm, plate: e.target.value })}
                 />
@@ -5935,7 +5935,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">KM Atual</label>
                 <input
                   type="number" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={motorcycleForm.current_km}
                   onChange={e => setMotorcycleForm({ ...motorcycleForm, current_km: e.target.value })}
                 />
@@ -5956,7 +5956,7 @@ export default function App() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Cliente</label>
               <input
                 type="text" required
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
                 value={leadForm.name}
                 onChange={e => setLeadForm({ ...leadForm, name: e.target.value })}
               />
@@ -5965,7 +5965,7 @@ export default function App() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Empresa / Frota</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
                 value={leadForm.company}
                 onChange={e => setLeadForm({ ...leadForm, company: e.target.value })}
               />
@@ -5975,7 +5975,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Valor Estimado (R$)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   value={leadForm.value}
                   onChange={e => setLeadForm({ ...leadForm, value: e.target.value })}
                 />
@@ -5983,7 +5983,7 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Prioridade</label>
                 <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   value={leadForm.priority}
                   onChange={e => setLeadForm({ ...leadForm, priority: e.target.value })}
                 >
@@ -5997,7 +5997,7 @@ export default function App() {
               <label className="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
               <input
                 type="text" required placeholder="Ex: 11999999999"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
                 value={leadForm.phone}
                 onChange={e => setLeadForm({ ...leadForm, phone: e.target.value })}
               />
@@ -6015,7 +6015,7 @@ export default function App() {
         >
           {selectedLead && (
             <div className="space-y-4">
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400">
                 <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
                   {`Olá ${selectedLead.name}, aqui é da Kombat Moto Peças.\n\nEstamos processando sua solicitação para ${selectedLead.company}.\nValor estimado: R$ ${selectedLead.value.toFixed(2)}\nStatus atual: ${selectedLead.status}\n\nPodemos prosseguir com a negociação?`}
                 </p>
@@ -6056,7 +6056,7 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
                 <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                   value={pdvForm.customer_id}
                   onChange={e => setPdvForm({ ...pdvForm, customer_id: e.target.value })}
                 >
@@ -6080,13 +6080,13 @@ export default function App() {
                   <input
                     type="text"
                     placeholder="Buscar no estoque..."
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                     value={pdvSearchProduct}
                     onChange={e => setPdvSearchProduct(e.target.value)}
                   />
                 </div>
                 {pdvSearchProduct && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                     {products.filter(p =>
                       p.description.toLowerCase().includes(pdvSearchProduct.toLowerCase()) ||
                       (p.brand && p.brand.toLowerCase().includes(pdvSearchProduct.toLowerCase())) ||
@@ -6095,7 +6095,7 @@ export default function App() {
                       <button
                         key={p.id}
                         onClick={() => handleAddPdvItem(p)}
-                        className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-50 last:border-none"
+                        className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-400 last:border-none"
                       >
                         <div>
                           <p className="text-sm font-medium text-slate-900">{p.description}</p>
@@ -6118,11 +6118,11 @@ export default function App() {
               {/* Items List */}
               <div className="space-y-2">
                 {pdvForm.items.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-400">
                     <div className="flex-1">
                       <p className="text-sm font-bold text-slate-900">{item.description}</p>
                       <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-7">
+                        <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7">
                           <button
                             type="button"
                             onClick={() => handlePdvItemQuantityChange(idx, Math.max(1, item.quantity - 1))}
@@ -6135,7 +6135,7 @@ export default function App() {
                             min="1"
                             value={item.quantity}
                             onChange={e => handlePdvItemQuantityChange(idx, parseInt(e.target.value) || 1)}
-                            className="w-10 h-full text-center text-slate-900 font-bold outline-none border-x border-slate-200"
+                            className="w-10 h-full text-center text-slate-900 font-bold outline-none border-x border-slate-400"
                           />
                           <button
                             type="button"
@@ -6151,7 +6151,7 @@ export default function App() {
                           step="0.01"
                           value={item.price.toFixed(2)}
                           onChange={e => handlePdvItemPriceChange(idx, parseFloat(e.target.value) || 0)}
-                          className="w-24 px-1 py-0.5 bg-white border border-slate-200 rounded-md text-center text-slate-900"
+                          className="w-24 px-1 py-0.5 bg-white border border-slate-400 rounded-md text-center text-slate-900"
                         />
                       </div>
                     </div>
@@ -6178,7 +6178,7 @@ export default function App() {
                       onClick={() => setPdvForm({ ...pdvForm, payment_method: method as any, due_date: method === 'Fiado' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : pdvForm.due_date })}
                       className={`py-2 rounded-xl text-xs font-bold border transition-all ${pdvForm.payment_method === method
                         ? 'bg-rose-600 border-rose-600 text-white shadow-md'
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-rose-200'
+                        : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'
                         }`}
                     >
                       {method}
@@ -6200,7 +6200,7 @@ export default function App() {
                 </div>
               )}
 
-              <div className="pt-4 border-t border-slate-100 space-y-1">
+              <div className="pt-4 border-t border-slate-400 space-y-1">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-slate-500">Total Peças:</span>
                   <span className="font-bold text-slate-700">R$ {pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}</span>
@@ -6209,7 +6209,7 @@ export default function App() {
                   <span className="text-slate-500">Total Serviços:</span>
                   <span className="font-bold text-slate-700">R$ 0.00</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-t border-slate-200">
+                <div className="flex justify-between items-center py-2 border-t border-slate-400">
                   <span className="text-slate-600 font-bold text-lg">TOTAL DA VENDA</span>
                   <span className="text-2xl font-black text-rose-600">
                     R$ {pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}
@@ -6220,7 +6220,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setShowPdvCalculator(!showPdvCalculator)}
-                  className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-200"
+                  className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-400"
                 >
                   <Calculator size={18} />
                   {showPdvCalculator ? 'Esconder Calculadora de Juros' : 'Abrir Calculadora de Juros/Taxas'}
@@ -6271,7 +6271,7 @@ export default function App() {
               <input
                 type="text"
                 placeholder="Ex: Troca de Óleo, Limpeza de Carburador..."
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                 value={serviceForm.description}
                 onChange={e => setServiceForm({ ...serviceForm, description: e.target.value })}
               />
@@ -6281,7 +6281,7 @@ export default function App() {
               <input
                 type="text"
                 placeholder="0,00"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none font-bold"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none font-bold"
                 value={serviceForm.price}
                 onChange={e => setServiceForm({ ...serviceForm, price: e.target.value })}
               />
@@ -6302,7 +6302,7 @@ export default function App() {
           maxWidth={selectedCustomerForPrint?.type === 'A4' ? "max-w-6xl" : "max-w-lg"}
         >
           {selectedCustomerForPrint && (
-            <div className={`bg-white p-8 rounded-2xl border border-slate-200 ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'font-mono text-[10px] max-w-[300px] mx-auto'}`}>
+            <div className={`bg-white p-8 rounded-2xl border border-slate-400 ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'font-mono text-[10px] max-w-[300px] mx-auto'}`}>
               <div className={`text-center border-b-2 border-slate-900 pb-4 mb-4 ${selectedCustomerForPrint.type === '80mm' ? 'border-dashed' : ''}`}>
                 <h3 className={`${selectedCustomerForPrint.type === 'A4' ? 'text-2xl' : 'text-sm'} font-black text-slate-900 uppercase`}>Histórico de Movimentação</h3>
                 <p className="text-slate-500 font-bold">KOMBAT MOTO PEÇAS</p>
@@ -6326,7 +6326,7 @@ export default function App() {
                     </thead>
                     <tbody>
                       {sales.filter(s => s.customer_id === selectedCustomerForPrint.customer.id).map(sale => (
-                        <tr key={sale.id} className="border-b border-slate-100 text-[10px]">
+                        <tr key={sale.id} className="border-b border-slate-400 text-[10px]">
                           <td className="py-2 px-1 whitespace-nowrap">{new Date(sale.date).toLocaleDateString('pt-BR')}</td>
                           <td className="py-2 px-1">
                             <span className={`font-bold ${sale.type === 'Oficina' ? 'text-amber-600' : 'text-indigo-600'}`}>
@@ -6364,7 +6364,7 @@ export default function App() {
               ) : (
                 <div className="space-y-4">
                   {sales.filter(s => s.customer_id === selectedCustomerForPrint.customer.id).map(sale => (
-                    <div key={sale.id} className="border-b border-dashed border-slate-200 pb-2">
+                    <div key={sale.id} className="border-b border-dashed border-slate-400 pb-2">
                       <div className="flex justify-between font-bold">
                         <span>{new Date(sale.date).toLocaleDateString('pt-BR')} - {sale.id}</span>
                         <span>R$ {sale.total.toFixed(2)}</span>
@@ -6373,7 +6373,7 @@ export default function App() {
                         {sale.type === 'Oficina' ? 'Ordem de Serviço' : 'Venda Balcão'}
                       </p>
                       {sale.service_description && (
-                        <p className="text-[8px] text-slate-400 italic mt-1 border-l border-slate-200 pl-2">
+                        <p className="text-[8px] text-slate-400 italic mt-1 border-l border-slate-400 pl-2">
                           {sale.service_description}
                         </p>
                       )}
@@ -6386,7 +6386,7 @@ export default function App() {
                 </div>
               )}
 
-              <div className={`mt-6 pt-4 border-t border-dashed border-slate-300 ${selectedCustomerForPrint.type === 'A4' ? 'grid grid-cols-2 gap-8' : 'space-y-4'} text-center no-print`}>
+              <div className={`mt-6 pt-4 border-t border-dashed border-slate-400 ${selectedCustomerForPrint.type === 'A4' ? 'grid grid-cols-2 gap-8' : 'space-y-4'} text-center no-print`}>
                 <div className="p-3 bg-rose-50 rounded-xl border border-rose-100">
                   <p className="text-[9px] font-bold text-rose-500 uppercase">Saldo de Crédito Atual</p>
                   <p className="text-xl font-black text-rose-700">R$ {getCustomerRemainingCredit(selectedCustomerForPrint.customer.id).toFixed(2)}</p>
@@ -6674,7 +6674,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Serviço</label>
                 <input
                   type="text" required placeholder="Ex: Troca de Pneu"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   value={fixedServiceForm.name}
                   onChange={e => setFixedServiceForm({ ...fixedServiceForm, name: e.target.value })}
                 />
@@ -6683,7 +6683,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Repasse (R$)</label>
                 <input
                   type="number" required step="0.01"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   value={fixedServiceForm.payout}
                   onChange={e => setFixedServiceForm({ ...fixedServiceForm, payout: e.target.value })}
                 />
@@ -6694,7 +6694,7 @@ export default function App() {
             </button>
           </form>
 
-          <div className="mt-6 border-t border-slate-100 pt-6">
+          <div className="mt-6 border-t border-slate-400 pt-6">
             <p className="text-xs font-bold text-slate-400 uppercase mb-4">Serviços Atuais</p>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {fixedServices.map(fs => (
@@ -6735,7 +6735,7 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
                 <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
                   value={osForm.customer_id}
                   onChange={e => setOsForm({ ...osForm, customer_id: e.target.value, motorcycle_id: '' })}
                 >
@@ -6757,7 +6757,7 @@ export default function App() {
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Moto do Cliente</label>
                     <select
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
                       value={osForm.motorcycle_id}
                       onChange={e => setOsForm({ ...osForm, motorcycle_id: e.target.value })}
                     >
@@ -6770,7 +6770,7 @@ export default function App() {
                     <input
                       type="number"
                       placeholder="000"
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
                       value={osForm.km}
                       onChange={e => setOsForm({ ...osForm, km: e.target.value })}
                     />
@@ -6786,13 +6786,13 @@ export default function App() {
                     <input
                       type="text"
                       placeholder="Buscar no estoque..."
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
                       value={osSearchProduct}
                       onChange={e => setOsSearchProduct(e.target.value)}
                     />
                   </div>
                   {osSearchProduct && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                       {products.filter(p =>
                         p.description.toLowerCase().includes(osSearchProduct.toLowerCase()) ||
                         (p.brand && p.brand.toLowerCase().includes(osSearchProduct.toLowerCase())) ||
@@ -6801,7 +6801,7 @@ export default function App() {
                         <button
                           key={p.id}
                           onClick={() => handleAddOsItem(p)}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-50 last:border-none"
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-400 last:border-none"
                         >
                           <div>
                             <p className="text-sm font-medium text-slate-900">{p.description}</p>
@@ -6823,13 +6823,13 @@ export default function App() {
                     <input
                       type="text"
                       placeholder="Buscar serviço..."
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
                       value={osSearchService}
                       onChange={e => setOsSearchService(e.target.value)}
                     />
                   </div>
                   {osSearchService && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                       {registeredServices.filter(s =>
                         s.description.toLowerCase().includes(osSearchService.toLowerCase())
                       ).map(s => (
@@ -6848,7 +6848,7 @@ export default function App() {
                             });
                             setOsSearchService('');
                           }}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-50 last:border-none"
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-400 last:border-none"
                         >
                           <div>
                             <p className="text-sm font-medium text-slate-900">{s.description}</p>
@@ -6865,7 +6865,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Descrição do Serviço / Problema</label>
                 <textarea
                   placeholder="Descreva o que será feito ou o problema relatado pelo cliente..."
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none min-h-[100px] resize-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none min-h-[100px] resize-none"
                   value={osForm.service_description}
                   onChange={e => setOsForm({ ...osForm, service_description: e.target.value })}
                 />
@@ -6878,11 +6878,11 @@ export default function App() {
                   <div className="space-y-2">
                     <h5 className="text-[10px] font-black text-rose-500 uppercase tracking-widest px-2">Peças e Produtos</h5>
                     {osForm.items.map((item, idx) => item.product_id && (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-400">
                         <div className="flex-1">
                           <p className="text-sm font-bold text-slate-900">{item.description}</p>
                           <div className="flex items-center gap-3 mt-1">
-                            <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-7">
+                            <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -6896,7 +6896,7 @@ export default function App() {
                               >
                                 <MinusCircle size={14} />
                               </button>
-                              <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-200 min-w-[32px]">
+                              <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-400 min-w-[32px]">
                                 {item.quantity}
                               </span>
                               <button
@@ -6941,7 +6941,7 @@ export default function App() {
                         <div className="flex-1">
                           <p className="text-sm font-bold text-slate-900">{item.description}</p>
                           <div className="flex items-center gap-3 mt-1">
-                            <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-7">
+                            <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -6955,7 +6955,7 @@ export default function App() {
                               >
                                 <MinusCircle size={14} />
                               </button>
-                              <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-200 min-w-[32px]">
+                              <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-400 min-w-[32px]">
                                 {item.quantity}
                               </span>
                               <button
@@ -6996,7 +6996,7 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Valor da Mão de Obra (R$)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
                   value={osForm.labor_value}
                   onChange={e => setOsForm({ ...osForm, labor_value: e.target.value })}
                 />
@@ -7005,7 +7005,7 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Mecânico Responsável</label>
                 <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
                   value={osForm.mechanic_id}
                   onChange={e => setOsForm({ ...osForm, mechanic_id: e.target.value })}
                 >
@@ -7018,7 +7018,7 @@ export default function App() {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Adicionar Serviço Fixo (Tabela de Repasses)</label>
                   <select
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
                     value=""
                     onChange={e => {
                       const selectedService = fixedServices.find(fs => fs.id === e.target.value);
@@ -7052,11 +7052,11 @@ export default function App() {
                 <div className="space-y-2">
                   <p className="block text-sm font-medium text-slate-700 mb-1">Serviços Fixos Selecionados:</p>
                   {osForm.selected_fixed_services.map((sfs, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-400">
                       <div className="flex-1">
                         <p className="text-sm font-bold text-slate-900">{sfs.name}</p>
                         <div className="flex items-center gap-3 mt-1">
-                          <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-7">
+                          <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7">
                             <button
                               type="button"
                               onClick={() => {
@@ -7070,7 +7070,7 @@ export default function App() {
                             >
                               <MinusCircle size={14} />
                             </button>
-                            <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-200 min-w-[32px]">
+                            <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-400 min-w-[32px]">
                               {sfs.quantity}
                             </span>
                             <button
@@ -7116,7 +7116,7 @@ export default function App() {
                       onClick={() => setOsForm({ ...osForm, payment_method: method as any, due_date: method === 'Fiado' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : osForm.due_date })}
                       className={`py-2 rounded-xl text-xs font-bold border transition-all ${osForm.payment_method === method
                         ? 'bg-amber-600 border-amber-600 text-white shadow-md'
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-amber-200'
+                        : 'bg-white border-slate-400 text-slate-600 hover:border-amber-200'
                         }`}
                     >
                       {method}
@@ -7148,7 +7148,7 @@ export default function App() {
                       onClick={() => setOsForm({ ...osForm, status: statusOption as any })}
                       className={`py-2 rounded-xl text-xs font-bold border transition-all ${osForm.status === statusOption
                         ? 'bg-amber-600 border-amber-600 text-white shadow-md'
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-amber-200'
+                        : 'bg-white border-slate-400 text-slate-600 hover:border-amber-200'
                         }`}
                     >
                       {statusOption}
@@ -7157,8 +7157,8 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-100">
-                <div className="bg-slate-50 p-4 rounded-2xl mb-4 border border-slate-100 flex flex-col gap-2">
+              <div className="pt-4 border-t border-slate-400">
+                <div className="bg-slate-50 p-4 rounded-2xl mb-4 border border-slate-400 flex flex-col gap-2">
                   <div className="flex justify-between text-[10px]">
                     <span className="text-slate-500 font-bold uppercase">Total em Peças:</span>
                     <span className="font-bold text-slate-700">R$ {osForm.items.filter(i => i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}</span>
@@ -7167,7 +7167,7 @@ export default function App() {
                     <span className="text-slate-500 font-bold uppercase">Total em Serviços:</span>
                     <span className="font-bold text-slate-700">R$ {(osForm.items.filter(i => !i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-200 mt-1">
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-400 mt-1">
                     <span className="text-slate-900 font-black uppercase text-sm">Valor Total da O.S.</span>
                     <span className="text-2xl font-black text-rose-600">
                       R$ {(osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)).toFixed(2)}
@@ -7179,7 +7179,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setShowOsCalculator(!showOsCalculator)}
-                    className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-200"
+                    className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-400"
                   >
                     <Calculator size={18} />
                     {showOsCalculator ? 'Esconder Calculadora de Venda' : 'Abrir Calculadora de Taxas/Prazo'}
@@ -7254,11 +7254,11 @@ export default function App() {
               </div>
 
               {/* Detailed Services List */}
-              <div className="mt-6 border-t border-slate-100 pt-6">
+              <div className="mt-6 border-t border-slate-400 pt-6">
                 <h3 className="font-bold text-slate-900 mb-4">Serviços Detalhados</h3>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {sales.filter(s => s.mechanic_id === selectedMechanicForReport.id && s.type === 'Oficina').map(sale => (
-                    <div key={sale.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <div key={sale.id} className="p-3 bg-slate-50 rounded-xl border border-slate-400">
                       <div className="flex justify-between items-center mb-1">
                         <p className="font-bold text-slate-800">O.S. #{sale.id} - {sale.customer_name}</p>
                         <span className="text-sm font-bold text-rose-600">R$ {sale.commission.toFixed(2)}</span>
@@ -7459,7 +7459,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Saldo Inicial em Dinheiro (R$)</label>
             <input
               type="number" step="0.01" required placeholder="0.00"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
               value={cashForm.openingBalance}
               onChange={e => setCashForm({ ...cashForm, openingBalance: e.target.value })}
             />
@@ -7467,7 +7467,7 @@ export default function App() {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Observações (Opcional)</label>
             <textarea
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none min-h-[80px] resize-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none min-h-[80px] resize-none"
               value={cashForm.notes}
               onChange={e => setCashForm({ ...cashForm, notes: e.target.value })}
             />
@@ -7488,14 +7488,14 @@ export default function App() {
             <button
               type="button"
               onClick={() => setTransactionForm({ ...transactionForm, type: 'Suprimento' })}
-              className={`py-3 rounded-xl font-bold border transition-all ${transactionForm.type === 'Suprimento' ? 'bg-rose-600 border-rose-600 text-white shadow-lg shadow-rose-100' : 'bg-white border-slate-200 text-slate-600 hover:border-rose-200'}`}
+              className={`py-3 rounded-xl font-bold border transition-all ${transactionForm.type === 'Suprimento' ? 'bg-rose-600 border-rose-600 text-white shadow-lg shadow-rose-100' : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'}`}
             >
               Suprimento (+)
             </button>
             <button
               type="button"
               onClick={() => setTransactionForm({ ...transactionForm, type: 'Sangria' })}
-              className={`py-3 rounded-xl font-bold border transition-all ${transactionForm.type === 'Sangria' ? 'bg-rose-600 border-rose-600 text-white shadow-lg shadow-rose-100' : 'bg-white border-slate-200 text-slate-600 hover:border-rose-200'}`}
+              className={`py-3 rounded-xl font-bold border transition-all ${transactionForm.type === 'Sangria' ? 'bg-rose-600 border-rose-600 text-white shadow-lg shadow-rose-100' : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'}`}
             >
               Sangria (-)
             </button>
@@ -7504,7 +7504,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Valor (R$)</label>
             <input
               type="number" step="0.01" required placeholder="0.00"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={transactionForm.amount}
               onChange={e => setTransactionForm({ ...transactionForm, amount: e.target.value })}
             />
@@ -7513,7 +7513,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Descrição / Motivo</label>
             <input
               type="text" required placeholder="Ex: Troco inicial, Pagamento fornecedor..."
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={transactionForm.description}
               onChange={e => setTransactionForm({ ...transactionForm, description: e.target.value })}
             />
@@ -7535,7 +7535,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Mecânico</label>
             <input
               type="text" required placeholder="Ex: João Silva"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={mechanicForm.name}
               onChange={e => setMechanicForm({ name: e.target.value })}
             />
@@ -7557,7 +7557,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Serviço</label>
             <input
               type="text" required placeholder="Ex: Troca de Óleo"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={fixedServiceForm.name}
               onChange={e => setFixedServiceForm({ ...fixedServiceForm, name: e.target.value })}
             />
@@ -7566,7 +7566,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Valor de Repasse (R$)</label>
             <input
               type="number" step="0.01" required placeholder="0.00"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={fixedServiceForm.payout}
               onChange={e => setFixedServiceForm({ ...fixedServiceForm, payout: e.target.value })}
             />
@@ -7592,7 +7592,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Contato</label>
             <input
               type="text" required placeholder="Ex: João da Silva"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={leadForm.name}
               onChange={e => setLeadForm({ ...leadForm, name: e.target.value })}
             />
@@ -7601,7 +7601,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Empresa / Referência</label>
             <input
               type="text" required placeholder="Ex: Oficina Central"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={leadForm.company}
               onChange={e => setLeadForm({ ...leadForm, company: e.target.value })}
             />
@@ -7610,7 +7610,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Valor Estimado (R$)</label>
             <input
               type="number" step="0.01" required placeholder="0.00"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={leadForm.value}
               onChange={e => setLeadForm({ ...leadForm, value: e.target.value })}
             />
@@ -7619,7 +7619,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Telefone / WhatsApp</label>
             <input
               type="text" required placeholder="(00) 00000-0000"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={leadForm.phone}
               onChange={e => setLeadForm({ ...leadForm, phone: e.target.value })}
             />
@@ -7627,7 +7627,7 @@ export default function App() {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Prioridade</label>
             <select
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={leadForm.priority}
               onChange={e => setLeadForm({ ...leadForm, priority: e.target.value as any })}
             >
@@ -7687,7 +7687,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Distribuidor</label>
             <input
               type="text" required
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={distributorForm.name}
               onChange={e => setDistributorForm({ ...distributorForm, name: e.target.value })}
             />
@@ -7696,7 +7696,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Telefone (WhatsApp)</label>
             <input
               type="text" required
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={distributorForm.phone}
               onChange={e => setDistributorForm({ ...distributorForm, phone: e.target.value })}
             />
@@ -7705,7 +7705,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Pessoa de Contato (Opcional)</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
               value={distributorForm.contact_person}
               onChange={e => setDistributorForm({ ...distributorForm, contact_person: e.target.value })}
             />
@@ -7728,7 +7728,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Distribuidor</label>
             <select
               required
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
               value={orderForm.distributor_id}
               onChange={e => setOrderForm({ ...orderForm, distributor_id: e.target.value })}
             >
@@ -7746,13 +7746,13 @@ export default function App() {
               <input
                 type="text"
                 placeholder="Buscar por descrição ou SKU..."
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                 value={orderSearchProduct}
                 onChange={e => setOrderSearchProduct(e.target.value)}
               />
             </div>
             {orderSearchProduct && (
-              <div className="absolute z-10 bg-white border border-slate-200 rounded-xl mt-2 w-full max-h-60 overflow-y-auto shadow-lg">
+              <div className="absolute z-10 bg-white border border-slate-400 rounded-xl mt-2 w-full max-h-60 overflow-y-auto shadow-lg">
                 {products.filter(p =>
                   p.description.toLowerCase().includes(orderSearchProduct.toLowerCase()) ||
                   p.sku.toLowerCase().includes(orderSearchProduct.toLowerCase())
@@ -7761,7 +7761,7 @@ export default function App() {
                     type="button"
                     key={product.id}
                     onClick={() => handleAddOrderItem(product)}
-                    className="flex items-center justify-between w-full p-3 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
+                    className="flex items-center justify-between w-full p-3 hover:bg-slate-50 transition-colors border-b border-slate-400 last:border-b-0"
                   >
                     <div>
                       <p className="font-medium text-slate-800">{product.description}</p>
@@ -7778,7 +7778,7 @@ export default function App() {
             <div className="space-y-3">
               <h3 className="text-lg font-bold text-slate-900">Itens do Pedido</h3>
               {orderForm.items.map((item, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div key={index} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-400">
                   <div className="flex-1">
                     <p className="font-medium text-slate-800">{item.description}</p>
                     <p className="text-sm text-slate-500">Qtd: {item.quantity}</p>
@@ -7796,7 +7796,7 @@ export default function App() {
                       min="1"
                       value={item.quantity}
                       onChange={e => handleUpdateOrderItemQuantity(item.description, parseInt(e.target.value) || 1)}
-                      className="w-16 px-2 py-1 bg-white border border-slate-200 rounded-lg text-center text-sm"
+                      className="w-16 px-2 py-1 bg-white border border-slate-400 rounded-lg text-center text-sm"
                     />
                     <button
                       type="button"
@@ -7808,7 +7808,7 @@ export default function App() {
                   </div>
                 </div>
               ))}
-              <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+              <div className="flex justify-between items-center pt-4 border-t border-slate-400">
                 <p className="text-lg font-bold text-slate-900">Total de Itens:</p>
                 <p className="text-lg font-bold text-rose-600">{orderForm.items.reduce((acc, item) => acc + item.quantity, 0)}</p>
               </div>
@@ -7844,7 +7844,7 @@ export default function App() {
       >
         {selectedProductDetail && (
           <div className="space-y-6">
-            <div className="aspect-square bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 flex items-center justify-center">
+            <div className="aspect-square bg-slate-50 rounded-2xl overflow-hidden border border-slate-400 flex items-center justify-center">
               {selectedProductDetail.image_url ? (
                 <img src={selectedProductDetail.image_url} alt={selectedProductDetail.description} className="w-full h-full object-contain p-4" />
               ) : (
@@ -7866,7 +7866,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400">
                 <h5 className="text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">Aplicação das Peças</h5>
                 <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
                   {selectedProductDetail.application || "Nenhuma especificação de aplicação cadastrada para este item."}

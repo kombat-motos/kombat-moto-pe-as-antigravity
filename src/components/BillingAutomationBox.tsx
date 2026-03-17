@@ -263,7 +263,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
             }
 
             return (
-              <div key={sale.id} className="border border-slate-200 p-4 rounded-xl flex items-center justify-between hover:border-rose-200 transition-colors group">
+              <div key={sale.id} className="border border-slate-400 p-4 rounded-xl flex items-center justify-between hover:border-rose-200 transition-colors group">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="font-bold text-slate-800">{sale.customer_name}</p>
@@ -294,7 +294,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                     )}
                     
                     {/* RÉGUA DE COBRANÇA - ÁREA MARCADA COM X */}
-                    <div className="flex items-center gap-1.5 px-4 h-12 border-x border-slate-50 ml-4 group/regua">
+                    <div className="flex items-center gap-1.5 px-4 h-12 border-x border-slate-400 ml-4 group/regua">
                       <div className="flex flex-col items-center">
                         <span className="text-[8px] font-black uppercase text-slate-400 mb-1">Lembrete</span>
                         <a
@@ -402,14 +402,14 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                         <div className="flex items-center gap-1 mt-0.5">
                           <input
                             type="number"
-                            className="w-12 text-[10px] border border-slate-200 rounded px-1"
+                            className="w-12 text-[10px] border border-slate-400 rounded px-1"
                             value={tempRates.fine}
                             onChange={(e) => setTempRates({ ...tempRates, fine: parseFloat(e.target.value) || 0 })}
                           />
                           <span className="text-[10px]">%</span>
                           <input
                             type="number"
-                            className="w-12 text-[10px] border border-slate-200 rounded px-1"
+                            className="w-12 text-[10px] border border-slate-400 rounded px-1"
                             value={tempRates.interest}
                             onChange={(e) => setTempRates({ ...tempRates, interest: parseFloat(e.target.value) || 0 })}
                           />
@@ -423,7 +423,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2 mt-2">
-                    <p className="text-[11px] text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-100 flex items-center gap-1">
+                    <p className="text-[11px] text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-400 flex items-center gap-1">
                       Vencimento: <strong>{sale.due_date ? format(new Date(sale.due_date), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}</strong>
                       <button
                         onClick={() => {
@@ -469,7 +469,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                     <div className="flex gap-2 items-center bg-white p-1 rounded-lg border border-emerald-100 shadow-sm">
                       <input
                         type="text"
-                        className="w-24 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        className="w-24 px-2 py-1 bg-slate-50 border border-slate-400 rounded text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20"
                         placeholder="Valor Pago"
                         value={partialPaymentAmount}
                         onChange={(e) => setPartialPaymentAmount(e.target.value)}

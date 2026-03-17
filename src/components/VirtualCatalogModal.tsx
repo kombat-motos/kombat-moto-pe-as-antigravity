@@ -89,14 +89,14 @@ const VirtualCatalogModal: React.FC<VirtualCatalogModalProps> = ({ products, sho
           <input
             type="text"
             placeholder="Buscar produtos..."
-            className="w-full px-4 py-2 pl-10 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+            className="w-full px-4 py-2 pl-10 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
           <ImageIcon size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         </div>
         <select
-          className="w-48 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+          className="w-48 px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
           value={selectedCategory}
           onChange={e => setSelectedCategory(e.target.value)}
         >
@@ -110,7 +110,7 @@ const VirtualCatalogModal: React.FC<VirtualCatalogModalProps> = ({ products, sho
         {filteredProducts.map(product => (
           <div
             key={product.id}
-            className={`relative bg-white p-4 rounded-xl shadow-sm border transition-all ${selectedProducts.some(p => p.id === product.id) ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-slate-100 hover:border-slate-200'}`}
+            className={`relative bg-white p-4 rounded-xl shadow-sm border transition-all ${selectedProducts.some(p => p.id === product.id) ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-slate-400 hover:border-slate-400'}`}
           >
             <button
               className="absolute top-2 right-2 p-1 rounded-full bg-white shadow-sm"
@@ -144,7 +144,7 @@ const VirtualCatalogModal: React.FC<VirtualCatalogModalProps> = ({ products, sho
         )}
       </div>
 
-      <div className="pt-4 border-t border-slate-100">
+      <div className="pt-4 border-t border-slate-400">
         <button
           onClick={generateWhatsAppMessage}
           disabled={isGenerating}

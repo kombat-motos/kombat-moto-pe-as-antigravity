@@ -81,7 +81,7 @@ export default function Auth({ onLogin }: AuthProps) {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white w-full max-w-md rounded-3xl shadow-2xl shadow-slate-200 overflow-hidden border border-slate-100"
+        className="bg-white w-full max-w-md rounded-3xl shadow-2xl shadow-slate-200 overflow-hidden border border-slate-400"
       >
         <div className="p-8 bg-rose-600 text-white text-center">
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
@@ -120,7 +120,7 @@ export default function Auth({ onLogin }: AuthProps) {
                   type="text"
                   required
                   placeholder="Seu usuário"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none transition-all"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                 />
@@ -137,7 +137,7 @@ export default function Auth({ onLogin }: AuthProps) {
                   type="password"
                   required
                   placeholder="Sua senha"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none transition-all"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                 />
@@ -171,7 +171,7 @@ export default function Auth({ onLogin }: AuthProps) {
           </form>
 
 
-          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+          <div className="mt-8 pt-6 border-t border-slate-400 text-center">
             <p className="text-xs text-slate-400">
               Proteção de dados ativa. Acesso restrito a usuários autorizados.
             </p>
