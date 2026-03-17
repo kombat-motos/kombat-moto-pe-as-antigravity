@@ -6538,15 +6538,27 @@ export default function App() {
                           </td>
                           <td className="py-2 px-1 font-mono">{sale.id}</td>
                           <td className="py-2 px-1">
-                            <div className="max-w-md truncate">
+                            <div className="flex flex-col gap-1 min-w-[300px]">
                               {sale.items.map((item, idx) => (
-                                <span key={idx} className="text-slate-500">
-                                  {item.quantity}x {item.description}{idx < sale.items.length - 1 ? ', ' : ''}
-                                </span>
+                                <div key={idx} className="flex justify-between items-center text-slate-700 leading-tight">
+                                  <span className="flex-1">{item.quantity}x {item.description}</span>
+                                  <span className="text-[9px] text-slate-400 font-mono text-right ml-4">
+                                    R$ {(item.quantity * item.price).toFixed(2)}
+                                  </span>
+                                </div>
                               ))}
-                              {sale.labor_value > 0 && <span className="text-amber-600 font-bold"> + Mão de Obra</span>}
+                              {sale.labor_value > 0 && (
+                                <div className="flex justify-between items-center text-amber-700 font-bold border-t border-slate-200 mt-1 pt-1 leading-tight">
+                                  <span className="flex-1">SERVIÇOS / MÃO DE OBRA</span>
+                                  <span className="text-[9px] font-mono text-right ml-4">
+                                    R$ {sale.labor_value.toFixed(2)}
+                                  </span>
+                                </div>
+                              )}
                               {sale.service_description && (
-                                <p className="text-[8px] text-slate-400 mt-0.5 italic">Obs: {sale.service_description}</p>
+                                <p className="text-[8px] text-slate-500 italic mt-1 bg-slate-50 p-1 rounded-sm">
+                                  Obs: {sale.service_description}
+                                </p>
                               )}
                             </div>
                           </td>
