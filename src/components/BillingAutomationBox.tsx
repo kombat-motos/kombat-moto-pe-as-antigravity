@@ -175,28 +175,25 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
     return `https://wa.me/${finalNumber}?text=${encodedMessage}`;
   };
 
-  const getNotificationMessage = (sale: Sale, type: 'before' | 'on' | 'after') => {
-    const customerName = sale.customer_name;
+  const getNotificationMessage = (sale: Sale, type: 'before' | 'on' | 'after', totalWithCharges: number) => {
+    const customerName = sale.customer_name.split(' ')[0]; // Só o primeiro nome para ficar amigável
+    const totalOriginal = sale.total.toFixed(2);
     const paidTotal = sale.paid_total || 0;
     const remaining = sale.total - paidTotal;
-    const totalMsg = paidTotal > 0 ? `R$ ${remaining.toFixed(2)} (Saldo de R$ ${sale.total.toFixed(2)})` : `R$ ${sale.total.toFixed(2)}`;
+    const totalFinal = (totalWithCharges > remaining ? totalWithCharges : remaining).toFixed(2);
     const dueDate = sale.due_date ? format(new Date(sale.due_date), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
-
-    let message = `Olá ${customerName},\n`;
+    const docId = sale.id.substring(0, 8).toUpperCase();
 
     switch (type) {
       case 'before':
-        message += `Este é um lembrete amigável de que sua fatura no valor de ${totalMsg} vence em ${dueDate}.`;
-        break;
+        return `Olá, ${customerName}! Passando para lembrar que seu título ${docId} vence em ${dueDate}. Segue a nota para sua organização.\n\nKombat Moto Peças`;
       case 'on':
-        message += `Sua fatura no valor de ${totalMsg} vence hoje, ${dueDate}.`;
-        break;
+        return `Hoje vence seu título na Kombat Moto Peças. Para sua comodidade, segue a nota em anexo. Caso já tenha pago, desconsidere.\n\nValor: R$ ${totalFinal}`;
       case 'after':
-        message += `Sua fatura no valor de ${totalMsg} venceu em ${dueDate}. Por favor, regularize o pagamento o mais breve possível.`;
-        break;
+        return `Atenção, ${customerName}. Identificamos que o título ${docId} está em atraso. O valor foi atualizado com juros e multa conforme o contrato. Segue PDF atualizado para pagamento imediato.\n\nNovo Valor: R$ ${totalFinal}`;
+      default:
+        return '';
     }
-    message += `\n\nObrigado!\nKombat Moto Peças`;
-    return message;
   };
 
   return (
@@ -271,12 +268,64 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                       <p className="font-bold text-rose-600 text-sm">R$ {(sale.total - (sale.paid_total || 0)).toFixed(2)}</p>
                     </div>
                     
-                    {totalWithCharges > sale.total && (
+                    {totalWithCharges > (sale.total - (sale.paid_total || 0)) && (
                       <div className="bg-rose-50 px-2 py-1 rounded border border-rose-100">
                         <p className="text-[9px] text-rose-400 font-bold uppercase">Com Encargos</p>
                         <p className="font-black text-rose-700 text-xs text-center">R$ {totalWithCharges.toFixed(2)}</p>
                       </div>
                     )}
+                    
+                    {/* RÉGUA DE COBRANÇA - ÁREA MARCADA COM X */}
+                    <div className="flex items-center gap-1.5 px-4 h-12 border-x border-slate-50 ml-4 group/regua">
+                      <div className="flex flex-col items-center">
+                        <span className="text-[8px] font-black uppercase text-slate-400 mb-1">Lembrete</span>
+                        <a
+                          href={generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, 'before', totalWithCharges))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                            notificationType === 'before' ? 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-500 ring-offset-1' : 'bg-slate-50 text-slate-300 hover:bg-indigo-50 hover:text-indigo-400'
+                          }`}
+                          title="Disparar Lembrete (Pré-vencimento)"
+                        >
+                          <MessageCircle size={14} />
+                        </a>
+                      </div>
+
+                      <div className="w-4 h-[1px] bg-slate-100 mt-3"></div>
+
+                      <div className="flex flex-col items-center">
+                        <span className="text-[8px] font-black uppercase text-slate-400 mb-1">Vencimento</span>
+                        <a
+                          href={generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, 'on', totalWithCharges))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                            notificationType === 'on' ? 'bg-emerald-100 text-emerald-600 ring-2 ring-emerald-500 ring-offset-1' : 'bg-slate-50 text-slate-300 hover:bg-emerald-50 hover:text-emerald-400'
+                          }`}
+                          title="Disparar Notificação (Hoje)"
+                        >
+                          <Check size={14} />
+                        </a>
+                      </div>
+
+                      <div className="w-4 h-[1px] bg-slate-100 mt-3"></div>
+
+                      <div className="flex flex-col items-center">
+                        <span className="text-[8px] font-black uppercase text-slate-400 mb-1">Crítica</span>
+                        <a
+                          href={generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, 'after', totalWithCharges))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                            notificationType === 'after' ? 'bg-rose-100 text-rose-600 ring-4 ring-rose-500/20 ring-offset-1' : 'bg-slate-50 text-slate-300 hover:bg-rose-50 hover:text-rose-400'
+                          }`}
+                          title="Disparar Cobrança (Atraso)"
+                        >
+                          <Send size={14} />
+                        </a>
+                      </div>
+                    </div>
                     
                     <div className="relative group/rates ml-auto">
                       <p className="text-[10px] text-slate-400 flex items-center gap-1 font-bold">
@@ -340,10 +389,10 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handlePrintPromissory(sale)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-amber-100 text-amber-700 text-xs rounded-lg hover:bg-amber-200 transition-colors font-bold border border-amber-200"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-lg hover:bg-slate-900 transition-colors font-bold shadow-sm"
                     >
                       <Printer size={14} />
-                      Promissória
+                      Nota de Cobrança (PDF)
                     </button>
                     <a
                       href={generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, notificationType || 'on'))}
