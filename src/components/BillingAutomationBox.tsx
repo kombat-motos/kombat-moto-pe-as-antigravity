@@ -21,6 +21,7 @@ interface Sale {
   payment_status: 'Pago' | 'Pendente';
   due_date?: string;
   paid_date?: string;
+  paid_total?: number;
 }
 
 interface SaleItem {
@@ -62,6 +63,11 @@ interface BillingAutomationBoxProps {
   customers: Customer[];
   companyData: CompanyData;
   onUpdateDueDate: (saleId: string, newDate: string) => void;
+  onPartialPayment: (sale: any, amount: string) => void;
+  payingSaleId: string | null;
+  setPayingSaleId: (id: string | null) => void;
+  partialPaymentAmount: string;
+  setPartialPaymentAmount: (val: string) => void;
 }
 
 // Função para converter número em extenso (Português)
@@ -116,7 +122,17 @@ function valorPorExtenso(valor: number): string {
   return extenso.toUpperCase();
 }
 
-const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({ pendingSales, customers, companyData, onUpdateDueDate }) => {
+const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({ 
+  pendingSales, 
+  customers, 
+  companyData, 
+  onUpdateDueDate,
+  onPartialPayment,
+  payingSaleId,
+  setPayingSaleId,
+  partialPaymentAmount,
+  setPartialPaymentAmount
+}) => {
   const [editingSaleId, setEditingSaleId] = React.useState<string | null>(null);
   const [tempDueDate, setTempDueDate] = React.useState<string>('');
   const [editingChargesId, setEditingChargesId] = React.useState<string | null>(null);
@@ -157,20 +173,22 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({ pendingSale
 
   const getNotificationMessage = (sale: Sale, type: 'before' | 'on' | 'after') => {
     const customerName = sale.customer_name;
-    const total = sale.total.toFixed(2);
+    const paidTotal = sale.paid_total || 0;
+    const remaining = sale.total - paidTotal;
+    const totalMsg = paidTotal > 0 ? `R$ ${remaining.toFixed(2)} (Saldo de R$ ${sale.total.toFixed(2)})` : `R$ ${sale.total.toFixed(2)}`;
     const dueDate = sale.due_date ? format(new Date(sale.due_date), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
 
     let message = `Olá ${customerName},\n`;
 
     switch (type) {
       case 'before':
-        message += `Este é um lembrete amigável de que sua fatura no valor de R$ ${total} vence em ${dueDate}.`;
+        message += `Este é um lembrete amigável de que sua fatura no valor de ${totalMsg} vence em ${dueDate}.`;
         break;
       case 'on':
-        message += `Sua fatura no valor de R$ ${total} vence hoje, ${dueDate}.`;
+        message += `Sua fatura no valor de ${totalMsg} vence hoje, ${dueDate}.`;
         break;
       case 'after':
-        message += `Sua fatura no valor de R$ ${total} venceu em ${dueDate}. Por favor, regularize o pagamento o mais breve possível.`;
+        message += `Sua fatura no valor de ${totalMsg} venceu em ${dueDate}. Por favor, regularize o pagamento o mais breve possível.`;
         break;
     }
     message += `\n\nObrigado!\nKombat Moto Peças`;
@@ -235,17 +253,29 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({ pendingSale
 
                   <div className="flex items-center gap-4 mt-1">
                     <div>
-                      <p className="text-xs text-slate-400">Valor Original</p>
-                      <p className="font-medium text-slate-700">R$ {sale.total.toFixed(2)}</p>
+                      <p className="text-[10px] text-slate-400 uppercase font-black">Valor Original</p>
+                      <p className="font-bold text-slate-700 text-xs">R$ {sale.total.toFixed(2)}</p>
                     </div>
-                    {totalWithCharges > sale.total && (
+                    {sale.paid_total > 0 && (
                       <div>
-                        <p className="text-xs text-rose-400">Total com Encargos</p>
-                        <p className="font-bold text-rose-600">R$ {totalWithCharges.toFixed(2)}</p>
+                        <p className="text-[10px] text-emerald-500 uppercase font-black">Já Pago</p>
+                        <p className="font-bold text-emerald-600 text-xs">R$ {sale.paid_total.toFixed(2)}</p>
                       </div>
                     )}
-                    <div className="relative group/rates">
-                      <p className="text-xs text-slate-400 flex items-center gap-1">
+                    <div>
+                      <p className="text-[10px] text-rose-500 uppercase font-black">Pendente</p>
+                      <p className="font-bold text-rose-600 text-sm">R$ {(sale.total - (sale.paid_total || 0)).toFixed(2)}</p>
+                    </div>
+                    
+                    {totalWithCharges > sale.total && (
+                      <div className="bg-rose-50 px-2 py-1 rounded border border-rose-100">
+                        <p className="text-[9px] text-rose-400 font-bold uppercase">Com Encargos</p>
+                        <p className="font-black text-rose-700 text-xs text-center">R$ {totalWithCharges.toFixed(2)}</p>
+                      </div>
+                    )}
+                    
+                    <div className="relative group/rates ml-auto">
+                      <p className="text-[10px] text-slate-400 flex items-center gap-1 font-bold">
                         Taxas
                         <button
                           onClick={() => {
@@ -276,7 +306,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({ pendingSale
                           <button onClick={() => setEditingChargesId(null)} className="p-0.5 text-emerald-600"><Check size={12} /></button>
                         </div>
                       ) : (
-                        <p className="text-[10px] font-medium text-slate-500">{fineRate}% M. / {interestRate}% J.</p>
+                        <p className="text-[9px] font-black text-slate-500 uppercase">{fineRate}% M. / {interestRate}% J.</p>
                       )}
                     </div>
                   </div>
@@ -323,6 +353,37 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({ pendingSale
                       Cobrar Agora
                     </a>
                   </div>
+
+                  {payingSaleId === sale.id ? (
+                    <div className="flex gap-2 items-center bg-white p-1 rounded-lg border border-emerald-100 shadow-sm">
+                      <input
+                        type="text"
+                        className="w-24 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20"
+                        placeholder="Valor Pago"
+                        value={partialPaymentAmount}
+                        onChange={(e) => setPartialPaymentAmount(e.target.value)}
+                      />
+                      <button
+                        onClick={() => onPartialPayment(sale, partialPaymentAmount)}
+                        className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 transition-all uppercase"
+                      >
+                        Baixar
+                      </button>
+                      <button
+                        onClick={() => { setPayingSaleId(null); setPartialPaymentAmount(''); }}
+                        className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold"
+                      >
+                        X
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setPayingSaleId(sale.id); setPartialPaymentAmount(''); }}
+                      className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all flex items-center justify-center gap-2 border border-emerald-100 w-full"
+                    >
+                      <Check size={14} /> Registrar Pagamento
+                    </button>
+                  )}
 
                   {editingSaleId === sale.id && (
                     <div className="flex items-center gap-2 p-1 bg-white border border-rose-100 rounded-lg shadow-sm">

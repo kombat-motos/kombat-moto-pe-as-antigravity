@@ -3400,6 +3400,11 @@ export default function App() {
           customers={customers}
           companyData={companyData}
           onUpdateDueDate={handleUpdateDueDate}
+          onPartialPayment={handlePartialPayment}
+          payingSaleId={payingSaleId}
+          setPayingSaleId={setPayingSaleId}
+          partialPaymentAmount={partialPaymentAmount}
+          setPartialPaymentAmount={setPartialPaymentAmount}
         />
       </div>
     </div>
