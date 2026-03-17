@@ -1619,9 +1619,43 @@ export default function App() {
                           <Printer size={10} /> Imprimir O.S.
                         </button>
                       )}
+                      {sale.payment_method === 'Fiado' && sale.payment_status === 'Pendente' && (
+                        <div className="flex-1 flex justify-center">
+                          {payingSaleId === sale.id ? (
+                            <div className="flex gap-2 items-center">
+                              <input
+                                type="number"
+                                className="w-24 px-2 py-1 bg-white border border-slate-200 rounded text-[10px] font-bold outline-none focus:ring-2 focus:ring-rose-500/20"
+                                placeholder="Valor"
+                                value={partialPaymentAmount}
+                                onChange={(e) => setPartialPaymentAmount(e.target.value)}
+                              />
+                              <button
+                                onClick={() => handlePartialPayment(sale, Number(partialPaymentAmount))}
+                                className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 transition-all uppercase"
+                              >
+                                Baixar
+                              </button>
+                              <button
+                                onClick={() => { setPayingSaleId(null); setPartialPaymentAmount(''); }}
+                                className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold hover:bg-slate-200 transition-all"
+                              >
+                                X
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => { setPayingSaleId(sale.id); setPartialPaymentAmount(''); }}
+                              className="px-3 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all flex items-center gap-1 border border-rose-100"
+                            >
+                              <DollarSign size={12} /> Registrar Pagamento
+                            </button>
+                          )}
+                        </div>
+                      )}
                       <button
                         onClick={() => handleDeleteSale(sale.id)}
-                        className="text-[10px] font-bold text-rose-600 hover:underline flex items-center gap-1"
+                        className="text-[10px] font-bold text-rose-300 hover:text-rose-600 hover:underline flex items-center gap-1 ml-auto"
                       >
                         <Trash2 size={10} /> Excluir Venda
                       </button>
