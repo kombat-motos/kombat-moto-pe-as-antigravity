@@ -331,12 +331,30 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                         <span className="text-[8px] font-black uppercase text-slate-400 mb-1">Envio PDF</span>
                         <button
                           onClick={() => {
-                            const msg = `Olá, estou te enviando a Nota de Cobrança atualizada referente ao título ${sale.id.substring(0, 8).toUpperCase()}. O valor atualizado com encargos é R$ ${totalWithCharges.toFixed(2)}. Favor desconsiderar a nota anterior.`;
+                            const docId = sale.id.substring(0, 8).toUpperCase();
+                            const dueDate = sale.due_date ? format(new Date(sale.due_date), 'dd/MM/yyyy') : 'N/A';
+                            const paid = sale.paid_total || 0;
+                            const original = sale.total;
+                            const charges = totalWithCharges - (original - paid);
+
+                            const thermalMsg = `*--- 📝 NOTA DE COBRANÇA ---*\n` +
+                              `*ID:* #${docId}\n` +
+                              `*CLIENTE:* ${sale.customer_name.toUpperCase()}\n` +
+                              `*VENCIMENTO:* ${dueDate}\n\n` +
+                              `------------------------------------\n` +
+                              `*VALOR ORIGINAL:* R$ ${original.toFixed(2)}\n` +
+                              `*VALOR JÁ PAGO:* - R$ ${paid.toFixed(2)}\n` +
+                              `*ENCARGOS (ATRASO):* + R$ ${charges.toFixed(2)}\n` +
+                              `------------------------------------\n` +
+                              `*TOTAL A PAGAR: R$ ${totalWithCharges.toFixed(2)}*\n` +
+                              `------------------------------------\n\n` +
+                              `*Kombat Moto Peças*`;
+
                             handlePrintPromissory(sale, totalWithCharges);
-                            window.open(generateWhatsAppLink(customerWhatsapp, msg), '_blank');
+                            window.open(generateWhatsAppLink(customerWhatsapp, thermalMsg), '_blank');
                           }}
                           className={`w-8 h-8 rounded-full flex items-center justify-center transition-all bg-slate-800 text-white hover:scale-110 shadow-lg`}
-                          title="Gerar PDF e Notificar via WhatsApp"
+                          title="Gerar PDF e Notinha p/ WhatsApp"
                         >
                           <FileText size={14} />
                         </button>
