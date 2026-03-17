@@ -481,6 +481,7 @@ export default function App() {
   const [showQuoteCalculator, setShowQuoteCalculator] = useState(false);
   const [showOsCalculator, setShowOsCalculator] = useState(false);
   const [labelQuantity, setLabelQuantity] = useState(1);
+  const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
 
   // Quotes States
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -1996,6 +1997,22 @@ export default function App() {
     }
   };
 
+  const handleEditQuote = (quote: Quote) => {
+    setEditingQuote(quote);
+    setQuoteForm({
+      customer_name: quote.customer_name,
+      customer_id: quote.customer_id,
+      motorcycle_details: quote.motorcycle_details || '',
+      total_value: quote.total_value,
+      observations: quote.observations || '',
+      warranty_terms: quote.warranty_terms || 'Garantia de 90 dias conforme CDC sobre os itens relacionados.',
+      validity_days: quote.validity_days || 7,
+      status: quote.status || 'Pendente',
+      items: quote.items || []
+    });
+    setIsQuoteModalOpen(true);
+  };
+
   const handleCreateQuote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return alert('Você precisa estar logado.');
@@ -2003,7 +2020,7 @@ export default function App() {
     if (quoteForm.items.length === 0) return alert('Adicione ao menos um item.');
 
     try {
-      const { data, error } = await supabase.from('quotes').insert([{
+      const dataToSave = {
         user_id: user.id,
         customer_name: quoteForm.customer_name,
         customer_id: quoteForm.customer_id,
@@ -2014,11 +2031,22 @@ export default function App() {
         validity_days: quoteForm.validity_days,
         status: quoteForm.status,
         items: quoteForm.items
-      }]).select().single();
+      };
 
-      if (error) throw error;
-      setQuotes(prev => [data, ...prev]);
+      if (editingQuote) {
+        const { data, error } = await supabase.from('quotes').update(dataToSave).eq('id', editingQuote.id).select().single();
+        if (error) throw error;
+        setQuotes(prev => prev.map(q => q.id === data.id ? data : q));
+        alert('Orçamento atualizado com sucesso!');
+      } else {
+        const { data, error } = await supabase.from('quotes').insert([dataToSave]).select().single();
+        if (error) throw error;
+        setQuotes(prev => [data, ...prev]);
+        alert('Orçamento criado com sucesso!');
+      }
+
       setIsQuoteModalOpen(false);
+      setEditingQuote(null);
       setQuoteForm({
         customer_name: '',
         customer_id: undefined,
@@ -2030,9 +2058,8 @@ export default function App() {
         status: 'Pendente',
         items: []
       });
-      alert('Orçamento criado com sucesso!');
     } catch (err) {
-      console.error('Error creating quote:', err);
+      console.error('Error saving quote:', err);
       alert('Erro ao salvar orçamento.');
     }
   };
@@ -2154,7 +2181,21 @@ export default function App() {
             />
           </div>
           <button
-            onClick={() => setIsQuoteModalOpen(true)}
+            onClick={() => {
+              setEditingQuote(null);
+              setQuoteForm({
+                customer_name: '',
+                customer_id: undefined,
+                motorcycle_details: '',
+                total_value: 0,
+                observations: '',
+                warranty_terms: 'Garantia de 90 dias conforme CDC sobre os itens relacionados.',
+                validity_days: 7,
+                status: 'Pendente',
+                items: []
+              });
+              setIsQuoteModalOpen(true);
+            }}
             className="flex items-center gap-2 px-5 py-2.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-bold shadow-lg shadow-rose-100"
           >
             <Plus size={20} />
@@ -2209,6 +2250,13 @@ export default function App() {
                 title="Compartilhar no WhatsApp"
               >
                 <MessageCircle size={16} />
+              </button>
+              <button
+                onClick={() => handleEditQuote(q)}
+                className="p-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Editar Orçamento"
+              >
+                <Pencil size={16} />
               </button>
               <button
                 onClick={() => handleDeleteQuote(q.id)}
@@ -5339,8 +5387,11 @@ export default function App() {
         {/* Orçamento Modal */}
         <Modal
           isOpen={isQuoteModalOpen}
-          onClose={() => setIsQuoteModalOpen(false)}
-          title="Novo Orçamento Profissional"
+          onClose={() => {
+            setIsQuoteModalOpen(false);
+            setEditingQuote(null);
+          }}
+          title={editingQuote ? "Editar Orçamento Profissional" : "Novo Orçamento Profissional"}
           maxWidth="max-w-5xl"
         >
           <form onSubmit={handleCreateQuote} className="space-y-6">
