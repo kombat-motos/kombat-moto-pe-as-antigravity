@@ -152,6 +152,7 @@ interface Sale {
   payment_status: 'Pago' | 'Pendente';
   due_date?: string;
   paid_date?: string;
+  paid_total?: number;
   service_description?: string;
   whatsapp?: string;
   status?: 'Aberto' | 'Em Andamento' | 'Pronto' | 'Entregue';
@@ -579,6 +580,8 @@ export default function App() {
   const [selectedReport, setSelectedReport] = useState<'customers' | 'inventory' | 'sales' | 'financial' | 'purchases' | null>(null);
   const [inventoryReportSearchTerm, setInventoryReportSearchTerm] = useState('');
   const [companyLogo, setCompanyLogo] = useState<string | null>(localStorage.getItem('companyLogo'));
+  const [partialPaymentAmount, setPartialPaymentAmount] = useState<string>('');
+  const [payingSaleId, setPayingSaleId] = useState<string | null>(null);
   const [companyData, setCompanyData] = useState(() => {
     const saved = localStorage.getItem('companyData');
     return saved ? JSON.parse(saved) : {
@@ -933,6 +936,7 @@ export default function App() {
         mechanic_id: s.mechanic_id,
         payment_method: s.payment_method,
         payment_status: s.payment_status,
+        paid_total: s.paid_total || 0,
         due_date: s.due_date,
         paid_date: s.paid_date,
         service_description: s.service_description,
@@ -1570,6 +1574,9 @@ export default function App() {
                       <div className="text-right">
                         <p className="font-bold text-slate-900">R$ {sale.total.toFixed(2)}</p>
                         <p className="text-xs text-rose-600 font-medium">{sale.payment_method}</p>
+                        {sale.payment_method === 'Fiado' && sale.total - (sale.paid_total || 0) > 0 && (
+                          <p className="text-[9px] font-black text-amber-500 uppercase mt-0.5">Pend: R$ {(sale.total - (sale.paid_total || 0)).toFixed(2)}</p>
+                        )}
                       </div>
                     </div>
 
@@ -3118,6 +3125,38 @@ export default function App() {
         console.error('Error deleting sale:', error);
         alert('Erro ao excluir venda.');
       }
+    }
+  };
+
+  const handlePartialPayment = async (sale: Sale, amount: number) => {
+    if (amount <= 0 || isNaN(amount)) return alert('Informe um valor válido.');
+    
+    const currentPaid = Number(sale.paid_total || 0);
+    const newPaidTotal = currentPaid + amount;
+    const isFullyPaid = newPaidTotal >= sale.total;
+
+    try {
+      const { error } = await supabase.from('sales').update({
+        paid_total: newPaidTotal,
+        payment_status: isFullyPaid ? 'Pago' : 'Pendente',
+        paid_date: isFullyPaid ? new Date().toISOString() : sale.paid_date
+      }).eq('id', sale.id);
+
+      if (error) throw error;
+      
+      setSales(prev => prev.map(s => s.id === sale.id ? { 
+        ...s, 
+        paid_total: newPaidTotal, 
+        payment_status: isFullyPaid ? 'Pago' : 'Pendente',
+        paid_date: isFullyPaid ? new Date().toISOString() : s.paid_date
+      } : s));
+      
+      setPayingSaleId(null);
+      setPartialPaymentAmount('');
+      alert('Pagamento registrado com sucesso!');
+    } catch (err) {
+      console.error('Error registering partial payment:', err);
+      alert('Erro ao registrar pagamento.');
     }
   };
 
@@ -5374,6 +5413,55 @@ export default function App() {
                               {sale.service_description}
                             </div>
                           )}
+
+                          {/* Partial Payment Section */}
+                          <div className="mt-4 p-3 bg-white rounded-xl border border-slate-100 shadow-sm space-y-2">
+                            <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                              <span className="text-slate-400">Total: R$ {sale.total.toFixed(2)}</span>
+                              <span className="text-emerald-500">Pago: R$ {(sale.paid_total || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-2 border-t border-slate-50">
+                              <span className="text-xs font-black uppercase text-slate-800">Saldo Restante:</span>
+                              <span className={`text-sm font-black ${sale.total - (sale.paid_total || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                R$ {(sale.total - (sale.paid_total || 0)).toFixed(2)}
+                              </span>
+                            </div>
+
+                            {sale.payment_method === 'Fiado' && sale.total - (sale.paid_total || 0) > 0 && (
+                              <div className="pt-2">
+                                {payingSaleId === sale.id ? (
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="number"
+                                      className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500/20"
+                                      placeholder="Quanto pago?"
+                                      value={partialPaymentAmount}
+                                      onChange={(e) => setPartialPaymentAmount(e.target.value)}
+                                    />
+                                    <button
+                                      onClick={() => handlePartialPayment(sale, Number(partialPaymentAmount))}
+                                      className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all"
+                                    >
+                                      Salvar
+                                    </button>
+                                    <button
+                                      onClick={() => { setPayingSaleId(null); setPartialPaymentAmount(''); }}
+                                      className="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all"
+                                    >
+                                      X
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => { setPayingSaleId(sale.id); setPartialPaymentAmount(''); }}
+                                    className="w-full py-2 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <DollarSign size={14} /> Registrar Pagamento Parcial
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))
