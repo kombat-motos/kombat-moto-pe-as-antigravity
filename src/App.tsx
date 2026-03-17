@@ -1631,7 +1631,7 @@ export default function App() {
                                 onChange={(e) => setPartialPaymentAmount(e.target.value)}
                               />
                               <button
-                                onClick={() => handlePartialPayment(sale, Number(partialPaymentAmount))}
+                                onClick={() => handlePartialPayment(sale, partialPaymentAmount)}
                                 className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 transition-all uppercase"
                               >
                                 Baixar
@@ -3162,8 +3162,14 @@ export default function App() {
     }
   };
 
-  const handlePartialPayment = async (sale: Sale, amount: number) => {
-    if (amount <= 0 || isNaN(amount)) return alert('Informe um valor válido.');
+  const handlePartialPayment = async (sale: Sale, amountStr: string) => {
+    // Converte vírgula para ponto e limpa caracteres não numéricos exceto o ponto
+    const cleanedAmount = amountStr.replace(',', '.');
+    const amount = Number(cleanedAmount);
+
+    if (isNaN(amount) || amount <= 0) {
+      return alert('Por favor, informe um valor válido (ex: 100,00)');
+    }
     
     const currentPaid = Number(sale.paid_total || 0);
     const newPaidTotal = currentPaid + amount;
@@ -3176,7 +3182,10 @@ export default function App() {
         paid_date: isFullyPaid ? new Date().toISOString() : sale.paid_date
       }).eq('id', sale.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase Error:', error);
+        throw new Error(error.message);
+      }
       
       setSales(prev => prev.map(s => s.id === sale.id ? { 
         ...s, 
@@ -3188,9 +3197,9 @@ export default function App() {
       setPayingSaleId(null);
       setPartialPaymentAmount('');
       alert('Pagamento registrado com sucesso!');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error registering partial payment:', err);
-      alert('Erro ao registrar pagamento.');
+      alert(`Erro ao registrar pagamento: ${err.message || 'Verifique se a coluna paid_total existe no Supabase'}`);
     }
   };
 
@@ -5473,7 +5482,7 @@ export default function App() {
                                       onChange={(e) => setPartialPaymentAmount(e.target.value)}
                                     />
                                     <button
-                                      onClick={() => handlePartialPayment(sale, Number(partialPaymentAmount))}
+                                      onClick={() => handlePartialPayment(sale, partialPaymentAmount)}
                                       className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all"
                                     >
                                       Salvar
