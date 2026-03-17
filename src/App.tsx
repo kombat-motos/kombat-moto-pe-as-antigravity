@@ -480,6 +480,7 @@ export default function App() {
   const [showPdvCalculator, setShowPdvCalculator] = useState(false);
   const [showQuoteCalculator, setShowQuoteCalculator] = useState(false);
   const [showOsCalculator, setShowOsCalculator] = useState(false);
+  const [labelQuantity, setLabelQuantity] = useState(1);
 
   // Quotes States
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -2701,18 +2702,35 @@ export default function App() {
     }
   };
 
-  const handlePrintLabel = (product: Product) => {
+  const handlePrintLabel = (product: Product, quantity: number = 1) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
     const barcodeValue = product.barcode || product.sku || product.id.toString();
     const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(barcodeValue)}&scale=2&height=5&includetext`;
 
+    // Criar as etiquetas baseadas na quantidade
+    let labelsHtml = '';
+    for (let i = 0; i < quantity; i++) {
+        labelsHtml += `
+          <div class="label">
+            <div class="title">${product.description}</div>
+            <div class="sku">${product.sku || product.barcode || 'S/ SKU'}</div>
+            <div class="footer">
+              <div class="location">LOC:<br/>${product.location || 'ESTOQUE PADRÃO'}</div>
+              <div class="barcode">
+                <img src="${barcodeUrl}" alt="Barcode" />
+              </div>
+            </div>
+          </div>
+        `;
+    }
+
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Imprimir Etiqueta - ${product.description}</title>
+          <title>Imprimir Etiquetas - ${product.description}</title>
           <style>
             @media print {
               @page {
@@ -2734,7 +2752,9 @@ export default function App() {
             }
             .a4-sheet {
               width: 210mm;
-              height: 297mm;
+              display: grid;
+              grid-template-columns: repeat(3, 63.5mm);
+              grid-auto-rows: 31mm;
               padding-top: 15mm;
               padding-left: 10mm;
               box-sizing: border-box;
@@ -2748,6 +2768,7 @@ export default function App() {
               flex-direction: column;
               justify-content: space-between;
               overflow: hidden;
+              border: 0.1mm solid transparent; /* Invisível mas ajuda no grid */
             }
             .title {
               font-size: 8px;
@@ -2792,16 +2813,7 @@ export default function App() {
         </head>
         <body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
           <div class="a4-sheet">
-            <div class="label">
-              <div class="title">${product.description}</div>
-              <div class="sku">${product.sku || product.barcode || 'S/ SKU'}</div>
-              <div class="footer">
-                <div class="location">LOC:<br/>${product.location || 'ESTOQUE PADRÃO'}</div>
-                <div class="barcode">
-                  <img src="${barcodeUrl}" alt="Barcode" />
-                </div>
-              </div>
-            </div>
+            ${labelsHtml}
           </div>
         </body>
       </html>
@@ -7963,10 +7975,37 @@ export default function App() {
               </ul>
             </div>
 
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Quantidade de Etiquetas</label>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setLabelQuantity(Math.max(1, labelQuantity - 1))}
+                  className="w-10 h-10 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold"
+                >
+                  -
+                </button>
+                <input 
+                  type="number" 
+                  min="1"
+                  max="21"
+                  value={labelQuantity}
+                  onChange={(e) => setLabelQuantity(Math.min(21, Math.max(1, parseInt(e.target.value) || 1)))}
+                  className="flex-1 h-10 bg-white border border-slate-200 rounded-lg text-center font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+                <button 
+                  onClick={() => setLabelQuantity(Math.min(21, labelQuantity + 1))}
+                  className="w-10 h-10 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold"
+                >
+                  +
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-2 italic">* Máximo 21 etiquetas por folha (3 colunas x 7 linhas).</p>
+            </div>
+
             <div className="flex gap-3 pt-4">
               <button
                 onClick={() => {
-                  handlePrintLabel(labelPreviewProduct);
+                  handlePrintLabel(labelPreviewProduct, labelQuantity);
                 }}
                 className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all flex items-center justify-center gap-2"
               >
