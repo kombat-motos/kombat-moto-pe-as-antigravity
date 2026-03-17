@@ -2700,6 +2700,116 @@ export default function App() {
     }
   };
 
+  const handlePrintLabel = (product: Product) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const barcodeValue = product.barcode || product.sku || product.id.toString();
+    const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(barcodeValue)}&scale=2&height=5&includetext`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Imprimir Etiqueta - ${product.description}</title>
+          <style>
+            @media print {
+              @page {
+                size: A4;
+                margin: 0;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+                -webkit-print-color-adjust: exact;
+              }
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              background: #fff;
+              font-family: Arial, Helvetica, sans-serif;
+              color: #000;
+            }
+            .a4-sheet {
+              width: 210mm;
+              height: 297mm;
+              padding-top: 15mm;
+              padding-left: 10mm;
+              box-sizing: border-box;
+            }
+            .label {
+              width: 63.5mm;
+              height: 31mm;
+              padding: 3mm;
+              box-sizing: border-box;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              overflow: hidden;
+            }
+            .title {
+              font-size: 8px;
+              font-weight: 900;
+              text-transform: uppercase;
+              text-align: center;
+              line-height: 1.1;
+              max-height: 18px;
+              overflow: hidden;
+            }
+            .sku {
+              text-align: center;
+              font-size: 11px;
+              font-weight: 900;
+              letter-spacing: 0.5px;
+            }
+            .footer {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              gap: 2mm;
+            }
+            .location {
+              font-size: 6px;
+              font-weight: bold;
+              text-transform: uppercase;
+              max-width: 45%;
+              line-height: 1.2;
+            }
+            .barcode {
+              max-width: 50%;
+              text-align: right;
+            }
+            .barcode img {
+              max-width: 100%;
+              height: auto;
+              max-height: 8mm;
+              display: block;
+              margin-left: auto;
+            }
+          </style>
+        </head>
+        <body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
+          <div class="a4-sheet">
+            <div class="label">
+              <div class="title">${product.description}</div>
+              <div class="sku">${product.sku || product.barcode || 'S/ SKU'}</div>
+              <div class="footer">
+                <div class="location">LOC:<br/>${product.location || 'ESTOQUE PADRÃO'}</div>
+                <div class="barcode">
+                  <img src="${barcodeUrl}" alt="Barcode" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -7778,13 +7888,22 @@ export default function App() {
               <div className="flex gap-3 pt-6">
                 <button
                   onClick={() => {
+                    handlePrintLabel(selectedProductDetail);
+                  }}
+                  className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <Printer size={18} />
+                  Etiqueta
+                </button>
+                <button
+                  onClick={() => {
                     handleEditProduct(selectedProductDetail);
                     setSelectedProductDetail(null);
                   }}
                   className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
                 >
                   <Pencil size={18} />
-                  Editar Produto
+                  Editar
                 </button>
                 <button
                   onClick={() => setSelectedProductDetail(null)}
