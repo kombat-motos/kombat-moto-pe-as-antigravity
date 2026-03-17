@@ -476,6 +476,7 @@ export default function App() {
   const [editingOS, setEditingOS] = useState<Sale | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
+  const [labelPreviewProduct, setLabelPreviewProduct] = useState<Product | null>(null);
   const [showPdvCalculator, setShowPdvCalculator] = useState(false);
   const [showQuoteCalculator, setShowQuoteCalculator] = useState(false);
   const [showOsCalculator, setShowOsCalculator] = useState(false);
@@ -2698,6 +2699,116 @@ export default function App() {
       console.error('Error adding/updating customer:', error);
       alert('Erro ao salvar cliente: ' + (error.message || 'Erro desconhecido.'));
     }
+  };
+
+  const handlePrintLabel = (product: Product) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const barcodeValue = product.barcode || product.sku || product.id.toString();
+    const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(barcodeValue)}&scale=2&height=5&includetext`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Imprimir Etiqueta - ${product.description}</title>
+          <style>
+            @media print {
+              @page {
+                size: A4;
+                margin: 0;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+                -webkit-print-color-adjust: exact;
+              }
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              background: #fff;
+              font-family: Arial, Helvetica, sans-serif;
+              color: #000;
+            }
+            .a4-sheet {
+              width: 210mm;
+              height: 297mm;
+              padding-top: 15mm;
+              padding-left: 10mm;
+              box-sizing: border-box;
+            }
+            .label {
+              width: 63.5mm;
+              height: 31mm;
+              padding: 3mm;
+              box-sizing: border-box;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              overflow: hidden;
+            }
+            .title {
+              font-size: 8px;
+              font-weight: 900;
+              text-transform: uppercase;
+              text-align: center;
+              line-height: 1.1;
+              max-height: 18px;
+              overflow: hidden;
+            }
+            .sku {
+              text-align: center;
+              font-size: 11px;
+              font-weight: 900;
+              letter-spacing: 0.5px;
+            }
+            .footer {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              gap: 2mm;
+            }
+            .location {
+              font-size: 6px;
+              font-weight: bold;
+              text-transform: uppercase;
+              max-width: 45%;
+              line-height: 1.2;
+            }
+            .barcode {
+              max-width: 50%;
+              text-align: right;
+            }
+            .barcode img {
+              max-width: 100%;
+              height: auto;
+              max-height: 8mm;
+              display: block;
+              margin-left: auto;
+            }
+          </style>
+        </head>
+        <body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
+          <div class="a4-sheet">
+            <div class="label">
+              <div class="title">${product.description}</div>
+              <div class="sku">${product.sku || product.barcode || 'S/ SKU'}</div>
+              <div class="footer">
+                <div class="location">LOC:<br/>${product.location || 'ESTOQUE PADRÃO'}</div>
+                <div class="barcode">
+                  <img src="${barcodeUrl}" alt="Barcode" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -7733,7 +7844,7 @@ export default function App() {
         isOpen={!!selectedProductDetail}
         onClose={() => setSelectedProductDetail(null)}
         title="Detalhes do Produto"
-        maxWidth="max-w-2xl"
+        maxWidth="max-w-3xl"
       >
         {selectedProductDetail && (
           <div className="space-y-6">
@@ -7779,24 +7890,95 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-6">
+                <button
+                  onClick={() => {
+                    setLabelPreviewProduct(selectedProductDetail);
+                  }}
+                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
+                >
+                  <Printer size={20} />
+                  Etiqueta
+                </button>
                 <button
                   onClick={() => {
                     handleEditProduct(selectedProductDetail);
                     setSelectedProductDetail(null);
                   }}
-                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2"
                 >
-                  <Pencil size={18} />
-                  Editar Produto
+                  <Pencil size={20} />
+                  Editar
                 </button>
                 <button
                   onClick={() => setSelectedProductDetail(null)}
-                  className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
+                  className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
                 >
+                  <X size={20} />
                   Fechar
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!labelPreviewProduct}
+        onClose={() => setLabelPreviewProduct(null)}
+        title="Prévia de Impressão da Etiqueta"
+        maxWidth="max-w-md"
+      >
+        {labelPreviewProduct && (
+          <div className="space-y-6">
+            <div className="bg-slate-100 p-8 rounded-2xl flex items-center justify-center">
+              <div className="bg-white" style={{ width: '63.5mm', height: '31mm', padding: '3mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px dashed #cbd5e1' }}>
+                <div style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.1, maxHeight: '18px', overflow: 'hidden', color: '#000' }}>
+                  {labelPreviewProduct.description}
+                </div>
+                <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 900, letterSpacing: '0.5px', color: '#000' }}>
+                  {labelPreviewProduct.sku || labelPreviewProduct.barcode || 'S/ SKU'}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '2mm' }}>
+                  <div style={{ fontSize: '6px', fontWeight: 'bold', textTransform: 'uppercase', maxWidth: '45%', lineHeight: 1.2, color: '#000' }}>
+                    LOC:<br />{labelPreviewProduct.location || 'ESTOQUE PADRÃO'}
+                  </div>
+                  <div style={{ maxWidth: '50%', textAlign: 'right' }}>
+                    <img 
+                      src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(labelPreviewProduct.barcode || labelPreviewProduct.sku || labelPreviewProduct.id.toString())}&scale=2&height=5&includetext`} 
+                      alt="Barcode" 
+                      style={{ maxWidth: '100%', height: 'auto', maxHeight: '8mm', display: 'block', marginLeft: 'auto' }} 
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-sm text-indigo-800">
+              <p className="font-bold mb-1">Avisos de Impressão:</p>
+              <ul className="list-disc pl-5 space-y-1 text-xs">
+                <li>O layout acima é uma prévia do conteúdo da etiqueta de <strong>63,5mm x 31mm</strong>.</li>
+                <li>Ao clicar em imprimir, uma nova guia será aberta pronta para enviar à impressora.</li>
+                <li>Lembre-se de configurar a impressão para <strong>Tamanho A4</strong> e <strong>Margens zeradas / Sem margem</strong>.</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => {
+                  handlePrintLabel(labelPreviewProduct);
+                }}
+                className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all flex items-center justify-center gap-2"
+              >
+                <Printer size={18} />
+                Confirmar Impressão
+              </button>
+              <button
+                onClick={() => setLabelPreviewProduct(null)}
+                className="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-all"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         )}
