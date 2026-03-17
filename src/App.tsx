@@ -6505,7 +6505,7 @@ export default function App() {
           maxWidth={selectedCustomerForPrint?.type === 'A4' ? "max-w-6xl" : "max-w-lg"}
         >
           {selectedCustomerForPrint && (
-            <div className={`bg-white p-8 rounded-2xl border border-slate-400 ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'font-mono text-[10px] max-w-[300px] mx-auto'}`}>
+            <div className={`bg-white p-8 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'font-mono text-[10px] max-w-[300px] mx-auto'}`}>
               <div className={`text-center border-b-2 border-slate-900 pb-4 mb-4 ${selectedCustomerForPrint.type === '80mm' ? 'border-dashed' : ''}`}>
                 <h3 className={`${selectedCustomerForPrint.type === 'A4' ? 'text-2xl' : 'text-sm'} font-black text-slate-900 uppercase`}>Histórico de Movimentação</h3>
                 <p className="text-slate-500 font-bold">KOMBAT MOTO PEÇAS</p>
