@@ -175,27 +175,43 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
     return `https://wa.me/${finalNumber}?text=${encodedMessage}`;
   };
 
-  const getNotificationMessage = (sale: Sale, type: 'before' | 'on' | 'after', totalWithCharges: number) => {
-    const customerName = sale.customer_name.split(' ')[0];
-    const paidTotal = sale.paid_total || 0;
-    const remaining = sale.total - paidTotal;
-    const totalFinal = (totalWithCharges > remaining ? totalWithCharges : remaining).toFixed(2);
-    const dueDate = sale.due_date ? format(new Date(sale.due_date), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
+  const generateDigitalReceipt = (sale: Sale, type: 'before' | 'on' | 'after', totalWithCharges: number) => {
+    const customerName = sale.customer_name.split(' ')[0].toUpperCase();
     const docId = sale.id.substring(0, 8).toUpperCase();
-    
-    const itemsList = sale.items.map((item: any) => `- ${item.quantity}x ${item.description}`).join('\n');
-    const labor = sale.labor_value > 0 ? `\nMão de Obra: R$ ${sale.labor_value.toFixed(2)}` : '';
+    const paid = sale.paid_total || 0;
+    const original = sale.total;
+    const charges = totalWithCharges - (original - paid);
+    const dueDate = sale.due_date ? format(new Date(sale.due_date), 'dd/MM/yyyy') : 'N/A';
 
-    switch (type) {
-      case 'before':
-        return `Olá, ${customerName}! Passando para lembrar que seu título ${docId} vence em ${dueDate}.\n\n*Itens:*\n${itemsList}${labor}\n\nSegue a nota para sua organização.\n\nKombat Moto Peças`;
-      case 'on':
-        return `Hoje vence seu título na Kombat Moto Peças. Para sua comodidade, segue a nota em anexo.\n\n*Itens:*\n${itemsList}${labor}\n\n*Valor: R$ ${totalFinal}*\n\nCaso já tenha pago, desconsidere.\n\nKombat Moto Peças`;
-      case 'after':
-        return `Atenção, ${customerName}. Identificamos que o título ${docId} está em atraso.\n\n*Itens:*\n${itemsList}${labor}\n\nO valor foi atualizado conforme o contrato.\n\n*Novo Valor: R$ ${totalFinal}*\n\nSegue PDF atualizado para pagamento imediato.\n\nKombat Moto Peças`;
-      default:
-        return '';
+    const itemsList = sale.items.map((item: any) => `${item.quantity}x ${item.description.substring(0, 20)}.. R$ ${(item.quantity * item.price).toFixed(2)}`).join('\n');
+    const labor = sale.labor_value > 0 ? `SERVIÇOS.. R$ ${sale.labor_value.toFixed(2)}\n` : '';
+
+    let headerMsg = '';
+    switch(type) {
+      case 'before': headerMsg = '*🔔 LEMBRETE DE VENCIMENTO*'; break;
+      case 'on':     headerMsg = '*💰 VENCIMENTO HOJE*'; break;
+      case 'after':  headerMsg = '*⚠️ COBRANÇA EM ATRASO*'; break;
     }
+
+    return `${headerMsg}\n` +
+      `*ID:* #${docId}\n` +
+      `*CLIENTE:* ${customerName}\n` +
+      `*VENCIMENTO:* ${dueDate}\n\n` +
+      `*--- DETALHES DA CONTA ---*\n` +
+      `${itemsList}\n` +
+      `${labor}` +
+      `------------------------------------\n` +
+      `*VALOR ORIGINAL:* R$ ${original.toFixed(2)}\n` +
+      `*VALOR JÁ PAGO:* - R$ ${paid.toFixed(2)}\n` +
+      `*ENCARGOS (ATRASO):* + R$ ${charges.toFixed(2)}\n` +
+      `------------------------------------\n` +
+      `*TOTAL A PAGAR: R$ ${totalWithCharges.toFixed(2)}*\n` +
+      `------------------------------------\n\n` +
+      `*Kombat Moto Peças*`;
+  };
+
+  const getNotificationMessage = (sale: Sale, type: 'before' | 'on' | 'after', totalWithCharges: number) => {
+    return generateDigitalReceipt(sale, type, totalWithCharges);
   };
 
   return (
@@ -333,31 +349,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                         <span className="text-[8px] font-black uppercase text-slate-400 mb-1">Envio PDF</span>
                         <button
                           onClick={() => {
-                            const docId = sale.id.substring(0, 8).toUpperCase();
-                            const dueDate = sale.due_date ? format(new Date(sale.due_date), 'dd/MM/yyyy') : 'N/A';
-                            const paid = sale.paid_total || 0;
-                            const original = sale.total;
-                            const charges = totalWithCharges - (original - paid);
-
-                            const itemsList = sale.items.map((item: any) => `${item.quantity}x ${item.description.substring(0, 15)}.. R$ ${(item.quantity * item.price).toFixed(2)}`).join('\n');
-                            const labor = sale.labor_value > 0 ? `SERVIÇOS: R$ ${sale.labor_value.toFixed(2)}\n` : '';
-
-                            const thermalMsg = `*--- 📝 NOTA DE COBRANÇA ---*\n` +
-                              `*ID:* #${docId}\n` +
-                              `*CLIENTE:* ${sale.customer_name.toUpperCase()}\n` +
-                              `*VENCIMENTO:* ${dueDate}\n\n` +
-                              `*--- ITENS DA VENDA ---*\n` +
-                              `${itemsList}\n` +
-                              `${labor}` +
-                              `------------------------------------\n` +
-                              `*VALOR ORIGINAL:* R$ ${original.toFixed(2)}\n` +
-                              `*VALOR JÁ PAGO:* - R$ ${paid.toFixed(2)}\n` +
-                              `*ENCARGOS (ATRASO):* + R$ ${charges.toFixed(2)}\n` +
-                              `------------------------------------\n` +
-                              `*TOTAL A PAGAR: R$ ${totalWithCharges.toFixed(2)}*\n` +
-                              `------------------------------------\n\n` +
-                              `*Kombat Moto Peças*`;
-
+                            const thermalMsg = generateDigitalReceipt(sale, notificationType || 'after', totalWithCharges);
                             handlePrintPromissory(sale, totalWithCharges);
                             window.open(generateWhatsAppLink(customerWhatsapp, thermalMsg), '_blank');
                           }}
