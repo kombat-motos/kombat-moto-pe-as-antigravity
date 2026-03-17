@@ -167,8 +167,12 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
   };
 
   const generateWhatsAppLink = (phoneNumber: string, message: string) => {
+    // Remove tudo que não for número (parênteses, espaços, traços)
+    const cleanNumber = phoneNumber.replace(/\D/g, '');
     const encodedMessage = encodeURIComponent(message);
-    return `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+    // Adiciona o código do país caso não exista (assumindo 55 para o Brasil se tiver 10 ou 11 dígitos)
+    const finalNumber = cleanNumber.length <= 11 ? `55${cleanNumber}` : cleanNumber;
+    return `https://wa.me/${finalNumber}?text=${encodedMessage}`;
   };
 
   const getNotificationMessage = (sale: Sale, type: 'before' | 'on' | 'after') => {
