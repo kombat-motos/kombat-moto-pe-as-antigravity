@@ -7840,7 +7840,7 @@ export default function App() {
         isOpen={!!selectedProductDetail}
         onClose={() => setSelectedProductDetail(null)}
         title="Detalhes do Produto"
-        maxWidth="max-w-2xl"
+        maxWidth="max-w-3xl"
       >
         {selectedProductDetail && (
           <div className="space-y-6">
@@ -7886,14 +7886,14 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-6">
                 <button
                   onClick={() => {
                     setLabelPreviewProduct(selectedProductDetail);
                   }}
-                  className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
                 >
-                  <Printer size={18} />
+                  <Printer size={20} />
                   Etiqueta
                 </button>
                 <button
@@ -7901,15 +7901,16 @@ export default function App() {
                     handleEditProduct(selectedProductDetail);
                     setSelectedProductDetail(null);
                   }}
-                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2"
                 >
-                  <Pencil size={18} />
+                  <Pencil size={20} />
                   Editar
                 </button>
                 <button
                   onClick={() => setSelectedProductDetail(null)}
-                  className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
+                  className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
                 >
+                  <X size={20} />
                   Fechar
                 </button>
               </div>
