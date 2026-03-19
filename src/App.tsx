@@ -3193,15 +3193,39 @@ export default function App() {
   };
 
   const handleDeleteSale = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.')) {
+    if (confirm('Tem certeza que deseja excluir esta venda? O estoque dos produtos será devolvido automaticamente. Esta ação não pode ser desfeita.')) {
       try {
-        const { error } = await supabase.from('sales').delete().eq('id', id);
-        if (error) throw error;
-        alert('Venda excluída com sucesso!');
+        // 1. Buscar os itens da venda para devolver ao estoque
+        const { data: itemsToReturn, error: itemsError } = await supabase
+          .from('sale_items')
+          .select('product_id, quantity')
+          .eq('sale_id', id);
+
+        if (itemsError) throw itemsError;
+
+        // 2. Devolver produtos ao estoque
+        if (itemsToReturn && itemsToReturn.length > 0) {
+          for (const item of itemsToReturn) {
+            if (item.product_id) {
+              const product = products.find(p => p.id === item.product_id);
+              if (product) {
+                const newStock = product.stock + item.quantity;
+                await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
+              }
+            }
+          }
+        }
+
+        // 3. Excluir os itens e a venda
+        await supabase.from('sale_items').delete().eq('sale_id', id);
+        const { error: deleteError } = await supabase.from('sales').delete().eq('id', id);
+        if (deleteError) throw deleteError;
+
+        alert('Venda excluída e estoque devolvido com sucesso!');
         fetchData();
       } catch (error) {
         console.error('Error deleting sale:', error);
-        alert('Erro ao excluir venda.');
+        alert('Erro ao excluir venda e processar estoque.');
       }
     }
   };
