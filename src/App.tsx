@@ -5467,7 +5467,7 @@ export default function App() {
                           <p className="font-bold text-slate-900">R$ {sale.total.toFixed(2)}</p>
                         </div>
                         <div className="space-y-1">
-                          {sale.items.filter(i => !i.description.includes('TAXA DE PARCELAMENTO')).map((item, idx) => (
+                          {sale.items.filter(i => !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO')).map((item, idx) => (
                             <div key={idx} className="flex justify-between text-[11px] text-slate-600">
                               <span>{item.quantity}x {item.description}</span>
                               <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
@@ -6842,7 +6842,7 @@ export default function App() {
                     <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>PEÇAS E PRODUTOS</p>
                     <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
                       <tbody>
-                        {(selectedSaleForReceipt.items || []).filter(i => i.product_id && !i.description.includes('TAXA DE PARCELAMENTO')).map((item, idx) => (
+                        {(selectedSaleForReceipt.items || []).filter(i => i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO')).map((item, idx) => (
                           <React.Fragment key={idx}>
                             <tr>
                               <td style={{ paddingTop: '4px', width: '20%' }}>{item.product_id || '---'}</td>
@@ -6860,12 +6860,12 @@ export default function App() {
                   </div>
                 )}
 
-                {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO')).length > 0 && (
+                {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO')).length > 0 && (
                   <div style={{ marginBottom: '8px' }}>
                     <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>SERVIÇOS EXECUTADOS</p>
                     <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
                       <tbody>
-                        {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO')).map((item, idx) => (
+                        {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO')).map((item, idx) => (
                           <React.Fragment key={idx}>
                             <tr>
                               <td style={{ paddingTop: '4px', width: '20%' }}>---</td>
