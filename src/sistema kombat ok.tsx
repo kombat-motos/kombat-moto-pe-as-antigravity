@@ -521,11 +521,15 @@ export default function App() {
     items: SaleItem[];
     payment_method: 'Pix' | 'Cartão' | 'Dinheiro' | 'Fiado';
     due_date: string;
+    sale_condition: 'Vista' | 'Prazo';
+    installments: number;
   }>({
     customer_id: '',
     items: [],
     payment_method: 'Pix' as 'Pix' | 'Cartão' | 'Dinheiro' | 'Fiado',
-    due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    sale_condition: 'Vista',
+    installments: 1
   });
   const [osForm, setOsForm] = useState<{
     customer_id: string;
@@ -1176,7 +1180,24 @@ export default function App() {
       return;
     }
 
-    const total = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    const baseTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    let total = baseTotal;
+    let finalItems = [...pdvForm.items];
+
+    if (pdvForm.sale_condition === 'Prazo') {
+      const fee = cardFeesSettings[pdvForm.installments] || 0;
+      const divisor = 1 - (fee / 100);
+      const calculatedTotal = divisor > 0 ? (baseTotal / divisor) : baseTotal;
+      const diff = calculatedTotal - baseTotal;
+      if (diff > 0) {
+        total = calculatedTotal;
+        finalItems.push({
+          description: `TAXA DE PARCELAMENTO (${pdvForm.installments}x)`,
+          quantity: 1,
+          price: diff
+        });
+      }
+    }
     const customer = pdvForm.customer_id ? customers.find(c => c.id === parseInt(pdvForm.customer_id)) : null;
 
     if (pdvForm.payment_method === 'Fiado') {
@@ -1205,7 +1226,7 @@ export default function App() {
       id: saleId,
       customer_id: customer?.id,
       customer_name: customer?.name || 'Consumidor Final',
-      items: pdvForm.items,
+      items: finalItems,
       labor_value: 0,
       commission: 0,
       total,
@@ -1237,7 +1258,7 @@ export default function App() {
       if (saleError) throw saleError;
 
       // 2. Insert into sale_items
-      const saleItems = pdvForm.items.map(item => ({
+      const saleItems = finalItems.map(item => ({
         sale_id: saleId,
         product_id: item.product_id,
         description: item.description,
@@ -1266,7 +1287,9 @@ export default function App() {
         customer_id: '',
         items: [],
         payment_method: 'Pix',
-        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        sale_condition: 'Vista',
+        installments: 1
       });
       alert(`Venda ${newSale.id} concluída com sucesso!`);
       fetchData(); // Refresh all data to ensure consistency
@@ -6168,24 +6191,73 @@ export default function App() {
                 ))}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Condição de Venda</label>
+                  <div className="grid grid-cols-2 gap-2">
                     <button
-                      key={method}
                       type="button"
-                      onClick={() => setPdvForm({ ...pdvForm, payment_method: method as any, due_date: method === 'Fiado' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : pdvForm.due_date })}
-                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${pdvForm.payment_method === method
+                      onClick={() => setPdvForm({ ...pdvForm, sale_condition: 'Vista', installments: 1 })}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${pdvForm.sale_condition === 'Vista'
                         ? 'bg-rose-600 border-rose-600 text-white shadow-md'
                         : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'
                         }`}
                     >
-                      {method}
+                      À Vista
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={() => setPdvForm({ ...pdvForm, sale_condition: 'Prazo', payment_method: 'Cartão' })}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${pdvForm.sale_condition === 'Prazo'
+                        ? 'bg-rose-600 border-rose-600 text-white shadow-md'
+                        : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'
+                        }`}
+                    >
+                      A Prazo
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => setPdvForm({ ...pdvForm, payment_method: method as any, due_date: method === 'Fiado' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : pdvForm.due_date })}
+                        className={`py-2 rounded-xl text-[10px] font-bold border transition-all ${pdvForm.payment_method === method
+                          ? 'bg-rose-600 border-rose-600 text-white shadow-md'
+                          : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'
+                          }`}
+                      >
+                        {method}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
+
+              {pdvForm.sale_condition === 'Prazo' && (
+                <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 animate-in slide-in-from-top-2 duration-300">
+                  <label className="block text-[10px] uppercase font-black text-slate-400 mb-2 tracking-widest">Número de Parcelas</label>
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                    {Object.keys(cardFeesSettings).map(num => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setPdvForm({ ...pdvForm, installments: Number(num) })}
+                        className={`py-2 rounded-xl text-xs font-black transition-all border ${pdvForm.installments === Number(num)
+                          ? 'bg-rose-500 border-rose-500 text-white'
+                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                          }`}
+                      >
+                        {num}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {pdvForm.payment_method === 'Fiado' && (
                 <div className="bg-rose-50 p-4 rounded-xl border border-rose-100">
@@ -6202,19 +6274,37 @@ export default function App() {
 
               <div className="pt-4 border-t border-slate-400 space-y-1">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500">Total Peças:</span>
+                  <span className="text-slate-500 font-bold">VALOR BASE:</span>
                   <span className="font-bold text-slate-700">R$ {pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-center text-sm mb-4">
-                  <span className="text-slate-500">Total Serviços:</span>
-                  <span className="font-bold text-slate-700">R$ 0.00</span>
-                </div>
+                {pdvForm.sale_condition === 'Prazo' && (
+                  <div className="flex justify-between items-center text-sm text-rose-500">
+                    <span className="font-bold uppercase text-[10px]">Taxa de Parcelamento:</span>
+                    <span className="font-bold">
+                      R$ {(
+                        (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100))) -
+                        pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center py-2 border-t border-slate-400">
-                  <span className="text-slate-600 font-bold text-lg">TOTAL DA VENDA</span>
-                  <span className="text-2xl font-black text-rose-600">
-                    R$ {pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}
+                  <span className="text-slate-900 font-black text-lg">TOTAL FINAL</span>
+                  <span className="text-3xl font-black text-rose-600">
+                    R$ {(
+                      pdvForm.sale_condition === 'Prazo'
+                        ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
+                        : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
+                    ).toFixed(2)}
                   </span>
                 </div>
+                {pdvForm.sale_condition === 'Prazo' && (
+                  <p className="text-right text-[10px] font-black text-slate-400 uppercase">
+                    {pdvForm.installments}x de R$ {(
+                      (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100))) / pdvForm.installments
+                    ).toFixed(2)}
+                  </p>
+                )}
               </div>
               <div className="mb-4">
                 <button
@@ -6302,11 +6392,11 @@ export default function App() {
           maxWidth={selectedCustomerForPrint?.type === 'A4' ? "max-w-6xl" : "max-w-lg"}
         >
           {selectedCustomerForPrint && (
-            <div className={`bg-white p-8 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'font-mono text-[10px] max-w-[300px] mx-auto'}`}>
+            <div className={`bg-white p-4 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'text-[14px] w-[80mm] mx-auto'}`} style={selectedCustomerForPrint.type === '80mm' ? { fontFamily: '"Arial Black", Gadget, sans-serif' } : {}}>
               <div className={`text-center border-b-2 border-slate-900 pb-4 mb-4 ${selectedCustomerForPrint.type === '80mm' ? 'border-dashed' : ''}`}>
-                <h3 className={`${selectedCustomerForPrint.type === 'A4' ? 'text-2xl' : 'text-sm'} font-black text-slate-900 uppercase`}>Histórico de Movimentação</h3>
-                <p className="text-slate-500 font-bold">KOMBAT MOTO PEÇAS</p>
-                <div className={`flex ${selectedCustomerForPrint.type === 'A4' ? 'justify-center gap-8' : 'flex-col items-center'} mt-2 text-[10px]`}>
+                <h3 className={`${selectedCustomerForPrint.type === 'A4' ? 'text-2xl' : 'text-lg'} font-black text-slate-900 uppercase`}>Histórico de Movimentação</h3>
+                <p className="text-slate-500 font-bold" style={selectedCustomerForPrint.type === '80mm' ? { fontSize: '16px' } : {}}>KOMBAT MOTO PEÇAS</p>
+                <div className={`flex ${selectedCustomerForPrint.type === 'A4' ? 'justify-center gap-8' : 'flex-col items-center'} mt-2 ${selectedCustomerForPrint.type === '80mm' ? 'text-[12px]' : 'text-[10px]'}`}>
                   <p><strong>Cliente:</strong> {selectedCustomerForPrint.customer.name}</p>
                   <p><strong>Emissão:</strong> {new Date().toLocaleString('pt-BR')}</p>
                 </div>
@@ -6377,24 +6467,24 @@ export default function App() {
                 <div className="space-y-4">
                   {sales.filter(s => s.customer_id === selectedCustomerForPrint.customer.id).map(sale => (
                     <div key={sale.id} className="border-b border-dashed border-slate-900 pb-2 mb-2">
-                      <div className="flex justify-between font-black">
+                      <div className="flex justify-between font-black text-[14px]">
                         <span>{new Date(sale.date).toLocaleDateString('pt-BR')} - {sale.id.substring(0,8).toUpperCase()}</span>
                         <span>R$ {sale.total.toFixed(2)}</span>
                       </div>
-                      <p className="text-[8px] text-slate-500 uppercase font-black mb-1">
+                      <p className="text-[10px] text-slate-500 uppercase font-black mb-1">
                         {sale.type === 'Oficina' ? 'Ordem de Serviço' : 'Venda Balcão'}
                       </p>
                       
                       {/* LISTA DE PRODUTOS NO RECIBO TÉRMICO */}
-                      <div className="pl-1 space-y-0.5 mb-1">
+                      <div className="pl-1 space-y-1 mb-1">
                         {sale.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between text-[8px] text-slate-600">
-                            <span>{item.quantity}x {item.description.substring(0, 22)}..</span>
+                          <div key={idx} className="flex justify-between text-[13px] text-slate-900 font-bold">
+                            <span>{item.quantity}x {item.description.substring(0, 25)}..</span>
                             <span className="font-mono">R$ {(item.quantity * item.price).toFixed(2)}</span>
                           </div>
                         ))}
                         {sale.labor_value > 0 && (
-                          <div className="flex justify-between text-[8px] text-slate-800 font-bold border-t border-slate-200 pt-0.5">
+                          <div className="flex justify-between text-[13px] text-slate-900 font-bold border-t border-slate-400 pt-0.5 mt-1">
                             <span>MÃO DE OBRA / SERVIÇOS</span>
                             <span className="font-mono">R$ {sale.labor_value.toFixed(2)}</span>
                           </div>
@@ -6402,7 +6492,7 @@ export default function App() {
                       </div>
 
                       {sale.service_description && (
-                        <p className="text-[7px] text-slate-400 italic bg-slate-50 p-1 border-l border-slate-300">
+                        <p className="text-[11px] text-slate-700 italic bg-slate-50 p-1 border-l border-slate-400">
                           OBS: {sale.service_description}
                         </p>
                       )}
@@ -6436,9 +6526,10 @@ export default function App() {
           isOpen={!!selectedSaleForReceipt}
           onClose={() => setSelectedSaleForReceipt(null)}
           title="Recibo de Venda"
+          maxWidth="max-w-lg"
         >
           {selectedSaleForReceipt && (
-            <div id="receipt-content" className="bg-white p-2 text-[13px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
+            <div id="receipt-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
               <style>{`
                 @media print {
                   @page {
@@ -6469,17 +6560,17 @@ export default function App() {
               `}</style>
 
               <div style={{ textAlign: 'center', marginBottom: '8px', fontWeight: 'bold' }}>
-                <h4 style={{ fontWeight: '900', fontSize: '16px', margin: '0' }}>KOMBAT MOTO PECAS</h4>
-                <p style={{ margin: '2px 0' }}>CNPJ: 12.802.931/0001-92</p>
-                <p style={{ margin: '2px 0' }}>R PARANA, 342</p>
-                <p style={{ margin: '2px 0' }}>CENTRO, Andirá / PR</p>
-                <p style={{ margin: '2px 0' }}>Tel (43) 3538-4537</p>
-                <p style={{ margin: '2px 0' }}>Email: kombatpecas@gmail.com</p>
+                <h4 style={{ fontWeight: '900', fontSize: '18px', margin: '0' }}>KOMBAT MOTO PECAS</h4>
+                <p style={{ margin: '2px 0', fontSize: '13px' }}>CNPJ: 12.802.931/0001-92</p>
+                <p style={{ margin: '2px 0', fontSize: '13px' }}>R PARANA, 342</p>
+                <p style={{ margin: '2px 0', fontSize: '13px' }}>CENTRO, Andirá / PR</p>
+                <p style={{ margin: '2px 0', fontSize: '13px' }}>Tel (43) 3538-4537</p>
+                <p style={{ margin: '2px 0', fontSize: '13px' }}>Email: kombatpecas@gmail.com</p>
               </div>
 
               <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
 
-              <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
+              <table style={{ width: '100%', fontSize: '14px', fontWeight: 'bold' }}>
                 <tbody>
                   <tr>
                     <td>Venda: {selectedSaleForReceipt.id}</td>
@@ -6493,12 +6584,12 @@ export default function App() {
 
               {/* Customer Info */}
               <div style={{ padding: '4px 0' }}>
-                <p style={{ fontWeight: 'bold' }}>Cliente: {selectedSaleForReceipt.customer_id || '---'} - {(selectedSaleForReceipt.customer_name || 'Consumidor Final').toUpperCase()}</p>
+                <p style={{ fontWeight: 'bold', fontSize: '14px' }}>Cliente: {selectedSaleForReceipt.customer_id || '---'} - {(selectedSaleForReceipt.customer_name || 'Consumidor Final').toUpperCase()}</p>
                 {(() => {
                   const customer = customers.find(c => c.id === selectedSaleForReceipt.customer_id);
                   if (customer) {
                     return (
-                      <div style={{ fontSize: '12px', fontWeight: 'bold' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 'bold' }}>
                         <p>TEL: {customer.whatsapp || '---'}</p>
                         <p>{customer.cpf ? `CPF: ${customer.cpf}` : (customer.cnpj ? `CNPJ: ${customer.cnpj}` : '')}</p>
                         <p>Endereço: {customer.address || ''} {customer.neighborhood ? ` - ${customer.neighborhood}` : ''}</p>
@@ -6512,7 +6603,7 @@ export default function App() {
               <div className="border-t border-dashed border-black my-1"></div>
 
               {/* Vehicle Info */}
-              <div style={{ padding: '4px 0', fontSize: '12px', fontWeight: 'bold' }}>
+              <div style={{ padding: '4px 0', fontSize: '14px', fontWeight: 'bold' }}>
                 {selectedSaleForReceipt.moto_details ? (
                   <div>
                     <p style={{ fontWeight: '900' }}>Placa: {selectedSaleForReceipt.moto_details.match(/\((.*?)\)/)?.[1] || '-'}</p>
@@ -6528,8 +6619,8 @@ export default function App() {
               {/* Observations */}
               {selectedSaleForReceipt.service_description && (
                 <div style={{ padding: '4px 0' }}>
-                  <p style={{ fontWeight: 'bold' }}>Observações:</p>
-                  <p style={{ fontSize: '10px', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{selectedSaleForReceipt.service_description}</p>
+                  <p style={{ fontWeight: 'bold', fontSize: '14px' }}>Observações:</p>
+                  <p style={{ fontSize: '12px', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{selectedSaleForReceipt.service_description}</p>
                 </div>
               )}
               {selectedSaleForReceipt.service_description && <div className="border-t border-dashed border-black my-1"></div>}
@@ -6538,8 +6629,8 @@ export default function App() {
               <div className="py-1">
                 {(selectedSaleForReceipt.items || []).filter(i => i.product_id).length > 0 && (
                   <div style={{ marginBottom: '8px' }}>
-                    <p style={{ fontSize: '10px', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>PEÇAS E PRODUTOS</p>
-                    <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
+                    <p style={{ fontSize: '12px', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>PEÇAS E PRODUTOS</p>
+                    <table style={{ width: '100%', fontSize: '14px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
                       <tbody>
                         {(selectedSaleForReceipt.items || []).filter(i => i.product_id).map((item, idx) => (
                           <React.Fragment key={idx}>
@@ -6561,8 +6652,8 @@ export default function App() {
 
                 {(selectedSaleForReceipt.items || []).filter(i => !i.product_id).length > 0 && (
                   <div style={{ marginBottom: '8px' }}>
-                    <p style={{ fontSize: '10px', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>SERVIÇOS EXECUTADOS</p>
-                    <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
+                    <p style={{ fontSize: '12px', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>SERVIÇOS EXECUTADOS</p>
+                    <table style={{ width: '100%', fontSize: '14px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
                       <tbody>
                         {(selectedSaleForReceipt.items || []).filter(i => !i.product_id).map((item, idx) => (
                           <React.Fragment key={idx}>
@@ -6584,7 +6675,7 @@ export default function App() {
 
                 {(selectedSaleForReceipt.labor_value || 0) > 0 && (
                   <div style={{ marginTop: '8px', paddingTop: '4px', borderTop: '1px dotted black' }}>
-                    <table style={{ width: '100%', fontSize: '10px', fontWeight: 'bold' }}>
+                    <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
                       <tbody>
                         <tr>
                           <td style={{ textAlign: 'left' }}>MÃO DE OBRA / SERVIÇOS AVULSOS</td>
@@ -6599,7 +6690,7 @@ export default function App() {
 
               {/* Totals Section */}
               <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
-              <table style={{ width: '100%', fontSize: '11px', fontWeight: 'bold' }}>
+              <table style={{ width: '100%', fontSize: '13px', fontWeight: 'bold' }}>
                 <tbody>
                   <tr>
                     <td style={{ textAlign: 'left' }}>Total Peças:</td>
@@ -6610,8 +6701,8 @@ export default function App() {
                     <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.labor_value || 0).toFixed(2)}</td>
                   </tr>
                   <tr style={{ borderTop: '1px dotted black' }}>
-                    <td style={{ textAlign: 'left', paddingTop: '4px', fontSize: '12px' }}>TOTAL GERAL:</td>
-                    <td style={{ textAlign: 'right', paddingTop: '4px', fontSize: '12px' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                    <td style={{ textAlign: 'left', paddingTop: '4px', fontSize: '14px' }}>TOTAL GERAL:</td>
+                    <td style={{ textAlign: 'right', paddingTop: '4px', fontSize: '14px' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ textAlign: 'left' }}>Desconto:</td>
@@ -6622,7 +6713,7 @@ export default function App() {
 
               {/* Payment Info */}
               <div style={{ marginTop: '16px', paddingTop: '4px', borderTop: '1px dashed black' }}>
-                <table style={{ width: '100%', fontSize: '11px', fontWeight: '900', borderBottom: '1.5px solid black', marginBottom: '4px' }}>
+                <table style={{ width: '100%', fontSize: '13px', fontWeight: '900', borderBottom: '1.5px solid black', marginBottom: '4px' }}>
                   <thead>
                     <tr>
                       <th style={{ textAlign: 'left' }}>Vencimento</th>
@@ -6630,7 +6721,7 @@ export default function App() {
                       <th style={{ textAlign: 'right' }}>Valor</th>
                     </tr>
                   </thead>
-                  <tbody style={{ fontSize: '12px' }}>
+                  <tbody style={{ fontSize: '14px' }}>
                     <tr>
                       <td style={{ textAlign: 'left' }}>{selectedSaleForReceipt.due_date ? new Date(selectedSaleForReceipt.due_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}</td>
                       <td style={{ textAlign: 'center' }}>{(selectedSaleForReceipt.payment_method === 'Fiado' ? 'CREDITO KOMBAT' : (selectedSaleForReceipt.payment_method || '')).toUpperCase()}</td>
@@ -6644,16 +6735,16 @@ export default function App() {
 
               <table style={{ width: '100%' }}>
                 <tbody>
-                  <tr style={{ fontWeight: '900', fontSize: '16px' }}>
+                  <tr style={{ fontWeight: '900', fontSize: '18px' }}>
                     <td style={{ textAlign: 'left', textDecoration: 'underline' }}>TOTAL:</td>
                     <td style={{ textAlign: 'right', textDecoration: 'underline' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
                   </tr>
-                  <tr style={{ fontWeight: '900', fontSize: '14px' }}>
+                  <tr style={{ fontWeight: '900', fontSize: '16px' }}>
                     <td style={{ textAlign: 'left' }}>TOTAL PAGO:</td>
                     <td style={{ textAlign: 'right' }}>R$ {selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0).toFixed(2) : '0,00'}</td>
                   </tr>
                   {selectedSaleForReceipt.customer_id && (
-                    <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '2.5px solid black' }}>
+                    <tr style={{ fontWeight: '900', fontSize: '16px', borderTop: '2.5px solid black' }}>
                       <td style={{ textAlign: 'left', paddingTop: '8px' }}>SALDO LIMITE:</td>
                       <td style={{ textAlign: 'right', paddingTop: '8px', color: 'red' }}>R$ {getCustomerRemainingCredit(selectedSaleForReceipt.customer_id).toFixed(2)}</td>
                     </tr>
@@ -6663,11 +6754,11 @@ export default function App() {
 
               <div style={{ textAlign: 'center', marginTop: '40px', paddingBottom: '20px' }}>
                 <div style={{ borderTop: '2px solid black', width: '220px', margin: '0 auto' }}></div>
-                <p style={{ fontSize: '11px', marginTop: '4px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
+                <p style={{ fontSize: '13px', marginTop: '4px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
               </div>
 
               <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '8px', borderTop: '1px dashed black' }}>
-                <p style={{ fontWeight: '900', fontSize: '10px', textTransform: 'uppercase' }}>Esse cupom não é um documento fiscal</p>
+                <p style={{ fontWeight: '900', fontSize: '12px', textTransform: 'uppercase' }}>Esse cupom não é um documento fiscal</p>
               </div>
               <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
               <div style={{ height: '40px' }}></div> {/* Buffer for thermal cutter */}

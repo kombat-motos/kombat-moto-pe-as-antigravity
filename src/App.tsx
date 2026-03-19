@@ -6505,11 +6505,18 @@ export default function App() {
           maxWidth={selectedCustomerForPrint?.type === 'A4' ? "max-w-6xl" : "max-w-lg"}
         >
           {selectedCustomerForPrint && (
-            <div className={`bg-white p-8 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'font-mono text-[10px] max-w-[300px] mx-auto'}`}>
+            <div className={`bg-white p-8 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'font-bold text-[15px] w-[80mm] mx-auto overflow-visible print:p-0'}`} style={selectedCustomerForPrint.type === '80mm' ? { fontFamily: '"Arial Black", Gadget, sans-serif' } : {}}>
+              <style>{selectedCustomerForPrint.type === '80mm' ? `
+                @media print {
+                  @page { margin: 0; size: 80mm auto; }
+                  body { margin: 0; padding: 0; }
+                  .no-print { display: none !important; }
+                }
+              ` : ''}</style>
               <div className={`text-center border-b-2 border-slate-900 pb-4 mb-4 ${selectedCustomerForPrint.type === '80mm' ? 'border-dashed' : ''}`}>
-                <h3 className={`${selectedCustomerForPrint.type === 'A4' ? 'text-2xl' : 'text-sm'} font-black text-slate-900 uppercase`}>Histórico de Movimentação</h3>
-                <p className="text-slate-500 font-bold">KOMBAT MOTO PEÇAS</p>
-                <div className={`flex ${selectedCustomerForPrint.type === 'A4' ? 'justify-center gap-8' : 'flex-col items-center'} mt-2 text-[10px]`}>
+                <h3 className={`${selectedCustomerForPrint.type === 'A4' ? 'text-2xl' : 'text-[18px]'} font-black text-slate-900 uppercase`}>Histórico de Movimentação</h3>
+                <p className={`${selectedCustomerForPrint.type === 'A4' ? 'text-lg' : 'text-[16px]'} font-black text-slate-900`}>KOMBAT MOTO PEÇAS</p>
+                <div className={`flex ${selectedCustomerForPrint.type === 'A4' ? 'justify-center gap-8' : 'flex-col items-center'} mt-2 ${selectedCustomerForPrint.type === '80mm' ? 'text-[13px]' : 'text-[10px]'}`}>
                   <p><strong>Cliente:</strong> {selectedCustomerForPrint.customer.name}</p>
                   <p><strong>Emissão:</strong> {new Date().toLocaleString('pt-BR')}</p>
                 </div>
@@ -6580,24 +6587,24 @@ export default function App() {
                 <div className="space-y-4">
                   {sales.filter(s => s.customer_id === selectedCustomerForPrint.customer.id).map(sale => (
                     <div key={sale.id} className="border-b border-dashed border-slate-900 pb-2 mb-2">
-                      <div className="flex justify-between font-black">
+                      <div className="flex justify-between font-black text-[14px]">
                         <span>{new Date(sale.date).toLocaleDateString('pt-BR')} - {sale.id.substring(0,8).toUpperCase()}</span>
                         <span>R$ {sale.total.toFixed(2)}</span>
                       </div>
-                      <p className="text-[8px] text-slate-500 uppercase font-black mb-1">
+                      <p className="text-[10px] text-slate-500 uppercase font-black mb-1">
                         {sale.type === 'Oficina' ? 'Ordem de Serviço' : 'Venda Balcão'}
                       </p>
                       
                       {/* LISTA DE PRODUTOS NO RECIBO TÉRMICO */}
-                      <div className="pl-1 space-y-0.5 mb-1">
+                      <div className="pl-1 space-y-1 mb-1">
                         {sale.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between text-[8px] text-slate-600">
-                            <span>{item.quantity}x {item.description.substring(0, 22)}..</span>
+                          <div key={idx} className="flex justify-between text-[13px] text-slate-900 font-bold">
+                            <span>{item.quantity}x {item.description.substring(0, 25)}..</span>
                             <span className="font-mono">R$ {(item.quantity * item.price).toFixed(2)}</span>
                           </div>
                         ))}
                         {sale.labor_value > 0 && (
-                          <div className="flex justify-between text-[8px] text-slate-800 font-bold border-t border-slate-200 pt-0.5">
+                          <div className="flex justify-between text-[13px] text-slate-900 font-bold border-t border-slate-400 pt-0.5 mt-1">
                             <span>MÃO DE OBRA / SERVIÇOS</span>
                             <span className="font-mono">R$ {sale.labor_value.toFixed(2)}</span>
                           </div>
@@ -6605,7 +6612,7 @@ export default function App() {
                       </div>
 
                       {sale.service_description && (
-                        <p className="text-[7px] text-slate-400 italic bg-slate-50 p-1 border-l border-slate-300">
+                        <p className="text-[11px] text-slate-700 italic bg-slate-50 p-1 border-l border-slate-400">
                           OBS: {sale.service_description}
                         </p>
                       )}
@@ -6639,9 +6646,10 @@ export default function App() {
           isOpen={!!selectedSaleForReceipt}
           onClose={() => setSelectedSaleForReceipt(null)}
           title="Recibo de Venda"
+          maxWidth="max-w-lg"
         >
           {selectedSaleForReceipt && (
-            <div id="receipt-content" className="bg-white p-2 text-[13px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
+            <div id="receipt-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
               <style>{`
                 @media print {
                   @page {
