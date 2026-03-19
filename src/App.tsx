@@ -1186,23 +1186,32 @@ export default function App() {
       return;
     }
 
-    const baseTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-    let total = baseTotal;
+    const itemsBaseTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    let total = itemsBaseTotal;
     let finalItems = [...pdvForm.items];
 
     if (pdvForm.sale_condition === 'Prazo') {
       const fee = cardFeesSettings[pdvForm.installments] || 0;
       const divisor = 1 - (fee / 100);
-      const calculatedTotal = divisor > 0 ? (baseTotal / divisor) : baseTotal;
-      const diff = calculatedTotal - baseTotal;
+      total = divisor > 0 ? (itemsBaseTotal / divisor) : itemsBaseTotal;
+      const diff = total - itemsBaseTotal;
       if (diff > 0) {
-        total = calculatedTotal;
         finalItems.push({
           description: `TAXA DE PARCELAMENTO (${pdvForm.installments}x)`,
           quantity: 1,
           price: diff
         });
       }
+    }
+
+    if (pdvForm.payment_method === 'Fiado') {
+      const surcharge = total * 0.15;
+      total += surcharge;
+      finalItems.push({
+        description: 'TAXA DE CREDITO (FIADO)',
+        quantity: 1,
+        price: surcharge
+      });
     }
     const customer = pdvForm.customer_id ? customers.find(c => c.id === parseInt(pdvForm.customer_id)) : null;
 
@@ -1342,7 +1351,19 @@ export default function App() {
     const laborValueFromItems = osForm.items.filter(i => !i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
     const laborValueManual = parseFloat(osForm.labor_value.toString().replace(',', '.')) || 0;
     const laborValue = laborValueFromItems + laborValueManual;
-    const total = totalItems + laborValue;
+    const totalBase = totalItems + laborValue;
+    let total = totalBase;
+    let finalItems = [...osForm.items];
+    if (osForm.payment_method === 'Fiado') {
+      const surcharge = totalBase * 0.15;
+      total += surcharge;
+      finalItems.push({
+        description: 'TAXA DE CREDITO (FIADO)',
+        quantity: 1,
+        price: surcharge,
+        type: 'Serviço'
+      });
+    }
     const customer = osForm.customer_id ? customers.find(c => c.id === parseInt(osForm.customer_id)) : null;
     const motorcycle = osForm.motorcycle_id ? motorcycles.find(m => m.id === parseInt(osForm.motorcycle_id)) : null;
     const mechanic = mechanics.find(m => m.id === osForm.mechanic_id);
@@ -1385,7 +1406,7 @@ export default function App() {
       id: osId,
       customer_id: customer?.id,
       customer_name: customer?.name || 'Cliente O.S.',
-      items: osForm.items,
+      items: finalItems,
       labor_value: laborValue,
       mechanic_id: mechanic?.id,
       mechanic_name: mechanic?.name,
@@ -1432,7 +1453,7 @@ export default function App() {
           mechanic_id: newOS.mechanic_id,
           mechanic_name: newOS.mechanic_name,
           commission: newOS.commission,
-          total: newOS.total,
+          total: total,
           payment_method: newOS.payment_method,
           type: newOS.type,
           date: newOS.date,
@@ -5467,7 +5488,7 @@ export default function App() {
                           <p className="font-bold text-slate-900">R$ {sale.total.toFixed(2)}</p>
                         </div>
                         <div className="space-y-1">
-                          {sale.items.filter(i => !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO')).map((item, idx) => (
+                          {sale.items.filter(i => !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
                             <div key={idx} className="flex justify-between text-[11px] text-slate-600">
                               <span>{item.quantity}x {item.description}</span>
                               <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
@@ -6495,9 +6516,11 @@ export default function App() {
                   <span className="text-slate-900 font-black text-lg">TOTAL FINAL</span>
                   <span className="text-3xl font-black text-rose-600">
                     R$ {(
-                      pdvForm.sale_condition === 'Prazo'
-                        ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
-                        : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
+                      (
+                        pdvForm.sale_condition === 'Prazo'
+                          ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
+                          : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
+                      ) * (pdvForm.payment_method === 'Fiado' ? 1.15 : 1)
                     ).toFixed(2)}
                   </span>
                 </div>
@@ -6842,7 +6865,7 @@ export default function App() {
                     <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>PEÇAS E PRODUTOS</p>
                     <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
                       <tbody>
-                        {(selectedSaleForReceipt.items || []).filter(i => i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO')).map((item, idx) => (
+                        {(selectedSaleForReceipt.items || []).filter(i => i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
                           <React.Fragment key={idx}>
                             <tr>
                               <td style={{ paddingTop: '4px', width: '20%' }}>{item.product_id || '---'}</td>
@@ -6860,12 +6883,12 @@ export default function App() {
                   </div>
                 )}
 
-                {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO')).length > 0 && (
+                {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).length > 0 && (
                   <div style={{ marginBottom: '8px' }}>
                     <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>SERVIÇOS EXECUTADOS</p>
                     <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
                       <tbody>
-                        {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO')).map((item, idx) => (
+                        {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
                           <React.Fragment key={idx}>
                             <tr>
                               <td style={{ paddingTop: '4px', width: '20%' }}>---</td>
@@ -7498,9 +7521,12 @@ export default function App() {
                     <span className="font-bold text-slate-700">R$ {(osForm.items.filter(i => !i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-slate-400 mt-1">
-                    <span className="text-slate-900 font-black uppercase text-sm">Valor Total da O.S.</span>
+                    <div className="flex flex-col">
+                      <span className="text-slate-900 font-black uppercase text-sm">Valor Total da O.S.</span>
+                      {osForm.payment_method === 'Fiado' && <span className="text-[10px] text-rose-500 font-black">+ 15% TAXA DE CREDITO FIADO</span>}
+                    </div>
                     <span className="text-2xl font-black text-rose-600">
-                      R$ {(osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)).toFixed(2)}
+                      R$ {((osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)) * (osForm.payment_method === 'Fiado' ? 1.15 : 1)).toFixed(2)}
                     </span>
                   </div>
                 </div>
