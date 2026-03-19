@@ -524,11 +524,15 @@ export default function App() {
     items: SaleItem[];
     payment_method: 'Pix' | 'Cartão' | 'Dinheiro' | 'Fiado';
     due_date: string;
+    sale_condition: 'Vista' | 'Prazo';
+    installments: number;
   }>({
     customer_id: '',
     items: [],
     payment_method: 'Pix' as 'Pix' | 'Cartão' | 'Dinheiro' | 'Fiado',
-    due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    sale_condition: 'Vista',
+    installments: 1
   });
   const [osForm, setOsForm] = useState<{
     customer_id: string;
@@ -1182,7 +1186,24 @@ export default function App() {
       return;
     }
 
-    const total = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    const baseTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    let total = baseTotal;
+    let finalItems = [...pdvForm.items];
+
+    if (pdvForm.sale_condition === 'Prazo') {
+      const fee = cardFeesSettings[pdvForm.installments] || 0;
+      const divisor = 1 - (fee / 100);
+      const calculatedTotal = divisor > 0 ? (baseTotal / divisor) : baseTotal;
+      const diff = calculatedTotal - baseTotal;
+      if (diff > 0) {
+        total = calculatedTotal;
+        finalItems.push({
+          description: `TAXA DE PARCELAMENTO (${pdvForm.installments}x)`,
+          quantity: 1,
+          price: diff
+        });
+      }
+    }
     const customer = pdvForm.customer_id ? customers.find(c => c.id === parseInt(pdvForm.customer_id)) : null;
 
     if (pdvForm.payment_method === 'Fiado') {
@@ -1211,7 +1232,7 @@ export default function App() {
       id: saleId,
       customer_id: customer?.id,
       customer_name: customer?.name || 'Consumidor Final',
-      items: pdvForm.items,
+      items: finalItems,
       labor_value: 0,
       commission: 0,
       total,
@@ -1243,7 +1264,7 @@ export default function App() {
       if (saleError) throw saleError;
 
       // 2. Insert into sale_items
-      const saleItems = pdvForm.items.map(item => ({
+      const saleItems = finalItems.map(item => ({
         sale_id: saleId,
         product_id: item.product_id,
         description: item.description,
@@ -1272,7 +1293,9 @@ export default function App() {
         customer_id: '',
         items: [],
         payment_method: 'Pix',
-        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        sale_condition: 'Vista',
+        installments: 1
       });
       alert(`Venda ${newSale.id} concluída com sucesso!`);
       fetchData(); // Refresh all data to ensure consistency
@@ -6371,24 +6394,73 @@ export default function App() {
                 ))}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Condição de Venda</label>
+                  <div className="grid grid-cols-2 gap-2">
                     <button
-                      key={method}
                       type="button"
-                      onClick={() => setPdvForm({ ...pdvForm, payment_method: method as any, due_date: method === 'Fiado' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : pdvForm.due_date })}
-                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${pdvForm.payment_method === method
+                      onClick={() => setPdvForm({ ...pdvForm, sale_condition: 'Vista', installments: 1 })}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${pdvForm.sale_condition === 'Vista'
                         ? 'bg-rose-600 border-rose-600 text-white shadow-md'
                         : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'
                         }`}
                     >
-                      {method}
+                      À Vista
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={() => setPdvForm({ ...pdvForm, sale_condition: 'Prazo', payment_method: 'Cartão' })}
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${pdvForm.sale_condition === 'Prazo'
+                        ? 'bg-rose-600 border-rose-600 text-white shadow-md'
+                        : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'
+                        }`}
+                    >
+                      A Prazo
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => setPdvForm({ ...pdvForm, payment_method: method as any, due_date: method === 'Fiado' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : pdvForm.due_date })}
+                        className={`py-2 rounded-xl text-[10px] font-bold border transition-all ${pdvForm.payment_method === method
+                          ? 'bg-rose-600 border-rose-600 text-white shadow-md'
+                          : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'
+                          }`}
+                      >
+                        {method}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
+
+              {pdvForm.sale_condition === 'Prazo' && (
+                <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 animate-in slide-in-from-top-2 duration-300">
+                  <label className="block text-[10px] uppercase font-black text-slate-400 mb-2 tracking-widest">Número de Parcelas</label>
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                    {Object.keys(cardFeesSettings).map(num => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setPdvForm({ ...pdvForm, installments: Number(num) })}
+                        className={`py-2 rounded-xl text-xs font-black transition-all border ${pdvForm.installments === Number(num)
+                          ? 'bg-rose-500 border-rose-500 text-white'
+                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                          }`}
+                      >
+                        {num}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {pdvForm.payment_method === 'Fiado' && (
                 <div className="bg-rose-50 p-4 rounded-xl border border-rose-100">
@@ -6405,19 +6477,37 @@ export default function App() {
 
               <div className="pt-4 border-t border-slate-400 space-y-1">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500">Total Peças:</span>
+                  <span className="text-slate-500 font-bold">VALOR BASE:</span>
                   <span className="font-bold text-slate-700">R$ {pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-center text-sm mb-4">
-                  <span className="text-slate-500">Total Serviços:</span>
-                  <span className="font-bold text-slate-700">R$ 0.00</span>
-                </div>
+                {pdvForm.sale_condition === 'Prazo' && (
+                  <div className="flex justify-between items-center text-sm text-rose-500">
+                    <span className="font-bold uppercase text-[10px]">Taxa de Parcelamento:</span>
+                    <span className="font-bold">
+                      R$ {(
+                        (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100))) -
+                        pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center py-2 border-t border-slate-400">
-                  <span className="text-slate-600 font-bold text-lg">TOTAL DA VENDA</span>
-                  <span className="text-2xl font-black text-rose-600">
-                    R$ {pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}
+                  <span className="text-slate-900 font-black text-lg">TOTAL FINAL</span>
+                  <span className="text-3xl font-black text-rose-600">
+                    R$ {(
+                      pdvForm.sale_condition === 'Prazo'
+                        ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
+                        : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
+                    ).toFixed(2)}
                   </span>
                 </div>
+                {pdvForm.sale_condition === 'Prazo' && (
+                  <p className="text-right text-[10px] font-black text-slate-400 uppercase">
+                    {pdvForm.installments}x de R$ {(
+                      (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100))) / pdvForm.installments
+                    ).toFixed(2)}
+                  </p>
+                )}
               </div>
               <div className="mb-4">
                 <button
