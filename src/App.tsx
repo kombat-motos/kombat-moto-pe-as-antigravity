@@ -1600,9 +1600,9 @@ export default function App() {
                 {sales.filter(s => {
                   const search = (salesSearchTerm + globalSearchTerm).toLowerCase();
                   return (
-                    s.customer_name.toLowerCase().includes(search) ||
-                    s.id.toLowerCase().includes(search) ||
-                    s.items.some(i => i.description.toLowerCase().includes(search))
+                    (s.customer_name || '').toLowerCase().includes(search) ||
+                    (s.id || '').toLowerCase().includes(search) ||
+                    s.items.some(i => (i.description || '').toLowerCase().includes(search))
                   );
                 }).map(sale => (
                   <div key={sale.id} className="p-4 hover:bg-slate-50 transition-colors">
@@ -3981,10 +3981,10 @@ export default function App() {
               {products.filter(p => {
                 const search = (inventorySearchTerm + globalSearchTerm).toLowerCase();
                 return (
-                  p.description.toLowerCase().includes(search) ||
-                  p.sku.toLowerCase().includes(search) ||
-                  (p.location && p.location.toLowerCase().includes(search)) ||
-                  p.barcode?.toLowerCase().includes(search)
+                  (p.description || '').toLowerCase().includes(search) ||
+                  (p.sku || '').toLowerCase().includes(search) ||
+                  (p.location && (p.location || '').toLowerCase().includes(search)) ||
+                  (p.barcode || '').toLowerCase().includes(search)
                 );
               }).sort((a, b) => a.description.localeCompare(b.description)).map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
@@ -4074,10 +4074,10 @@ export default function App() {
           {products.filter(p => {
             const search = (inventorySearchTerm + globalSearchTerm).toLowerCase();
             return (
-              p.description.toLowerCase().includes(search) ||
-              p.sku.toLowerCase().includes(search) ||
-              (p.location && p.location.toLowerCase().includes(search)) ||
-              p.barcode?.toLowerCase().includes(search)
+              (p.description || '').toLowerCase().includes(search) ||
+              (p.sku || '').toLowerCase().includes(search) ||
+              (p.location && (p.location || '').toLowerCase().includes(search)) ||
+              (p.barcode || '').toLowerCase().includes(search)
             );
           }).sort((a, b) => a.description.localeCompare(b.description)).map((p) => (
             <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden hover:shadow-md transition-all group">
@@ -6408,9 +6408,9 @@ export default function App() {
                 {pdvSearchProduct && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                     {products.filter(p =>
-                      p.description.toLowerCase().includes(pdvSearchProduct.toLowerCase()) ||
-                      (p.brand && p.brand.toLowerCase().includes(pdvSearchProduct.toLowerCase())) ||
-                      p.sku.toLowerCase().includes(pdvSearchProduct.toLowerCase())
+                      (p.description || '').toLowerCase().includes(pdvSearchProduct.toLowerCase()) ||
+                      (p.brand && (p.brand || '').toLowerCase().includes(pdvSearchProduct.toLowerCase())) ||
+                      (p.sku || '').toLowerCase().includes(pdvSearchProduct.toLowerCase())
                     ).sort((a, b) => a.description.localeCompare(b.description)).map(p => (
                       <button
                         key={p.id}
@@ -8183,8 +8183,8 @@ export default function App() {
             {orderSearchProduct && (
               <div className="absolute z-10 bg-white border border-slate-400 rounded-xl mt-2 w-full max-h-60 overflow-y-auto shadow-lg">
                 {products.filter(p =>
-                  p.description.toLowerCase().includes(orderSearchProduct.toLowerCase()) ||
-                  p.sku.toLowerCase().includes(orderSearchProduct.toLowerCase())
+                  (p.description || '').toLowerCase().includes(orderSearchProduct.toLowerCase()) ||
+                  (p.sku || '').toLowerCase().includes(orderSearchProduct.toLowerCase())
                 ).map(product => (
                   <button
                     type="button"
