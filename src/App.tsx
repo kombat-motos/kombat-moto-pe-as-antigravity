@@ -3343,38 +3343,67 @@ export default function App() {
     reader.readAsBinaryString(file);
   };
 
-  const handleImportProducts = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportProducts = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!user) {
+      alert('Você precisa estar logado para importar produtos.');
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws);
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
 
-      const baseId = Date.now();
-      const newProducts = data.map((item: any, index: number) => ({
-        id: item.ID || (baseId + index),
-        description: item.Descrição || item.Description || item.description || '',
-        sku: item.SKU || item.sku || '',
-        barcode: item.EAN || item.Barcode || item.barcode || '',
-        purchase_price: parseFloat(item['Preço de Compra'] || item.PurchasePrice || item.purchase_price || 0),
-        sale_price: parseFloat(item['Preço de Venda'] || item.SalePrice || item.sale_price || 0),
-        stock: parseInt(item.Estoque || item.Stock || item.stock || 0),
-        unit: item.Unidade || item.Unit || item.unit || 'Unitário',
-        image_url: item.Imagem || item.Image || item.image_url || '',
-        category: categorizeProduct(item.Descrição || item.description || ''),
-        brand: item.Marca || item.Brand || item.brand || '',
-        location: item.Localização || item.Location || item.location || ''
-      }));
+        if (!data.length) {
+          alert('Planilha vazia ou em formato inválido.');
+          return;
+        }
 
-      setProducts(prev => [...prev, ...newProducts]);
-      alert(`${newProducts.length} produtos importados com sucesso!`);
+        const newProducts = data.map((item: any) => {
+          const desc = item.Descrição || item.Description || item.description || '';
+          return {
+            description: desc,
+            sku: String(item.SKU || item.sku || ''),
+            barcode: String(item.EAN || item.Barcode || item.barcode || ''),
+            purchase_price: parseFloat(String(item['Preço de Compra'] || item.PurchasePrice || item.purchase_price || 0).replace(',', '.')),
+            sale_price: parseFloat(String(item['Preço de Venda'] || item.SalePrice || item.sale_price || 0).replace(',', '.')),
+            stock: parseInt(item.Estoque || item.Stock || item.stock || 0),
+            unit: item.Unidade || item.Unit || item.unit || 'Unitário',
+            image_url: item.Imagem || item.Image || item.image_url || '',
+            category: categorizeProduct(desc),
+            brand: item.Marca || item.Brand || item.brand || '',
+            location: item.Localização || item.Location || item.location || '',
+            application: item.Aplicação || item.Application || item.application || ''
+          };
+        });
+
+        // Enviar para Supabase usando upsert (se houver conflito de SKU ou ID, ele atualiza)
+        // Nota: O upsert do Supabase necessita de uma constraint única no SKU para funcionar pelo SKU.
+        // Se o SKU não tiver constraint, ele vai inserir duplicados. 
+        // Se o objeto contiver o ID, ele faz upsert pelo ID.
+        const { error } = await supabase
+          .from('products')
+          .upsert(newProducts, { onConflict: 'sku' });
+
+        if (error) throw error;
+
+        alert(`${newProducts.length} produtos importados e salvos no Supabase com sucesso!`);
+        fetchData();
+      } catch (error: any) {
+        console.error('Erro na importação:', error);
+        alert('Erro ao importar e salvar produtos: ' + (error.message || 'Verifique o formato da planilha.'));
+      }
     };
     reader.readAsBinaryString(file);
+    // Limpar o input para permitir nova importação do mesmo arquivo se necessário
+    e.target.value = '';
   };
 
   const renderDashboard = () => (
