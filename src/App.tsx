@@ -3370,8 +3370,8 @@ export default function App() {
           const desc = item.Descrição || item.Description || item.description || '';
           return {
             description: desc,
-            sku: String(item.SKU || item.sku || ''),
-            barcode: String(item.EAN || item.Barcode || item.barcode || ''),
+            sku: String(item.SKU || item.sku || '').trim(),
+            barcode: String(item.EAN || item.Barcode || item.barcode || '').trim(),
             purchase_price: parseFloat(String(item['Preço de Compra'] || item.PurchasePrice || item.purchase_price || 0).replace(',', '.')),
             sale_price: parseFloat(String(item['Preço de Venda'] || item.SalePrice || item.sale_price || 0).replace(',', '.')),
             stock: parseInt(item.Estoque || item.Stock || item.stock || 0),
@@ -3384,17 +3384,30 @@ export default function App() {
           };
         });
 
-        // Enviar para Supabase usando upsert (se houver conflito de SKU ou ID, ele atualiza)
-        // Nota: O upsert do Supabase necessita de uma constraint única no SKU para funcionar pelo SKU.
-        // Se o SKU não tiver constraint, ele vai inserir duplicados. 
-        // Se o objeto contiver o ID, ele faz upsert pelo ID.
+        // Deduplicar os dados da planilha antes de enviar
+        // Isso evita o erro: "ON CONFLICT DO UPDATE command cannot affect row a second time"
+        const deduplicatedProducts: any[] = [];
+        const seenSkus = new Set();
+        
+        for (const prod of newProducts) {
+          if (prod.sku && prod.sku !== '') {
+            if (!seenSkus.has(prod.sku)) {
+              seenSkus.add(prod.sku);
+              deduplicatedProducts.push(prod);
+            }
+          } else {
+            // Se não tem SKU, inserimos normal (não dá conflito de upsert no SKU)
+            deduplicatedProducts.push(prod);
+          }
+        }
+
         const { error } = await supabase
           .from('products')
-          .upsert(newProducts, { onConflict: 'sku' });
+          .upsert(deduplicatedProducts, { onConflict: 'sku' });
 
         if (error) throw error;
 
-        alert(`${newProducts.length} produtos importados e salvos no Supabase com sucesso!`);
+        alert(`${deduplicatedProducts.length} produtos processados e salvos com sucesso!`);
         fetchData();
       } catch (error: any) {
         console.error('Erro na importação:', error);
