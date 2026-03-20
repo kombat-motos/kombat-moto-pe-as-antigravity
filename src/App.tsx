@@ -3368,10 +3368,13 @@ export default function App() {
 
         const newProducts = data.map((item: any) => {
           const desc = item.Descrição || item.Description || item.description || '';
+          const skuRaw = String(item.SKU || item.sku || '').trim();
+          const barcodeRaw = String(item.EAN || item.Barcode || item.barcode || '').trim();
+          
           return {
             description: desc,
-            sku: String(item.SKU || item.sku || '').trim(),
-            barcode: String(item.EAN || item.Barcode || item.barcode || '').trim(),
+            sku: skuRaw === '' ? null : skuRaw,
+            barcode: barcodeRaw === '' ? null : barcodeRaw,
             purchase_price: parseFloat(String(item['Preço de Compra'] || item.PurchasePrice || item.purchase_price || 0).replace(',', '.')),
             sale_price: parseFloat(String(item['Preço de Venda'] || item.SalePrice || item.sale_price || 0).replace(',', '.')),
             stock: parseInt(item.Estoque || item.Stock || item.stock || 0),
@@ -3385,20 +3388,24 @@ export default function App() {
         });
 
         // Deduplicar os dados da planilha antes de enviar
-        // Isso evita o erro: "ON CONFLICT DO UPDATE command cannot affect row a second time"
         const deduplicatedProducts: any[] = [];
         const seenSkus = new Set();
+        const seenBarcodes = new Set();
         
         for (const prod of newProducts) {
-          if (prod.sku && prod.sku !== '') {
-            if (!seenSkus.has(prod.sku)) {
-              seenSkus.add(prod.sku);
-              deduplicatedProducts.push(prod);
-            }
-          } else {
-            // Se não tem SKU, inserimos normal (não dá conflito de upsert no SKU)
-            deduplicatedProducts.push(prod);
+          // Se tem SKU, verifica se já vimos
+          if (prod.sku) {
+            if (seenSkus.has(prod.sku)) continue;
+            seenSkus.add(prod.sku);
           }
+          
+          // Se tem Barcode, verifica se já vimos (opcional, mas evita erros de duplicidade no barcode)
+          if (prod.barcode) {
+            if (seenBarcodes.has(prod.barcode)) continue;
+            seenBarcodes.add(prod.barcode);
+          }
+
+          deduplicatedProducts.push(prod);
         }
 
         const { error } = await supabase
