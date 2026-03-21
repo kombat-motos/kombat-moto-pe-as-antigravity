@@ -3597,26 +3597,28 @@ export default function App() {
           {customers.filter(c => {
             const search = (customerSearchTerm + globalSearchTerm).toLowerCase();
             return (
-              c.name.toLowerCase().includes(search) ||
-              c.cpf.toLowerCase().includes(search) ||
-              c.whatsapp.toLowerCase().includes(search) ||
-              c.cnpj?.toLowerCase().includes(search) ||
-              c.city?.toLowerCase().includes(search)
+              (c.name || '').toLowerCase().includes(search) ||
+              (c.nickname || '').toLowerCase().includes(search) ||
+              (c.cpf || '').toLowerCase().includes(search) ||
+              (c.whatsapp || '').toLowerCase().includes(search) ||
+              (c.cnpj || '').toLowerCase().includes(search) ||
+              (c.city || '').toLowerCase().includes(search)
             );
           }).map(c => (
             <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h4 className="font-bold text-slate-900 text-lg">{c.name}</h4>
+                  <h4 className="font-bold text-slate-900 text-lg leading-tight">{c.name}</h4>
+                  {c.nickname && <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mb-1">{c.nickname}</p>}
                   <p className="text-sm text-slate-500">CPF: {c.cpf || 'Não informado'}</p>
-                  <p className="text-sm text-slate-500">Celular: {c.whatsapp}</p>
+                  <p className="text-sm text-slate-500">Celular: {c.whatsapp || 'Não informado'}</p>
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Limite Total:</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Limite Total:</span>
                       <span className="text-xs font-bold text-slate-600">R$ {c.credit_limit?.toFixed(2) || '0.00'}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Saldo Disponível:</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Saldo Disponível:</span>
                       <span className={`text-xs font-bold ${getCustomerRemainingCredit(c.id) > 0 ? 'text-rose-600' : 'text-rose-600'}`}>
                         R$ {getCustomerRemainingCredit(c.id).toFixed(2)}
                       </span>
@@ -3718,16 +3720,18 @@ export default function App() {
                 {customers.filter(c => {
                   const search = (customerSearchTerm + globalSearchTerm).toLowerCase();
                   return (
-                    c.name.toLowerCase().includes(search) ||
-                    c.cpf.toLowerCase().includes(search) ||
-                    c.whatsapp.toLowerCase().includes(search) ||
-                    c.cnpj?.toLowerCase().includes(search) ||
-                    c.city?.toLowerCase().includes(search)
+                    (c.name || '').toLowerCase().includes(search) ||
+                    (c.nickname || '').toLowerCase().includes(search) ||
+                    (c.cpf || '').toLowerCase().includes(search) ||
+                    (c.whatsapp || '').toLowerCase().includes(search) ||
+                    (c.cnpj || '').toLowerCase().includes(search) ||
+                    (c.city || '').toLowerCase().includes(search)
                   );
                 }).map(c => (
                   <tr key={c.id} className="border-b border-slate-400 hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <p className="font-bold text-slate-900">{c.name}</p>
+                      {c.nickname && <p className="text-[10px] font-bold text-rose-600 uppercase tracking-tighter">{c.nickname}</p>}
                       <p className="text-[10px] text-slate-400">{motorcycles.filter(m => m.customer_id === c.id).length} moto(s) cadastrada(s)</p>
                     </td>
                     <td className="px-6 py-4">
@@ -6395,7 +6399,11 @@ export default function App() {
                   onChange={e => setPdvForm({ ...pdvForm, customer_id: e.target.value })}
                 >
                   <option value="">Consumidor Final</option>
-                  {customers.sort((a, b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {customers.sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}{c.nickname ? ` (${c.nickname})` : ''}
+                    </option>
+                  ))}
                 </select>
                 {pdvForm.customer_id && (
                   <div className="mt-2 flex items-center justify-between px-2">
