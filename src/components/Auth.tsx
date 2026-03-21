@@ -45,9 +45,11 @@ export default function Auth({ onLogin }: AuthProps) {
     setLoading(true);
 
     try {
+      const finalEmail = username.includes('@') ? username : `${username}@kombatmoto.com`;
+
       if (isLogin) {
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: `${username}@kombatmoto.com`, // Usando username como prefixo de email se não houver email real
+          email: finalEmail,
           password: password,
         });
 
@@ -55,7 +57,7 @@ export default function Auth({ onLogin }: AuthProps) {
         if (data.user) onLogin(data.user);
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email: `${username}@kombatmoto.com`,
+          email: finalEmail,
           password: password,
           options: {
             data: {
