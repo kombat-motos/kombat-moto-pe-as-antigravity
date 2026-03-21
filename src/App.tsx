@@ -232,6 +232,14 @@ interface PurchaseOrder {
   status: 'Pendente' | 'Enviado' | 'Recebido';
 }
 
+// --- Utils ---
+const formatBRL = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value || 0);
+};
+
 // --- Components ---
 
 const SidebarItem = ({ icon: Icon, label, active, onClick }: any) => (
@@ -325,12 +333,12 @@ const VendaCalculator = ({ initialCost, onApply, cardFees }: { initialCost: numb
         <p>Data: ${new Date().toLocaleString('pt-BR')}</p>
         <hr />
         ${type === 'Fiado' ? `
-          <p>Valor Original: R$ ${cost.toFixed(2)}</p>
-          <p>Taxa de Prazo (${fiadoTax}%): R$ ${markupValue.toFixed(2)}</p>
-          <p style="font-size: 1.25em; font-weight: bold;">TOTAL: R$ ${finalPrice.toFixed(2)}</p>
+          <p>Valor Original: {formatBRL(cost)}</p>
+          <p>Taxa de Prazo (${fiadoTax}%): {formatBRL(markupValue)}</p>
+          <p style="font-size: 1.25em; font-weight: bold;">TOTAL: {formatBRL(finalPrice)}</p>
         ` : `
-          <p style="font-size: 1.25em; font-weight: bold;">VALOR TOTAL: R$ ${finalPrice.toFixed(2)}</p>
-          <p>Parcelamento: ${installments}x de R$ ${installmentValue.toFixed(2)}</p>
+          <p style="font-size: 1.25em; font-weight: bold;">VALOR TOTAL: {formatBRL(finalPrice)}</p>
+          <p>Parcelamento: ${installments}x de {formatBRL(installmentValue)}</p>
         `}
         <hr />
         <p style="text-align: center; font-size: 0.8em;">Impresso em: ${new Date().toLocaleDateString()}</p>
@@ -413,12 +421,12 @@ const VendaCalculator = ({ initialCost, onApply, cardFees }: { initialCost: numb
         <div className="bg-rose-600 p-4 rounded-2xl flex justify-between items-center">
           <div>
             <p className="text-[10px] uppercase font-black text-rose-200 tracking-tighter">Valor Total a Cobrar</p>
-            <p className="text-3xl font-black">R$ {finalPrice.toFixed(2)}</p>
+            <p className="text-3xl font-black">{formatBRL(finalPrice)}</p>
           </div>
           {type === 'Cartão' && installments > 1 && (
             <div className="text-right">
               <p className="text-[10px] uppercase font-black text-rose-200 tracking-tighter">Parcelas</p>
-              <p className="font-black">{installments}x R$ {installmentValue.toFixed(2)}</p>
+              <p className="font-black">{installments}x {formatBRL(installmentValue)}</p>
             </div>
           )}
         </div>
@@ -426,7 +434,7 @@ const VendaCalculator = ({ initialCost, onApply, cardFees }: { initialCost: numb
         {type === 'Fiado' && (
           <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700">
             <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Detalhamento Fiado ({fiadoTax}% Taxa)</p>
-            <p className="text-xs font-bold text-slate-300">Valor Base: R$ {cost.toFixed(2)} + Taxa de Prazo: R$ {markupValue.toFixed(2)}</p>
+            <p className="text-xs font-bold text-slate-300">Valor Base: {formatBRL(cost)} + Taxa de Prazo: {formatBRL(markupValue)}</p>
           </div>
         )}
 
@@ -1232,7 +1240,7 @@ export default function App() {
         .reduce((acc, s) => acc + s.total, 0);
 
       if (currentDebt + total > (customer.credit_limit || 0)) {
-        alert(`Limite de crédito excedido! \nLimite: R$ ${customer.credit_limit?.toFixed(2)} \nDívida Atual: R$ ${currentDebt.toFixed(2)} \nEsta Venda: R$ ${total.toFixed(2)}`);
+        alert(`Limite de crédito excedido! \nLimite: ${formatBRL(customer.credit_limit)} \nDívida Atual: ${formatBRL(currentDebt)} \nEsta Venda: ${formatBRL(total)}`);
         return;
       }
     }
@@ -1385,7 +1393,7 @@ export default function App() {
         .reduce((acc, s) => acc + s.total, 0);
 
       if (currentDebt + total > (customer.credit_limit || 0)) {
-        alert(`Limite de crédito excedido! \nLimite: R$ ${customer.credit_limit?.toFixed(2)} \nDívida Atual: R$ ${currentDebt.toFixed(2)} \nEsta O.S.: R$ ${total.toFixed(2)}`);
+        alert(`Limite de crédito excedido! \nLimite: ${formatBRL(customer.credit_limit)} \nDívida Atual: ${formatBRL(currentDebt)} \nEsta O.S.: ${formatBRL(total)}`);
         return;
       }
     }
@@ -1555,7 +1563,7 @@ export default function App() {
                 </div>
                 <h3 className="font-bold text-slate-900">Vendas de Hoje</h3>
               </div>
-              <p className="text-3xl font-bold text-slate-900">R$ {totalToday.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-slate-900">{formatBRL(totalToday)}</p>
               <p className="text-sm text-slate-500 mt-1">{todaySales.length} atendimentos realizados</p>
 
               <div className="mt-6 pt-6 border-t border-slate-400 space-y-3">
@@ -1565,7 +1573,7 @@ export default function App() {
                   return (
                     <div key={method} className="flex justify-between text-sm">
                       <span className="text-slate-500">{method}</span>
-                      <span className="font-bold text-slate-900">R$ {amount.toFixed(2)}</span>
+                      <span className="font-bold text-slate-900">{formatBRL(amount)}</span>
                     </div>
                   );
                 })}
@@ -1617,28 +1625,28 @@ export default function App() {
                         <p className="text-xs text-slate-500">ID: {sale.id} • {new Date(sale.date).toLocaleTimeString()}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-slate-900">R$ {sale.total.toFixed(2)}</p>
+                        <p className="font-bold text-slate-900">{formatBRL(sale.total)}</p>
                         <p className="text-xs text-rose-600 font-medium">{sale.payment_method}</p>
                         {sale.payment_method === 'Fiado' && sale.total - (sale.paid_total || 0) > 0 && (
-                          <p className="text-[9px] font-black text-amber-500 uppercase mt-0.5">Pend: R$ {(sale.total - (sale.paid_total || 0)).toFixed(2)}</p>
+                          <p className="text-[9px] font-black text-amber-500 uppercase mt-0.5">Pend: {formatBRL(sale.total - (sale.paid_total || 0))}</p>
                         )}
                       </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2 mt-2">
                       <div className="px-2 py-1 bg-slate-900 rounded text-[10px] text-white">
-                        <span className="font-bold">TOTAL GERAL:</span> R$ {sale.total.toFixed(2)}
+                        <span className="font-bold">TOTAL GERAL:</span> {formatBRL(sale.total)}
                       </div>
                       <div className="px-2 py-1 bg-blue-50 rounded text-[10px] text-blue-700">
-                        <span className="font-bold">TOTAL PEÇAS:</span> R$ {(sale.total - (sale.labor_value || 0)).toFixed(2)}
+                        <span className="font-bold">TOTAL PEÇAS:</span> {formatBRL(sale.total - (sale.labor_value || 0))}
                       </div>
                       <div className="px-2 py-1 bg-amber-50 rounded text-[10px] text-amber-700">
-                        <span className="font-bold">TOTAL SERVIÇOS:</span> R$ {(sale.labor_value || 0).toFixed(2)}
+                        <span className="font-bold">TOTAL SERVIÇOS:</span> {formatBRL(sale.labor_value || 0)}
                       </div>
                       {sale.type === 'Oficina' && (
                         <>
                           <div className="px-2 py-1 bg-green-50 rounded text-[10px] text-green-700">
-                            <span className="font-bold">Comissão ({sale.mechanic_name}):</span> R$ {sale.commission.toFixed(2)}
+                            <span className="font-bold">Comissão ({sale.mechanic_name}):</span> {formatBRL(sale.commission)}
                           </div>
                         </>
                       )}
@@ -1818,7 +1826,7 @@ export default function App() {
                     <h4 className="font-bold text-slate-900 mb-1">{lead.name}</h4>
                     <p className="text-xs text-slate-500 mb-3">{lead.company}</p>
                     <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-400">
-                      <span className="text-sm font-bold text-slate-900">R$ {lead.value.toFixed(2)}</span>
+                      <span className="text-sm font-bold text-slate-900">{formatBRL(lead.value)}</span>
                       <select
                         className="text-[10px] bg-slate-50 border-none rounded-md p-1 focus:ring-0 cursor-pointer"
                         value={lead.status}
@@ -1936,7 +1944,7 @@ export default function App() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-slate-400 uppercase font-bold mb-1">Total da O.S.</p>
-                  <p className="text-2xl font-black text-slate-900">R$ {os.total.toFixed(2)}</p>
+                  <p className="text-2xl font-black text-slate-900">{formatBRL(os.total)}</p>
                   <div className="flex gap-2 mt-4 justify-end">
                     <button
                       onClick={() => handleEditOS(os)}
@@ -2161,10 +2169,10 @@ export default function App() {
 
     message += `*ITENS DO ORÇAMENTO:*\n`;
     quote.items.forEach(item => {
-      message += `- ${item.quantity}x ${item.description}: R$ ${item.total.toFixed(2)}\n`;
+      message += `- ${item.quantity}x ${item.description}: ${formatBRL(item.total)}\n`;
     });
 
-    message += `\n*VALOR TOTAL: R$ ${quote.total_value.toFixed(2)}*\n\n`;
+    message += `\n*VALOR TOTAL: ${formatBRL(quote.total_value)}*\n\n`;
     message += `_Validade: ${quote.validity_days} dias._\n`;
     message += `_Observações: ${quote.observations || 'N/A'}_`;
 
@@ -3433,7 +3441,7 @@ export default function App() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Faturamento Mensal"
-          value={`R$ ${stats?.revenue.toFixed(2) || '0.00'}`}
+          value={formatBRL(stats?.revenue)}
           icon={TrendingUp}
           color="bg-rose-500"
           subtitle="Vendas concluídas este mês"
@@ -3447,14 +3455,14 @@ export default function App() {
         />
         <StatCard
           title="Ticket Médio (Venda)"
-          value={`R$ ${stats?.avgTicketCounter.toFixed(2) || '0.00'}`}
+          value={formatBRL(stats?.avgTicketCounter)}
           icon={DollarSign}
           color="bg-emerald-500"
           subtitle="Média por venda balcão"
         />
         <StatCard
           title="Ticket Médio (O.S.)"
-          value={`R$ ${stats?.avgTicketService.toFixed(2) || '0.00'}`}
+          value={formatBRL(stats?.avgTicketService)}
           icon={ClipboardList}
           color="bg-blue-500"
           subtitle="Média por ordem de serviço"
@@ -3615,12 +3623,12 @@ export default function App() {
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Limite Total:</span>
-                      <span className="text-xs font-bold text-slate-600">R$ {c.credit_limit?.toFixed(2) || '0.00'}</span>
+                      <span className="text-xs font-bold text-slate-600">{formatBRL(c.credit_limit)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Saldo Disponível:</span>
                       <span className={`text-xs font-bold ${getCustomerRemainingCredit(c.id) > 0 ? 'text-rose-600' : 'text-rose-600'}`}>
-                        R$ {getCustomerRemainingCredit(c.id).toFixed(2)}
+                        {formatBRL(getCustomerRemainingCredit(c.id))}
                       </span>
                     </div>
                   </div>
@@ -3742,7 +3750,7 @@ export default function App() {
                       <div className="flex flex-col gap-1">
                         <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-slate-400">
                           <span>Disponível</span>
-                          <span className="text-rose-600">R$ {getCustomerRemainingCredit(c.id).toFixed(2)}</span>
+                          <span className="text-rose-600">{formatBRL(getCustomerRemainingCredit(c.id))}</span>
                         </div>
                         <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div
@@ -4023,8 +4031,8 @@ export default function App() {
                     <p className="text-[10px] text-slate-400 font-mono">{p.barcode}</p>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-xs text-slate-400">C: R$ {p.purchase_price?.toFixed(2)}</p>
-                    <p className="text-sm font-bold text-slate-900">V: R$ {p.sale_price.toFixed(2)}</p>
+                    <p className="text-xs text-slate-400">C: {formatBRL(p.purchase_price)}</p>
+                    <p className="text-sm font-bold text-slate-900">V: {formatBRL(p.sale_price)}</p>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-lg text-xs font-bold ${p.stock < 5 ? 'bg-rose-100 text-rose-700' : 'bg-rose-100 text-rose-700'
@@ -6409,7 +6417,7 @@ export default function App() {
                   <div className="mt-2 flex items-center justify-between px-2">
                     <span className="text-[10px] font-bold text-slate-400 uppercase">Crédito Disponível:</span>
                     <span className={`text-xs font-bold ${getCustomerRemainingCredit(parseInt(pdvForm.customer_id)) > 0 ? 'text-rose-600' : 'text-rose-600'}`}>
-                      R$ {getCustomerRemainingCredit(parseInt(pdvForm.customer_id)).toFixed(2)}
+                      {formatBRL(getCustomerRemainingCredit(parseInt(pdvForm.customer_id)))}
                     </span>
                   </div>
                 )}
@@ -6498,7 +6506,7 @@ export default function App() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-bold text-slate-900">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                      <span className="font-bold text-slate-900">{formatBRL(item.price * item.quantity)}</span>
                       <button
                         onClick={() => handleRemovePdvItem(item.product_id)}
                         className="p-1 text-rose-400 hover:text-rose-600"
@@ -6594,36 +6602,36 @@ export default function App() {
               <div className="pt-4 border-t border-slate-400 space-y-1">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-slate-500 font-bold">VALOR BASE:</span>
-                  <span className="font-bold text-slate-700">R$ {pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}</span>
+                  <span className="font-bold text-slate-700">{formatBRL(pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0))}</span>
                 </div>
                 {pdvForm.sale_condition === 'Prazo' && (
                   <div className="flex justify-between items-center text-sm text-rose-500">
                     <span className="font-bold uppercase text-[10px]">Taxa de Parcelamento:</span>
                     <span className="font-bold">
-                      R$ {(
+                      {formatBRL(
                         (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100))) -
                         pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
-                      ).toFixed(2)}
+                      )}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between items-center py-2 border-t border-slate-400">
                   <span className="text-slate-900 font-black text-lg">TOTAL FINAL</span>
                   <span className="text-3xl font-black text-rose-600">
-                    R$ {(
+                    {formatBRL(
                       (
                         pdvForm.sale_condition === 'Prazo'
                           ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
                           : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
                       ) * (pdvForm.payment_method === 'Fiado' ? 1.15 : 1)
-                    ).toFixed(2)}
+                    )}
                   </span>
                 </div>
                 {pdvForm.sale_condition === 'Prazo' && (
                   <p className="text-right text-[10px] font-black text-slate-400 uppercase">
-                    {pdvForm.installments}x de R$ {(
+                    {pdvForm.installments}x de {formatBRL(
                       (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100))) / pdvForm.installments
-                    ).toFixed(2)}
+                    )}
                   </p>
                 )}
               </div>
@@ -7490,7 +7498,7 @@ export default function App() {
                   >
                     <option value="">Selecione um Serviço Fixo</option>
                     {fixedServices.map(fs => (
-                      <option key={fs.id} value={fs.id}>{fs.name} (Repasse: R$ {fs.payout.toFixed(2)})</option>
+                      <option key={fs.id} value={fs.id}>{fs.name} (Repasse: {formatBRL(fs.payout)})</option>
                     ))}
                   </select>
                 </div>
@@ -7534,11 +7542,11 @@ export default function App() {
                               <PlusCircle size={14} />
                             </button>
                           </div>
-                          <p className="text-xs text-slate-500">x Repasse: R$ {sfs.payout.toFixed(2)}</p>
+                          <p className="text-xs text-slate-500">x Repasse: {formatBRL(sfs.payout)}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-slate-900">Total Repasse: R$ {(sfs.payout * sfs.quantity).toFixed(2)}</span>
+                        <span className="font-bold text-slate-900">Total Repasse: {formatBRL(sfs.payout * sfs.quantity)}</span>
                         <button
                           onClick={() => setOsForm({
                             ...osForm,
@@ -7712,7 +7720,7 @@ export default function App() {
                     <div key={sale.id} className="p-3 bg-slate-50 rounded-xl border border-slate-400">
                       <div className="flex justify-between items-center mb-1">
                         <p className="font-bold text-slate-800">O.S. #{sale.id} - {sale.customer_name}</p>
-                        <span className="text-sm font-bold text-rose-600">R$ {sale.commission.toFixed(2)}</span>
+                        <span className="text-sm font-bold text-rose-600">{formatBRL(sale.commission)}</span>
                       </div>
                       <p className="text-xs text-slate-500">{new Date(sale.date).toLocaleString()}</p>
                       <div className="mt-2 text-xs text-slate-600">
@@ -7720,7 +7728,7 @@ export default function App() {
                           <p>Peças/Produtos: {sale.items.map(item => `${item.description} (${item.quantity}x)`).join(', ')}</p>
                         )}
                         {sale.labor_value > 0 && (
-                          <p>Mão de Obra: R$ {sale.labor_value.toFixed(2)}</p>
+                          <p>Mão de Obra: {formatBRL(sale.labor_value)}</p>
                         )}
                         {(sale.selected_fixed_services || []).length > 0 && (
                           <p>Serviços Fixos: {sale.selected_fixed_services.map(sfs => `${sfs.name} (${sfs.quantity}x)`).join(', ')}</p>
@@ -7842,16 +7850,16 @@ export default function App() {
                           <tr key={`item-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                             <td className="border p-2 text-center">{item.quantity}</td>
                             <td className="border p-2">{item.description}</td>
-                            <td className="border p-2 text-right">R$ {item.price.toFixed(2)}</td>
-                            <td className="border p-2 text-right">R$ {(item.quantity * item.price).toFixed(2)}</td>
+                            <td className="border p-2 text-right">{formatBRL(item.price)}</td>
+                            <td className="border p-2 text-right">{formatBRL(item.quantity * item.price)}</td>
                           </tr>
                         ))}
                         {selectedSaleForOS.labor_value > 0 && (
                           <tr className={(selectedSaleForOS.items.length) % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                             <td className="border p-2 text-center">1</td>
                             <td className="border p-2">Mão de Obra / Serviços Gerais</td>
-                            <td className="border p-2 text-right">R$ {selectedSaleForOS.labor_value.toFixed(2)}</td>
-                            <td className="border p-2 text-right">R$ {selectedSaleForOS.labor_value.toFixed(2)}</td>
+                            <td className="border p-2 text-right">{formatBRL(selectedSaleForOS.labor_value)}</td>
+                            <td className="border p-2 text-right">{formatBRL(selectedSaleForOS.labor_value)}</td>
                           </tr>
                         )}
                       </tbody>
@@ -7863,15 +7871,15 @@ export default function App() {
                     <div className="w-1/3 text-xs">
                       <div className="flex justify-between p-2 bg-slate-50 rounded-t-md">
                         <span className="font-bold">Total Peças:</span>
-                        <span>R$ {(selectedSaleForOS.total - selectedSaleForOS.labor_value).toFixed(2)}</span>
+                        <span>{formatBRL(selectedSaleForOS.total - selectedSaleForOS.labor_value)}</span>
                       </div>
                       <div className="flex justify-between p-2 bg-slate-50">
                         <span className="font-bold">Total Serviços:</span>
-                        <span>R$ {selectedSaleForOS.labor_value.toFixed(2)}</span>
+                        <span>{formatBRL(selectedSaleForOS.labor_value)}</span>
                       </div>
                       <div className="flex justify-between p-2 bg-slate-200 text-base rounded-b-md">
                         <span className="font-bold">VALOR TOTAL GERAL:</span>
-                        <span className="font-bold">R$ {selectedSaleForOS.total.toFixed(2)}</span>
+                        <span className="font-bold">{formatBRL(selectedSaleForOS.total)}</span>
                       </div>
                     </div>
                   </div>
@@ -8327,7 +8335,7 @@ export default function App() {
               <div className="flex items-center justify-between pt-4">
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Preço de Venda</p>
-                  <p className="text-3xl font-black text-slate-900">R$ {selectedProductDetail.sale_price.toFixed(2)}</p>
+                  <p className="text-3xl font-black text-slate-900">{formatBRL(selectedProductDetail.sale_price)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Disponibilidade</p>
