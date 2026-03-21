@@ -61,13 +61,14 @@ import { supabase } from './supabase';
 interface Customer {
   id: number;
   name: string;
-  cpf: string;
+  nickname?: string;
+  cpf?: string;
   cnpj?: string; // CNPJ is optional
-  whatsapp: string;
-  address: string;
-  neighborhood: string;
+  whatsapp?: string;
+  address?: string;
+  neighborhood?: string;
   city?: string; // City is optional
-  zip_code: string;
+  zip_code?: string;
   credit_limit: number;
   fine_rate?: number;
   interest_rate?: number;
@@ -152,6 +153,7 @@ interface Sale {
   payment_status: 'Pago' | 'Pendente';
   due_date?: string;
   paid_date?: string;
+  paid_total?: number;
   service_description?: string;
   whatsapp?: string;
   status?: 'Aberto' | 'Em Andamento' | 'Pronto' | 'Entregue';
@@ -230,18 +232,26 @@ interface PurchaseOrder {
   status: 'Pendente' | 'Enviado' | 'Recebido';
 }
 
+// --- Utils ---
+const formatBRL = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value || 0);
+};
+
 // --- Components ---
 
 const SidebarItem = ({ icon: Icon, label, active, onClick }: any) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${active
-      ? 'bg-rose-600 text-white shadow-lg shadow-rose-200'
-      : 'text-slate-500 hover:bg-slate-100'
+    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${active
+      ? 'bg-rose-600 text-white shadow-lg shadow-rose-200 translate-x-1'
+      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
       }`}
   >
-    <Icon size={20} />
-    <span className="font-medium">{label}</span>
+    <Icon size={18} className={active ? 'animate-pulse' : ''} />
+    <span className="font-bold text-[10px] uppercase tracking-widest whitespace-nowrap">{label}</span>
   </button>
 );
 
@@ -323,12 +333,12 @@ const VendaCalculator = ({ initialCost, onApply, cardFees }: { initialCost: numb
         <p>Data: ${new Date().toLocaleString('pt-BR')}</p>
         <hr />
         ${type === 'Fiado' ? `
-          <p>Valor Original: R$ ${cost.toFixed(2)}</p>
-          <p>Taxa de Prazo (${fiadoTax}%): R$ ${markupValue.toFixed(2)}</p>
-          <p style="font-size: 1.25em; font-weight: bold;">TOTAL: R$ ${finalPrice.toFixed(2)}</p>
+          <p>Valor Original: {formatBRL(cost)}</p>
+          <p>Taxa de Prazo (${fiadoTax}%): {formatBRL(markupValue)}</p>
+          <p style="font-size: 1.25em; font-weight: bold;">TOTAL: {formatBRL(finalPrice)}</p>
         ` : `
-          <p style="font-size: 1.25em; font-weight: bold;">VALOR TOTAL: R$ ${finalPrice.toFixed(2)}</p>
-          <p>Parcelamento: ${installments}x de R$ ${installmentValue.toFixed(2)}</p>
+          <p style="font-size: 1.25em; font-weight: bold;">VALOR TOTAL: {formatBRL(finalPrice)}</p>
+          <p>Parcelamento: ${installments}x de {formatBRL(installmentValue)}</p>
         `}
         <hr />
         <p style="text-align: center; font-size: 0.8em;">Impresso em: ${new Date().toLocaleDateString()}</p>
@@ -411,12 +421,12 @@ const VendaCalculator = ({ initialCost, onApply, cardFees }: { initialCost: numb
         <div className="bg-rose-600 p-4 rounded-2xl flex justify-between items-center">
           <div>
             <p className="text-[10px] uppercase font-black text-rose-200 tracking-tighter">Valor Total a Cobrar</p>
-            <p className="text-3xl font-black">R$ {finalPrice.toFixed(2)}</p>
+            <p className="text-3xl font-black">{formatBRL(finalPrice)}</p>
           </div>
           {type === 'Cartão' && installments > 1 && (
             <div className="text-right">
               <p className="text-[10px] uppercase font-black text-rose-200 tracking-tighter">Parcelas</p>
-              <p className="font-black">{installments}x R$ {installmentValue.toFixed(2)}</p>
+              <p className="font-black">{installments}x {formatBRL(installmentValue)}</p>
             </div>
           )}
         </div>
@@ -424,7 +434,7 @@ const VendaCalculator = ({ initialCost, onApply, cardFees }: { initialCost: numb
         {type === 'Fiado' && (
           <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700">
             <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Detalhamento Fiado ({fiadoTax}% Taxa)</p>
-            <p className="text-xs font-bold text-slate-300">Valor Base: R$ {cost.toFixed(2)} + Taxa de Prazo: R$ {markupValue.toFixed(2)}</p>
+            <p className="text-xs font-bold text-slate-300">Valor Base: {formatBRL(cost)} + Taxa de Prazo: {formatBRL(markupValue)}</p>
           </div>
         )}
 
@@ -446,7 +456,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inventoryView, setInventoryView] = useState<'list' | 'grid'>('list');
-  const [customerViewMode, setCustomerViewMode] = useState<'grid' | 'list'>('grid');
+  const [customerViewMode, setCustomerViewMode] = useState<'list' | 'grid'>('grid');
   const [stats, setStats] = useState<Stats | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
@@ -480,6 +490,8 @@ export default function App() {
   const [showPdvCalculator, setShowPdvCalculator] = useState(false);
   const [showQuoteCalculator, setShowQuoteCalculator] = useState(false);
   const [showOsCalculator, setShowOsCalculator] = useState(false);
+  const [labelQuantity, setLabelQuantity] = useState(1);
+  const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
 
   // Quotes States
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -501,7 +513,7 @@ export default function App() {
   const [stockSearchTerm, setStockSearchTerm] = useState('');
 
   // Form States
-  const [customerForm, setCustomerForm] = useState({ name: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
+  const [customerForm, setCustomerForm] = useState({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
   const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '', application: '' });
   const [serviceForm, setServiceForm] = useState({ description: '', price: '', category: '' });
   const [motorcycleForm, setMotorcycleForm] = useState({ customer_id: '', plate: '', model: '', current_km: '' });
@@ -581,6 +593,8 @@ export default function App() {
   const [selectedReport, setSelectedReport] = useState<'customers' | 'inventory' | 'sales' | 'financial' | 'purchases' | null>(null);
   const [inventoryReportSearchTerm, setInventoryReportSearchTerm] = useState('');
   const [companyLogo, setCompanyLogo] = useState<string | null>(localStorage.getItem('companyLogo'));
+  const [partialPaymentAmount, setPartialPaymentAmount] = useState<string>('');
+  const [payingSaleId, setPayingSaleId] = useState<string | null>(null);
   const [companyData, setCompanyData] = useState(() => {
     const saved = localStorage.getItem('companyData');
     return saved ? JSON.parse(saved) : {
@@ -935,6 +949,7 @@ export default function App() {
         mechanic_id: s.mechanic_id,
         payment_method: s.payment_method,
         payment_status: s.payment_status,
+        paid_total: s.paid_total || 0,
         due_date: s.due_date,
         paid_date: s.paid_date,
         service_description: s.service_description,
@@ -1180,23 +1195,32 @@ export default function App() {
       return;
     }
 
-    const baseTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-    let total = baseTotal;
+    const itemsBaseTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    let total = itemsBaseTotal;
     let finalItems = [...pdvForm.items];
 
     if (pdvForm.sale_condition === 'Prazo') {
       const fee = cardFeesSettings[pdvForm.installments] || 0;
       const divisor = 1 - (fee / 100);
-      const calculatedTotal = divisor > 0 ? (baseTotal / divisor) : baseTotal;
-      const diff = calculatedTotal - baseTotal;
+      total = divisor > 0 ? (itemsBaseTotal / divisor) : itemsBaseTotal;
+      const diff = total - itemsBaseTotal;
       if (diff > 0) {
-        total = calculatedTotal;
         finalItems.push({
           description: `TAXA DE PARCELAMENTO (${pdvForm.installments}x)`,
           quantity: 1,
           price: diff
         });
       }
+    }
+
+    if (pdvForm.payment_method === 'Fiado') {
+      const surcharge = total * 0.15;
+      total += surcharge;
+      finalItems.push({
+        description: 'TAXA DE CREDITO (FIADO)',
+        quantity: 1,
+        price: surcharge
+      });
     }
     const customer = pdvForm.customer_id ? customers.find(c => c.id === parseInt(pdvForm.customer_id)) : null;
 
@@ -1216,7 +1240,7 @@ export default function App() {
         .reduce((acc, s) => acc + s.total, 0);
 
       if (currentDebt + total > (customer.credit_limit || 0)) {
-        alert(`Limite de crédito excedido! \nLimite: R$ ${customer.credit_limit?.toFixed(2)} \nDívida Atual: R$ ${currentDebt.toFixed(2)} \nEsta Venda: R$ ${total.toFixed(2)}`);
+        alert(`Limite de crédito excedido! \nLimite: ${formatBRL(customer.credit_limit)} \nDívida Atual: ${formatBRL(currentDebt)} \nEsta Venda: ${formatBRL(total)}`);
         return;
       }
     }
@@ -1336,7 +1360,19 @@ export default function App() {
     const laborValueFromItems = osForm.items.filter(i => !i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
     const laborValueManual = parseFloat(osForm.labor_value.toString().replace(',', '.')) || 0;
     const laborValue = laborValueFromItems + laborValueManual;
-    const total = totalItems + laborValue;
+    const totalBase = totalItems + laborValue;
+    let total = totalBase;
+    let finalItems = [...osForm.items];
+    if (osForm.payment_method === 'Fiado') {
+      const surcharge = totalBase * 0.15;
+      total += surcharge;
+      finalItems.push({
+        description: 'TAXA DE CREDITO (FIADO)',
+        quantity: 1,
+        price: surcharge,
+        type: 'Serviço'
+      });
+    }
     const customer = osForm.customer_id ? customers.find(c => c.id === parseInt(osForm.customer_id)) : null;
     const motorcycle = osForm.motorcycle_id ? motorcycles.find(m => m.id === parseInt(osForm.motorcycle_id)) : null;
     const mechanic = mechanics.find(m => m.id === osForm.mechanic_id);
@@ -1357,7 +1393,7 @@ export default function App() {
         .reduce((acc, s) => acc + s.total, 0);
 
       if (currentDebt + total > (customer.credit_limit || 0)) {
-        alert(`Limite de crédito excedido! \nLimite: R$ ${customer.credit_limit?.toFixed(2)} \nDívida Atual: R$ ${currentDebt.toFixed(2)} \nEsta O.S.: R$ ${total.toFixed(2)}`);
+        alert(`Limite de crédito excedido! \nLimite: ${formatBRL(customer.credit_limit)} \nDívida Atual: ${formatBRL(currentDebt)} \nEsta O.S.: ${formatBRL(total)}`);
         return;
       }
     }
@@ -1379,7 +1415,7 @@ export default function App() {
       id: osId,
       customer_id: customer?.id,
       customer_name: customer?.name || 'Cliente O.S.',
-      items: osForm.items,
+      items: finalItems,
       labor_value: laborValue,
       mechanic_id: mechanic?.id,
       mechanic_name: mechanic?.name,
@@ -1426,7 +1462,7 @@ export default function App() {
           mechanic_id: newOS.mechanic_id,
           mechanic_name: newOS.mechanic_name,
           commission: newOS.commission,
-          total: newOS.total,
+          total: total,
           payment_method: newOS.payment_method,
           type: newOS.type,
           date: newOS.date,
@@ -1527,7 +1563,7 @@ export default function App() {
                 </div>
                 <h3 className="font-bold text-slate-900">Vendas de Hoje</h3>
               </div>
-              <p className="text-3xl font-bold text-slate-900">R$ {totalToday.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-slate-900">{formatBRL(totalToday)}</p>
               <p className="text-sm text-slate-500 mt-1">{todaySales.length} atendimentos realizados</p>
 
               <div className="mt-6 pt-6 border-t border-slate-400 space-y-3">
@@ -1537,7 +1573,7 @@ export default function App() {
                   return (
                     <div key={method} className="flex justify-between text-sm">
                       <span className="text-slate-500">{method}</span>
-                      <span className="font-bold text-slate-900">R$ {amount.toFixed(2)}</span>
+                      <span className="font-bold text-slate-900">{formatBRL(amount)}</span>
                     </div>
                   );
                 })}
@@ -1573,9 +1609,9 @@ export default function App() {
                 {sales.filter(s => {
                   const search = (salesSearchTerm + globalSearchTerm).toLowerCase();
                   return (
-                    s.customer_name.toLowerCase().includes(search) ||
-                    s.id.toLowerCase().includes(search) ||
-                    s.items.some(i => i.description.toLowerCase().includes(search))
+                    (s.customer_name || '').toLowerCase().includes(search) ||
+                    (s.id || '').toLowerCase().includes(search) ||
+                    s.items.some(i => (i.description || '').toLowerCase().includes(search))
                   );
                 }).map(sale => (
                   <div key={sale.id} className="p-4 hover:bg-slate-50 transition-colors">
@@ -1589,25 +1625,28 @@ export default function App() {
                         <p className="text-xs text-slate-500">ID: {sale.id} • {new Date(sale.date).toLocaleTimeString()}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-slate-900">R$ {sale.total.toFixed(2)}</p>
+                        <p className="font-bold text-slate-900">{formatBRL(sale.total)}</p>
                         <p className="text-xs text-rose-600 font-medium">{sale.payment_method}</p>
+                        {sale.payment_method === 'Fiado' && sale.total - (sale.paid_total || 0) > 0 && (
+                          <p className="text-[9px] font-black text-amber-500 uppercase mt-0.5">Pend: {formatBRL(sale.total - (sale.paid_total || 0))}</p>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2 mt-2">
                       <div className="px-2 py-1 bg-slate-900 rounded text-[10px] text-white">
-                        <span className="font-bold">TOTAL GERAL:</span> R$ {sale.total.toFixed(2)}
+                        <span className="font-bold">TOTAL GERAL:</span> {formatBRL(sale.total)}
                       </div>
                       <div className="px-2 py-1 bg-blue-50 rounded text-[10px] text-blue-700">
-                        <span className="font-bold">TOTAL PEÇAS:</span> R$ {(sale.total - (sale.labor_value || 0)).toFixed(2)}
+                        <span className="font-bold">TOTAL PEÇAS:</span> {formatBRL(sale.total - (sale.labor_value || 0))}
                       </div>
                       <div className="px-2 py-1 bg-amber-50 rounded text-[10px] text-amber-700">
-                        <span className="font-bold">TOTAL SERVIÇOS:</span> R$ {(sale.labor_value || 0).toFixed(2)}
+                        <span className="font-bold">TOTAL SERVIÇOS:</span> {formatBRL(sale.labor_value || 0)}
                       </div>
                       {sale.type === 'Oficina' && (
                         <>
                           <div className="px-2 py-1 bg-green-50 rounded text-[10px] text-green-700">
-                            <span className="font-bold">Comissão ({sale.mechanic_name}):</span> R$ {sale.commission.toFixed(2)}
+                            <span className="font-bold">Comissão ({sale.mechanic_name}):</span> {formatBRL(sale.commission)}
                           </div>
                         </>
                       )}
@@ -1633,9 +1672,43 @@ export default function App() {
                           <Printer size={10} /> Imprimir O.S.
                         </button>
                       )}
+                      {sale.payment_method === 'Fiado' && sale.payment_status === 'Pendente' && (
+                        <div className="flex-1 flex justify-center">
+                          {payingSaleId === sale.id ? (
+                            <div className="flex gap-2 items-center">
+                              <input
+                                type="number"
+                                className="w-24 px-2 py-1 bg-white border border-slate-400 rounded text-[10px] font-bold outline-none focus:ring-2 focus:ring-rose-500/20"
+                                placeholder="Valor"
+                                value={partialPaymentAmount}
+                                onChange={(e) => setPartialPaymentAmount(e.target.value)}
+                              />
+                              <button
+                                onClick={() => handlePartialPayment(sale, partialPaymentAmount)}
+                                className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 transition-all uppercase"
+                              >
+                                Baixar
+                              </button>
+                              <button
+                                onClick={() => { setPayingSaleId(null); setPartialPaymentAmount(''); }}
+                                className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold hover:bg-slate-200 transition-all"
+                              >
+                                X
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => { setPayingSaleId(sale.id); setPartialPaymentAmount(''); }}
+                              className="px-3 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all flex items-center gap-1 border border-rose-100"
+                            >
+                              <DollarSign size={12} /> Registrar Pagamento
+                            </button>
+                          )}
+                        </div>
+                      )}
                       <button
                         onClick={() => handleDeleteSale(sale.id)}
-                        className="text-[10px] font-bold text-rose-600 hover:underline flex items-center gap-1"
+                        className="text-[10px] font-bold text-rose-300 hover:text-rose-600 hover:underline flex items-center gap-1 ml-auto"
                       >
                         <Trash2 size={10} /> Excluir Venda
                       </button>
@@ -1753,7 +1826,7 @@ export default function App() {
                     <h4 className="font-bold text-slate-900 mb-1">{lead.name}</h4>
                     <p className="text-xs text-slate-500 mb-3">{lead.company}</p>
                     <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-400">
-                      <span className="text-sm font-bold text-slate-900">R$ {lead.value.toFixed(2)}</span>
+                      <span className="text-sm font-bold text-slate-900">{formatBRL(lead.value)}</span>
                       <select
                         className="text-[10px] bg-slate-50 border-none rounded-md p-1 focus:ring-0 cursor-pointer"
                         value={lead.status}
@@ -1871,7 +1944,7 @@ export default function App() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-slate-400 uppercase font-bold mb-1">Total da O.S.</p>
-                  <p className="text-2xl font-black text-slate-900">R$ {os.total.toFixed(2)}</p>
+                  <p className="text-2xl font-black text-slate-900">{formatBRL(os.total)}</p>
                   <div className="flex gap-2 mt-4 justify-end">
                     <button
                       onClick={() => handleEditOS(os)}
@@ -2018,6 +2091,22 @@ export default function App() {
     }
   };
 
+  const handleEditQuote = (quote: Quote) => {
+    setEditingQuote(quote);
+    setQuoteForm({
+      customer_name: quote.customer_name,
+      customer_id: quote.customer_id,
+      motorcycle_details: quote.motorcycle_details || '',
+      total_value: quote.total_value,
+      observations: quote.observations || '',
+      warranty_terms: quote.warranty_terms || 'Garantia de 90 dias conforme CDC sobre os itens relacionados.',
+      validity_days: quote.validity_days || 7,
+      status: quote.status || 'Pendente',
+      items: quote.items || []
+    });
+    setIsQuoteModalOpen(true);
+  };
+
   const handleCreateQuote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return alert('Você precisa estar logado.');
@@ -2025,7 +2114,7 @@ export default function App() {
     if (quoteForm.items.length === 0) return alert('Adicione ao menos um item.');
 
     try {
-      const { data, error } = await supabase.from('quotes').insert([{
+      const dataToSave = {
         user_id: user.id,
         customer_name: quoteForm.customer_name,
         customer_id: quoteForm.customer_id,
@@ -2036,11 +2125,22 @@ export default function App() {
         validity_days: quoteForm.validity_days,
         status: quoteForm.status,
         items: quoteForm.items
-      }]).select().single();
+      };
 
-      if (error) throw error;
-      setQuotes(prev => [data, ...prev]);
+      if (editingQuote) {
+        const { data, error } = await supabase.from('quotes').update(dataToSave).eq('id', editingQuote.id).select().single();
+        if (error) throw error;
+        setQuotes(prev => prev.map(q => q.id === data.id ? data : q));
+        alert('Orçamento atualizado com sucesso!');
+      } else {
+        const { data, error } = await supabase.from('quotes').insert([dataToSave]).select().single();
+        if (error) throw error;
+        setQuotes(prev => [data, ...prev]);
+        alert('Orçamento criado com sucesso!');
+      }
+
       setIsQuoteModalOpen(false);
+      setEditingQuote(null);
       setQuoteForm({
         customer_name: '',
         customer_id: undefined,
@@ -2052,9 +2152,8 @@ export default function App() {
         status: 'Pendente',
         items: []
       });
-      alert('Orçamento criado com sucesso!');
     } catch (err) {
-      console.error('Error creating quote:', err);
+      console.error('Error saving quote:', err);
       alert('Erro ao salvar orçamento.');
     }
   };
@@ -2070,10 +2169,10 @@ export default function App() {
 
     message += `*ITENS DO ORÇAMENTO:*\n`;
     quote.items.forEach(item => {
-      message += `- ${item.quantity}x ${item.description}: R$ ${item.total.toFixed(2)}\n`;
+      message += `- ${item.quantity}x ${item.description}: ${formatBRL(item.total)}\n`;
     });
 
-    message += `\n*VALOR TOTAL: R$ ${quote.total_value.toFixed(2)}*\n\n`;
+    message += `\n*VALOR TOTAL: ${formatBRL(quote.total_value)}*\n\n`;
     message += `_Validade: ${quote.validity_days} dias._\n`;
     message += `_Observações: ${quote.observations || 'N/A'}_`;
 
@@ -2176,7 +2275,21 @@ export default function App() {
             />
           </div>
           <button
-            onClick={() => setIsQuoteModalOpen(true)}
+            onClick={() => {
+              setEditingQuote(null);
+              setQuoteForm({
+                customer_name: '',
+                customer_id: undefined,
+                motorcycle_details: '',
+                total_value: 0,
+                observations: '',
+                warranty_terms: 'Garantia de 90 dias conforme CDC sobre os itens relacionados.',
+                validity_days: 7,
+                status: 'Pendente',
+                items: []
+              });
+              setIsQuoteModalOpen(true);
+            }}
             className="flex items-center gap-2 px-5 py-2.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-bold shadow-lg shadow-rose-100"
           >
             <Plus size={20} />
@@ -2231,6 +2344,13 @@ export default function App() {
                 title="Compartilhar no WhatsApp"
               >
                 <MessageCircle size={16} />
+              </button>
+              <button
+                onClick={() => handleEditQuote(q)}
+                className="p-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Editar Orçamento"
+              >
+                <Pencil size={16} />
               </button>
               <button
                 onClick={() => handleDeleteQuote(q.id)}
@@ -2692,9 +2812,10 @@ export default function App() {
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { name, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, fine_rate, interest_rate } = customerForm;
+      const { name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, fine_rate, interest_rate } = customerForm;
       const dataToSave = {
         name,
+        nickname,
         cpf,
         cnpj,
         whatsapp,
@@ -2716,7 +2837,7 @@ export default function App() {
       }
       setIsCustomerModalOpen(false);
       setEditingCustomer(null);
-      setCustomerForm({ name: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
+      setCustomerForm({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
       fetchData();
     } catch (error: any) {
       console.error('Error adding/updating customer:', error);
@@ -2724,18 +2845,35 @@ export default function App() {
     }
   };
 
-  const handlePrintLabel = (product: Product) => {
+  const handlePrintLabel = (product: Product, quantity: number = 1) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
     const barcodeValue = product.barcode || product.sku || product.id.toString();
     const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(barcodeValue)}&scale=2&height=5&includetext`;
 
+    // Criar as etiquetas baseadas na quantidade
+    let labelsHtml = '';
+    for (let i = 0; i < quantity; i++) {
+        labelsHtml += `
+          <div class="label">
+            <div class="title">${product.description}</div>
+            <div class="sku">${product.sku || product.barcode || 'S/ SKU'}</div>
+            <div class="footer">
+              <div class="location">LOC:<br/>${product.location || 'ESTOQUE PADRÃO'}</div>
+              <div class="barcode">
+                <img src="${barcodeUrl}" alt="Barcode" />
+              </div>
+            </div>
+          </div>
+        `;
+    }
+
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Imprimir Etiqueta - ${product.description}</title>
+          <title>Imprimir Etiquetas - ${product.description}</title>
           <style>
             @media print {
               @page {
@@ -2757,7 +2895,9 @@ export default function App() {
             }
             .a4-sheet {
               width: 210mm;
-              height: 297mm;
+              display: grid;
+              grid-template-columns: repeat(3, 63.5mm);
+              grid-auto-rows: 31mm;
               padding-top: 15mm;
               padding-left: 10mm;
               box-sizing: border-box;
@@ -2771,6 +2911,7 @@ export default function App() {
               flex-direction: column;
               justify-content: space-between;
               overflow: hidden;
+              border: 0.1mm solid transparent; /* Invisível mas ajuda no grid */
             }
             .title {
               font-size: 8px;
@@ -2815,16 +2956,7 @@ export default function App() {
         </head>
         <body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
           <div class="a4-sheet">
-            <div class="label">
-              <div class="title">${product.description}</div>
-              <div class="sku">${product.sku || product.barcode || 'S/ SKU'}</div>
-              <div class="footer">
-                <div class="location">LOC:<br/>${product.location || 'ESTOQUE PADRÃO'}</div>
-                <div class="barcode">
-                  <img src="${barcodeUrl}" alt="Barcode" />
-                </div>
-              </div>
-            </div>
+            ${labelsHtml}
           </div>
         </body>
       </html>
@@ -3071,16 +3203,81 @@ export default function App() {
   };
 
   const handleDeleteSale = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.')) {
+    if (confirm('Tem certeza que deseja excluir esta venda? O estoque dos produtos será devolvido automaticamente. Esta ação não pode ser desfeita.')) {
       try {
-        const { error } = await supabase.from('sales').delete().eq('id', id);
-        if (error) throw error;
-        alert('Venda excluída com sucesso!');
+        // 1. Buscar os itens da venda para devolver ao estoque
+        const { data: itemsToReturn, error: itemsError } = await supabase
+          .from('sale_items')
+          .select('product_id, quantity')
+          .eq('sale_id', id);
+
+        if (itemsError) throw itemsError;
+
+        // 2. Devolver produtos ao estoque
+        if (itemsToReturn && itemsToReturn.length > 0) {
+          for (const item of itemsToReturn) {
+            if (item.product_id) {
+              const product = products.find(p => p.id === item.product_id);
+              if (product) {
+                const newStock = product.stock + item.quantity;
+                await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
+              }
+            }
+          }
+        }
+
+        // 3. Excluir os itens e a venda
+        await supabase.from('sale_items').delete().eq('sale_id', id);
+        const { error: deleteError } = await supabase.from('sales').delete().eq('id', id);
+        if (deleteError) throw deleteError;
+
+        alert('Venda excluída e estoque devolvido com sucesso!');
         fetchData();
       } catch (error) {
         console.error('Error deleting sale:', error);
-        alert('Erro ao excluir venda.');
+        alert('Erro ao excluir venda e processar estoque.');
       }
+    }
+  };
+
+  const handlePartialPayment = async (sale: Sale, amountStr: string) => {
+    // Converte vírgula para ponto e limpa caracteres não numéricos exceto o ponto
+    const cleanedAmount = amountStr.replace(',', '.');
+    const amount = Number(cleanedAmount);
+
+    if (isNaN(amount) || amount <= 0) {
+      return alert('Por favor, informe um valor válido (ex: 100,00)');
+    }
+    
+    const currentPaid = Number(sale.paid_total || 0);
+    const newPaidTotal = currentPaid + amount;
+    const isFullyPaid = newPaidTotal >= sale.total;
+
+    try {
+      const { error } = await supabase.from('sales').update({
+        paid_total: newPaidTotal,
+        payment_status: isFullyPaid ? 'Pago' : 'Pendente',
+        paid_date: isFullyPaid ? new Date().toISOString() : sale.paid_date
+      }).eq('id', sale.id);
+
+      if (error) {
+        console.error('Supabase Error:', error);
+        throw new Error(error.message);
+      }
+      
+      setSales(prev => prev.map(s => s.id === sale.id ? { 
+        ...s, 
+        paid_total: newPaidTotal, 
+        payment_status: isFullyPaid ? 'Pago' : 'Pendente',
+        paid_date: isFullyPaid ? new Date().toISOString() : s.paid_date
+      } : s));
+      
+      setPayingSaleId(null);
+      setPartialPaymentAmount('');
+      alert('Pagamento registrado com sucesso!');
+    } catch (err: any) {
+      console.error('Error registering partial payment:', err);
+      alert(`Erro ao registrar pagamento: ${err.message || 'Verifique se a coluna paid_total existe no Supabase'}`);
     }
   };
 
@@ -3156,38 +3353,87 @@ export default function App() {
     reader.readAsBinaryString(file);
   };
 
-  const handleImportProducts = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportProducts = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!user) {
+      alert('Você precisa estar logado para importar produtos.');
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws);
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
 
-      const baseId = Date.now();
-      const newProducts = data.map((item: any, index: number) => ({
-        id: item.ID || (baseId + index),
-        description: item.Descrição || item.Description || item.description || '',
-        sku: item.SKU || item.sku || '',
-        barcode: item.EAN || item.Barcode || item.barcode || '',
-        purchase_price: parseFloat(item['Preço de Compra'] || item.PurchasePrice || item.purchase_price || 0),
-        sale_price: parseFloat(item['Preço de Venda'] || item.SalePrice || item.sale_price || 0),
-        stock: parseInt(item.Estoque || item.Stock || item.stock || 0),
-        unit: item.Unidade || item.Unit || item.unit || 'Unitário',
-        image_url: item.Imagem || item.Image || item.image_url || '',
-        category: categorizeProduct(item.Descrição || item.description || ''),
-        brand: item.Marca || item.Brand || item.brand || '',
-        location: item.Localização || item.Location || item.location || ''
-      }));
+        if (!data.length) {
+          alert('Planilha vazia ou em formato inválido.');
+          return;
+        }
 
-      setProducts(prev => [...prev, ...newProducts]);
-      alert(`${newProducts.length} produtos importados com sucesso!`);
+        const newProducts = data.map((item: any) => {
+          const desc = item.Descrição || item.Description || item.description || '';
+          const skuRaw = String(item.SKU || item.sku || '').trim();
+          const barcodeRaw = String(item.EAN || item.Barcode || item.barcode || '').trim();
+          
+          return {
+            description: desc,
+            sku: skuRaw === '' ? null : skuRaw,
+            barcode: barcodeRaw === '' ? null : barcodeRaw,
+            purchase_price: parseFloat(String(item['Preço de Compra'] || item.PurchasePrice || item.purchase_price || 0).replace(',', '.')),
+            sale_price: parseFloat(String(item['Preço de Venda'] || item.SalePrice || item.sale_price || 0).replace(',', '.')),
+            stock: parseInt(item.Estoque || item.Stock || item.stock || 0),
+            unit: item.Unidade || item.Unit || item.unit || 'Unitário',
+            image_url: item.Imagem || item.Image || item.image_url || '',
+            category: categorizeProduct(desc),
+            brand: item.Marca || item.Brand || item.brand || '',
+            location: item.Localização || item.Location || item.location || '',
+            application: item.Aplicação || item.Application || item.application || ''
+          };
+        });
+
+        // Deduplicar os dados da planilha antes de enviar
+        const deduplicatedProducts: any[] = [];
+        const seenSkus = new Set();
+        const seenBarcodes = new Set();
+        
+        for (const prod of newProducts) {
+          // Se tem SKU, verifica se já vimos
+          if (prod.sku) {
+            if (seenSkus.has(prod.sku)) continue;
+            seenSkus.add(prod.sku);
+          }
+          
+          // Se tem Barcode, verifica se já vimos (opcional, mas evita erros de duplicidade no barcode)
+          if (prod.barcode) {
+            if (seenBarcodes.has(prod.barcode)) continue;
+            seenBarcodes.add(prod.barcode);
+          }
+
+          deduplicatedProducts.push(prod);
+        }
+
+        const { error } = await supabase
+          .from('products')
+          .upsert(deduplicatedProducts, { onConflict: 'sku' });
+
+        if (error) throw error;
+
+        alert(`${deduplicatedProducts.length} produtos processados e salvos com sucesso!`);
+        fetchData();
+      } catch (error: any) {
+        console.error('Erro na importação:', error);
+        alert('Erro ao importar e salvar produtos: ' + (error.message || 'Verifique o formato da planilha.'));
+      }
     };
     reader.readAsBinaryString(file);
+    // Limpar o input para permitir nova importação do mesmo arquivo se necessário
+    e.target.value = '';
   };
 
   const renderDashboard = () => (
@@ -3195,7 +3441,7 @@ export default function App() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Faturamento Mensal"
-          value={`R$ ${stats?.revenue.toFixed(2) || '0.00'}`}
+          value={formatBRL(stats?.revenue)}
           icon={TrendingUp}
           color="bg-rose-500"
           subtitle="Vendas concluídas este mês"
@@ -3209,14 +3455,14 @@ export default function App() {
         />
         <StatCard
           title="Ticket Médio (Venda)"
-          value={`R$ ${stats?.avgTicketCounter.toFixed(2) || '0.00'}`}
+          value={formatBRL(stats?.avgTicketCounter)}
           icon={DollarSign}
           color="bg-emerald-500"
           subtitle="Média por venda balcão"
         />
         <StatCard
           title="Ticket Médio (O.S.)"
-          value={`R$ ${stats?.avgTicketService.toFixed(2) || '0.00'}`}
+          value={formatBRL(stats?.avgTicketService)}
           icon={ClipboardList}
           color="bg-blue-500"
           subtitle="Média por ordem de serviço"
@@ -3281,6 +3527,11 @@ export default function App() {
           customers={customers}
           companyData={companyData}
           onUpdateDueDate={handleUpdateDueDate}
+          onPartialPayment={handlePartialPayment}
+          payingSaleId={payingSaleId}
+          setPayingSaleId={setPayingSaleId}
+          partialPaymentAmount={partialPaymentAmount}
+          setPartialPaymentAmount={setPartialPaymentAmount}
         />
       </div>
     </div>
@@ -3350,110 +3601,117 @@ export default function App() {
       </div>
 
       {customerViewMode === 'grid' ? (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {customers.filter(c => {
-          const search = (customerSearchTerm + globalSearchTerm).toLowerCase();
-          return (
-            c.name.toLowerCase().includes(search) ||
-            c.cpf.toLowerCase().includes(search) ||
-            c.whatsapp.toLowerCase().includes(search) ||
-            c.cnpj?.toLowerCase().includes(search) ||
-            c.city?.toLowerCase().includes(search)
-          );
-        }).map(c => (
-          <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-shadow">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h4 className="font-bold text-slate-900 text-lg">{c.name}</h4>
-                <p className="text-sm text-slate-500">CPF: {c.cpf || 'Não informado'}</p>
-                <p className="text-sm text-slate-500">Celular: {c.whatsapp}</p>
-                <div className="mt-2 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Limite Total:</span>
-                    <span className="text-xs font-bold text-slate-600">R$ {c.credit_limit?.toFixed(2) || '0.00'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Saldo Disponível:</span>
-                    <span className={`text-xs font-bold ${getCustomerRemainingCredit(c.id) > 0 ? 'text-rose-600' : 'text-rose-600'}`}>
-                      R$ {getCustomerRemainingCredit(c.id).toFixed(2)}
-                    </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {customers.filter(c => {
+            const search = (customerSearchTerm + globalSearchTerm).toLowerCase();
+            return (
+              (c.name || '').toLowerCase().includes(search) ||
+              (c.nickname || '').toLowerCase().includes(search) ||
+              (c.cpf || '').toLowerCase().includes(search) ||
+              (c.whatsapp || '').toLowerCase().includes(search) ||
+              (c.cnpj || '').toLowerCase().includes(search) ||
+              (c.city || '').toLowerCase().includes(search)
+            );
+          }).map(c => (
+            <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-shadow">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h4 className="font-bold text-slate-900 text-lg leading-tight">{c.name}</h4>
+                  {c.nickname && <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mb-1">{c.nickname}</p>}
+                  <p className="text-sm text-slate-500">CPF: {c.cpf || 'Não informado'}</p>
+                  <p className="text-sm text-slate-500">Celular: {c.whatsapp || 'Não informado'}</p>
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Limite Total:</span>
+                      <span className="text-xs font-bold text-slate-600">{formatBRL(c.credit_limit)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Saldo Disponível:</span>
+                      <span className={`text-xs font-bold ${getCustomerRemainingCredit(c.id) > 0 ? 'text-rose-600' : 'text-rose-600'}`}>
+                        {formatBRL(getCustomerRemainingCredit(c.id))}
+                      </span>
+                    </div>
                   </div>
                 </div>
+                <div className="flex flex-col gap-1">
+                  <button
+                    onClick={() => {
+                      setEditingMotorcycle(null);
+                      setMotorcycleForm({ customer_id: c.id.toString(), plate: '', model: '', current_km: '' });
+                      setIsMotorcycleModalOpen(true);
+                    }}
+                    className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                    title="Adicionar Moto"
+                  >
+                    <Plus size={20} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingCustomer(c);
+                      setCustomerForm({
+                        name: c.name,
+                        cpf: c.cpf,
+                        cnpj: c.cnpj || '',
+                        whatsapp: c.whatsapp,
+                        address: c.address,
+                        neighborhood: c.neighborhood,
+                        city: c.city || '',
+                        zip_code: c.zip_code,
+                        credit_limit: c.credit_limit || 0,
+                        fine_rate: c.fine_rate || 2,
+                        interest_rate: c.interest_rate || 1
+                      });
+                      setIsCustomerModalOpen(true);
+                    }}
+                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                    title="Editar Cliente"
+                  >
+                    <Pencil size={20} />
+                  </button>
+                  <button
+                    onClick={() => setSelectedCustomerForHistory(c)}
+                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    title="Histórico de Vendas"
+                  >
+                    <List size={20} />
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => {
-                  setEditingMotorcycle(null);
-                  setMotorcycleForm({ customer_id: c.id.toString(), plate: '', model: '', current_km: '' });
-                  setIsMotorcycleModalOpen(true);
-                }}
-                className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                title="Adicionar Moto"
-              >
-                <Plus size={20} />
-              </button>
-              <button
-                onClick={() => {
-                  setEditingCustomer(c);
-                  setCustomerForm({
-                    name: c.name,
-                    cpf: c.cpf,
-                    cnpj: c.cnpj || '',
-                    whatsapp: c.whatsapp,
-                    address: c.address,
-                    neighborhood: c.neighborhood,
-                    city: c.city || '',
-                    zip_code: c.zip_code,
-                    credit_limit: c.credit_limit || 0,
-                    fine_rate: c.fine_rate || 2,
-                    interest_rate: c.interest_rate || 1
-                  });
-                  setIsCustomerModalOpen(true);
-                }}
-                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-1"
-                title="Editar Cliente"
-              >
-                <Pencil size={20} />
-              </button>
-              <button
-                onClick={() => setSelectedCustomerForHistory(c)}
-                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors ml-1"
-                title="Histórico de Vendas"
-              >
-                <List size={20} />
-              </button>
-            </div>
-            <div className="pt-4 border-t border-slate-400">
-              <p className="text-xs font-bold text-slate-400 uppercase mb-3">Motos Cadastradas</p>
-              <div className="space-y-2">
-                {motorcycles.filter(m => m.customer_id === c.id).map(m => (
-                  <div key={m.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-sm">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-slate-800 truncate">{m.model}</p>
-                      <p className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase">{m.plate}</p>
+              <div className="pt-4 border-t border-slate-400">
+                <p className="text-xs font-bold text-slate-400 uppercase mb-3 text-center">Motos Cadastradas</p>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {motorcycles.filter(m => m.customer_id === c.id).map(m => (
+                    <div key={m.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-sm border border-slate-400">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-800 truncate">{m.model}</p>
+                        <p className="text-[10px] text-slate-400 font-mono font-black tracking-widest uppercase">{m.plate}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEditMotorcycle(m)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Editar Moto"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMotorcycle(m.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Excluir Moto"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleEditMotorcycle(m)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                        title="Editar Moto"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteMotorcycle(m.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                        title="Excluir Moto"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                  {motorcycles.filter(m => m.customer_id === c.id).length === 0 && (
+                    <p className="text-[10px] text-slate-400 italic text-center py-2">Nenhuma moto cadastrada</p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
       ) : (
         <div className="bg-white rounded-3xl shadow-sm border border-slate-400 overflow-hidden">
           <div className="overflow-x-auto">
@@ -3470,16 +3728,18 @@ export default function App() {
                 {customers.filter(c => {
                   const search = (customerSearchTerm + globalSearchTerm).toLowerCase();
                   return (
-                    c.name.toLowerCase().includes(search) ||
-                    c.cpf.toLowerCase().includes(search) ||
-                    c.whatsapp.toLowerCase().includes(search) ||
-                    c.cnpj?.toLowerCase().includes(search) ||
-                    c.city?.toLowerCase().includes(search)
+                    (c.name || '').toLowerCase().includes(search) ||
+                    (c.nickname || '').toLowerCase().includes(search) ||
+                    (c.cpf || '').toLowerCase().includes(search) ||
+                    (c.whatsapp || '').toLowerCase().includes(search) ||
+                    (c.cnpj || '').toLowerCase().includes(search) ||
+                    (c.city || '').toLowerCase().includes(search)
                   );
                 }).map(c => (
                   <tr key={c.id} className="border-b border-slate-400 hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <p className="font-bold text-slate-900">{c.name}</p>
+                      {c.nickname && <p className="text-[10px] font-bold text-rose-600 uppercase tracking-tighter">{c.nickname}</p>}
                       <p className="text-[10px] text-slate-400">{motorcycles.filter(m => m.customer_id === c.id).length} moto(s) cadastrada(s)</p>
                     </td>
                     <td className="px-6 py-4">
@@ -3490,7 +3750,7 @@ export default function App() {
                       <div className="flex flex-col gap-1">
                         <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-slate-400">
                           <span>Disponível</span>
-                          <span className="text-rose-600">R$ {getCustomerRemainingCredit(c.id).toFixed(2)}</span>
+                          <span className="text-rose-600">{formatBRL(getCustomerRemainingCredit(c.id))}</span>
                         </div>
                         <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div
@@ -3735,10 +3995,10 @@ export default function App() {
               {products.filter(p => {
                 const search = (inventorySearchTerm + globalSearchTerm).toLowerCase();
                 return (
-                  p.description.toLowerCase().includes(search) ||
-                  p.sku.toLowerCase().includes(search) ||
-                  (p.location && p.location.toLowerCase().includes(search)) ||
-                  p.barcode?.toLowerCase().includes(search)
+                  (p.description || '').toLowerCase().includes(search) ||
+                  (p.sku || '').toLowerCase().includes(search) ||
+                  (p.location && (p.location || '').toLowerCase().includes(search)) ||
+                  (p.barcode || '').toLowerCase().includes(search)
                 );
               }).sort((a, b) => a.description.localeCompare(b.description)).map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
@@ -3771,8 +4031,8 @@ export default function App() {
                     <p className="text-[10px] text-slate-400 font-mono">{p.barcode}</p>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-xs text-slate-400">C: R$ {p.purchase_price?.toFixed(2)}</p>
-                    <p className="text-sm font-bold text-slate-900">V: R$ {p.sale_price.toFixed(2)}</p>
+                    <p className="text-xs text-slate-400">C: {formatBRL(p.purchase_price)}</p>
+                    <p className="text-sm font-bold text-slate-900">V: {formatBRL(p.sale_price)}</p>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-lg text-xs font-bold ${p.stock < 5 ? 'bg-rose-100 text-rose-700' : 'bg-rose-100 text-rose-700'
@@ -3828,10 +4088,10 @@ export default function App() {
           {products.filter(p => {
             const search = (inventorySearchTerm + globalSearchTerm).toLowerCase();
             return (
-              p.description.toLowerCase().includes(search) ||
-              p.sku.toLowerCase().includes(search) ||
-              (p.location && p.location.toLowerCase().includes(search)) ||
-              p.barcode?.toLowerCase().includes(search)
+              (p.description || '').toLowerCase().includes(search) ||
+              (p.sku || '').toLowerCase().includes(search) ||
+              (p.location && (p.location || '').toLowerCase().includes(search)) ||
+              (p.barcode || '').toLowerCase().includes(search)
             );
           }).sort((a, b) => a.description.localeCompare(b.description)).map((p) => (
             <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden hover:shadow-md transition-all group">
@@ -5060,9 +5320,8 @@ export default function App() {
         onMouseEnter={() => setIsSidebarOpen(true)}
       />
 
-      {/* Sidebar Drawer */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-slate-400 p-6 flex flex-col gap-8 z-50 transition-transform duration-300 ease-in-out shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed left-4 top-4 bottom-4 w-60 bg-white/80 backdrop-blur-xl border border-white/20 p-5 flex flex-col gap-6 z-50 transition-all duration-500 ease-in-out shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-[2rem] ${isSidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'
           }`}
         onMouseLeave={() => setIsSidebarOpen(false)}
       >
@@ -5316,7 +5575,7 @@ export default function App() {
                           <p className="font-bold text-slate-900">R$ {sale.total.toFixed(2)}</p>
                         </div>
                         <div className="space-y-1">
-                          {sale.items.map((item, idx) => (
+                          {sale.items.filter(i => !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
                             <div key={idx} className="flex justify-between text-[11px] text-slate-600">
                               <span>{item.quantity}x {item.description}</span>
                               <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
@@ -5333,6 +5592,55 @@ export default function App() {
                               {sale.service_description}
                             </div>
                           )}
+
+                          {/* Partial Payment Section */}
+                          <div className="mt-4 p-3 bg-white rounded-xl border border-slate-400 shadow-sm space-y-2">
+                            <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                              <span className="text-slate-400">Total: R$ {sale.total.toFixed(2)}</span>
+                              <span className="text-emerald-500">Pago: R$ {(sale.paid_total || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-2 border-t border-slate-400">
+                              <span className="text-xs font-black uppercase text-slate-800">Saldo Restante:</span>
+                              <span className={`text-sm font-black ${sale.total - (sale.paid_total || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                R$ {(sale.total - (sale.paid_total || 0)).toFixed(2)}
+                              </span>
+                            </div>
+
+                            {sale.payment_method === 'Fiado' && sale.total - (sale.paid_total || 0) > 0 && (
+                              <div className="pt-2">
+                                {payingSaleId === sale.id ? (
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="number"
+                                      className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-400 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500/20"
+                                      placeholder="Quanto pago?"
+                                      value={partialPaymentAmount}
+                                      onChange={(e) => setPartialPaymentAmount(e.target.value)}
+                                    />
+                                    <button
+                                      onClick={() => handlePartialPayment(sale, partialPaymentAmount)}
+                                      className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-all"
+                                    >
+                                      Salvar
+                                    </button>
+                                    <button
+                                      onClick={() => { setPayingSaleId(null); setPartialPaymentAmount(''); }}
+                                      className="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all"
+                                    >
+                                      X
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => { setPayingSaleId(sale.id); setPartialPaymentAmount(''); }}
+                                    className="w-full py-2 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <DollarSign size={14} /> Registrar Pagamento Parcial
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))
@@ -5346,8 +5654,11 @@ export default function App() {
         {/* Orçamento Modal */}
         <Modal
           isOpen={isQuoteModalOpen}
-          onClose={() => setIsQuoteModalOpen(false)}
-          title="Novo Orçamento Profissional"
+          onClose={() => {
+            setIsQuoteModalOpen(false);
+            setEditingQuote(null);
+          }}
+          title={editingQuote ? "Editar Orçamento Profissional" : "Novo Orçamento Profissional"}
           maxWidth="max-w-5xl"
         >
           <form onSubmit={handleCreateQuote} className="space-y-6">
@@ -5673,13 +5984,13 @@ export default function App() {
           onClose={() => {
             setIsCustomerModalOpen(false);
             setEditingCustomer(null);
-            setCustomerForm({ name: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
+            setCustomerForm({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
           }}
           title={editingCustomer ? "Editar Cliente" : "Cadastrar Novo Cliente"}
           maxWidth="max-w-4xl"
         >
           <form onSubmit={handleAddCustomer} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
                 <input
@@ -5690,9 +6001,21 @@ export default function App() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">CPF</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Apelido (Como é chamado)</label>
                 <input
-                  type="text" required placeholder="000.000.000-00"
+                  type="text"
+                  placeholder="Ex: Dequinha, João do Pneu"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  value={customerForm.nickname}
+                  onChange={e => setCustomerForm({ ...customerForm, nickname: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">CPF (Opcional)</label>
+                <input
+                  type="text" placeholder="000.000.000-00"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.cpf}
                   onChange={e => setCustomerForm({ ...customerForm, cpf: e.target.value })}
@@ -5710,9 +6033,9 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Celular</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Celular (Opcional)</label>
                 <input
-                  type="text" required placeholder="5511999999999"
+                  type="text" placeholder="5511999999999"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.whatsapp}
                   onChange={e => setCustomerForm({ ...customerForm, whatsapp: e.target.value })}
@@ -5721,16 +6044,16 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Limite de Crédito (R$)</label>
                 <input
-                  type="number" step="0.01" required
+                  type="number" step="0.01"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600"
                   value={customerForm.credit_limit}
                   onChange={e => setCustomerForm({ ...customerForm, credit_limit: parseFloat(e.target.value) || 0 })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">CEP</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">CEP (Opcional)</label>
                 <input
-                  type="text" required placeholder="00000-000"
+                  type="text" placeholder="00000-000"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.zip_code}
                   onChange={e => setCustomerForm({ ...customerForm, zip_code: e.target.value })}
@@ -5739,27 +6062,27 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Cidade</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cidade (Opcional)</label>
                 <input
-                  type="text" required
+                  type="text"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.city}
                   onChange={e => setCustomerForm({ ...customerForm, city: e.target.value })}
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Bairro</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Bairro (Opcional)</label>
                 <input
-                  type="text" required
+                  type="text"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.neighborhood}
                   onChange={e => setCustomerForm({ ...customerForm, neighborhood: e.target.value })}
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Endereço</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Endereço (Opcional)</label>
                 <input
-                  type="text" required
+                  type="text"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.address}
                   onChange={e => setCustomerForm({ ...customerForm, address: e.target.value })}
@@ -5770,7 +6093,7 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Multa por Atraso (%)</label>
                 <input
-                  type="number" step="0.01" required
+                  type="number" step="0.01"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700"
                   value={customerForm.fine_rate}
                   onChange={e => setCustomerForm({ ...customerForm, fine_rate: parseFloat(e.target.value) || 0 })}
@@ -5779,7 +6102,7 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Juros Mensais (%)</label>
                 <input
-                  type="number" step="0.01" required
+                  type="number" step="0.01"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700"
                   value={customerForm.interest_rate}
                   onChange={e => setCustomerForm({ ...customerForm, interest_rate: parseFloat(e.target.value) || 0 })}
@@ -6084,13 +6407,17 @@ export default function App() {
                   onChange={e => setPdvForm({ ...pdvForm, customer_id: e.target.value })}
                 >
                   <option value="">Consumidor Final</option>
-                  {customers.sort((a, b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {customers.sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}{c.nickname ? ` (${c.nickname})` : ''}
+                    </option>
+                  ))}
                 </select>
                 {pdvForm.customer_id && (
                   <div className="mt-2 flex items-center justify-between px-2">
                     <span className="text-[10px] font-bold text-slate-400 uppercase">Crédito Disponível:</span>
                     <span className={`text-xs font-bold ${getCustomerRemainingCredit(parseInt(pdvForm.customer_id)) > 0 ? 'text-rose-600' : 'text-rose-600'}`}>
-                      R$ {getCustomerRemainingCredit(parseInt(pdvForm.customer_id)).toFixed(2)}
+                      {formatBRL(getCustomerRemainingCredit(parseInt(pdvForm.customer_id)))}
                     </span>
                   </div>
                 )}
@@ -6111,9 +6438,9 @@ export default function App() {
                 {pdvSearchProduct && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                     {products.filter(p =>
-                      p.description.toLowerCase().includes(pdvSearchProduct.toLowerCase()) ||
-                      (p.brand && p.brand.toLowerCase().includes(pdvSearchProduct.toLowerCase())) ||
-                      p.sku.toLowerCase().includes(pdvSearchProduct.toLowerCase())
+                      (p.description || '').toLowerCase().includes(pdvSearchProduct.toLowerCase()) ||
+                      (p.brand && (p.brand || '').toLowerCase().includes(pdvSearchProduct.toLowerCase())) ||
+                      (p.sku || '').toLowerCase().includes(pdvSearchProduct.toLowerCase())
                     ).sort((a, b) => a.description.localeCompare(b.description)).map(p => (
                       <button
                         key={p.id}
@@ -6179,7 +6506,7 @@ export default function App() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-bold text-slate-900">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                      <span className="font-bold text-slate-900">{formatBRL(item.price * item.quantity)}</span>
                       <button
                         onClick={() => handleRemovePdvItem(item.product_id)}
                         className="p-1 text-rose-400 hover:text-rose-600"
@@ -6275,34 +6602,36 @@ export default function App() {
               <div className="pt-4 border-t border-slate-400 space-y-1">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-slate-500 font-bold">VALOR BASE:</span>
-                  <span className="font-bold text-slate-700">R$ {pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}</span>
+                  <span className="font-bold text-slate-700">{formatBRL(pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0))}</span>
                 </div>
                 {pdvForm.sale_condition === 'Prazo' && (
                   <div className="flex justify-between items-center text-sm text-rose-500">
                     <span className="font-bold uppercase text-[10px]">Taxa de Parcelamento:</span>
                     <span className="font-bold">
-                      R$ {(
+                      {formatBRL(
                         (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100))) -
                         pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
-                      ).toFixed(2)}
+                      )}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between items-center py-2 border-t border-slate-400">
                   <span className="text-slate-900 font-black text-lg">TOTAL FINAL</span>
                   <span className="text-3xl font-black text-rose-600">
-                    R$ {(
-                      pdvForm.sale_condition === 'Prazo'
-                        ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
-                        : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
-                    ).toFixed(2)}
+                    {formatBRL(
+                      (
+                        pdvForm.sale_condition === 'Prazo'
+                          ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
+                          : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
+                      ) * (pdvForm.payment_method === 'Fiado' ? 1.15 : 1)
+                    )}
                   </span>
                 </div>
                 {pdvForm.sale_condition === 'Prazo' && (
                   <p className="text-right text-[10px] font-black text-slate-400 uppercase">
-                    {pdvForm.installments}x de R$ {(
+                    {pdvForm.installments}x de {formatBRL(
                       (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100))) / pdvForm.installments
-                    ).toFixed(2)}
+                    )}
                   </p>
                 )}
               </div>
@@ -6392,11 +6721,18 @@ export default function App() {
           maxWidth={selectedCustomerForPrint?.type === 'A4' ? "max-w-6xl" : "max-w-lg"}
         >
           {selectedCustomerForPrint && (
-            <div className={`bg-white p-4 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'text-[14px] w-[80mm] mx-auto'}`} style={selectedCustomerForPrint.type === '80mm' ? { fontFamily: '"Arial Black", Gadget, sans-serif' } : {}}>
+            <div className={`bg-white p-8 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'font-bold text-[15px] w-[80mm] mx-auto overflow-visible print:p-0'}`} style={selectedCustomerForPrint.type === '80mm' ? { fontFamily: '"Arial Black", Gadget, sans-serif' } : {}}>
+              <style>{selectedCustomerForPrint.type === '80mm' ? `
+                @media print {
+                  @page { margin: 0; size: 80mm auto; }
+                  body { margin: 0; padding: 0; }
+                  .no-print { display: none !important; }
+                }
+              ` : ''}</style>
               <div className={`text-center border-b-2 border-slate-900 pb-4 mb-4 ${selectedCustomerForPrint.type === '80mm' ? 'border-dashed' : ''}`}>
-                <h3 className={`${selectedCustomerForPrint.type === 'A4' ? 'text-2xl' : 'text-lg'} font-black text-slate-900 uppercase`}>Histórico de Movimentação</h3>
-                <p className="text-slate-500 font-bold" style={selectedCustomerForPrint.type === '80mm' ? { fontSize: '16px' } : {}}>KOMBAT MOTO PEÇAS</p>
-                <div className={`flex ${selectedCustomerForPrint.type === 'A4' ? 'justify-center gap-8' : 'flex-col items-center'} mt-2 ${selectedCustomerForPrint.type === '80mm' ? 'text-[12px]' : 'text-[10px]'}`}>
+                <h3 className={`${selectedCustomerForPrint.type === 'A4' ? 'text-2xl' : 'text-[18px]'} font-black text-slate-900 uppercase`}>Histórico de Movimentação</h3>
+                <p className={`${selectedCustomerForPrint.type === 'A4' ? 'text-lg' : 'text-[16px]'} font-black text-slate-900`}>KOMBAT MOTO PEÇAS</p>
+                <div className={`flex ${selectedCustomerForPrint.type === 'A4' ? 'justify-center gap-8' : 'flex-col items-center'} mt-2 ${selectedCustomerForPrint.type === '80mm' ? 'text-[13px]' : 'text-[10px]'}`}>
                   <p><strong>Cliente:</strong> {selectedCustomerForPrint.customer.name}</p>
                   <p><strong>Emissão:</strong> {new Date().toLocaleString('pt-BR')}</p>
                 </div>
@@ -6560,17 +6896,17 @@ export default function App() {
               `}</style>
 
               <div style={{ textAlign: 'center', marginBottom: '8px', fontWeight: 'bold' }}>
-                <h4 style={{ fontWeight: '900', fontSize: '18px', margin: '0' }}>KOMBAT MOTO PECAS</h4>
-                <p style={{ margin: '2px 0', fontSize: '13px' }}>CNPJ: 12.802.931/0001-92</p>
-                <p style={{ margin: '2px 0', fontSize: '13px' }}>R PARANA, 342</p>
-                <p style={{ margin: '2px 0', fontSize: '13px' }}>CENTRO, Andirá / PR</p>
-                <p style={{ margin: '2px 0', fontSize: '13px' }}>Tel (43) 3538-4537</p>
-                <p style={{ margin: '2px 0', fontSize: '13px' }}>Email: kombatpecas@gmail.com</p>
+                <h4 style={{ fontWeight: '900', fontSize: '16px', margin: '0' }}>KOMBAT MOTO PECAS</h4>
+                <p style={{ margin: '2px 0' }}>CNPJ: 12.802.931/0001-92</p>
+                <p style={{ margin: '2px 0' }}>R PARANA, 342</p>
+                <p style={{ margin: '2px 0' }}>CENTRO, Andirá / PR</p>
+                <p style={{ margin: '2px 0' }}>Tel (43) 3538-4537</p>
+                <p style={{ margin: '2px 0' }}>Email: kombatpecas@gmail.com</p>
               </div>
 
               <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
 
-              <table style={{ width: '100%', fontSize: '14px', fontWeight: 'bold' }}>
+              <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
                 <tbody>
                   <tr>
                     <td>Venda: {selectedSaleForReceipt.id}</td>
@@ -6584,12 +6920,12 @@ export default function App() {
 
               {/* Customer Info */}
               <div style={{ padding: '4px 0' }}>
-                <p style={{ fontWeight: 'bold', fontSize: '14px' }}>Cliente: {selectedSaleForReceipt.customer_id || '---'} - {(selectedSaleForReceipt.customer_name || 'Consumidor Final').toUpperCase()}</p>
+                <p style={{ fontWeight: 'bold' }}>Cliente: {selectedSaleForReceipt.customer_id || '---'} - {(selectedSaleForReceipt.customer_name || 'Consumidor Final').toUpperCase()}</p>
                 {(() => {
                   const customer = customers.find(c => c.id === selectedSaleForReceipt.customer_id);
                   if (customer) {
                     return (
-                      <div style={{ fontSize: '13px', fontWeight: 'bold' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 'bold' }}>
                         <p>TEL: {customer.whatsapp || '---'}</p>
                         <p>{customer.cpf ? `CPF: ${customer.cpf}` : (customer.cnpj ? `CNPJ: ${customer.cnpj}` : '')}</p>
                         <p>Endereço: {customer.address || ''} {customer.neighborhood ? ` - ${customer.neighborhood}` : ''}</p>
@@ -6603,7 +6939,7 @@ export default function App() {
               <div className="border-t border-dashed border-black my-1"></div>
 
               {/* Vehicle Info */}
-              <div style={{ padding: '4px 0', fontSize: '14px', fontWeight: 'bold' }}>
+              <div style={{ padding: '4px 0', fontSize: '12px', fontWeight: 'bold' }}>
                 {selectedSaleForReceipt.moto_details ? (
                   <div>
                     <p style={{ fontWeight: '900' }}>Placa: {selectedSaleForReceipt.moto_details.match(/\((.*?)\)/)?.[1] || '-'}</p>
@@ -6619,8 +6955,8 @@ export default function App() {
               {/* Observations */}
               {selectedSaleForReceipt.service_description && (
                 <div style={{ padding: '4px 0' }}>
-                  <p style={{ fontWeight: 'bold', fontSize: '14px' }}>Observações:</p>
-                  <p style={{ fontSize: '12px', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{selectedSaleForReceipt.service_description}</p>
+                  <p style={{ fontWeight: 'bold' }}>Observações:</p>
+                  <p style={{ fontSize: '10px', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{selectedSaleForReceipt.service_description}</p>
                 </div>
               )}
               {selectedSaleForReceipt.service_description && <div className="border-t border-dashed border-black my-1"></div>}
@@ -6629,10 +6965,10 @@ export default function App() {
               <div className="py-1">
                 {(selectedSaleForReceipt.items || []).filter(i => i.product_id).length > 0 && (
                   <div style={{ marginBottom: '8px' }}>
-                    <p style={{ fontSize: '12px', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>PEÇAS E PRODUTOS</p>
-                    <table style={{ width: '100%', fontSize: '14px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
+                    <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>PEÇAS E PRODUTOS</p>
+                    <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
                       <tbody>
-                        {(selectedSaleForReceipt.items || []).filter(i => i.product_id).map((item, idx) => (
+                        {(selectedSaleForReceipt.items || []).filter(i => i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
                           <React.Fragment key={idx}>
                             <tr>
                               <td style={{ paddingTop: '4px', width: '20%' }}>{item.product_id || '---'}</td>
@@ -6650,12 +6986,12 @@ export default function App() {
                   </div>
                 )}
 
-                {(selectedSaleForReceipt.items || []).filter(i => !i.product_id).length > 0 && (
+                {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).length > 0 && (
                   <div style={{ marginBottom: '8px' }}>
-                    <p style={{ fontSize: '12px', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>SERVIÇOS EXECUTADOS</p>
-                    <table style={{ width: '100%', fontSize: '14px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
+                    <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>SERVIÇOS EXECUTADOS</p>
+                    <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
                       <tbody>
-                        {(selectedSaleForReceipt.items || []).filter(i => !i.product_id).map((item, idx) => (
+                        {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
                           <React.Fragment key={idx}>
                             <tr>
                               <td style={{ paddingTop: '4px', width: '20%' }}>---</td>
@@ -6675,7 +7011,7 @@ export default function App() {
 
                 {(selectedSaleForReceipt.labor_value || 0) > 0 && (
                   <div style={{ marginTop: '8px', paddingTop: '4px', borderTop: '1px dotted black' }}>
-                    <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
+                    <table style={{ width: '100%', fontSize: '10px', fontWeight: 'bold' }}>
                       <tbody>
                         <tr>
                           <td style={{ textAlign: 'left' }}>MÃO DE OBRA / SERVIÇOS AVULSOS</td>
@@ -6690,7 +7026,7 @@ export default function App() {
 
               {/* Totals Section */}
               <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
-              <table style={{ width: '100%', fontSize: '13px', fontWeight: 'bold' }}>
+              <table style={{ width: '100%', fontSize: '11px', fontWeight: 'bold' }}>
                 <tbody>
                   <tr>
                     <td style={{ textAlign: 'left' }}>Total Peças:</td>
@@ -6701,8 +7037,8 @@ export default function App() {
                     <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.labor_value || 0).toFixed(2)}</td>
                   </tr>
                   <tr style={{ borderTop: '1px dotted black' }}>
-                    <td style={{ textAlign: 'left', paddingTop: '4px', fontSize: '14px' }}>TOTAL GERAL:</td>
-                    <td style={{ textAlign: 'right', paddingTop: '4px', fontSize: '14px' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                    <td style={{ textAlign: 'left', paddingTop: '4px', fontSize: '12px' }}>TOTAL GERAL:</td>
+                    <td style={{ textAlign: 'right', paddingTop: '4px', fontSize: '12px' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ textAlign: 'left' }}>Desconto:</td>
@@ -6713,7 +7049,7 @@ export default function App() {
 
               {/* Payment Info */}
               <div style={{ marginTop: '16px', paddingTop: '4px', borderTop: '1px dashed black' }}>
-                <table style={{ width: '100%', fontSize: '13px', fontWeight: '900', borderBottom: '1.5px solid black', marginBottom: '4px' }}>
+                <table style={{ width: '100%', fontSize: '11px', fontWeight: '900', borderBottom: '1.5px solid black', marginBottom: '4px' }}>
                   <thead>
                     <tr>
                       <th style={{ textAlign: 'left' }}>Vencimento</th>
@@ -6721,7 +7057,7 @@ export default function App() {
                       <th style={{ textAlign: 'right' }}>Valor</th>
                     </tr>
                   </thead>
-                  <tbody style={{ fontSize: '14px' }}>
+                  <tbody style={{ fontSize: '12px' }}>
                     <tr>
                       <td style={{ textAlign: 'left' }}>{selectedSaleForReceipt.due_date ? new Date(selectedSaleForReceipt.due_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}</td>
                       <td style={{ textAlign: 'center' }}>{(selectedSaleForReceipt.payment_method === 'Fiado' ? 'CREDITO KOMBAT' : (selectedSaleForReceipt.payment_method || '')).toUpperCase()}</td>
@@ -6735,16 +7071,16 @@ export default function App() {
 
               <table style={{ width: '100%' }}>
                 <tbody>
-                  <tr style={{ fontWeight: '900', fontSize: '18px' }}>
+                  <tr style={{ fontWeight: '900', fontSize: '16px' }}>
                     <td style={{ textAlign: 'left', textDecoration: 'underline' }}>TOTAL:</td>
                     <td style={{ textAlign: 'right', textDecoration: 'underline' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
                   </tr>
-                  <tr style={{ fontWeight: '900', fontSize: '16px' }}>
+                  <tr style={{ fontWeight: '900', fontSize: '14px' }}>
                     <td style={{ textAlign: 'left' }}>TOTAL PAGO:</td>
                     <td style={{ textAlign: 'right' }}>R$ {selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0).toFixed(2) : '0,00'}</td>
                   </tr>
                   {selectedSaleForReceipt.customer_id && (
-                    <tr style={{ fontWeight: '900', fontSize: '16px', borderTop: '2.5px solid black' }}>
+                    <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '2.5px solid black' }}>
                       <td style={{ textAlign: 'left', paddingTop: '8px' }}>SALDO LIMITE:</td>
                       <td style={{ textAlign: 'right', paddingTop: '8px', color: 'red' }}>R$ {getCustomerRemainingCredit(selectedSaleForReceipt.customer_id).toFixed(2)}</td>
                     </tr>
@@ -6754,11 +7090,11 @@ export default function App() {
 
               <div style={{ textAlign: 'center', marginTop: '40px', paddingBottom: '20px' }}>
                 <div style={{ borderTop: '2px solid black', width: '220px', margin: '0 auto' }}></div>
-                <p style={{ fontSize: '13px', marginTop: '4px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
+                <p style={{ fontSize: '11px', marginTop: '4px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
               </div>
 
               <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '8px', borderTop: '1px dashed black' }}>
-                <p style={{ fontWeight: '900', fontSize: '12px', textTransform: 'uppercase' }}>Esse cupom não é um documento fiscal</p>
+                <p style={{ fontWeight: '900', fontSize: '10px', textTransform: 'uppercase' }}>Esse cupom não é um documento fiscal</p>
               </div>
               <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
               <div style={{ height: '40px' }}></div> {/* Buffer for thermal cutter */}
@@ -7162,7 +7498,7 @@ export default function App() {
                   >
                     <option value="">Selecione um Serviço Fixo</option>
                     {fixedServices.map(fs => (
-                      <option key={fs.id} value={fs.id}>{fs.name} (Repasse: R$ {fs.payout.toFixed(2)})</option>
+                      <option key={fs.id} value={fs.id}>{fs.name} (Repasse: {formatBRL(fs.payout)})</option>
                     ))}
                   </select>
                 </div>
@@ -7206,11 +7542,11 @@ export default function App() {
                               <PlusCircle size={14} />
                             </button>
                           </div>
-                          <p className="text-xs text-slate-500">x Repasse: R$ {sfs.payout.toFixed(2)}</p>
+                          <p className="text-xs text-slate-500">x Repasse: {formatBRL(sfs.payout)}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-slate-900">Total Repasse: R$ {(sfs.payout * sfs.quantity).toFixed(2)}</span>
+                        <span className="font-bold text-slate-900">Total Repasse: {formatBRL(sfs.payout * sfs.quantity)}</span>
                         <button
                           onClick={() => setOsForm({
                             ...osForm,
@@ -7288,9 +7624,12 @@ export default function App() {
                     <span className="font-bold text-slate-700">R$ {(osForm.items.filter(i => !i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-slate-400 mt-1">
-                    <span className="text-slate-900 font-black uppercase text-sm">Valor Total da O.S.</span>
+                    <div className="flex flex-col">
+                      <span className="text-slate-900 font-black uppercase text-sm">Valor Total da O.S.</span>
+                      {osForm.payment_method === 'Fiado' && <span className="text-[10px] text-rose-500 font-black">+ 15% TAXA DE CREDITO FIADO</span>}
+                    </div>
                     <span className="text-2xl font-black text-rose-600">
-                      R$ {(osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)).toFixed(2)}
+                      R$ {((osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)) * (osForm.payment_method === 'Fiado' ? 1.15 : 1)).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -7381,7 +7720,7 @@ export default function App() {
                     <div key={sale.id} className="p-3 bg-slate-50 rounded-xl border border-slate-400">
                       <div className="flex justify-between items-center mb-1">
                         <p className="font-bold text-slate-800">O.S. #{sale.id} - {sale.customer_name}</p>
-                        <span className="text-sm font-bold text-rose-600">R$ {sale.commission.toFixed(2)}</span>
+                        <span className="text-sm font-bold text-rose-600">{formatBRL(sale.commission)}</span>
                       </div>
                       <p className="text-xs text-slate-500">{new Date(sale.date).toLocaleString()}</p>
                       <div className="mt-2 text-xs text-slate-600">
@@ -7389,7 +7728,7 @@ export default function App() {
                           <p>Peças/Produtos: {sale.items.map(item => `${item.description} (${item.quantity}x)`).join(', ')}</p>
                         )}
                         {sale.labor_value > 0 && (
-                          <p>Mão de Obra: R$ {sale.labor_value.toFixed(2)}</p>
+                          <p>Mão de Obra: {formatBRL(sale.labor_value)}</p>
                         )}
                         {(sale.selected_fixed_services || []).length > 0 && (
                           <p>Serviços Fixos: {sale.selected_fixed_services.map(sfs => `${sfs.name} (${sfs.quantity}x)`).join(', ')}</p>
@@ -7511,16 +7850,16 @@ export default function App() {
                           <tr key={`item-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                             <td className="border p-2 text-center">{item.quantity}</td>
                             <td className="border p-2">{item.description}</td>
-                            <td className="border p-2 text-right">R$ {item.price.toFixed(2)}</td>
-                            <td className="border p-2 text-right">R$ {(item.quantity * item.price).toFixed(2)}</td>
+                            <td className="border p-2 text-right">{formatBRL(item.price)}</td>
+                            <td className="border p-2 text-right">{formatBRL(item.quantity * item.price)}</td>
                           </tr>
                         ))}
                         {selectedSaleForOS.labor_value > 0 && (
                           <tr className={(selectedSaleForOS.items.length) % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                             <td className="border p-2 text-center">1</td>
                             <td className="border p-2">Mão de Obra / Serviços Gerais</td>
-                            <td className="border p-2 text-right">R$ {selectedSaleForOS.labor_value.toFixed(2)}</td>
-                            <td className="border p-2 text-right">R$ {selectedSaleForOS.labor_value.toFixed(2)}</td>
+                            <td className="border p-2 text-right">{formatBRL(selectedSaleForOS.labor_value)}</td>
+                            <td className="border p-2 text-right">{formatBRL(selectedSaleForOS.labor_value)}</td>
                           </tr>
                         )}
                       </tbody>
@@ -7532,15 +7871,15 @@ export default function App() {
                     <div className="w-1/3 text-xs">
                       <div className="flex justify-between p-2 bg-slate-50 rounded-t-md">
                         <span className="font-bold">Total Peças:</span>
-                        <span>R$ {(selectedSaleForOS.total - selectedSaleForOS.labor_value).toFixed(2)}</span>
+                        <span>{formatBRL(selectedSaleForOS.total - selectedSaleForOS.labor_value)}</span>
                       </div>
                       <div className="flex justify-between p-2 bg-slate-50">
                         <span className="font-bold">Total Serviços:</span>
-                        <span>R$ {selectedSaleForOS.labor_value.toFixed(2)}</span>
+                        <span>{formatBRL(selectedSaleForOS.labor_value)}</span>
                       </div>
                       <div className="flex justify-between p-2 bg-slate-200 text-base rounded-b-md">
                         <span className="font-bold">VALOR TOTAL GERAL:</span>
-                        <span className="font-bold">R$ {selectedSaleForOS.total.toFixed(2)}</span>
+                        <span className="font-bold">{formatBRL(selectedSaleForOS.total)}</span>
                       </div>
                     </div>
                   </div>
@@ -7874,8 +8213,8 @@ export default function App() {
             {orderSearchProduct && (
               <div className="absolute z-10 bg-white border border-slate-400 rounded-xl mt-2 w-full max-h-60 overflow-y-auto shadow-lg">
                 {products.filter(p =>
-                  p.description.toLowerCase().includes(orderSearchProduct.toLowerCase()) ||
-                  p.sku.toLowerCase().includes(orderSearchProduct.toLowerCase())
+                  (p.description || '').toLowerCase().includes(orderSearchProduct.toLowerCase()) ||
+                  (p.sku || '').toLowerCase().includes(orderSearchProduct.toLowerCase())
                 ).map(product => (
                   <button
                     type="button"
@@ -7996,7 +8335,7 @@ export default function App() {
               <div className="flex items-center justify-between pt-4">
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Preço de Venda</p>
-                  <p className="text-3xl font-black text-slate-900">R$ {selectedProductDetail.sale_price.toFixed(2)}</p>
+                  <p className="text-3xl font-black text-slate-900">{formatBRL(selectedProductDetail.sale_price)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Disponibilidade</p>
@@ -8079,10 +8418,37 @@ export default function App() {
               </ul>
             </div>
 
+            <div className="p-4 bg-slate-50 border border-slate-400 rounded-xl">
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Quantidade de Etiquetas</label>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setLabelQuantity(Math.max(1, labelQuantity - 1))}
+                  className="w-10 h-10 bg-white border border-slate-400 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold"
+                >
+                  -
+                </button>
+                <input 
+                  type="number" 
+                  min="1"
+                  max="21"
+                  value={labelQuantity}
+                  onChange={(e) => setLabelQuantity(Math.min(21, Math.max(1, parseInt(e.target.value) || 1)))}
+                  className="flex-1 h-10 bg-white border border-slate-400 rounded-lg text-center font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+                <button 
+                  onClick={() => setLabelQuantity(Math.min(21, labelQuantity + 1))}
+                  className="w-10 h-10 bg-white border border-slate-400 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold"
+                >
+                  +
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-2 italic">* Máximo 21 etiquetas por folha (3 colunas x 7 linhas).</p>
+            </div>
+
             <div className="flex gap-3 pt-4">
               <button
                 onClick={() => {
-                  handlePrintLabel(labelPreviewProduct);
+                  handlePrintLabel(labelPreviewProduct, labelQuantity);
                 }}
                 className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all flex items-center justify-center gap-2"
               >
