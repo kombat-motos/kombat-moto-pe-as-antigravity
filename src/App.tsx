@@ -61,13 +61,14 @@ import { supabase } from './supabase';
 interface Customer {
   id: number;
   name: string;
-  cpf: string;
+  nickname?: string;
+  cpf?: string;
   cnpj?: string; // CNPJ is optional
-  whatsapp: string;
-  address: string;
-  neighborhood: string;
+  whatsapp?: string;
+  address?: string;
+  neighborhood?: string;
   city?: string; // City is optional
-  zip_code: string;
+  zip_code?: string;
   credit_limit: number;
   fine_rate?: number;
   interest_rate?: number;
@@ -504,7 +505,7 @@ export default function App() {
   const [stockSearchTerm, setStockSearchTerm] = useState('');
 
   // Form States
-  const [customerForm, setCustomerForm] = useState({ name: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
+  const [customerForm, setCustomerForm] = useState({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
   const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '', application: '' });
   const [serviceForm, setServiceForm] = useState({ description: '', price: '', category: '' });
   const [motorcycleForm, setMotorcycleForm] = useState({ customer_id: '', plate: '', model: '', current_km: '' });
@@ -2803,9 +2804,10 @@ export default function App() {
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { name, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, fine_rate, interest_rate } = customerForm;
+      const { name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, fine_rate, interest_rate } = customerForm;
       const dataToSave = {
         name,
+        nickname,
         cpf,
         cnpj,
         whatsapp,
@@ -2827,7 +2829,7 @@ export default function App() {
       }
       setIsCustomerModalOpen(false);
       setEditingCustomer(null);
-      setCustomerForm({ name: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
+      setCustomerForm({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
       fetchData();
     } catch (error: any) {
       console.error('Error adding/updating customer:', error);
@@ -5970,13 +5972,13 @@ export default function App() {
           onClose={() => {
             setIsCustomerModalOpen(false);
             setEditingCustomer(null);
-            setCustomerForm({ name: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
+            setCustomerForm({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
           }}
           title={editingCustomer ? "Editar Cliente" : "Cadastrar Novo Cliente"}
           maxWidth="max-w-4xl"
         >
           <form onSubmit={handleAddCustomer} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
                 <input
@@ -5987,9 +5989,21 @@ export default function App() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">CPF</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Apelido (Como é chamado)</label>
                 <input
-                  type="text" required placeholder="000.000.000-00"
+                  type="text"
+                  placeholder="Ex: Dequinha, João do Pneu"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  value={customerForm.nickname}
+                  onChange={e => setCustomerForm({ ...customerForm, nickname: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">CPF (Opcional)</label>
+                <input
+                  type="text" placeholder="000.000.000-00"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.cpf}
                   onChange={e => setCustomerForm({ ...customerForm, cpf: e.target.value })}
@@ -6007,9 +6021,9 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Celular</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Celular (Opcional)</label>
                 <input
-                  type="text" required placeholder="5511999999999"
+                  type="text" placeholder="5511999999999"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.whatsapp}
                   onChange={e => setCustomerForm({ ...customerForm, whatsapp: e.target.value })}
@@ -6018,16 +6032,16 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Limite de Crédito (R$)</label>
                 <input
-                  type="number" step="0.01" required
+                  type="number" step="0.01"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600"
                   value={customerForm.credit_limit}
                   onChange={e => setCustomerForm({ ...customerForm, credit_limit: parseFloat(e.target.value) || 0 })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">CEP</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">CEP (Opcional)</label>
                 <input
-                  type="text" required placeholder="00000-000"
+                  type="text" placeholder="00000-000"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.zip_code}
                   onChange={e => setCustomerForm({ ...customerForm, zip_code: e.target.value })}
@@ -6036,27 +6050,27 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Cidade</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cidade (Opcional)</label>
                 <input
-                  type="text" required
+                  type="text"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.city}
                   onChange={e => setCustomerForm({ ...customerForm, city: e.target.value })}
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Bairro</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Bairro (Opcional)</label>
                 <input
-                  type="text" required
+                  type="text"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.neighborhood}
                   onChange={e => setCustomerForm({ ...customerForm, neighborhood: e.target.value })}
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Endereço</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Endereço (Opcional)</label>
                 <input
-                  type="text" required
+                  type="text"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={customerForm.address}
                   onChange={e => setCustomerForm({ ...customerForm, address: e.target.value })}
@@ -6067,7 +6081,7 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Multa por Atraso (%)</label>
                 <input
-                  type="number" step="0.01" required
+                  type="number" step="0.01"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700"
                   value={customerForm.fine_rate}
                   onChange={e => setCustomerForm({ ...customerForm, fine_rate: parseFloat(e.target.value) || 0 })}
@@ -6076,7 +6090,7 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Juros Mensais (%)</label>
                 <input
-                  type="number" step="0.01" required
+                  type="number" step="0.01"
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700"
                   value={customerForm.interest_rate}
                   onChange={e => setCustomerForm({ ...customerForm, interest_rate: parseFloat(e.target.value) || 0 })}
