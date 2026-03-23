@@ -6383,7 +6383,7 @@ export default function App() {
         <Modal
           isOpen={isPdvModalOpen}
           onClose={() => setIsPdvModalOpen(false)}
-          title="Frente de Caixa - Nova Venda (v2)"
+          title="Frente de Caixa - Nova Venda"
           maxWidth="max-w-[95%]"
         >
           <div className="space-y-6">
@@ -7201,7 +7201,7 @@ export default function App() {
             });
             setOsSearchProduct('');
           }}
-          title={editingOS ? "Editar Ordem de Serviço (v2)" : "Nova Ordem de Serviço (v2)"}
+          title={editingOS ? "Editar Ordem de Serviço" : "Nova Ordem de Serviço"}
           maxWidth="max-w-[95%]"
         >
           <div className="space-y-6">
