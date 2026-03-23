@@ -1213,15 +1213,6 @@ export default function App() {
       }
     }
 
-    if (pdvForm.payment_method === 'Fiado') {
-      const surcharge = total * 0.15;
-      total += surcharge;
-      finalItems.push({
-        description: 'TAXA DE CREDITO (FIADO)',
-        quantity: 1,
-        price: surcharge
-      });
-    }
     const customer = pdvForm.customer_id ? customers.find(c => c.id === parseInt(pdvForm.customer_id)) : null;
 
     if (pdvForm.payment_method === 'Fiado') {
@@ -1363,16 +1354,6 @@ export default function App() {
     const totalBase = totalItems + laborValue;
     let total = totalBase;
     let finalItems = [...osForm.items];
-    if (osForm.payment_method === 'Fiado') {
-      const surcharge = totalBase * 0.15;
-      total += surcharge;
-      finalItems.push({
-        description: 'TAXA DE CREDITO (FIADO)',
-        quantity: 1,
-        price: surcharge,
-        type: 'Serviço'
-      });
-    }
     const customer = osForm.customer_id ? customers.find(c => c.id === parseInt(osForm.customer_id)) : null;
     const motorcycle = osForm.motorcycle_id ? motorcycles.find(m => m.id === parseInt(osForm.motorcycle_id)) : null;
     const mechanic = mechanics.find(m => m.id === osForm.mechanic_id);
@@ -4186,7 +4167,12 @@ export default function App() {
     const diffTime = Math.abs(today.getTime() - dueDate.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    // 2% fine + 1% interest per month (pro-rata)
+    // Regra dos 15% após o vencimento
+    if (diffDays >= 30) {
+      return sale.total * 1.15;
+    }
+
+    // Default fine and interest for minor delays
     const fine = sale.total * (fiadoSettings.lateFeeRate / 100);
     const interest = sale.total * (fiadoSettings.lateInterestRate / 100 / 30) * diffDays;
     return sale.total + fine + interest;
@@ -4257,6 +4243,9 @@ export default function App() {
           <strong>${companyData.razaoSocial || companyData.nomeFantasia}</strong>, CNPJ <strong>${companyData.cnpj}</strong>, ou à sua ordem, a quantia de 
           <strong>R$ ${sale.total.toFixed(2)}</strong> (Valor por extenso: ..........................................................................)
           pagável em <strong>Andirá-PR</strong>.
+        </p>
+        <p style="font-size: 14px; margin-top: 10px; font-style: italic;">
+          * O não pagamento deste título até o vencimento acarretará em multa e encargos de mora, sendo que após 30 dias de atraso o valor total será reajustado em 15% de acordo com a política da empresa.
         </p>
 
         <div style="margin-top: 80px; display: grid; grid-template-columns: 1fr 1fr; gap: 50px;">
@@ -6623,10 +6612,24 @@ export default function App() {
                         pdvForm.sale_condition === 'Prazo'
                           ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
                           : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
-                      ) * (pdvForm.payment_method === 'Fiado' ? 1.15 : 1)
+                      )
                     )}
                   </span>
                 </div>
+                {pdvForm.payment_method === 'Fiado' && (
+                  <div className="flex justify-between items-center text-rose-500 mt-1">
+                    <span className="font-black uppercase text-[10px]">Valor após 30 dias (+15%):</span>
+                    <span className="font-bold">
+                      {formatBRL(
+                        (
+                          pdvForm.sale_condition === 'Prazo'
+                            ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
+                            : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
+                        ) * 1.15
+                      )}
+                    </span>
+                  </div>
+                )}
                 {pdvForm.sale_condition === 'Prazo' && (
                   <p className="text-right text-[10px] font-black text-slate-400 uppercase">
                     {pdvForm.installments}x de {formatBRL(
@@ -7075,9 +7078,24 @@ export default function App() {
                     <td style={{ textAlign: 'left', textDecoration: 'underline' }}>TOTAL:</td>
                     <td style={{ textAlign: 'right', textDecoration: 'underline' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
                   </tr>
-                  <tr style={{ fontWeight: '900', fontSize: '14px' }}>
-                    <td style={{ textAlign: 'left' }}>TOTAL PAGO:</td>
-                    <td style={{ textAlign: 'right' }}>R$ {selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0).toFixed(2) : '0,00'}</td>
+                  {selectedSaleForReceipt.payment_method === 'Fiado' && (
+                    <>
+                      <tr style={{ fontSize: '11px', fontWeight: '900' }}>
+                        <td colSpan={2} style={{ paddingTop: '8px', borderTop: '1px solid black' }}>REGRA DE PAGAMENTO (FIADO):</td>
+                      </tr>
+                      <tr style={{ fontSize: '13px', fontWeight: '900' }}>
+                        <td style={{ textAlign: 'left' }}>VALOR NORMAL (ATÉ 30 DIAS):</td>
+                        <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                      </tr>
+                      <tr style={{ fontSize: '13px', fontWeight: '900', color: 'red' }}>
+                        <td style={{ textAlign: 'left' }}>VALOR APÓS 30 DIAS (+15%):</td>
+                        <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total * 1.15).toFixed(2)}</td>
+                      </tr>
+                    </>
+                  )}
+                  <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '1px dashed black' }}>
+                    <td style={{ textAlign: 'left', paddingTop: '4px' }}>TOTAL PAGO:</td>
+                    <td style={{ textAlign: 'right', paddingTop: '4px' }}>R$ {selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0).toFixed(2) : '0,00'}</td>
                   </tr>
                   {selectedSaleForReceipt.customer_id && (
                     <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '2.5px solid black' }}>
