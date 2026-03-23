@@ -7644,10 +7644,15 @@ export default function App() {
                   <div className="flex justify-between items-center pt-2 border-t border-slate-400 mt-1">
                     <div className="flex flex-col">
                       <span className="text-slate-900 font-black uppercase text-sm">Valor Total da O.S.</span>
-                      {osForm.payment_method === 'Fiado' && <span className="text-[10px] text-rose-500 font-black">+ 15% TAXA DE CREDITO FIADO</span>}
+                      {osForm.payment_method === 'Fiado' && (
+                        <div className="mt-1 flex flex-col">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Valor Normal (Até 30 Dias)</span>
+                          <span className="text-[10px] text-rose-500 font-black uppercase tracking-tighter">* Valor após 30 dias: {formatBRL((osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)) * 1.15)}</span>
+                        </div>
+                      )}
                     </div>
                     <span className="text-2xl font-black text-rose-600">
-                      R$ {((osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)) * (osForm.payment_method === 'Fiado' ? 1.15 : 1)).toFixed(2)}
+                      R$ {(osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)).toFixed(2)}
                     </span>
                   </div>
                 </div>
