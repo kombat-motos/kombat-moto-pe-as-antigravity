@@ -6383,7 +6383,7 @@ export default function App() {
         <Modal
           isOpen={isPdvModalOpen}
           onClose={() => setIsPdvModalOpen(false)}
-          title="Frente de Caixa - Nova Venda"
+          title="Frente de Caixa - Nova Venda (v2)"
           maxWidth="max-w-[95%]"
         >
           <div className="space-y-6">
@@ -6590,7 +6590,7 @@ export default function App() {
 
               <div className="pt-4 border-t border-slate-400 space-y-1">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500 font-bold">VALOR BASE:</span>
+                  <span className="text-slate-500 font-bold uppercase">Valor da Compra (Base):</span>
                   <span className="font-bold text-slate-700">{formatBRL(pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0))}</span>
                 </div>
                 {pdvForm.sale_condition === 'Prazo' && (
@@ -6604,7 +6604,7 @@ export default function App() {
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between items-center py-2 border-t border-slate-400">
+                <div className="flex justify-between items-center py-2 border-t border-slate-400 mt-2">
                   <span className="text-slate-900 font-black text-lg">TOTAL FINAL</span>
                   <span className="text-3xl font-black text-rose-600">
                     {formatBRL(
@@ -6618,7 +6618,7 @@ export default function App() {
                 </div>
                 {pdvForm.payment_method === 'Fiado' && (
                   <div className="flex justify-between items-center text-rose-500 mt-1">
-                    <span className="font-black uppercase text-[10px]">Valor após 30 dias (+15%):</span>
+                    <span className="font-black uppercase text-[10px]">Valor após 30 dias de atraso (+15%):</span>
                     <span className="font-bold">
                       {formatBRL(
                         (
@@ -7201,7 +7201,7 @@ export default function App() {
             });
             setOsSearchProduct('');
           }}
-          title={editingOS ? "Editar Ordem de Serviço" : "Nova Ordem de Serviço"}
+          title={editingOS ? "Editar Ordem de Serviço (v2)" : "Nova Ordem de Serviço (v2)"}
           maxWidth="max-w-[95%]"
         >
           <div className="space-y-6">

@@ -1213,15 +1213,6 @@ export default function App() {
       }
     }
 
-    if (pdvForm.payment_method === 'Fiado') {
-      const surcharge = total * 0.15;
-      total += surcharge;
-      finalItems.push({
-        description: 'TAXA DE CREDITO (FIADO)',
-        quantity: 1,
-        price: surcharge
-      });
-    }
     const customer = pdvForm.customer_id ? customers.find(c => c.id === parseInt(pdvForm.customer_id)) : null;
 
     if (pdvForm.payment_method === 'Fiado') {
@@ -1363,16 +1354,6 @@ export default function App() {
     const totalBase = totalItems + laborValue;
     let total = totalBase;
     let finalItems = [...osForm.items];
-    if (osForm.payment_method === 'Fiado') {
-      const surcharge = totalBase * 0.15;
-      total += surcharge;
-      finalItems.push({
-        description: 'TAXA DE CREDITO (FIADO)',
-        quantity: 1,
-        price: surcharge,
-        type: 'Serviço'
-      });
-    }
     const customer = osForm.customer_id ? customers.find(c => c.id === parseInt(osForm.customer_id)) : null;
     const motorcycle = osForm.motorcycle_id ? motorcycles.find(m => m.id === parseInt(osForm.motorcycle_id)) : null;
     const mechanic = mechanics.find(m => m.id === osForm.mechanic_id);
@@ -4186,7 +4167,12 @@ export default function App() {
     const diffTime = Math.abs(today.getTime() - dueDate.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    // 2% fine + 1% interest per month (pro-rata)
+    // Regra dos 15% após o vencimento
+    if (diffDays >= 30) {
+      return sale.total * 1.15;
+    }
+
+    // Default fine and interest for minor delays
     const fine = sale.total * (fiadoSettings.lateFeeRate / 100);
     const interest = sale.total * (fiadoSettings.lateInterestRate / 100 / 30) * diffDays;
     return sale.total + fine + interest;
@@ -4267,6 +4253,9 @@ export default function App() {
           </div>
           <div style="text-align: center; margin-top: 40px;">
             <div style="border-top: 2px solid #000; padding-top: 10px;">ASSINATURA DO EMITENTE</div>
+          </div>
+          <div style="font-size: 10px; margin-top: 20px; color: #555; text-align: justify;">
+            <strong>OBSERVAÇÃO:</strong> Após 30 dias de atraso do vencimento acima, será aplicada a regra de 15% de acréscimo sobre o valor total deste título.
           </div>
         </div>
       </div>
@@ -6394,8 +6383,7 @@ export default function App() {
         <Modal
           isOpen={isPdvModalOpen}
           onClose={() => setIsPdvModalOpen(false)}
-          title="Frente de Caixa - Nova Venda"
-          maxWidth="max-w-[95%]"
+          title="Frente de Caixa - Nova Venda (v2)"
         >
           <div className="space-y-6">
             <div className="space-y-4">
@@ -6615,7 +6603,7 @@ export default function App() {
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between items-center py-2 border-t border-slate-400">
+                <div className="flex justify-between items-center py-2 border-t border-slate-400 mt-2">
                   <span className="text-slate-900 font-black text-lg">TOTAL FINAL</span>
                   <span className="text-3xl font-black text-rose-600">
                     {formatBRL(
@@ -6623,10 +6611,24 @@ export default function App() {
                         pdvForm.sale_condition === 'Prazo'
                           ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
                           : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
-                      ) * (pdvForm.payment_method === 'Fiado' ? 1.15 : 1)
+                      )
                     )}
                   </span>
                 </div>
+                {pdvForm.payment_method === 'Fiado' && (
+                  <div className="flex justify-between items-center text-rose-500 mt-1">
+                    <span className="font-black uppercase text-[10px]">Valor após 30 dias de atraso (+15%):</span>
+                    <span className="font-bold">
+                      {formatBRL(
+                        (
+                          pdvForm.sale_condition === 'Prazo'
+                            ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
+                            : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
+                        ) * 1.15
+                      )}
+                    </span>
+                  </div>
+                )}
                 {pdvForm.sale_condition === 'Prazo' && (
                   <p className="text-right text-[10px] font-black text-slate-400 uppercase">
                     {pdvForm.installments}x de {formatBRL(
@@ -7075,6 +7077,21 @@ export default function App() {
                     <td style={{ textAlign: 'left', textDecoration: 'underline' }}>TOTAL:</td>
                     <td style={{ textAlign: 'right', textDecoration: 'underline' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
                   </tr>
+                  {selectedSaleForReceipt.payment_method === 'Fiado' && (
+                    <>
+                      <tr style={{ fontSize: '11px', fontWeight: '900' }}>
+                        <td colSpan={2} style={{ paddingTop: '8px', borderTop: '1px solid black' }}>REGRA DE PAGAMENTO (FIADO):</td>
+                      </tr>
+                      <tr style={{ fontSize: '13px', fontWeight: '900' }}>
+                        <td style={{ textAlign: 'left' }}>VALOR NORMAL (ATÉ 30 DIAS):</td>
+                        <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                      </tr>
+                      <tr style={{ fontSize: '13px', fontWeight: '900', color: 'red' }}>
+                        <td style={{ textAlign: 'left' }}>VALOR APÓS 30 DIAS (+15%):</td>
+                        <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total * 1.15).toFixed(2)}</td>
+                      </tr>
+                    </>
+                  )}
                   <tr style={{ fontWeight: '900', fontSize: '14px' }}>
                     <td style={{ textAlign: 'left' }}>TOTAL PAGO:</td>
                     <td style={{ textAlign: 'right' }}>R$ {selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0).toFixed(2) : '0,00'}</td>
@@ -7183,8 +7200,7 @@ export default function App() {
             });
             setOsSearchProduct('');
           }}
-          title={editingOS ? "Editar Ordem de Serviço" : "Nova Ordem de Serviço"}
-          maxWidth="max-w-[95%]"
+          title={editingOS ? `Editar Ordem de Serviço #${editingOS.id.substring(0, 8).toUpperCase()} (v2)` : "Nova Ordem de Serviço (v2)"}
         >
           <div className="space-y-6">
             <div className="space-y-4">
@@ -7626,10 +7642,15 @@ export default function App() {
                   <div className="flex justify-between items-center pt-2 border-t border-slate-400 mt-1">
                     <div className="flex flex-col">
                       <span className="text-slate-900 font-black uppercase text-sm">Valor Total da O.S.</span>
-                      {osForm.payment_method === 'Fiado' && <span className="text-[10px] text-rose-500 font-black">+ 15% TAXA DE CREDITO FIADO</span>}
+                      {osForm.payment_method === 'Fiado' && (
+                        <div className="mt-1 flex flex-col">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Valor Normal (Até 30 Dias)</span>
+                          <span className="text-[10px] text-rose-500 font-black uppercase tracking-tighter">* Valor após 30 dias: {formatBRL((osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)) * 1.15)}</span>
+                        </div>
+                      )}
                     </div>
                     <span className="text-2xl font-black text-rose-600">
-                      R$ {((osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)) * (osForm.payment_method === 'Fiado' ? 1.15 : 1)).toFixed(2)}
+                      R$ {(osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)).toFixed(2)}
                     </span>
                   </div>
                 </div>
