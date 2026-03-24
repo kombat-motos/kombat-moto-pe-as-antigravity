@@ -3949,7 +3949,7 @@ export default function App() {
           <button
             onClick={() => {
               setEditingProduct(null);
-              setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '' });
+              setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '', application: '' });
               setIsProductModalOpen(true);
             }}
             className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium"
@@ -3981,7 +3981,7 @@ export default function App() {
                   (p.location && (p.location || '').toLowerCase().includes(search)) ||
                   (p.barcode || '').toLowerCase().includes(search)
                 );
-              }).sort((a, b) => a.description.localeCompare(b.description)).map((p) => (
+              }).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -6429,7 +6429,7 @@ export default function App() {
                       (p.description || '').toLowerCase().includes(pdvSearchProduct.toLowerCase()) ||
                       (p.brand && (p.brand || '').toLowerCase().includes(pdvSearchProduct.toLowerCase())) ||
                       (p.sku || '').toLowerCase().includes(pdvSearchProduct.toLowerCase())
-                    ).sort((a, b) => a.description.localeCompare(b.description)).map(p => (
+                    ).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map(p => (
                       <button
                         key={p.id}
                         onClick={() => handleAddPdvItem(p)}
@@ -7266,10 +7266,10 @@ export default function App() {
                   {osSearchProduct && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                       {products.filter(p =>
-                        p.description.toLowerCase().includes(osSearchProduct.toLowerCase()) ||
-                        (p.brand && p.brand.toLowerCase().includes(osSearchProduct.toLowerCase())) ||
-                        p.sku.toLowerCase().includes(osSearchProduct.toLowerCase())
-                      ).sort((a, b) => a.description.localeCompare(b.description)).map(p => (
+                        (p.description || '').toLowerCase().includes(osSearchProduct.toLowerCase()) ||
+                        (p.brand && (p.brand || '').toLowerCase().includes(osSearchProduct.toLowerCase())) ||
+                        (p.sku || '').toLowerCase().includes(osSearchProduct.toLowerCase())
+                      ).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map(p => (
                         <button
                           key={p.id}
                           onClick={() => handleAddOsItem(p)}
@@ -7303,7 +7303,7 @@ export default function App() {
                   {osSearchService && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                       {registeredServices.filter(s =>
-                        s.description.toLowerCase().includes(osSearchService.toLowerCase())
+                        (s.description || '').toLowerCase().includes(osSearchService.toLowerCase())
                       ).map(s => (
                         <button
                           key={s.id}
