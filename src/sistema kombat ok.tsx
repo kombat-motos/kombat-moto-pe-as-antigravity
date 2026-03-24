@@ -1182,6 +1182,31 @@ export default function App() {
     setOsSearchProduct('');
   };
 
+  const handleOsItemPriceChange = (index: number, newPrice: number) => {
+    setOsForm(prev => {
+      const newItems = [...prev.items];
+      newItems[index] = { ...newItems[index], price: newPrice };
+      return { ...prev, items: newItems };
+    });
+  };
+
+  const handleOsItemTotalChange = (index: number, newTotal: number) => {
+    setOsForm(prev => {
+      const newItems = [...prev.items];
+      const qty = newItems[index].quantity || 1;
+      newItems[index] = { ...newItems[index], price: newTotal / qty };
+      return { ...prev, items: newItems };
+    });
+  };
+
+  const handleOsItemQuantityChange = (index: number, newQuantity: number) => {
+    setOsForm(prev => {
+      const newItems = [...prev.items];
+      newItems[index] = { ...newItems[index], quantity: newQuantity };
+      return { ...prev, items: newItems };
+    });
+  };
+
   const handleRemoveOsItem = (index: number) => {
     setOsForm({
       ...osForm,
@@ -7364,38 +7389,52 @@ export default function App() {
                             <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const newQty = Math.max(1, item.quantity - 1);
-                                  setOsForm({
-                                    ...osForm,
-                                    items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: newQty } : it)
-                                  });
-                                }}
+                                onClick={() => handleOsItemQuantityChange(idx, Math.max(1, item.quantity - 1))}
                                 className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
                               >
                                 <MinusCircle size={14} />
                               </button>
-                              <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-400 min-w-[32px]">
-                                {item.quantity}
-                              </span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={e => handleOsItemQuantityChange(idx, parseInt(e.target.value) || 1)}
+                                className="w-10 h-full text-center text-slate-900 font-bold outline-none border-x border-slate-400 no-spinners"
+                              />
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setOsForm({
-                                    ...osForm,
-                                    items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it)
-                                  });
-                                }}
+                                onClick={() => handleOsItemQuantityChange(idx, item.quantity + 1)}
                                 className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
                               >
                                 <PlusCircle size={14} />
                               </button>
                             </div>
-                            <p className="text-xs text-slate-500">x R$ {item.price.toFixed(2)}</p>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-slate-500">x R$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={item.price}
+                                onChange={e => handleOsItemPriceChange(idx, parseFloat(e.target.value) || 0)}
+                                className="w-24 px-2 py-0.5 bg-white border border-slate-400 rounded-md text-slate-900 font-bold text-xs focus:ring-1 focus:ring-rose-500 focus:border-rose-500 outline-none"
+                              />
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-bold text-slate-900">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                          <div className="flex flex-col items-end">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Total do Item</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm font-bold text-slate-900">R$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={(item.price * item.quantity).toFixed(2)}
+                                onChange={e => handleOsItemTotalChange(idx, parseFloat(e.target.value) || 0)}
+                                className="w-24 px-2 py-1 bg-white border-2 border-slate-400 rounded-lg text-slate-900 font-black text-sm focus:border-rose-500 outline-none text-right"
+                              />
+                            </div>
+                          </div>
                           <button
                             onClick={() => handleRemoveOsItem(idx)}
                             className="p-1 text-rose-400 hover:text-rose-600"
@@ -7423,38 +7462,52 @@ export default function App() {
                             <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const newQty = Math.max(1, item.quantity - 1);
-                                  setOsForm({
-                                    ...osForm,
-                                    items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: newQty } : it)
-                                  });
-                                }}
+                                onClick={() => handleOsItemQuantityChange(idx, Math.max(1, item.quantity - 1))}
                                 className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
                               >
                                 <MinusCircle size={14} />
                               </button>
-                              <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-400 min-w-[32px]">
-                                {item.quantity}
-                              </span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={e => handleOsItemQuantityChange(idx, parseInt(e.target.value) || 1)}
+                                className="w-10 h-full text-center text-slate-900 font-bold outline-none border-x border-slate-400 no-spinners"
+                              />
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setOsForm({
-                                    ...osForm,
-                                    items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it)
-                                  });
-                                }}
+                                onClick={() => handleOsItemQuantityChange(idx, item.quantity + 1)}
                                 className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
                               >
                                 <PlusCircle size={14} />
                               </button>
                             </div>
-                            <p className="text-xs text-slate-500">x R$ {item.price.toFixed(2)}</p>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-slate-500">x R$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={item.price}
+                                onChange={e => handleOsItemPriceChange(idx, parseFloat(e.target.value) || 0)}
+                                className="w-24 px-2 py-0.5 bg-white border border-slate-400 rounded-md text-slate-900 font-bold text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                              />
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-bold text-slate-900">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                          <div className="flex flex-col items-end">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Total do Item</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm font-bold text-slate-900">R$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={(item.price * item.quantity).toFixed(2)}
+                                onChange={e => handleOsItemTotalChange(idx, parseFloat(e.target.value) || 0)}
+                                className="w-24 px-2 py-1 bg-white border-2 border-slate-400 rounded-lg text-slate-900 font-black text-sm focus:border-amber-500 outline-none text-right"
+                              />
+                            </div>
+                          </div>
                           <button
                             onClick={() => handleRemoveOsItem(idx)}
                             className="p-1 text-rose-400 hover:text-rose-600"

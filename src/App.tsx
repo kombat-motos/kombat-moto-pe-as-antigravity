@@ -1182,6 +1182,22 @@ export default function App() {
     setOsSearchProduct('');
   };
 
+  const handleOsItemPriceChange = (index: number, newPrice: number) => {
+    setOsForm(prev => {
+      const newItems = [...prev.items];
+      newItems[index] = { ...newItems[index], price: newPrice };
+      return { ...prev, items: newItems };
+    });
+  };
+
+  const handleOsItemQuantityChange = (index: number, newQuantity: number) => {
+    setOsForm(prev => {
+      const newItems = [...prev.items];
+      newItems[index] = { ...newItems[index], quantity: newQuantity };
+      return { ...prev, items: newItems };
+    });
+  };
+
   const handleRemoveOsItem = (index: number) => {
     setOsForm({
       ...osForm,
