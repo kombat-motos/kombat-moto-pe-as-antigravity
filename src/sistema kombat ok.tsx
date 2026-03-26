@@ -4215,6 +4215,145 @@ export default function App() {
     </div>
   );
 
+  const renderManualInventory = () => (
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="bg-emerald-600 p-8 rounded-3xl shadow-2xl text-white relative overflow-hidden">
+        <div className="relative z-10">
+          <h2 className="text-3xl font-black uppercase tracking-tighter mb-2">Contagem Rápida iPhone</h2>
+          <p className="opacity-80 font-bold">Bipe ou busque o produto para atualizar o estoque na hora.</p>
+        </div>
+        <ClipboardCheck className="absolute -right-4 -bottom-4 opacity-10" size={160} />
+      </div>
+
+      <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm space-y-6">
+        <div className="relative">
+          <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2 px-2">Buscar/Bipar Produto</label>
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={24} />
+            <input
+              type="text"
+              autoFocus
+              placeholder="Nome, SKU ou Bipe o Código..."
+              className="w-full pl-14 pr-4 py-6 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-emerald-500 outline-none text-xl transition-all font-bold placeholder:text-slate-300"
+              value={quickInventorySearch}
+              onChange={e => {
+                setQuickInventorySearch(e.target.value);
+                const val = e.target.value.trim();
+                // Auto selection for barcodes
+                if (val.length > 3) {
+                  const found = products.find(p => (p.barcode === val) || (p.sku === val));
+                  if (found) {
+                    setSelectedQuickProduct(found);
+                    setQuickInventoryStock(found.stock.toString());
+                    setQuickInventorySearch('');
+                  }
+                }
+              }}
+            />
+          </div>
+
+          {quickInventorySearch && !selectedQuickProduct && (
+            <div className="absolute z-50 w-full mt-2 bg-white border border-slate-300 rounded-2xl shadow-2xl max-h-80 overflow-y-auto">
+              {products.filter(p => 
+                (p.description || '').toLowerCase().includes(quickInventorySearch.toLowerCase()) ||
+                (p.sku || '').toLowerCase().includes(quickInventorySearch.toLowerCase()) ||
+                (p.barcode || '').toLowerCase().includes(quickInventorySearch.toLowerCase())
+              ).slice(0, 15).map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    setSelectedQuickProduct(p);
+                    setQuickInventoryStock(p.stock.toString());
+                    setQuickInventorySearch('');
+                  }}
+                  className="w-full text-left px-6 py-5 hover:bg-emerald-50 flex flex-col border-b border-slate-100 last:border-none transition-colors"
+                >
+                  <span className="font-black text-slate-900 text-lg uppercase leading-none mb-1">{p.description}</span>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 font-bold uppercase tracking-tighter">
+                    <span>SKU: {p.sku || '--'}</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                    <span>Loc: {p.location || 'Sem prateleira'}</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                    <span className="text-emerald-600">Estoque: {p.stock}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {selectedQuickProduct ? (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-emerald-500 shadow-xl shadow-emerald-50"
+          >
+            <div className="flex justify-between items-start mb-8">
+              <div className="space-y-1">
+                <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest">Produto Selecionado</span>
+                <h3 className="text-2xl font-black text-slate-900 uppercase leading-none mt-1">{selectedQuickProduct.description}</h3>
+                <p className="text-slate-500 font-bold text-sm uppercase">{selectedQuickProduct.brand || 'Marca não informada'}</p>
+              </div>
+              <button 
+                onClick={() => setSelectedQuickProduct(null)}
+                className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-white text-slate-400 hover:text-rose-600 transition-all shadow-sm"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-3xl border border-slate-200">
+                <label className="block text-center text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Quantidade Contada</label>
+                <div className="relative flex items-center justify-center">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="w-full py-6 text-center text-7xl font-black text-emerald-600 bg-transparent outline-none no-spinners"
+                    value={quickInventoryStock}
+                    onChange={e => setQuickInventoryStock(e.target.value)}
+                  />
+                  <span className="absolute right-0 bottom-4 text-slate-300 font-black uppercase text-xs tracking-tighter">Unidades</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-4">
+                {[-10, -1, 1, 10].map(val => (
+                  <button
+                    key={val}
+                    onClick={() => setQuickInventoryStock(s => (Math.max(0, (parseInt(s) || 0) + val)).toString())}
+                    className={`h-20 rounded-3xl font-black text-2xl shadow-sm transition-all active:scale-90 ${
+                      val > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-rose-100 text-rose-600 hover:bg-rose-200'
+                    }`}
+                  >
+                    {val > 0 ? `+${val}` : val}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={handleUpdateStockQuick}
+                className="w-full py-8 bg-emerald-600 text-white rounded-3xl font-black text-2xl shadow-2xl shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all uppercase tracking-tighter flex items-center justify-center gap-3"
+              >
+                <CheckCircle size={32} />
+                Confirmar Estoque
+              </button>
+            </div>
+          </motion.div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 bg-slate-50 border-4 border-dashed border-slate-100 rounded-[3rem]">
+            <div className="w-24 h-24 bg-white rounded-3xl shadow-sm flex items-center justify-center text-slate-200 mb-6">
+              <Scan size={48} />
+            </div>
+            <p className="text-slate-400 font-bold text-center uppercase tracking-widest text-xs">
+              Aguardando Leitura de Código <br /> ou Busca por Peça...
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   // --- Advanced Finance Helpers ---
   const getCustomerScore = (customerId: number) => {
     const cSales = sales.filter(s => s.customer_id === customerId && s.payment_method === 'Fiado');
@@ -5420,6 +5559,12 @@ export default function App() {
             onClick={() => { setActiveTab('inventory'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
+            icon={ClipboardCheck}
+            label="CONTAGEM RÁPIDA"
+            active={activeTab === 'manual_inventory'}
+            onClick={() => { setActiveTab('manual_inventory'); setIsSidebarOpen(false); }}
+          />
+          <SidebarItem
             icon={Settings}
             label="Serviços"
             active={activeTab === 'services'}
@@ -5511,6 +5656,7 @@ export default function App() {
               {activeTab === 'dashboard' && 'Bem-vindo de volta!'}
               {activeTab === 'customers' && 'Gestão de Clientes'}
               {activeTab === 'inventory' && 'Controle de Estoque'}
+              {activeTab === 'manual_inventory' && 'Contagem Rápida (Estoque)'}
               {activeTab === 'services' && 'Cadastro de Serviços'}
               {activeTab === 'crm' && 'CRM de Vendas'}
               {activeTab === 'pdv' && 'Frente de Caixa (PDV)'}
@@ -5536,8 +5682,11 @@ export default function App() {
                 onChange={e => setGlobalSearchTerm(e.target.value)}
               />
             </div>
-            <div className="w-10 h-10 bg-slate-200 rounded-full overflow-hidden border-2 border-white shadow-sm">
-              <img src="https://picsum.photos/seed/admin/100/100" alt="Admin Avatar" referrerPolicy="no-referrer" />
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">SISTEMA ATUALIZADO V2.1</span>
+              <div className="w-10 h-10 bg-slate-200 rounded-full overflow-hidden border-2 border-white shadow-sm">
+                <img src="https://picsum.photos/seed/admin/100/100" alt="Admin Avatar" referrerPolicy="no-referrer" />
+              </div>
             </div>
           </div>
         </header>
@@ -5559,6 +5708,7 @@ export default function App() {
                 {activeTab === 'dashboard' && renderDashboard()}
                 {activeTab === 'customers' && renderCustomers()}
                 {activeTab === 'inventory' && renderInventory()}
+                {activeTab === 'manual_inventory' && renderManualInventory()}
                 {activeTab === 'services' && renderServices()}
                 {activeTab === 'crm' && renderCRM()}
                 {activeTab === 'pdv' && renderPDV()}
@@ -8585,6 +8735,8 @@ export default function App() {
             </div>
           </div>
         )}
+      </Modal>
+
       {/* Quick Inventory Modal */}
       <Modal
         isOpen={isQuickInventoryOpen}
