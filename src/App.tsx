@@ -101,6 +101,9 @@ interface Product {
   brand?: string;
   location?: string;
   image_url?: string;
+  image_url2?: string;
+  image_url3?: string;
+  image_url4?: string;
   application?: string;
 }
 
@@ -519,7 +522,7 @@ export default function App() {
 
   // Form States
   const [customerForm, setCustomerForm] = useState({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
-  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '', application: '' });
+  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '' });
   const [serviceForm, setServiceForm] = useState({ description: '', price: '', category: '' });
   const [motorcycleForm, setMotorcycleForm] = useState({ customer_id: '', plate: '', model: '', current_km: '' });
 
@@ -3029,6 +3032,9 @@ export default function App() {
         stock: parseInt(productForm.stock.toString()) || 0,
         unit: productForm.unit,
         image_url: finalImageUrl,
+        image_url2: productForm.image_url2,
+        image_url3: productForm.image_url3,
+        image_url4: productForm.image_url4,
         category: categorizeProduct(productForm.description),
         brand: productForm.brand,
         location: productForm.location,
@@ -3081,6 +3087,9 @@ export default function App() {
       stock: product.stock.toString(),
       unit: product.unit || 'Unitário',
       image_url: product.image_url || '',
+      image_url2: product.image_url2 || '',
+      image_url3: product.image_url3 || '',
+      image_url4: product.image_url4 || '',
       category: product.category || categorizeProduct(product.description),
       brand: product.brand || '',
       location: product.location || '',
@@ -3138,7 +3147,7 @@ export default function App() {
     }
   };
 
-  const handleProductFormImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProductFormImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldKey: string = 'image_url') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -3146,10 +3155,10 @@ export default function App() {
         const originalUrl = reader.result as string;
         try {
           const finalUrl = await shortenUrl(originalUrl);
-          setProductForm({ ...productForm, image_url: finalUrl });
+          setProductForm(prev => ({ ...prev, [fieldKey]: finalUrl }));
         } catch (err) {
           console.error("Erro ao subir imagem", err);
-          setProductForm({ ...productForm, image_url: originalUrl });
+          setProductForm(prev => ({ ...prev, [fieldKey]: originalUrl }));
         }
       };
       reader.readAsDataURL(file);
@@ -6380,7 +6389,7 @@ export default function App() {
           onClose={() => {
             setIsProductModalOpen(false);
             setEditingProduct(null);
-            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '' });
+            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '' });
           }}
           title={editingProduct ? "Editar Produto" : "Adicionar Produto ao Estoque"}
         >
@@ -6487,35 +6496,57 @@ export default function App() {
                 onChange={e => setProductForm({ ...productForm, application: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">URL ou Foto do Produto</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    className="flex-1 px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
-                    placeholder="https://exemplo.com/imagem.jpg"
-                    value={productForm.image_url}
-                    onChange={e => setProductForm({ ...productForm, image_url: e.target.value })}
-                  />
-                  <label className="p-2 cursor-pointer bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all flex items-center justify-center min-w-[48px] shadow-sm">
-                    <Camera size={24} />
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      capture="environment" 
-                      className="hidden" 
-                      onChange={handleProductFormImageUpload}
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <label className="block text-sm font-bold text-slate-800 uppercase tracking-tight">Fotos do Produto (Principal + 3 Adicionais)</label>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { key: 'image_url', label: 'Capa' },
+                  { key: 'image_url2', label: 'Foto 2' },
+                  { key: 'image_url3', label: 'Foto 3' },
+                  { key: 'image_url4', label: 'Foto 4' }
+                ].map((photo, index) => (
+                  <div key={photo.key} className="space-y-2">
+                    <div className="relative aspect-square bg-slate-100 border-2 border-slate-200 rounded-2xl overflow-hidden group">
+                      {(productForm as any)[photo.key] ? (
+                        <img src={(productForm as any)[photo.key]} alt={photo.label} className="w-full h-full object-contain p-2" />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
+                          <ImageIcon size={32} />
+                          <span className="text-[10px] font-bold uppercase mt-1">{photo.label}</span>
+                        </div>
+                      )}
+                      
+                      <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all">
+                        <Camera size={24} className="text-white" />
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          capture="environment" 
+                          className="hidden" 
+                          onChange={(e) => handleProductFormImageUpload(e, photo.key)}
+                        />
+                      </label>
+                      
+                      {(productForm as any)[photo.key] && (
+                        <button 
+                          type="button"
+                          onClick={() => setProductForm({ ...productForm, [photo.key]: '' })}
+                          className="absolute top-1 right-1 p-1 bg-white/80 text-rose-600 rounded-full hover:bg-white shadow-md transition-all sm:opacity-0 group-hover:opacity-100"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="URL..."
+                      className="w-full text-[10px] px-2 py-1 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-rose-500"
+                      value={(productForm as any)[photo.key]}
+                      onChange={e => setProductForm({ ...productForm, [photo.key]: e.target.value })}
                     />
-                  </label>
-                </div>
-              </div>
-              <div className="flex items-center justify-center bg-slate-50 border border-slate-400 rounded-xl overflow-hidden aspect-video sm:aspect-square mt-0 sm:mt-1">
-                {productForm.image_url ? (
-                  <img src={productForm.image_url} alt="Preview" className="w-full h-full object-contain p-1" />
-                ) : (
-                  <ImageIcon size={24} className="text-slate-300" />
-                )}
+                  </div>
+                ))}
               </div>
             </div>
             <button type="submit" className="w-full py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-100">
@@ -8642,12 +8673,35 @@ export default function App() {
       >
         {selectedProductDetail && (
           <div className="space-y-6">
-            <div className="aspect-square bg-slate-50 rounded-2xl overflow-hidden border border-slate-400 flex items-center justify-center">
-              {selectedProductDetail.image_url ? (
-                <img src={selectedProductDetail.image_url} alt={selectedProductDetail.description} className="w-full h-full object-contain p-4" />
-              ) : (
-                <ImageIcon size={64} className="text-slate-200" />
-              )}
+            <div className="space-y-4">
+              <div className="aspect-square bg-white rounded-3xl overflow-hidden border-2 border-slate-100 flex items-center justify-center shadow-inner relative group">
+                <img 
+                  src={selectedProductDetail.image_url || 'https://via.placeholder.com/400?text=Sem+Imagem'} 
+                  id="main-detail-image"
+                  alt={selectedProductDetail.description} 
+                  className="w-full h-full object-contain p-4" 
+                />
+              </div>
+              
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  selectedProductDetail.image_url,
+                  selectedProductDetail.image_url2,
+                  selectedProductDetail.image_url3,
+                  selectedProductDetail.image_url4
+                ].filter(Boolean).map((url, idx) => (
+                  <button 
+                    key={idx}
+                    onClick={() => {
+                      const mainImg = document.getElementById('main-detail-image') as HTMLImageElement;
+                      if (mainImg) mainImg.src = url || '';
+                    }}
+                    className="aspect-square bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all shadow-sm"
+                  >
+                    <img src={url} alt={`Preview ${idx + 1}`} className="w-full h-full object-contain" />
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="space-y-4">
               <div>
