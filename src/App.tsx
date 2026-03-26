@@ -49,7 +49,8 @@ import {
   Barcode,
   History,
   Scan,
-  ClipboardCheck
+  ClipboardCheck,
+  Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
@@ -3137,6 +3138,24 @@ export default function App() {
     }
   };
 
+  const handleProductFormImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const originalUrl = reader.result as string;
+        try {
+          const finalUrl = await shortenUrl(originalUrl);
+          setProductForm({ ...productForm, image_url: finalUrl });
+        } catch (err) {
+          console.error("Erro ao subir imagem", err);
+          setProductForm({ ...productForm, image_url: originalUrl });
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleAddMotorcycle = async (e: React.FormEvent) => {
     e.preventDefault();
     const customer = customers.find(c => c.id === parseInt(motorcycleForm.customer_id));
@@ -4288,17 +4307,54 @@ export default function App() {
             animate={{ opacity: 1, scale: 1 }}
             className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-emerald-500 shadow-xl shadow-emerald-50"
           >
-            <div className="flex justify-between items-start mb-8">
-              <div className="space-y-1">
-                <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest">Produto Selecionado</span>
-                <h3 className="text-2xl font-black text-slate-900 uppercase leading-none mt-1">{selectedQuickProduct.description}</h3>
-                <p className="text-slate-500 font-bold text-sm uppercase">{selectedQuickProduct.brand || 'Marca não informada'}</p>
+            <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center mb-10">
+              <div className="w-32 h-32 bg-white border-2 border-slate-200 rounded-[2rem] overflow-hidden shadow-inner flex items-center justify-center relative group shrink-0">
+                {selectedQuickProduct.image_url ? (
+                  <img src={selectedQuickProduct.image_url} alt="Produto" className="w-full h-full object-contain p-2" />
+                ) : (
+                  <ImageIcon size={48} className="text-slate-200" />
+                )}
+                <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all">
+                  <Camera size={32} className="text-white" />
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    capture="environment" 
+                    className="hidden" 
+                    onChange={(e) => handleProductImageUpload(selectedQuickProduct.id, e)}
+                  />
+                </label>
+                {/* Mobile camera trigger always visible on small screens */}
+                <label className="absolute bottom-2 right-2 bg-emerald-600 text-white p-2 rounded-full sm:hidden shadow-lg border-2 border-white">
+                   <Camera size={16} />
+                   <input 
+                    type="file" 
+                    accept="image/*" 
+                    capture="environment" 
+                    className="hidden" 
+                    onChange={(e) => handleProductImageUpload(selectedQuickProduct.id, e)}
+                  />
+                </label>
               </div>
+              
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest">Ajustando Estoque</span>
+                  <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest">ID: {selectedQuickProduct.id}</span>
+                </div>
+                <h3 className="text-3xl font-black text-slate-900 uppercase leading-none">{selectedQuickProduct.description}</h3>
+                <div className="flex items-center gap-2">
+                  <p className="text-slate-500 font-bold text-sm uppercase">{selectedQuickProduct.brand || 'Sem Marca'}</p>
+                  <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                  <p className="text-slate-400 font-bold text-sm uppercase">{selectedQuickProduct.location || 'Sem prateleira'}</p>
+                </div>
+              </div>
+              
               <button 
                 onClick={() => setSelectedQuickProduct(null)}
-                className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-white text-slate-400 hover:text-rose-600 transition-all shadow-sm"
+                className="p-4 bg-white border-2 border-slate-200 rounded-[1.5rem] hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all shadow-sm"
               >
-                <X size={24} />
+                <X size={28} />
               </button>
             </div>
 
@@ -6431,20 +6487,32 @@ export default function App() {
                 onChange={e => setProductForm({ ...productForm, application: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">URL da Imagem</label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
-                  placeholder="https://exemplo.com/imagem.jpg"
-                  value={productForm.image_url}
-                  onChange={e => setProductForm({ ...productForm, image_url: e.target.value })}
-                />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">URL ou Foto do Produto</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="flex-1 px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                    placeholder="https://exemplo.com/imagem.jpg"
+                    value={productForm.image_url}
+                    onChange={e => setProductForm({ ...productForm, image_url: e.target.value })}
+                  />
+                  <label className="p-2 cursor-pointer bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all flex items-center justify-center min-w-[48px] shadow-sm">
+                    <Camera size={24} />
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment" 
+                      className="hidden" 
+                      onChange={handleProductFormImageUpload}
+                    />
+                  </label>
+                </div>
               </div>
-              <div className="flex items-center justify-center bg-slate-50 border border-slate-400 rounded-xl overflow-hidden aspect-video mt-6">
+              <div className="flex items-center justify-center bg-slate-50 border border-slate-400 rounded-xl overflow-hidden aspect-video sm:aspect-square mt-0 sm:mt-1">
                 {productForm.image_url ? (
-                  <img src={productForm.image_url} alt="Preview" className="w-full h-full object-cover" />
+                  <img src={productForm.image_url} alt="Preview" className="w-full h-full object-contain p-1" />
                 ) : (
                   <ImageIcon size={24} className="text-slate-300" />
                 )}
