@@ -45,7 +45,11 @@ import {
   ShieldCheck,
   Ban,
   CheckCircle,
-  Percent
+  Percent,
+  Barcode,
+  History,
+  Scan,
+  ClipboardCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
@@ -585,6 +589,10 @@ export default function App() {
   const [isFiadoModalOpen, setIsFiadoModalOpen] = useState(false);
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
   const [inventorySearchTerm, setInventorySearchTerm] = useState('');
+  const [isQuickInventoryOpen, setIsQuickInventoryOpen] = useState(false);
+  const [quickInventorySearch, setQuickInventorySearch] = useState('');
+  const [selectedQuickProduct, setSelectedQuickProduct] = useState<Product | null>(null);
+  const [quickInventoryStock, setQuickInventoryStock] = useState<string>('');
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [salesSearchTerm, setSalesSearchTerm] = useState('');
   const [selectedCustomerForHistory, setSelectedCustomerForHistory] = useState<Customer | null>(null);
@@ -1180,6 +1188,31 @@ export default function App() {
       });
     }
     setOsSearchProduct('');
+  };
+
+  const handleUpdateStockQuick = async () => {
+    if (!selectedQuickProduct) return;
+    const newStock = parseInt(quickInventoryStock) || 0;
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ stock: newStock })
+        .eq('id', selectedQuickProduct.id);
+      
+      if (error) throw error;
+      
+      alert(`Estoque de "${selectedQuickProduct.description}" atualizado para ${newStock}!`);
+      setSelectedQuickProduct(null);
+      setQuickInventorySearch('');
+      setQuickInventoryStock('');
+      fetchData();
+      
+      // Auto-focus the search input for the next item (done via ref if possible, but alert might steal focus)
+    } catch (error: any) {
+      console.error('Erro ao atualizar estoque:', error);
+      alert('Erro ao atualizar estoque: ' + (error.message || 'Verifique sua conexão.'));
+    }
   };
 
   const handleOsItemPriceChange = (index: number, newPrice: number) => {
@@ -3970,6 +4003,13 @@ export default function App() {
           >
             <Printer size={18} />
             Exportar Produtos
+          </button>
+          <button
+            onClick={() => setIsQuickInventoryOpen(true)}
+            className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-black shadow-lg shadow-emerald-100 hover:scale-105 active:scale-95"
+          >
+            <ClipboardCheck size={20} />
+            CONTAGEM RÁPIDA
           </button>
           <button
             onClick={() => {
@@ -8545,6 +8585,150 @@ export default function App() {
             </div>
           </div>
         )}
+      {/* Quick Inventory Modal */}
+      <Modal
+        isOpen={isQuickInventoryOpen}
+        onClose={() => {
+          setIsQuickInventoryOpen(false);
+          setSelectedQuickProduct(null);
+          setQuickInventorySearch('');
+          setQuickInventoryStock('');
+        }}
+        title="Contagem de Estoque Express (Manual)"
+      >
+        <div className="space-y-6">
+          <div className="relative">
+            <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-tight">Buscar / Bipar Produto</label>
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <input
+                type="text"
+                autoFocus
+                placeholder="Nome, SKU ou Código de Barras..."
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-300 rounded-2xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-lg transition-all"
+                value={quickInventorySearch}
+                onChange={e => {
+                  setQuickInventorySearch(e.target.value);
+                  const val = e.target.value.trim();
+                  if (val.length > 3) {
+                    const found = products.find(p => 
+                      (p.barcode === val) || 
+                      (p.sku === val)
+                    );
+                    if (found) {
+                      setSelectedQuickProduct(found);
+                      setQuickInventoryStock(found.stock.toString());
+                      setQuickInventorySearch('');
+                    }
+                  }
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const q = quickInventorySearch.toLowerCase();
+                    const found = products.find(p => 
+                      (p.description || '').toLowerCase().includes(q) ||
+                      (p.sku || '').toLowerCase() === q ||
+                      (p.barcode || '') === q
+                    );
+                    if (found) {
+                      setSelectedQuickProduct(found);
+                      setQuickInventoryStock(found.stock.toString());
+                      setQuickInventorySearch('');
+                    }
+                  }
+                }}
+              />
+            </div>
+            
+            {quickInventorySearch && !selectedQuickProduct && (
+              <div className="absolute z-50 w-full mt-2 bg-white border border-slate-300 rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
+                {products.filter(p => 
+                  (p.description || '').toLowerCase().includes(quickInventorySearch.toLowerCase()) ||
+                  (p.sku || '').toLowerCase().includes(quickInventorySearch.toLowerCase())
+                ).slice(0, 10).map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setSelectedQuickProduct(p);
+                      setQuickInventoryStock(p.stock.toString());
+                      setQuickInventorySearch('');
+                    }}
+                    className="w-full text-left px-4 py-4 hover:bg-emerald-50 flex flex-col border-b border-slate-100 last:border-none"
+                  >
+                    <span className="font-bold text-slate-900">{p.description}</span>
+                    <span className="text-xs text-slate-500 uppercase tracking-tighter">SKU: {p.sku || 'N/A'} | Local: {p.location || 'N/A'}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {selectedQuickProduct ? (
+            <div className="bg-emerald-50 p-6 rounded-3xl border-2 border-emerald-200">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 uppercase leading-tight">{selectedQuickProduct.description}</h3>
+                  <p className="text-sm text-emerald-700 font-bold uppercase mt-1">
+                    {selectedQuickProduct.brand} | {selectedQuickProduct.location || 'Sem prateleira'}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setSelectedQuickProduct(null)}
+                  className="p-1 px-3 bg-white border border-emerald-200 rounded-xl text-[10px] font-bold text-emerald-600 uppercase hover:bg-emerald-100"
+                >
+                  Mudar Peça
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
+                    <span>Estoque Atual</span>
+                    <span>{selectedQuickProduct.stock} {selectedQuickProduct.unit}</span>
+                  </div>
+                  
+                  <div className="relative">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      className="w-full py-8 text-center text-5xl font-black text-emerald-600 bg-white border-2 border-emerald-400 rounded-2xl shadow-xl outline-none no-spinners"
+                      value={quickInventoryStock}
+                      onChange={e => setQuickInventoryStock(e.target.value)}
+                    />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold uppercase">
+                      Unidades
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-3">
+                    {[-5, -1, 1, 5].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setQuickInventoryStock(s => (Math.max(0, (parseInt(s) || 0) + val)).toString())}
+                        className={`py-4 rounded-xl font-black text-lg ${val > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'} hover:scale-105 transition-all`}
+                      >
+                        {val > 0 ? `+${val}` : val}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={handleUpdateStockQuick}
+                    className="w-full py-6 mt-4 bg-emerald-600 text-white rounded-2xl font-black text-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all uppercase tracking-widest"
+                  >
+                    Confirmar Contagem
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-20 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl">
+              <ClipboardList className="mx-auto text-slate-300 mb-4" size={48} />
+              <p className="text-slate-400 font-medium">Use a busca acima ou bipe o <br /> código para começar a contar.</p>
+            </div>
+          )}
+        </div>
       </Modal>
     </div >
   );
