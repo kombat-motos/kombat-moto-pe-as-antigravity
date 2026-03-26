@@ -45,7 +45,11 @@ import {
   ShieldCheck,
   Ban,
   CheckCircle,
-  Percent
+  Percent,
+  Barcode,
+  History,
+  Scan,
+  ClipboardCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
@@ -333,12 +337,12 @@ const VendaCalculator = ({ initialCost, onApply, cardFees }: { initialCost: numb
         <p>Data: ${new Date().toLocaleString('pt-BR')}</p>
         <hr />
         ${type === 'Fiado' ? `
-          <p>Valor Original: {formatBRL(cost)}</p>
-          <p>Taxa de Prazo (${fiadoTax}%): {formatBRL(markupValue)}</p>
-          <p style="font-size: 1.25em; font-weight: bold;">TOTAL: {formatBRL(finalPrice)}</p>
+          <p>Valor Original: ${formatBRL(cost)}</p>
+          <p>Taxa de Prazo (${fiadoTax}%): ${formatBRL(markupValue)}</p>
+          <p style="font-size: 1.25em; font-weight: bold;">TOTAL: ${formatBRL(finalPrice)}</p>
         ` : `
-          <p style="font-size: 1.25em; font-weight: bold;">VALOR TOTAL: {formatBRL(finalPrice)}</p>
-          <p>Parcelamento: ${installments}x de {formatBRL(installmentValue)}</p>
+          <p style="font-size: 1.25em; font-weight: bold;">VALOR TOTAL: ${formatBRL(finalPrice)}</p>
+          <p>Parcelamento: ${installments}x de ${formatBRL(installmentValue)}</p>
         `}
         <hr />
         <p style="text-align: center; font-size: 0.8em;">Impresso em: ${new Date().toLocaleDateString()}</p>
@@ -585,6 +589,10 @@ export default function App() {
   const [isFiadoModalOpen, setIsFiadoModalOpen] = useState(false);
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
   const [inventorySearchTerm, setInventorySearchTerm] = useState('');
+  const [isQuickInventoryOpen, setIsQuickInventoryOpen] = useState(false);
+  const [quickInventorySearch, setQuickInventorySearch] = useState('');
+  const [selectedQuickProduct, setSelectedQuickProduct] = useState<Product | null>(null);
+  const [quickInventoryStock, setQuickInventoryStock] = useState<string>('');
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [salesSearchTerm, setSalesSearchTerm] = useState('');
   const [selectedCustomerForHistory, setSelectedCustomerForHistory] = useState<Customer | null>(null);
@@ -1182,10 +1190,44 @@ export default function App() {
     setOsSearchProduct('');
   };
 
+  const handleUpdateStockQuick = async () => {
+    if (!selectedQuickProduct) return;
+    const newStock = parseInt(quickInventoryStock) || 0;
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ stock: newStock })
+        .eq('id', selectedQuickProduct.id);
+      
+      if (error) throw error;
+      
+      alert(`Estoque de "${selectedQuickProduct.description}" atualizado para ${newStock}!`);
+      setSelectedQuickProduct(null);
+      setQuickInventorySearch('');
+      setQuickInventoryStock('');
+      fetchData();
+      
+      // Auto-focus the search input for the next item (done via ref if possible, but alert might steal focus)
+    } catch (error: any) {
+      console.error('Erro ao atualizar estoque:', error);
+      alert('Erro ao atualizar estoque: ' + (error.message || 'Verifique sua conexão.'));
+    }
+  };
+
   const handleOsItemPriceChange = (index: number, newPrice: number) => {
     setOsForm(prev => {
       const newItems = [...prev.items];
       newItems[index] = { ...newItems[index], price: newPrice };
+      return { ...prev, items: newItems };
+    });
+  };
+
+  const handleOsItemTotalChange = (index: number, newTotal: number) => {
+    setOsForm(prev => {
+      const newItems = [...prev.items];
+      const qty = newItems[index].quantity || 1;
+      newItems[index] = { ...newItems[index], price: newTotal / qty };
       return { ...prev, items: newItems };
     });
   };
@@ -3963,6 +4005,13 @@ export default function App() {
             Exportar Produtos
           </button>
           <button
+            onClick={() => setIsQuickInventoryOpen(true)}
+            className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-black shadow-lg shadow-emerald-100 hover:scale-105 active:scale-95"
+          >
+            <ClipboardCheck size={20} />
+            CONTAGEM RÁPIDA
+          </button>
+          <button
             onClick={() => {
               setEditingProduct(null);
               setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '', application: '' });
@@ -4260,6 +4309,9 @@ export default function App() {
           <strong>R$ ${sale.total.toFixed(2)}</strong> (Valor por extenso: ..........................................................................)
           pagável em <strong>Andirá-PR</strong>.
         </p>
+        <p style="font-size: 14px; margin-top: 10px; font-style: italic;">
+          * O não pagamento deste título até o vencimento acarretará em multa e encargos de mora, sendo que após 30 dias de atraso o valor total será reajustado em 15% de acordo com a política da empresa.
+        </p>
 
         <div style="margin-top: 80px; display: grid; grid-template-columns: 1fr 1fr; gap: 50px;">
           <div>
@@ -4269,9 +4321,6 @@ export default function App() {
           </div>
           <div style="text-align: center; margin-top: 40px;">
             <div style="border-top: 2px solid #000; padding-top: 10px;">ASSINATURA DO EMITENTE</div>
-          </div>
-          <div style="font-size: 10px; margin-top: 20px; color: #555; text-align: justify;">
-            <strong>OBSERVAÇÃO:</strong> Após 30 dias de atraso do vencimento acima, será aplicada a regra de 15% de acréscimo sobre o valor total deste título.
           </div>
         </div>
       </div>
@@ -6399,7 +6448,8 @@ export default function App() {
         <Modal
           isOpen={isPdvModalOpen}
           onClose={() => setIsPdvModalOpen(false)}
-          title="Frente de Caixa - Nova Venda (v2)"
+          title="Frente de Caixa - Nova Venda"
+          maxWidth="max-w-[95%]"
         >
           <div className="space-y-6">
             <div className="space-y-4">
@@ -6605,7 +6655,7 @@ export default function App() {
 
               <div className="pt-4 border-t border-slate-400 space-y-1">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500 font-bold">VALOR BASE:</span>
+                  <span className="text-slate-500 font-bold uppercase">Valor da Compra (Base):</span>
                   <span className="font-bold text-slate-700">{formatBRL(pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0))}</span>
                 </div>
                 {pdvForm.sale_condition === 'Prazo' && (
@@ -7108,9 +7158,9 @@ export default function App() {
                       </tr>
                     </>
                   )}
-                  <tr style={{ fontWeight: '900', fontSize: '14px' }}>
-                    <td style={{ textAlign: 'left' }}>TOTAL PAGO:</td>
-                    <td style={{ textAlign: 'right' }}>R$ {selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0).toFixed(2) : '0,00'}</td>
+                  <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '1px dashed black' }}>
+                    <td style={{ textAlign: 'left', paddingTop: '4px' }}>TOTAL PAGO:</td>
+                    <td style={{ textAlign: 'right', paddingTop: '4px' }}>R$ {selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0).toFixed(2) : '0,00'}</td>
                   </tr>
                   {selectedSaleForReceipt.customer_id && (
                     <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '2.5px solid black' }}>
@@ -7216,7 +7266,8 @@ export default function App() {
             });
             setOsSearchProduct('');
           }}
-          title={editingOS ? `Editar Ordem de Serviço #${editingOS.id.substring(0, 8).toUpperCase()} (v2)` : "Nova Ordem de Serviço (v2)"}
+          title={editingOS ? "Editar Ordem de Serviço" : "Nova Ordem de Serviço"}
+          maxWidth="max-w-[95%]"
         >
           <div className="space-y-6">
             <div className="space-y-4">
@@ -7295,6 +7346,11 @@ export default function App() {
                             <p className="text-sm font-medium text-slate-900">{p.description}</p>
                             <p className="text-[10px] text-slate-500 flex items-center gap-2">
                               Estoque: {p.stock} {p.unit}
+                              {p.brand && (
+                                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase tracking-tighter">
+                                  {p.brand}
+                                </span>
+                              )}
                             </p>
                           </div>
                           <span className="text-sm font-bold text-rose-600">R$ {p.sale_price.toFixed(2)}</span>
@@ -7373,38 +7429,52 @@ export default function App() {
                             <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const newQty = Math.max(1, item.quantity - 1);
-                                  setOsForm({
-                                    ...osForm,
-                                    items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: newQty } : it)
-                                  });
-                                }}
+                                onClick={() => handleOsItemQuantityChange(idx, Math.max(1, item.quantity - 1))}
                                 className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
                               >
                                 <MinusCircle size={14} />
                               </button>
-                              <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-400 min-w-[32px]">
-                                {item.quantity}
-                              </span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={e => handleOsItemQuantityChange(idx, parseInt(e.target.value) || 1)}
+                                className="w-10 h-full text-center text-slate-900 font-bold outline-none border-x border-slate-400 no-spinners"
+                              />
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setOsForm({
-                                    ...osForm,
-                                    items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it)
-                                  });
-                                }}
+                                onClick={() => handleOsItemQuantityChange(idx, item.quantity + 1)}
                                 className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
                               >
                                 <PlusCircle size={14} />
                               </button>
                             </div>
-                            <p className="text-xs text-slate-500">x R$ {item.price.toFixed(2)}</p>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-slate-500">x R$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={item.price}
+                                onChange={e => handleOsItemPriceChange(idx, parseFloat(e.target.value) || 0)}
+                                className="w-24 px-2 py-0.5 bg-white border border-slate-400 rounded-md text-slate-900 font-bold text-xs focus:ring-1 focus:ring-rose-500 focus:border-rose-500 outline-none"
+                              />
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-bold text-slate-900">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                          <div className="flex flex-col items-end">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Total do Item</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm font-bold text-slate-900">R$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={(item.price * item.quantity).toFixed(2)}
+                                onChange={e => handleOsItemTotalChange(idx, parseFloat(e.target.value) || 0)}
+                                className="w-24 px-2 py-1 bg-white border-2 border-slate-400 rounded-lg text-slate-900 font-black text-sm focus:border-rose-500 outline-none text-right"
+                              />
+                            </div>
+                          </div>
                           <button
                             onClick={() => handleRemoveOsItem(idx)}
                             className="p-1 text-rose-400 hover:text-rose-600"
@@ -7432,38 +7502,52 @@ export default function App() {
                             <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7">
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const newQty = Math.max(1, item.quantity - 1);
-                                  setOsForm({
-                                    ...osForm,
-                                    items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: newQty } : it)
-                                  });
-                                }}
+                                onClick={() => handleOsItemQuantityChange(idx, Math.max(1, item.quantity - 1))}
                                 className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
                               >
                                 <MinusCircle size={14} />
                               </button>
-                              <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-400 min-w-[32px]">
-                                {item.quantity}
-                              </span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={e => handleOsItemQuantityChange(idx, parseInt(e.target.value) || 1)}
+                                className="w-10 h-full text-center text-slate-900 font-bold outline-none border-x border-slate-400 no-spinners"
+                              />
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setOsForm({
-                                    ...osForm,
-                                    items: osForm.items.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it)
-                                  });
-                                }}
+                                onClick={() => handleOsItemQuantityChange(idx, item.quantity + 1)}
                                 className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
                               >
                                 <PlusCircle size={14} />
                               </button>
                             </div>
-                            <p className="text-xs text-slate-500">x R$ {item.price.toFixed(2)}</p>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-slate-500">x R$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={item.price}
+                                onChange={e => handleOsItemPriceChange(idx, parseFloat(e.target.value) || 0)}
+                                className="w-24 px-2 py-0.5 bg-white border border-slate-400 rounded-md text-slate-900 font-bold text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                              />
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-bold text-slate-900">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                          <div className="flex flex-col items-end">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Total do Item</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm font-bold text-slate-900">R$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={(item.price * item.quantity).toFixed(2)}
+                                onChange={e => handleOsItemTotalChange(idx, parseFloat(e.target.value) || 0)}
+                                className="w-24 px-2 py-1 bg-white border-2 border-slate-400 rounded-lg text-slate-900 font-black text-sm focus:border-amber-500 outline-none text-right"
+                              />
+                            </div>
+                          </div>
                           <button
                             onClick={() => handleRemoveOsItem(idx)}
                             className="p-1 text-rose-400 hover:text-rose-600"
@@ -8501,6 +8585,150 @@ export default function App() {
             </div>
           </div>
         )}
+      {/* Quick Inventory Modal */}
+      <Modal
+        isOpen={isQuickInventoryOpen}
+        onClose={() => {
+          setIsQuickInventoryOpen(false);
+          setSelectedQuickProduct(null);
+          setQuickInventorySearch('');
+          setQuickInventoryStock('');
+        }}
+        title="Contagem de Estoque Express (Manual)"
+      >
+        <div className="space-y-6">
+          <div className="relative">
+            <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-tight">Buscar / Bipar Produto</label>
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <input
+                type="text"
+                autoFocus
+                placeholder="Nome, SKU ou Código de Barras..."
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-300 rounded-2xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-lg transition-all"
+                value={quickInventorySearch}
+                onChange={e => {
+                  setQuickInventorySearch(e.target.value);
+                  const val = e.target.value.trim();
+                  if (val.length > 3) {
+                    const found = products.find(p => 
+                      (p.barcode === val) || 
+                      (p.sku === val)
+                    );
+                    if (found) {
+                      setSelectedQuickProduct(found);
+                      setQuickInventoryStock(found.stock.toString());
+                      setQuickInventorySearch('');
+                    }
+                  }
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const q = quickInventorySearch.toLowerCase();
+                    const found = products.find(p => 
+                      (p.description || '').toLowerCase().includes(q) ||
+                      (p.sku || '').toLowerCase() === q ||
+                      (p.barcode || '') === q
+                    );
+                    if (found) {
+                      setSelectedQuickProduct(found);
+                      setQuickInventoryStock(found.stock.toString());
+                      setQuickInventorySearch('');
+                    }
+                  }
+                }}
+              />
+            </div>
+            
+            {quickInventorySearch && !selectedQuickProduct && (
+              <div className="absolute z-50 w-full mt-2 bg-white border border-slate-300 rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
+                {products.filter(p => 
+                  (p.description || '').toLowerCase().includes(quickInventorySearch.toLowerCase()) ||
+                  (p.sku || '').toLowerCase().includes(quickInventorySearch.toLowerCase())
+                ).slice(0, 10).map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setSelectedQuickProduct(p);
+                      setQuickInventoryStock(p.stock.toString());
+                      setQuickInventorySearch('');
+                    }}
+                    className="w-full text-left px-4 py-4 hover:bg-emerald-50 flex flex-col border-b border-slate-100 last:border-none"
+                  >
+                    <span className="font-bold text-slate-900">{p.description}</span>
+                    <span className="text-xs text-slate-500 uppercase tracking-tighter">SKU: {p.sku || 'N/A'} | Local: {p.location || 'N/A'}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {selectedQuickProduct ? (
+            <div className="bg-emerald-50 p-6 rounded-3xl border-2 border-emerald-200">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 uppercase leading-tight">{selectedQuickProduct.description}</h3>
+                  <p className="text-sm text-emerald-700 font-bold uppercase mt-1">
+                    {selectedQuickProduct.brand} | {selectedQuickProduct.location || 'Sem prateleira'}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setSelectedQuickProduct(null)}
+                  className="p-1 px-3 bg-white border border-emerald-200 rounded-xl text-[10px] font-bold text-emerald-600 uppercase hover:bg-emerald-100"
+                >
+                  Mudar Peça
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
+                    <span>Estoque Atual</span>
+                    <span>{selectedQuickProduct.stock} {selectedQuickProduct.unit}</span>
+                  </div>
+                  
+                  <div className="relative">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      className="w-full py-8 text-center text-5xl font-black text-emerald-600 bg-white border-2 border-emerald-400 rounded-2xl shadow-xl outline-none no-spinners"
+                      value={quickInventoryStock}
+                      onChange={e => setQuickInventoryStock(e.target.value)}
+                    />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold uppercase">
+                      Unidades
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-3">
+                    {[-5, -1, 1, 5].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setQuickInventoryStock(s => (Math.max(0, (parseInt(s) || 0) + val)).toString())}
+                        className={`py-4 rounded-xl font-black text-lg ${val > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'} hover:scale-105 transition-all`}
+                      >
+                        {val > 0 ? `+${val}` : val}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={handleUpdateStockQuick}
+                    className="w-full py-6 mt-4 bg-emerald-600 text-white rounded-2xl font-black text-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all uppercase tracking-widest"
+                  >
+                    Confirmar Contagem
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-20 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl">
+              <ClipboardList className="mx-auto text-slate-300 mb-4" size={48} />
+              <p className="text-slate-400 font-medium">Use a busca acima ou bipe o <br /> código para começar a contar.</p>
+            </div>
+          )}
+        </div>
       </Modal>
     </div >
   );
