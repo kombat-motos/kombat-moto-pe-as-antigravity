@@ -4045,12 +4045,14 @@ export default function App() {
             </thead>
             <tbody className="divide-y divide-slate-300">
               {products.filter(p => {
-                const search = (inventorySearchTerm + globalSearchTerm).toLowerCase();
+                const search = (inventorySearchTerm.trim() || globalSearchTerm.trim()).toLowerCase();
+                if (!search) return true;
                 return (
                   (p.description || '').toLowerCase().includes(search) ||
                   (p.sku || '').toLowerCase().includes(search) ||
                   (p.location && (p.location || '').toLowerCase().includes(search)) ||
-                  (p.barcode || '').toLowerCase().includes(search)
+                  (p.barcode || '').toLowerCase().includes(search) ||
+                  (p.brand && (p.brand || '').toLowerCase().includes(search))
                 );
               }).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
@@ -4138,14 +4140,16 @@ export default function App() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {products.filter(p => {
-            const search = (inventorySearchTerm + globalSearchTerm).toLowerCase();
+            const search = (inventorySearchTerm.trim() || globalSearchTerm.trim()).toLowerCase();
+            if (!search) return true;
             return (
               (p.description || '').toLowerCase().includes(search) ||
               (p.sku || '').toLowerCase().includes(search) ||
               (p.location && (p.location || '').toLowerCase().includes(search)) ||
-              (p.barcode || '').toLowerCase().includes(search)
+              (p.barcode || '').toLowerCase().includes(search) ||
+              (p.brand && (p.brand || '').toLowerCase().includes(search))
             );
-          }).sort((a, b) => a.description.localeCompare(b.description)).map((p) => (
+          }).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map((p) => (
             <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden hover:shadow-md transition-all group">
               <div className="h-48 bg-slate-50 relative overflow-hidden">
                 {p.image_url ? (
@@ -8897,10 +8901,14 @@ export default function App() {
             
             {quickInventorySearch && !selectedQuickProduct && (
               <div className="absolute z-50 w-full mt-2 bg-white border border-slate-300 rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
-                {products.filter(p => 
-                  (p.description || '').toLowerCase().includes(quickInventorySearch.toLowerCase()) ||
-                  (p.sku || '').toLowerCase().includes(quickInventorySearch.toLowerCase())
-                ).slice(0, 10).map(p => (
+                {products.filter(p => {
+                  const search = quickInventorySearch.trim().toLowerCase();
+                  if (!search) return false;
+                  return (
+                    (p.description || '').toLowerCase().includes(search) ||
+                    (p.sku || '').toLowerCase().includes(search)
+                  );
+                }).slice(0, 10).map(p => (
                   <button
                     key={p.id}
                     onClick={() => {
