@@ -598,6 +598,122 @@ export default function App() {
   const [selectedQuickProduct, setSelectedQuickProduct] = useState<Product | null>(null);
   const [quickInventoryStock, setQuickInventoryStock] = useState<string>('');
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+
+  async function fetchData() {
+    setLoading(true);
+    console.time('⏱️ Carregamento Total');
+    try {
+      const [
+        { data: productsData },
+        { data: customersData },
+        { data: motorcyclesData },
+        { data: salesData },
+        { data: leadsData },
+        { data: mechanicsData },
+        { data: fixedServicesData },
+        { data: distributorsData },
+        { data: ordersData },
+        { data: cashSessionsData },
+        { data: cashTransactionsData },
+        { data: quotesData },
+        { data: registeredServicesData }
+      ] = await Promise.all([
+        supabase.from('products').select('*').order('description', { ascending: true }),
+        supabase.from('customers').select('*').order('name', { ascending: true }),
+        supabase.from('motorcycles').select('*'),
+        supabase.from('sales').select('*, sale_items(*)').order('date', { ascending: false }).limit(200),
+        supabase.from('leads').select('*').order('created_at', { ascending: false }),
+        supabase.from('mechanics').select('*'),
+        supabase.from('fixed_services').select('*'),
+        supabase.from('distributors').select('*'),
+        supabase.from('purchase_orders').select('*, purchase_order_items(*)').order('created_at', { ascending: false }).limit(100),
+        supabase.from('cash_sessions').select('*').order('opened_at', { ascending: false }).limit(50),
+        supabase.from('cash_transactions').select('*').order('created_at', { ascending: false }).limit(200),
+        supabase.from('quotes').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('registered_services').select('*')
+      ]);
+
+      // Popula os estados IMEDIATAMENTE para liberar a UI
+      if (productsData) setProducts(productsData);
+      if (customersData) setCustomers(customersData);
+      if (motorcyclesData) setMotorcycles(motorcyclesData);
+      if (salesData) setSales(salesData.map((s: any) => ({ ...s, items: s.sale_items || [] })));
+      if (leadsData) setLeads(leadsData);
+      if (mechanicsData) setMechanics(mechanicsData);
+      if (fixedServicesData) setFixedServices(fixedServicesData);
+      if (distributorsData) setDistributors(distributorsData);
+      if (ordersData) setPurchaseOrders(ordersData.map((o: any) => ({ ...o, items: o.purchase_order_items || [] })));
+      if (quotesData) setQuotes(quotesData);
+      if (registeredServicesData) setRegisteredServices(registeredServicesData);
+
+      if (cashSessionsData) {
+        const sessions = cashSessionsData.map((s: any) => ({
+          id: s.id, openedAt: s.opened_at, closedAt: s.closed_at,
+          openingBalance: s.opening_balance, closingBalance: s.closing_balance,
+          expectedBalance: s.expected_balance, status: s.status, notes: s.notes
+        }));
+        setCashSessions(sessions);
+        const active = sessions.find((s: any) => s.status === 'Aberto');
+        if (active) setActiveSession(active);
+      }
+
+      if (cashTransactionsData) {
+        setCashTransactions(cashTransactionsData.map((t: any) => ({
+          id: t.id, sessionId: t.session_id, type: t.type, amount: t.amount,
+          description: t.description, date: t.date
+        })));
+      }
+
+      // Stats Simplificados
+      if (salesData) {
+        const rev = salesData.reduce((acc: number, s: any) => acc + s.total, 0);
+        setStats({
+          revenue: rev,
+          openServiceOrders: salesData.filter((s: any) => s.type === 'Oficina' && s.status !== 'Entregue').length,
+          topProducts: [],
+          avgTicketCounter: 0,
+          avgTicketService: 0
+        });
+      }
+
+      // LIBERA A UI AQUI
+      setLoading(false);
+      console.timeEnd('⏱️ Carregamento Total');
+
+      // --- Background: Resolução de Fotos (Não bloqueia o usuário) ---
+      if (productsData && productsData.length > 0) {
+        const codes = productsData.reduce((acc: string[], p) => {
+          [p.image_url, p.image_url2, p.image_url3, p.image_url4].forEach(url => {
+            if (url && url.startsWith('/s/')) acc.push(url.split('/s/')[1]);
+          });
+          return acc;
+        }, []);
+        
+        const unique = Array.from(new Set(codes));
+        if (unique.length > 0) {
+          const { data: links } = await supabase.from('short_links').select('code, url').in('code', unique);
+          if (links) {
+            const map: Record<string, string> = {};
+            links.forEach(l => { map[l.code] = l.url; });
+            const resolved = productsData.map(p => ({
+              ...p,
+              image_url: (p.image_url?.startsWith('/s/') ? map[p.image_url.split('/s/')[1]] : p.image_url) || p.image_url,
+              image_url2: (p.image_url2?.startsWith('/s/') ? map[p.image_url2.split('/s/')[1]] : p.image_url2) || p.image_url2,
+              image_url3: (p.image_url3?.startsWith('/s/') ? map[p.image_url3.split('/s/')[1]] : p.image_url3) || p.image_url3,
+              image_url4: (p.image_url4?.startsWith('/s/') ? map[p.image_url4.split('/s/')[1]] : p.image_url4) || p.image_url4,
+            }));
+            setProducts(resolved);
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Erro no Supabase:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const [salesSearchTerm, setSalesSearchTerm] = useState('');
   const [selectedCustomerForHistory, setSelectedCustomerForHistory] = useState<Customer | null>(null);
   const [selectedCustomerForPrint, setSelectedCustomerForPrint] = useState<{ customer: Customer; type: 'A4' | '80mm' } | null>(null);
@@ -886,174 +1002,9 @@ export default function App() {
       console.error('Erro ao sair', error);
     }
   };
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [
-        { data: productsData },
-        { data: customersData },
-        { data: motorcyclesData },
-        { data: salesData },
-        { data: leadsData },
-        { data: mechanicsData },
-        { data: fixedServicesData },
-        { data: distributorsData },
-        { data: ordersData },
-        { data: cashSessionsData },
-        { data: cashTransactionsData },
-        { data: quotesData },
-        { data: registeredServicesData }
-      ] = await Promise.all([
-        supabase.from('products').select('*').order('description', { ascending: true }),
-        supabase.from('customers').select('*').order('name', { ascending: true }),
-        supabase.from('motorcycles').select('*'),
-        supabase.from('sales').select('*, sale_items(*)').order('date', { ascending: false }).limit(200),
-        supabase.from('leads').select('*').order('created_at', { ascending: false }),
-        supabase.from('mechanics').select('*'),
-        supabase.from('fixed_services').select('*'),
-        supabase.from('distributors').select('*'),
-        supabase.from('purchase_orders').select('*, purchase_order_items(*)').order('created_at', { ascending: false }).limit(100),
-        supabase.from('cash_sessions').select('*').order('opened_at', { ascending: false }).limit(50),
-        supabase.from('cash_transactions').select('*').order('created_at', { ascending: false }).limit(200),
-        supabase.from('quotes').select('*').order('created_at', { ascending: false }).limit(100),
-        supabase.from('registered_services').select('*')
-      ]);
 
-      let finalProducts = productsData || [];
 
-      // Resolve Short Links for Products (image_url, image_url2, image_url3, image_url4)
-      const allUrlsToResolve = finalProducts.reduce((acc: string[], p) => {
-        [p.image_url, p.image_url2, p.image_url3, p.image_url4].forEach(url => {
-          if (url && url.startsWith('/s/')) acc.push(url.split('/s/')[1]);
-        });
-        return acc;
-      }, []);
 
-      const uniqueCodes = Array.from(new Set(allUrlsToResolve));
-
-      if (uniqueCodes.length > 0) {
-        const { data: links } = await supabase
-          .from('short_links')
-          .select('code, url')
-          .in('code', uniqueCodes);
-
-        if (links) {
-          const linksMap: Record<string, string> = {};
-          links.forEach(l => { linksMap[l.code] = l.url; });
-
-          finalProducts = finalProducts.map(p => ({
-            ...p,
-            image_url: (p.image_url?.startsWith('/s/') ? linksMap[p.image_url.split('/s/')[1]] : p.image_url) || p.image_url,
-            image_url2: (p.image_url2?.startsWith('/s/') ? linksMap[p.image_url2.split('/s/')[1]] : p.image_url2) || p.image_url2,
-            image_url3: (p.image_url3?.startsWith('/s/') ? linksMap[p.image_url3.split('/s/')[1]] : p.image_url3) || p.image_url3,
-            image_url4: (p.image_url4?.startsWith('/s/') ? linksMap[p.image_url4.split('/s/')[1]] : p.image_url4) || p.image_url4,
-          }));
-        }
-      }
-
-      if (finalProducts) setProducts(finalProducts);
-      if (customersData) setCustomers(customersData);
-      if (motorcyclesData) setMotorcycles(motorcyclesData.map((m: any) => ({
-        ...m,
-        customer_id: m.customer_id,
-        current_km: m.current_km
-      })));
-      if (salesData) setSales(salesData.map((s: any) => ({
-        ...s,
-        items: s.sale_items || [],
-        customer_id: s.customer_id,
-        mechanic_id: s.mechanic_id,
-        payment_method: s.payment_method,
-        payment_status: s.payment_status,
-        paid_total: s.paid_total || 0,
-        due_date: s.due_date,
-        paid_date: s.paid_date,
-        service_description: s.service_description,
-        whatsapp: customersData?.find(c => c.id === s.customer_id)?.whatsapp || ''
-      })));
-      if (leadsData) setLeads(leadsData);
-      if (mechanicsData) setMechanics(mechanicsData);
-      if (fixedServicesData) setFixedServices(fixedServicesData);
-      if (distributorsData) setDistributors(distributorsData.map((d: any) => ({
-        ...d,
-        contact_person: d.contact_person
-      })));
-      if (ordersData) setPurchaseOrders(ordersData.map((o: any) => ({
-        ...o,
-        items: o.purchase_order_items || [],
-        distributor_id: o.distributor_id
-      })));
-      if (quotesData) setQuotes(quotesData);
-      if (registeredServicesData) setRegisteredServices(registeredServicesData);
-
-      if (cashSessionsData) {
-        const sessions = cashSessionsData.map((s: any) => ({
-          id: s.id,
-          openedAt: s.opened_at,
-          closedAt: s.closed_at,
-          openingBalance: s.opening_balance,
-          closingBalance: s.closing_balance,
-          expectedBalance: s.expected_balance,
-          status: s.status,
-          notes: s.notes
-        }));
-        setCashSessions(sessions);
-        const active = sessions.find((s: any) => s.status === 'Aberto');
-        if (active) setActiveSession(active);
-      }
-
-      if (cashTransactionsData) {
-        setCashTransactions(cashTransactionsData.map((t: any) => ({
-          id: t.id,
-          sessionId: t.session_id,
-          type: t.type,
-          amount: t.amount,
-          description: t.description,
-          date: t.date
-        })));
-      }
-
-      // Generate basic stats if data available
-      if (salesData) {
-        const counterSales = salesData.filter((s: any) => s.type === 'Balcão');
-        const serviceSales = salesData.filter((s: any) => s.type === 'Oficina');
-
-        const avgCounter = counterSales.length > 0
-          ? counterSales.reduce((acc: number, s: any) => acc + s.total, 0) / counterSales.length
-          : 0;
-
-        const avgService = serviceSales.length > 0
-          ? serviceSales.reduce((acc: number, s: any) => acc + s.total, 0) / serviceSales.length
-          : 0;
-
-        // Calculate top products
-        const productCounts: { [key: string]: number } = {};
-        salesData.forEach((s: any) => {
-          (s.sale_items || []).forEach((item: any) => {
-            productCounts[item.description] = (productCounts[item.description] || 0) + item.quantity;
-          });
-        });
-
-        const topProducts = Object.entries(productCounts)
-          .map(([description, total_sold]) => ({ description, total_sold }))
-          .sort((a, b) => b.total_sold - a.total_sold)
-          .slice(0, 5);
-
-        setStats({
-          revenue: salesData.reduce((acc: number, s: any) => acc + s.total, 0),
-          openServiceOrders: salesData.filter((s: any) => s.type === 'Oficina' && s.status !== 'Entregue').length,
-          topProducts,
-          avgTicketCounter: avgCounter,
-          avgTicketService: avgService
-        });
-      }
-
-    } catch (error) {
-      console.error('Error fetching data from Supabase:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleUpdateDueDate = (saleId: string, newDate: string) => {
     setSales(sales.map(s => s.id === saleId ? { ...s, due_date: new Date(newDate).toISOString() } : s));
@@ -3494,7 +3445,6 @@ export default function App() {
           .upsert(deduplicatedProducts, { onConflict: 'sku' });
 
         if (error) throw error;
-
         alert(`${deduplicatedProducts.length} produtos processados e salvos com sucesso!`);
         fetchData();
       } catch (error: any) {
@@ -3509,6 +3459,30 @@ export default function App() {
 
   const renderDashboard = () => (
     <div className="space-y-8">
+      {/* Atalhos Rápidos no Topo do Dashboard */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-2">
+        <button
+          onClick={() => setIsPdvModalOpen(true)}
+          className="flex items-center justify-center gap-3 px-6 py-4 bg-emerald-600 text-white rounded-2xl shadow-lg shadow-emerald-100 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all font-black text-[10px] tracking-widest uppercase"
+        >
+          <ShoppingCart size={20} />
+          <span>Venda PDV</span>
+        </button>
+        <button
+          onClick={() => setIsOsModalOpen(true)}
+          className="flex items-center justify-center gap-3 px-6 py-4 bg-amber-600 text-white rounded-2xl shadow-lg shadow-amber-100 hover:bg-amber-700 hover:scale-[1.02] active:scale-95 transition-all font-black text-[10px] tracking-widest uppercase"
+        >
+          <Bike size={20} />
+          <span>Nova O.S.</span>
+        </button>
+        <button
+          onClick={() => setIsQuickInventoryOpen(true)}
+          className="col-span-2 sm:col-span-1 flex items-center justify-center gap-3 px-6 py-4 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 hover:scale-[1.02] active:scale-95 transition-all font-black text-[10px] tracking-widest uppercase border-b-4 border-indigo-800"
+        >
+          <ClipboardCheck size={20} />
+          <span>Contagem Rápida</span>
+        </button>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Faturamento Mensal"
@@ -6521,8 +6495,11 @@ export default function App() {
                         </div>
                       )}
                       
-                      <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all">
-                        <Camera size={24} className="text-white" />
+                       <label className={`absolute inset-0 bg-black/40 ${!(productForm as any)[photo.key] ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-center justify-center cursor-pointer transition-all`}>
+                        <div className="flex flex-col items-center gap-1">
+                          <Camera size={24} className="text-white" />
+                          <span className="text-[10px] text-white font-bold uppercase">Capturar</span>
+                        </div>
                         <input 
                           type="file" 
                           accept="image/*" 
