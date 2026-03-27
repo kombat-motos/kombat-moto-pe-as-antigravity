@@ -603,21 +603,7 @@ export default function App() {
     setLoading(true);
     console.time('⏱️ Carregamento Total');
     try {
-      const [
-        { data: productsData },
-        { data: customersData },
-        { data: motorcyclesData },
-        { data: salesData },
-        { data: leadsData },
-        { data: mechanicsData },
-        { data: fixedServicesData },
-        { data: distributorsData },
-        { data: ordersData },
-        { data: cashSessionsData },
-        { data: cashTransactionsData },
-        { data: quotesData },
-        { data: registeredServicesData }
-      ] = await Promise.all([
+      const results = await Promise.all([
         supabase.from('products').select('*').order('description', { ascending: true }),
         supabase.from('customers').select('*').order('name', { ascending: true }),
         supabase.from('motorcycles').select('*'),
@@ -632,6 +618,30 @@ export default function App() {
         supabase.from('quotes').select('*').order('created_at', { ascending: false }).limit(100),
         supabase.from('registered_services').select('*')
       ]);
+
+      const [
+        productsRes, customersRes, motorcyclesRes, salesRes, leadsRes,
+        mechanicsRes, fixedServicesRes, distributorsRes, ordersRes,
+        cashSessionsRes, cashTransactionsRes, quotesRes, servicesRes
+      ] = results;
+
+      if (productsRes.error) console.error('Error loading products:', productsRes.error);
+      if (customersRes.error) console.error('Error loading customers:', customersRes.error);
+      if (salesRes.error) console.error('Error loading sales:', salesRes.error);
+
+      const productsData = productsRes.data;
+      const customersData = customersRes.data;
+      const motorcyclesData = motorcyclesRes.data;
+      const salesData = salesRes.data;
+      const leadsData = leadsRes.data;
+      const mechanicsData = mechanicsRes.data;
+      const fixedServicesData = fixedServicesRes.data;
+      const distributorsData = distributorsRes.data;
+      const ordersData = ordersRes.data;
+      const cashSessionsData = cashSessionsRes.data;
+      const cashTransactionsData = cashTransactionsRes.data;
+      const quotesData = quotesRes.data;
+      const registeredServicesData = servicesRes.data;
 
       // Popula os estados IMEDIATAMENTE para liberar a UI
       if (productsData) setProducts(productsData);
@@ -4044,7 +4054,24 @@ export default function App() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-300">
-              {products.filter(p => {
+              {loading && products.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-20 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-8 h-8 border-4 border-rose-600 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-slate-400 font-medium">Buscando estoque atualizado...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : products.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-20 text-center">
+                    <p className="text-slate-400 font-medium">Nenhum produto cadastrado.</p>
+                  </td>
+                </tr>
+              ) : (
+                <>
+                {products.filter(p => {
                 const search = (inventorySearchTerm.trim() || globalSearchTerm.trim()).toLowerCase();
                 if (!search) return true;
                 return (
@@ -4053,9 +4080,9 @@ export default function App() {
                   (p.location && (p.location || '').toLowerCase().includes(search)) ||
                   (p.barcode || '').toLowerCase().includes(search) ||
                   (p.brand && (p.brand || '').toLowerCase().includes(search))
-                );
-              }).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                  );
+                }).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-400">
@@ -4134,6 +4161,8 @@ export default function App() {
                   </td>
                 </tr>
               ))}
+              </>
+              )}
             </tbody>
           </table>
         </div>
