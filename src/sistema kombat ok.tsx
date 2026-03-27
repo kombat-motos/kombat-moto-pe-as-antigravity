@@ -904,46 +904,50 @@ export default function App() {
         { data: quotesData },
         { data: registeredServicesData }
       ] = await Promise.all([
-        supabase.from('products').select('*'),
-        supabase.from('customers').select('*'),
+        supabase.from('products').select('*').order('description', { ascending: true }),
+        supabase.from('customers').select('*').order('name', { ascending: true }),
         supabase.from('motorcycles').select('*'),
-        supabase.from('sales').select('*, sale_items(*)'),
-        supabase.from('leads').select('*'),
+        supabase.from('sales').select('*, sale_items(*)').order('date', { ascending: false }).limit(200),
+        supabase.from('leads').select('*').order('created_at', { ascending: false }),
         supabase.from('mechanics').select('*'),
         supabase.from('fixed_services').select('*'),
         supabase.from('distributors').select('*'),
-        supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
-        supabase.from('cash_sessions').select('*'),
-        supabase.from('cash_transactions').select('*'),
-        supabase.from('quotes').select('*'),
+        supabase.from('purchase_orders').select('*, purchase_order_items(*)').order('created_at', { ascending: false }).limit(100),
+        supabase.from('cash_sessions').select('*').order('opened_at', { ascending: false }).limit(50),
+        supabase.from('cash_transactions').select('*').order('created_at', { ascending: false }).limit(200),
+        supabase.from('quotes').select('*').order('created_at', { ascending: false }).limit(100),
         supabase.from('registered_services').select('*')
       ]);
 
       let finalProducts = productsData || [];
 
-      // Resolve Short Links for Products
-      const shortLinkCodes = finalProducts
-        .map(p => p.image_url)
-        .filter(url => url && url.startsWith('/s/'))
-        .map(url => url?.split('/s/')[1]);
+      // Resolve Short Links for Products (image_url, image_url2, image_url3, image_url4)
+      const allUrlsToResolve = finalProducts.reduce((acc: string[], p) => {
+        [p.image_url, p.image_url2, p.image_url3, p.image_url4].forEach(url => {
+          if (url && url.startsWith('/s/')) acc.push(url.split('/s/')[1]);
+        });
+        return acc;
+      }, []);
 
-      if (shortLinkCodes.length > 0) {
+      const uniqueCodes = Array.from(new Set(allUrlsToResolve));
+
+      if (uniqueCodes.length > 0) {
         const { data: links } = await supabase
           .from('short_links')
           .select('code, url')
-          .in('code', shortLinkCodes);
+          .in('code', uniqueCodes);
 
         if (links) {
           const linksMap: Record<string, string> = {};
           links.forEach(l => { linksMap[l.code] = l.url; });
 
-          finalProducts = finalProducts.map(p => {
-            if (p.image_url && p.image_url.startsWith('/s/')) {
-              const code = p.image_url.split('/s/')[1];
-              return { ...p, image_url: linksMap[code] || p.image_url };
-            }
-            return p;
-          });
+          finalProducts = finalProducts.map(p => ({
+            ...p,
+            image_url: (p.image_url?.startsWith('/s/') ? linksMap[p.image_url.split('/s/')[1]] : p.image_url) || p.image_url,
+            image_url2: (p.image_url2?.startsWith('/s/') ? linksMap[p.image_url2.split('/s/')[1]] : p.image_url2) || p.image_url2,
+            image_url3: (p.image_url3?.startsWith('/s/') ? linksMap[p.image_url3.split('/s/')[1]] : p.image_url3) || p.image_url3,
+            image_url4: (p.image_url4?.startsWith('/s/') ? linksMap[p.image_url4.split('/s/')[1]] : p.image_url4) || p.image_url4,
+          }));
         }
       }
 
