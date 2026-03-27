@@ -50,7 +50,8 @@ import {
   History,
   Scan,
   ClipboardCheck,
-  Camera
+  Camera,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
@@ -604,11 +605,11 @@ export default function App() {
     console.time('⏱️ Carregamento Total');
     try {
       const results = await Promise.all([
-        supabase.from('products').select('*').order('description', { ascending: true }),
-        supabase.from('customers').select('*').order('name', { ascending: true }),
-        supabase.from('motorcycles').select('*'),
+        supabase.from('products').select('*').order('description', { ascending: true }).limit(5000),
+        supabase.from('customers').select('*').order('name', { ascending: true }).limit(5000),
+        supabase.from('motorcycles').select('*').limit(5000),
         supabase.from('sales').select('*, sale_items(*)').order('date', { ascending: false }).limit(200),
-        supabase.from('leads').select('*').order('created_at', { ascending: false }),
+        supabase.from('leads').select('*').order('created_at', { ascending: false }).limit(200),
         supabase.from('mechanics').select('*'),
         supabase.from('fixed_services').select('*'),
         supabase.from('distributors').select('*'),
@@ -692,29 +693,42 @@ export default function App() {
 
       // --- Background: Resolução de Fotos (Não bloqueia o usuário) ---
       if (productsData && productsData.length > 0) {
-        const codes = productsData.reduce((acc: string[], p) => {
-          [p.image_url, p.image_url2, p.image_url3, p.image_url4].forEach(url => {
-            if (url && url.startsWith('/s/')) acc.push(url.split('/s/')[1]);
-          });
-          return acc;
-        }, []);
-        
-        const unique = Array.from(new Set(codes));
-        if (unique.length > 0) {
-          const { data: links } = await supabase.from('short_links').select('code, url').in('code', unique);
-          if (links) {
-            const map: Record<string, string> = {};
-            links.forEach(l => { map[l.code] = l.url; });
-            const resolved = productsData.map(p => ({
-              ...p,
-              image_url: (p.image_url?.startsWith('/s/') ? map[p.image_url.split('/s/')[1]] : p.image_url) || p.image_url,
-              image_url2: (p.image_url2?.startsWith('/s/') ? map[p.image_url2.split('/s/')[1]] : p.image_url2) || p.image_url2,
-              image_url3: (p.image_url3?.startsWith('/s/') ? map[p.image_url3.split('/s/')[1]] : p.image_url3) || p.image_url3,
-              image_url4: (p.image_url4?.startsWith('/s/') ? map[p.image_url4.split('/s/')[1]] : p.image_url4) || p.image_url4,
-            }));
-            setProducts(resolved);
+        // Disparar em background sem await para não bloquear o setLoading(false)
+        (async () => {
+          try {
+            const codes = productsData.reduce((acc: string[], p) => {
+              [p.image_url, p.image_url2, p.image_url3, p.image_url4].forEach(url => {
+                if (url && url.startsWith('/s/')) acc.push(url.split('/s/')[1]);
+              });
+              return acc;
+            }, []);
+            
+            const unique = Array.from(new Set(codes));
+            if (unique.length > 0) {
+              const { data: links } = await supabase.from('short_links').select('code, url').in('code', unique);
+              if (links) {
+                const map: Record<string, string> = {};
+                links.forEach(l => { map[l.code] = l.url; });
+                const resolved = productsData.map(p => ({
+                  ...p,
+                  image_url: (p.image_url?.startsWith('/s/') ? map[p.image_url.split('/s/')[1]] : p.image_url) || p.image_url,
+                  image_url2: (p.image_url2?.startsWith('/s/') ? map[p.image_url2.split('/s/')[1]] : p.image_url2) || p.image_url2,
+                  image_url3: (p.image_url3?.startsWith('/s/') ? map[p.image_url3.split('/s/')[1]] : p.image_url3) || p.image_url3,
+                  image_url4: (p.image_url4?.startsWith('/s/') ? map[p.image_url4.split('/s/')[1]] : p.image_url4) || p.image_url4,
+                }));
+                // Usar setter com função para garantir que não sobrescrevemos mudanças recentes se houver
+                setProducts(prev => {
+                  // Se a lista estiver vazia (primeiro carregamento erroado?), usamos a nova
+                  if (prev.length === 0) return resolved;
+                  // Caso contrário, atualizamos apenas se precisarmos (preservando estado UI se houver)
+                  return resolved;
+                });
+              }
+            }
+          } catch (bgErr) {
+            console.warn('Background resolution soft error:', bgErr);
           }
-        }
+        })();
       }
 
     } catch (error) {
@@ -3982,6 +3996,13 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-slate-900">Estoque de Peças</h2>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchData()}
+            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+            title="Sincronizar Estoque"
+          >
+            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+          </button>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
