@@ -183,7 +183,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
     const charges = totalWithCharges - (original - paid);
     const dueDate = sale.due_date ? format(new Date(sale.due_date), 'dd/MM/yyyy') : 'N/A';
 
-    const itemsList = sale.items.map((item: any) => `${item.quantity}x ${item.description.substring(0, 20)}.. R$ ${(item.quantity * item.price).toFixed(2)}`).join('\n');
+    const itemsList = (sale?.items || []).map((item: any) => `${item.quantity}x ${(item.description || '').substring(0, 20)}.. R$ ${(item.quantity * item.price).toFixed(2)}`).join('\n');
     const labor = sale.labor_value > 0 ? `SERVIÇOS.. R$ ${sale.labor_value.toFixed(2)}\n` : '';
 
     let headerMsg = '';
@@ -228,7 +228,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
         <p className="text-slate-500">Nenhuma cobrança pendente no momento.</p>
       ) : (
         <div className="space-y-4">
-          {pendingSales.map(sale => {
+          {(Array.isArray(pendingSales) ? pendingSales : []).map(sale => {
             const customer = customers.find(c => c.id === sale.customer_id);
             const customerWhatsapp = getCustomerWhatsapp(sale.customer_id);
             const dueDate = sale.due_date ? new Date(sale.due_date) : null;
@@ -548,7 +548,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
 
             <div style={{ marginTop: '15px', border: '1px solid #eee', padding: '10px', fontSize: '14px' }}>
               <strong style={{ display: 'block', borderBottom: '1px solid #eee', paddingBottom: '5px', marginBottom: '5px' }}>DESCRIÇÃO DOS ITENS E SERVIÇOS</strong>
-              {selectedPromissory.items.map((item: any, idx: number) => (
+              {(selectedPromissory?.items || []).map((item: any, idx: number) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                   <span>{item.quantity}x {item.description}</span>
                   <span>R$ {(item.quantity * item.price).toFixed(2)}</span>

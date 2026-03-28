@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -61,7 +61,6 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import * as htmlToImage from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import { supabase } from './supabase';
 
 // --- Types ---
 interface Customer {
@@ -247,6 +246,47 @@ const formatBRL = (value: number) => {
     style: 'currency',
     currency: 'BRL',
   }).format(value || 0);
+};
+
+const localApi = {
+  get: async (route: string) => {
+    const res = await fetch(`/api/${route}`);
+    if (!res.ok) throw new Error(`Erro ao buscar ${route}`);
+    return res.json();
+  },
+  post: async (route: string, data: any) => {
+    const res = await fetch(`/api/${route}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`Erro ao criar ${route}`);
+    return res.json();
+  },
+  put: async (endpoint: string, idOrData: any, data?: any) => {
+    let url = `/api/${endpoint}`;
+    let bodyData = data;
+    if (data === undefined) {
+      bodyData = idOrData;
+    } else {
+      url += `/${idOrData}`;
+    }
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyData),
+    });
+    if (!res.ok) throw new Error(`Erro ao atualizar ${endpoint}`);
+    return res.json();
+  },
+  delete: async (endpoint: string, id?: any) => {
+    const url = id ? `/api/${endpoint}/${id}` : `/api/${endpoint}`;
+    const res = await fetch(url, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error(`Erro ao excluir ${endpoint}`);
+    return res.json();
+  }
 };
 
 // --- Components ---
@@ -461,7 +501,7 @@ const VendaCalculator = ({ initialCost, onApply, cardFees }: { initialCost: numb
 };
 
 export default function App() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>({ id: 'local-user', email: 'admin@sistema.local' });
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inventoryView, setInventoryView] = useState<'list' | 'grid'>('list');
@@ -475,14 +515,61 @@ export default function App() {
   const [authChecking, setAuthChecking] = useState(true);
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
 
-  // Environment Check
-  useEffect(() => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error("ERRO CRÍTICO: Variáveis do Supabase faltando!");
+  const localApi = {
+    get: async (route: string) => {
+      const res = await fetch(`/api/${route}`);
+      if (!res.ok) throw new Error(`Erro ao buscar ${route}`);
+      return res.json();
+    },
+    post: async (route: string, body: any) => {
+      const res = await fetch(`/api/${route}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erro na operação');
+        return data;
+      } else {
+        const text = await res.text();
+        if (!res.ok) throw new Error(`Erro no servidor (${res.status}): A rota /api/${route} pode estar faltando ou o servidor precisa ser reiniciado.`);
+        return text;
+      }
+    },
+    put: async (route: string, id: any, body: any) => {
+      const res = await fetch(`/api/${route}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro na operação');
+      return data;
+    },
+    patch: async (route: string, id: any, action: string) => {
+      const res = await fetch(`/api/${route}/${id}/${action}`, { method: 'PATCH' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro na operação');
+      return data;
+    },
+    delete: async (route: string, id: any) => {
+      const res = await fetch(`/api/${route}/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro na operação');
+      return data;
+    },
+    upload: async (fileName: string, fileContent: string) => {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName, fileContent })
+      });
+      return res.json();
     }
-  }, []);
+  };
 
   // Modal States
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
@@ -494,6 +581,9 @@ export default function App() {
   const [editingService, setEditingService] = useState<RegisteredService | null>(null);
   const [editingOS, setEditingOS] = useState<Sale | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [editingMechanic, setEditingMechanic] = useState<Mechanic | null>(null);
+  const [editingFixedService, setEditingFixedService] = useState<FixedService | null>(null);
+  const [editingDistributor, setEditingDistributor] = useState<Distributor | null>(null);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
   const [labelPreviewProduct, setLabelPreviewProduct] = useState<Product | null>(null);
   const [showPdvCalculator, setShowPdvCalculator] = useState(false);
@@ -586,9 +676,9 @@ export default function App() {
   const [mechanics, setMechanics] = useState<Mechanic[]>([]);
   const [fixedServices, setFixedServices] = useState<FixedService[]>([]);
   const [isMechanicModalOpen, setIsMechanicModalOpen] = useState(false);
-  const [mechanicForm, setMechanicForm] = useState({ name: '' });
+  const [mechanicForm, setMechanicForm] = useState({ name: '', commissionRate: '' });
   const [isFixedServiceModalOpen, setIsFixedServiceModalOpen] = useState(false);
-  const [fixedServiceForm, setFixedServiceForm] = useState({ name: '', payout: '' });
+  const [fixedServiceForm, setFixedServiceForm] = useState({ name: '', price: '', payout: '' });
   const [isMechanicReportModalOpen, setIsMechanicReportModalOpen] = useState(false);
   const [selectedMechanicForReport, setSelectedMechanicForReport] = useState<Mechanic | null>(null);
   const [isFiadoModalOpen, setIsFiadoModalOpen] = useState(false);
@@ -600,75 +690,67 @@ export default function App() {
   const [quickInventoryStock, setQuickInventoryStock] = useState<string>('');
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
 
+  const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
+
   async function fetchData() {
+    if (isFetchingRef.current) return;
+    const now = Date.now();
+    if (now - lastFetchTimeRef.current < 1000) return;
+    
+    isFetchingRef.current = true;
+    lastFetchTimeRef.current = now;
     setLoading(true);
     console.time('⏱️ Carregamento Total');
+    
     try {
-      const results = await Promise.all([
-        supabase.from('products').select('*').order('description', { ascending: true }).limit(5000),
-        supabase.from('customers').select('*').order('name', { ascending: true }).limit(5000),
-        supabase.from('motorcycles').select('*').limit(5000),
-        supabase.from('sales').select('*, sale_items(*)').order('date', { ascending: false }).limit(200),
-        supabase.from('leads').select('*').order('created_at', { ascending: false }).limit(200),
-        supabase.from('mechanics').select('*'),
-        supabase.from('fixed_services').select('*'),
-        supabase.from('distributors').select('*'),
-        supabase.from('purchase_orders').select('*, purchase_order_items(*)').order('created_at', { ascending: false }).limit(100),
-        supabase.from('cash_sessions').select('*').order('opened_at', { ascending: false }).limit(50),
-        supabase.from('cash_transactions').select('*').order('created_at', { ascending: false }).limit(200),
-        supabase.from('quotes').select('*').order('created_at', { ascending: false }).limit(100),
-        supabase.from('registered_services').select('*')
-      ]);
+      const fetchTable = async (route: string) => {
+        const res = await fetch(`/api/${route}`);
+        if (!res.ok) throw new Error(`Erro ao buscar ${route}`);
+        return res.json();
+      };
 
-      const [
-        productsRes, customersRes, motorcyclesRes, salesRes, leadsRes,
-        mechanicsRes, fixedServicesRes, distributorsRes, ordersRes,
-        cashSessionsRes, cashTransactionsRes, quotesRes, servicesRes
-      ] = results;
+      // Fetch each table independently to avoid one failing route blocking everything
+      const productsData = await fetchTable('products').catch(() => []);
+      const customersData = await fetchTable('customers').catch(() => []);
+      const motorcyclesData = await fetchTable('motorcycles').catch(() => []);
+      const salesData = await fetchTable('sales').catch(() => []);
+      const leadsData = await fetchTable('leads').catch(() => []);
+      const mechanicsData = await fetchTable('mechanics').catch(() => []);
+      const fixedServicesData = await fetchTable('fixed_services').catch(() => []);
+      const distributorsData = await fetchTable('distributors').catch(() => []);
+      const ordersData = await fetchTable('purchase_orders').catch(() => []);
+      const cashSessionsData = await fetchTable('cash_sessions').catch(() => []);
+      const cashTransactionsData = await fetchTable('cash_transactions').catch(() => []);
+      const quotesData = await fetchTable('quotes').catch(() => []);
+      const servicesData = await fetchTable('registered_services').catch(() => []);
 
-      if (productsRes.error) console.error('Error loading products:', productsRes.error);
-      if (customersRes.error) console.error('Error loading customers:', customersRes.error);
-      if (salesRes.error) console.error('Error loading sales:', salesRes.error);
-
-      const productsData = productsRes.data;
-      const customersData = customersRes.data;
-      const motorcyclesData = motorcyclesRes.data;
-      const salesData = salesRes.data;
-      const leadsData = leadsRes.data;
-      const mechanicsData = mechanicsRes.data;
-      const fixedServicesData = fixedServicesRes.data;
-      const distributorsData = distributorsRes.data;
-      const ordersData = ordersRes.data;
-      const cashSessionsData = cashSessionsRes.data;
-      const cashTransactionsData = cashTransactionsRes.data;
-      const quotesData = quotesRes.data;
-      const registeredServicesData = servicesRes.data;
-
-      // Popula os estados IMEDIATAMENTE para liberar a UI
       if (productsData) setProducts(productsData);
       if (customersData) setCustomers(customersData);
       if (motorcyclesData) setMotorcycles(motorcyclesData);
-      if (salesData) setSales(salesData.map((s: any) => ({ ...s, items: s.sale_items || [] })));
+      if (salesData) setSales(salesData);
       if (leadsData) setLeads(leadsData);
       if (mechanicsData) setMechanics(mechanicsData);
       if (fixedServicesData) setFixedServices(fixedServicesData);
       if (distributorsData) setDistributors(distributorsData);
-      if (ordersData) setPurchaseOrders(ordersData.map((o: any) => ({ ...o, items: o.purchase_order_items || [] })));
+      if (ordersData) setPurchaseOrders(ordersData);
+      if (cashSessionsData) setCashSessions(cashSessionsData);
+      if (cashTransactionsData) setCashTransactions(cashTransactionsData);
       if (quotesData) setQuotes(quotesData);
-      if (registeredServicesData) setRegisteredServices(registeredServicesData);
+      if (servicesData) setRegisteredServices(servicesData);
 
-      if (cashSessionsData) {
+      if (Array.isArray(cashSessionsData)) {
         const sessions = cashSessionsData.map((s: any) => ({
           id: s.id, openedAt: s.opened_at, closedAt: s.closed_at,
           openingBalance: s.opening_balance, closingBalance: s.closing_balance,
-          expectedBalance: s.expected_balance, status: s.status, notes: s.notes
+          expectedBalance: s.expected_balance || 0, status: s.status, notes: s.notes
         }));
         setCashSessions(sessions);
         const active = sessions.find((s: any) => s.status === 'Aberto');
         if (active) setActiveSession(active);
       }
 
-      if (cashTransactionsData) {
+      if (Array.isArray(cashTransactionsData)) {
         setCashTransactions(cashTransactionsData.map((t: any) => ({
           id: t.id, sessionId: t.session_id, type: t.type, amount: t.amount,
           description: t.description, date: t.date
@@ -676,8 +758,8 @@ export default function App() {
       }
 
       // Stats Simplificados
-      if (salesData) {
-        const rev = salesData.reduce((acc: number, s: any) => acc + s.total, 0);
+      if (Array.isArray(salesData)) {
+        const rev = salesData.reduce((acc: number, s: any) => acc + (s.total || 0), 0);
         setStats({
           revenue: rev,
           openServiceOrders: salesData.filter((s: any) => s.type === 'Oficina' && s.status !== 'Entregue').length,
@@ -692,51 +774,61 @@ export default function App() {
       console.timeEnd('⏱️ Carregamento Total');
 
       // --- Background: Resolução de Fotos (Não bloqueia o usuário) ---
-      if (productsData && productsData.length > 0) {
-        // Disparar em background sem await para não bloquear o setLoading(false)
-        (async () => {
+      // Movido para useEffect separado para maior eficiência
+    } catch (error) {
+      console.error('Erro no Servidor:', error);
+    } finally {
+      setLoading(false);
+      isFetchingRef.current = false;
+    }
+  };
+
+  // Resolução de imagens em background via hook para evitar corridas
+  useEffect(() => {
+    if (!loading && products.length > 0) {
+      const needsResolution = products.some(p => 
+        (p.image_url && p.image_url.startsWith('/s/')) || 
+        (p.image_url2 && p.image_url2.startsWith('/s/')) ||
+        (p.image_url3 && p.image_url3.startsWith('/s/')) ||
+        (p.image_url4 && p.image_url4.startsWith('/s/'))
+      );
+
+      if (needsResolution) {
+        const timer = setTimeout(async () => {
           try {
-            const codes = productsData.reduce((acc: string[], p) => {
+            const codes = products.reduce((acc: string[], p) => {
               [p.image_url, p.image_url2, p.image_url3, p.image_url4].forEach(url => {
-                if (url && url.startsWith('/s/')) acc.push(url.split('/s/')[1]);
+                if (url && url.startsWith('/s/') && !url.includes('blob')) acc.push(url.split('/s/')[1]);
               });
               return acc;
             }, []);
             
             const unique = Array.from(new Set(codes));
             if (unique.length > 0) {
-              const { data: links } = await supabase.from('short_links').select('code, url').in('code', unique);
-              if (links) {
+              const res = await fetch(`/api/short_links?codes=${unique.join(',')}`);
+              const links = await res.json();
+              if (links && links.length > 0) {
                 const map: Record<string, string> = {};
-                links.forEach(l => { map[l.code] = l.url; });
-                const resolved = productsData.map(p => ({
+                links.forEach((l: any) => { map[l.code] = l.url; });
+                
+                const resolved = products.map(p => ({
                   ...p,
                   image_url: (p.image_url?.startsWith('/s/') ? map[p.image_url.split('/s/')[1]] : p.image_url) || p.image_url,
                   image_url2: (p.image_url2?.startsWith('/s/') ? map[p.image_url2.split('/s/')[1]] : p.image_url2) || p.image_url2,
                   image_url3: (p.image_url3?.startsWith('/s/') ? map[p.image_url3.split('/s/')[1]] : p.image_url3) || p.image_url3,
                   image_url4: (p.image_url4?.startsWith('/s/') ? map[p.image_url4.split('/s/')[1]] : p.image_url4) || p.image_url4,
                 }));
-                // Usar setter com função para garantir que não sobrescrevemos mudanças recentes se houver
-                setProducts(prev => {
-                  // Se a lista estiver vazia (primeiro carregamento erroado?), usamos a nova
-                  if (prev.length === 0) return resolved;
-                  // Caso contrário, atualizamos apenas se precisarmos (preservando estado UI se houver)
-                  return resolved;
-                });
+                setProducts(resolved);
               }
             }
-          } catch (bgErr) {
-            console.warn('Background resolution soft error:', bgErr);
+          } catch (err) {
+            console.warn('Silent image load error:', err);
           }
-        })();
+        }, 800);
+        return () => clearTimeout(timer);
       }
-
-    } catch (error) {
-      console.error('Erro no Supabase:', error);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [products, loading]);
 
   const [salesSearchTerm, setSalesSearchTerm] = useState('');
   const [selectedCustomerForHistory, setSelectedCustomerForHistory] = useState<Customer | null>(null);
@@ -803,10 +895,7 @@ export default function App() {
   const [transactionForm, setTransactionForm] = useState({ type: 'Sangria' as 'Suprimento' | 'Sangria', amount: '', description: '' });
 
   // Parts Order State
-  const [distributors, setDistributors] = useState<Distributor[]>([
-    { id: '1', name: 'Distribuidora MotoPeças', phone: '5511999999999', contact_person: 'Ricardo' },
-    { id: '2', name: 'Central das Motos', phone: '5511888888888', contact_person: 'Ana' }
-  ]);
+  const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [orderForm, setOrderForm] = useState<{
@@ -824,64 +913,81 @@ export default function App() {
 
   const handleAddDistributor = async (e: React.FormEvent) => {
     e.preventDefault();
-    const id = Math.random().toString(36).substr(2, 9);
     try {
-      const { error } = await supabase.from('distributors').insert([{
-        id,
+      const payload = {
         name: distributorForm.name,
         phone: distributorForm.phone,
         contact_person: distributorForm.contact_person,
-      }]);
-      if (error) throw error;
+      };
+
+      if (editingDistributor) {
+        await localApi.put('distributors', editingDistributor.id, payload);
+        alert(`Distribuidor atualizado com sucesso!`);
+      } else {
+        await localApi.post('distributors', payload);
+        alert(`Distribuidor cadastrado com sucesso!`);
+      }
 
       setIsDistributorModalOpen(false);
+      setEditingDistributor(null);
       setDistributorForm({ name: '', phone: '', contact_person: '' });
-      alert(`Distribuidor cadastrado com sucesso!`);
       fetchData();
     } catch (error) {
-      console.error('Error adding distributor:', error);
+      console.error('Error saving distributor:', error);
       alert('Erro ao salvar distribuidor.');
     }
   };
 
   const handleAddMechanic = async (e: React.FormEvent) => {
     e.preventDefault();
-    const id = Math.random().toString(36).substr(2, 9).toUpperCase();
     try {
-      const { error } = await supabase.from('mechanics').insert([{
-        id,
+      const payload = {
         name: mechanicForm.name,
-      }]);
-      if (error) throw error;
+        commission_rate: parseFloat(mechanicForm.commissionRate) || 0,
+        active: true
+      };
+
+      if (editingMechanic) {
+        await localApi.put('mechanics', editingMechanic.id, payload);
+        alert(`Mecânico atualizado com sucesso!`);
+      } else {
+        await localApi.post('mechanics', payload);
+        alert(`Mecânico cadastrado com sucesso!`);
+      }
 
       setIsMechanicModalOpen(false);
-      setMechanicForm({ name: '' });
-      alert(`Mecânico cadastrado com sucesso!`);
+      setEditingMechanic(null);
+      setMechanicForm({ name: '', commissionRate: '' });
       fetchData();
     } catch (error) {
-      console.error('Error adding mechanic:', error);
+      console.error('Error saving mechanic:', error);
       alert('Erro ao salvar mecânico.');
     }
   };
 
   const handleAddFixedService = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payout = parseFloat(fixedServiceForm.payout.toString().replace(',', '.')) || 0;
-    const id = Math.random().toString(36).substr(2, 9).toUpperCase();
     try {
-      const { error } = await supabase.from('fixed_services').insert([{
-        id,
+      const payload = {
         name: fixedServiceForm.name,
-        payout,
-      }]);
-      if (error) throw error;
+        price: parseFloat(fixedServiceForm.price) || 0,
+        payout: parseFloat(fixedServiceForm.payout) || 0,
+      };
+
+      if (editingFixedService) {
+        await localApi.put('fixed_services', editingFixedService.id, payload);
+        alert(`Serviço atualizado com sucesso!`);
+      } else {
+        await localApi.post('fixed_services', payload);
+        alert(`Serviço adicionado à tabela!`);
+      }
 
       setIsFixedServiceModalOpen(false);
-      setFixedServiceForm({ name: '', payout: '' });
-      alert(`Serviço adicionado à tabela!`);
+      setEditingFixedService(null);
+      setFixedServiceForm({ name: '', price: '', payout: '' });
       fetchData();
     } catch (error) {
-      console.error('Error adding fixed service:', error);
+      console.error('Error saving fixed service:', error);
       alert('Erro ao salvar serviço.');
     }
   };
@@ -889,8 +995,7 @@ export default function App() {
   const handleDeleteOrder = async (orderId: string) => {
     if (window.confirm('Tem certeza que deseja deletar este pedido de peças?')) {
       try {
-        const { error } = await supabase.from('purchase_orders').delete().eq('id', orderId);
-        if (error) throw error;
+        await localApi.delete('purchase_orders', orderId);
         alert('Pedido de peças deletado com sucesso!');
         fetchData();
       } catch (error) {
@@ -937,24 +1042,18 @@ export default function App() {
     if (url.includes('/s/')) return url;
 
     try {
-      // Check if already exists in Supabase to avoid duplicates
-      const { data: existing } = await supabase
-        .from('short_links')
-        .select('code')
-        .eq('url', url)
-        .maybeSingle();
-
-      if (existing) {
-        return `/s/${existing.code}`;
-      }
-
       // Create new short code
       const code = Math.random().toString(36).substring(2, 8);
-      const { error } = await supabase
-        .from('short_links')
-        .insert([{ code, url }]);
-
-      if (error) throw error;
+      
+      // Use a direct fetch to avoid localApi's automatic .json() move on potential HTML error
+      const res = await fetch('/api/short_links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, url })
+      });
+      
+      if (!res.ok) return url; // If route is missing (404), just use original URL
+      
       return `/s/${code}`;
     } catch (error) {
       console.error('Error shortening URL:', error);
@@ -970,14 +1069,9 @@ export default function App() {
         const code = path.split('/s/')[1];
         if (code) {
           try {
-            const { data, error } = await supabase
-              .from('short_links')
-              .select('url')
-              .eq('code', code)
-              .single();
-
-            if (data?.url) {
-              window.location.href = data.url;
+            const res = await fetch(`/api/short_links/${code}`);
+            if (res.ok) {
+              window.location.href = res.url;
               return;
             }
           } catch (err) {
@@ -987,40 +1081,13 @@ export default function App() {
       }
     };
     handleRedirect();
-
-    checkUser();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchData();
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    fetchData();
+    setAuthChecking(false);
   }, []);
-
-  const checkUser = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-    } catch (error) {
-      console.error('Não foi possível verificar a sessão', error);
-    } finally {
-      setAuthChecking(false);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchData();
-    }
-  }, [user]);
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      await fetch('/api/auth/logout', { method: 'POST' });
       setUser(null);
     } catch (error) {
       console.error('Erro ao sair', error);
@@ -1058,26 +1125,22 @@ export default function App() {
     e.preventDefault();
     try {
       if (editingLead) {
-        const { error } = await supabase.from('leads').update({
+        await localApi.put('leads', editingLead.id, {
           name: leadForm.name,
           company: leadForm.company,
           value: parseFloat(leadForm.value.toString().replace(',', '.')) || 0,
           priority: leadForm.priority,
           phone: leadForm.phone
-        }).eq('id', editingLead.id);
-        if (error) throw error;
+        });
       } else {
-        const id = Math.random().toString(36).substr(2, 9);
-        const { error } = await supabase.from('leads').insert([{
-          id,
+        await localApi.post('leads', {
           name: leadForm.name,
           company: leadForm.company,
           value: parseFloat(leadForm.value.toString().replace(',', '.')) || 0,
           priority: leadForm.priority,
           status: 'Prospecção',
           phone: leadForm.phone
-        }]);
-        if (error) throw error;
+        });
       }
 
       setIsLeadModalOpen(false);
@@ -1086,7 +1149,7 @@ export default function App() {
       fetchData();
     } catch (error: any) {
       console.error('Error adding/updating lead:', error);
-      alert('Erro ao salvar lead: ' + (error.message || 'Erro de conexão ou permissão.'));
+      alert('Erro ao salvar lead: ' + (error.message || 'Erro no servidor'));
     }
   };
 
@@ -1105,8 +1168,7 @@ export default function App() {
   const handleDeleteLead = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este lead?')) return;
     try {
-      const { error } = await supabase.from('leads').delete().eq('id', id);
-      if (error) throw error;
+      await localApi.delete('leads', id);
       fetchData();
     } catch (error: any) {
       console.error('Error deleting lead:', error);
@@ -1178,12 +1240,9 @@ export default function App() {
     const newStock = parseInt(quickInventoryStock) || 0;
     
     try {
-      const { error } = await supabase
-        .from('products')
-        .update({ stock: newStock })
-        .eq('id', selectedQuickProduct.id);
-      
-      if (error) throw error;
+      await localApi.put('products', selectedQuickProduct.id, {
+        stock: newStock
+      });
       
       alert(`Estoque de "${selectedQuickProduct.description}" atualizado para ${newStock}!`);
       setSelectedQuickProduct(null);
@@ -1258,7 +1317,7 @@ export default function App() {
 
     if (pdvForm.payment_method === 'Fiado') {
       if (!pdvForm.customer_id) {
-        alert("Selecione um cliente cadastrado para realizar uma venda fiada.");
+        alert("Selecione um cliente para realizar uma venda fiada.");
         return;
       }
 
@@ -1267,13 +1326,17 @@ export default function App() {
         return;
       }
 
-      const currentDebt = sales
-        .filter(s => s.customer_id === customer.id && s.payment_status === 'Pendente')
-        .reduce((acc, s) => acc + s.total, 0);
+      try {
+        const currentDebt = (sales || [])
+          .filter(s => s && s.customer_id === customer.id && s.payment_status === 'Pendente')
+          .reduce((acc, s) => acc + (s.total || 0), 0);
 
-      if (currentDebt + total > (customer.credit_limit || 0)) {
-        alert(`Limite de crédito excedido! \nLimite: ${formatBRL(customer.credit_limit)} \nDívida Atual: ${formatBRL(currentDebt)} \nEsta Venda: ${formatBRL(total)}`);
-        return;
+        if (currentDebt + total > (customer.credit_limit || 0)) {
+          const proceed = window.confirm(`Limite de crédito excedido! \nLimite: ${formatBRL(customer.credit_limit)} \nDívida Atual: ${formatBRL(currentDebt)} \nEsta Venda: ${formatBRL(total)} \n\nDeseja continuar mesmo assim?`);
+          if (!proceed) return;
+        }
+      } catch (err) {
+        console.warn("Aviso: Não foi possível calcular a dívida exata, mas permitindo venda.", err);
       }
     }
 
@@ -1295,46 +1358,11 @@ export default function App() {
     };
 
     try {
-      // 1. Insert into sales
-      const { error: saleError } = await supabase.from('sales').insert([{
-        id: newSale.id,
-        customer_id: newSale.customer_id,
-        customer_name: newSale.customer_name,
-        labor_value: newSale.labor_value,
-        commission: newSale.commission,
-        total: newSale.total,
-        payment_method: newSale.payment_method,
-        type: newSale.type,
-        date: newSale.date,
-        payment_status: newSale.payment_status,
-        due_date: newSale.due_date,
-        paid_date: newSale.paid_date
-      }]);
-
-      if (saleError) throw saleError;
-
-      // 2. Insert into sale_items
-      const saleItems = finalItems.map(item => ({
-        sale_id: saleId,
-        product_id: item.product_id,
-        description: item.description,
-        quantity: item.quantity,
-        price: item.price
-      }));
-
-      const { error: itemsError } = await supabase.from('sale_items').insert(saleItems);
-      if (itemsError) throw itemsError;
-
-      // 3. Update stock and Local State
-      for (const item of pdvForm.items) {
-        if (item.product_id) {
-          const product = products.find(p => p.id === item.product_id);
-          if (product) {
-            const newStock = product.stock - item.quantity;
-            await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
-          }
-        }
-      }
+      // Send sale with items to the single transational endpoint
+      await localApi.post('sales', {
+        ...newSale,
+        sale_items: finalItems
+      });
 
       setSales([newSale, ...sales]);
       setIsPdvModalOpen(false);
@@ -1348,11 +1376,13 @@ export default function App() {
         installments: 1
       });
       alert(`Venda ${newSale.id} concluída com sucesso!`);
-      fetchData(); // Refresh all data to ensure consistency
-
-    } catch (error) {
-      console.error('Error adding transaction:', error);
-      alert('Erro ao registrar movimentação.');
+      fetchData(); // Refresh to update all states (stock, cash, etc)
+      return;
+    } catch (error: any) {
+      console.error('Error saving sale:', error);
+      alert('Erro ao salvar venda: ' + (error.message || 'Erro no servidor'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1455,8 +1485,9 @@ export default function App() {
     };
 
     try {
+      setLoading(true);
       if (editingOS) {
-        const { error: saleError } = await supabase.from('sales').update({
+        await localApi.put('sales', editingOS.id, {
           customer_id: newOS.customer_id,
           customer_name: newOS.customer_name,
           labor_value: newOS.labor_value,
@@ -1470,13 +1501,13 @@ export default function App() {
           due_date: newOS.due_date,
           paid_date: newOS.paid_date,
           service_description: newOS.service_description,
-          status: newOS.status
-        }).eq('id', editingOS.id);
-        if (saleError) throw saleError;
-
-        await supabase.from('sale_items').delete().eq('sale_id', osId);
+          status: newOS.status,
+          sale_items: osForm.items,
+          motorcycle_id: motorcycle?.id,
+          motorcycle_km: parseInt(osForm.km) || 0
+        });
       } else {
-        const { error: saleError } = await supabase.from('sales').insert([{
+        await localApi.post('sales', {
           id: newOS.id,
           customer_id: newOS.customer_id,
           customer_name: newOS.customer_name,
@@ -1493,54 +1524,11 @@ export default function App() {
           due_date: newOS.due_date,
           paid_date: newOS.paid_date,
           service_description: newOS.service_description,
-          status: newOS.status
-        }]);
-        if (saleError) throw saleError;
-      }
-
-      // 2. Insert into sale_items
-      if (osForm.items.length > 0) {
-        const saleItems = osForm.items.map(item => ({
-          sale_id: osId,
-          product_id: item.product_id,
-          description: item.description,
-          quantity: item.quantity,
-          price: item.price,
-          type: item.type || 'Peça'
-        }));
-
-        const { error: itemsError } = await supabase.from('sale_items').insert(saleItems);
-        if (itemsError) throw itemsError;
-      }
-
-      // 3. Update stock with Reversal Logic
-      const stockAdjustments = new Map<number, number>();
-      if (editingOS) {
-        editingOS.items.forEach(item => {
-          if (item.product_id) {
-            stockAdjustments.set(item.product_id, (stockAdjustments.get(item.product_id) || 0) + item.quantity);
-          }
+          status: newOS.status,
+          sale_items: osForm.items,
+          motorcycle_id: motorcycle?.id,
+          motorcycle_km: parseInt(osForm.km) || 0
         });
-      }
-      osForm.items.forEach(item => {
-        if (item.product_id) {
-          stockAdjustments.set(item.product_id, (stockAdjustments.get(item.product_id) || 0) - item.quantity);
-        }
-      });
-
-      for (const [productId, adjustment] of stockAdjustments) {
-        if (adjustment !== 0) {
-          const product = products.find(p => p.id === productId);
-          if (product) {
-            const newStock = product.stock + adjustment;
-            await supabase.from('products').update({ stock: newStock }).eq('id', productId);
-          }
-        }
-      }
-
-      // 4. Update motorcycle KM
-      if (motorcycle && osForm.km) {
-        await supabase.from('motorcycles').update({ current_km: parseInt(osForm.km) || 0 }).eq('id', motorcycle.id);
       }
 
       fetchData();
@@ -1560,12 +1548,12 @@ export default function App() {
         service_description: '',
         km: ''
       });
-      alert(`Ordem de Serviço ${newOS.id} criada com sucesso!`);
-      fetchData();
-
-    } catch (error) {
+      alert(`Ordem de Serviço ${newOS.id} salva com sucesso!`);
+    } catch (error: any) {
       console.error('Error completing O.S.:', error);
-      alert('Erro ao salvar Ordem de Serviço no banco de dados.');
+      alert('Erro ao salvar Ordem de Serviço: ' + (error.message || 'Erro no servidor'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -2064,7 +2052,11 @@ export default function App() {
   const FiadoModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
     const pendingFiadoSales = sales.filter(sale => sale.payment_status === 'Pendente');
 
-    const handleMarkAsPaid = (saleId: string) => {
+    const handleMarkAsPaid = async (saleId: string) => {
+      await localApi.put('sales', saleId, {
+        payment_status: 'Pago',
+        paid_date: new Date().toISOString()
+      });
       setSales(sales.map(sale =>
         sale.id === saleId ? { ...sale, payment_status: 'Pago', paid_date: new Date().toISOString() } : sale
       ));
@@ -2102,8 +2094,7 @@ export default function App() {
   const handleDeleteQuote = async (id: string) => {
     if (confirm('Deseja realmente excluir este orçamento?')) {
       try {
-        const { error } = await supabase.from('quotes').delete().eq('id', id);
-        if (error) throw error;
+        await localApi.delete('quotes', id);
         setQuotes(prev => prev.filter(q => q.id !== id));
         alert('Orçamento excluído com sucesso!');
       } catch (err) {
@@ -2150,14 +2141,12 @@ export default function App() {
       };
 
       if (editingQuote) {
-        const { data, error } = await supabase.from('quotes').update(dataToSave).eq('id', editingQuote.id).select().single();
-        if (error) throw error;
-        setQuotes(prev => prev.map(q => q.id === data.id ? data : q));
+        const updatedQuote = await localApi.put('quotes', editingQuote.id, dataToSave);
+        setQuotes(prev => prev.map(q => q.id === updatedQuote.id ? updatedQuote : q));
         alert('Orçamento atualizado com sucesso!');
       } else {
-        const { data, error } = await supabase.from('quotes').insert([dataToSave]).select().single();
-        if (error) throw error;
-        setQuotes(prev => [data, ...prev]);
+        const newQuote = await localApi.post('quotes', dataToSave);
+        setQuotes(prev => [newQuote, ...prev]);
         alert('Orçamento criado com sucesso!');
       }
 
@@ -2548,19 +2537,38 @@ export default function App() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Gestão de Equipe e Serviços</h2>
-          <p className="text-sm text-slate-500">Mecânicos e Tabela de Repasses Fixos</p>
+          <h2 className="text-2xl font-bold text-slate-900">Gestão de Equipe e Fornecedores</h2>
+          <p className="text-sm text-slate-500">Mecânicos, Fornecedores e Repasses Fixos</p>
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => setIsFixedServiceModalOpen(true)}
+            onClick={() => {
+              setEditingDistributor(null);
+              setDistributorForm({ name: '', phone: '', contact_person: '' });
+              setIsDistributorModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-400 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-medium"
+          >
+            <Truck size={18} />
+            Novo Distribuidor
+          </button>
+          <button
+            onClick={() => {
+              setEditingFixedService(null);
+              setFixedServiceForm({ name: '', price: '', payout: '' });
+              setIsFixedServiceModalOpen(true);
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-400 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-medium"
           >
             <Settings size={18} />
             Tabela de Serviços
           </button>
           <button
-            onClick={() => setIsMechanicModalOpen(true)}
+            onClick={() => {
+              setEditingMechanic(null);
+              setMechanicForm({ name: '', commissionRate: '' });
+              setIsMechanicModalOpen(true);
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-medium"
           >
             <Plus size={18} />
@@ -2572,10 +2580,13 @@ export default function App() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Mechanics List */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
-          <div className="p-6 border-b border-slate-400">
-            <h3 className="font-bold text-slate-900">Mecânicos Cadastrados</h3>
+          <div className="p-6 border-b border-slate-400 flex items-center justify-between bg-slate-50">
+            <h3 className="font-bold text-slate-900 flex items-center gap-2">
+              <Users size={18} className="text-indigo-600" />
+              Mecânicos Cadastrados
+            </h3>
           </div>
-          <div className="divide-y divide-slate-300">
+          <div className="divide-y divide-slate-300 max-h-[400px] overflow-y-auto">
             {mechanics.sort((a, b) => a.name.localeCompare(b.name)).map(m => (
               <div key={m.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-3">
@@ -2584,7 +2595,7 @@ export default function App() {
                   </div>
                   <div>
                     <p className="font-bold text-slate-900">{m.name}</p>
-                    <p className="text-xs text-slate-500">Regra: 50% em serviços variáveis</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Regra: 50% em serviços variáveis</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2593,16 +2604,29 @@ export default function App() {
                       setSelectedMechanicForReport(m);
                       setIsMechanicReportModalOpen(true);
                     }}
-                    className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
+                    className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase hover:bg-slate-200 transition-colors"
                   >
-                    Ver Relatório
+                    Relatório
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingMechanic(m);
+                      setMechanicForm({ name: m.name, commissionRate: (m as any).commission_rate?.toString() || '0' });
+                      setIsMechanicModalOpen(true);
+                    }}
+                    className="p-2 text-indigo-400 hover:bg-indigo-50 rounded-lg transition-colors"
+                  >
+                    <Pencil size={18} />
                   </button>
                   <button
                     onClick={async () => {
                       if (confirm(`Excluir mecânico ${m.name}?`)) {
-                        const { error } = await supabase.from('mechanics').delete().eq('id', m.id);
-                        if (!error) fetchData();
-                        else alert('Erro ao excluir mecânico.');
+                        try {
+                          await localApi.delete('mechanics', m.id);
+                          fetchData();
+                        } catch (err) {
+                          alert('Erro ao excluir mecânico.');
+                        }
                       }
                     }}
                     className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-colors"
@@ -2617,33 +2641,130 @@ export default function App() {
 
         {/* Fixed Services Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
-          <div className="p-6 border-b border-slate-400">
-            <h3 className="font-bold text-slate-900">Tabela de Repasses Fixos</h3>
+          <div className="p-6 border-b border-slate-400 flex items-center justify-between bg-slate-50">
+            <h3 className="font-bold text-slate-900 flex items-center gap-2">
+              <Settings size={18} className="text-amber-500" />
+              Tabela de Repasses Fixos
+            </h3>
           </div>
-          <div className="divide-y divide-slate-300">
+          <div className="divide-y divide-slate-300 max-h-[400px] overflow-y-auto">
             {fixedServices.sort((a, b) => a.name.localeCompare(b.name)).map(fs => (
               <div key={fs.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div>
                   <p className="font-bold text-slate-900">{fs.name}</p>
-                  <p className="text-xs text-slate-500">Valor fixo para o mecânico</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase">Repasse Fixo p/ Mecânico</p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="font-bold text-rose-600">R$ {fs.payout.toFixed(2)}</span>
-                  <button
-                    onClick={async () => {
-                      if (confirm(`Excluir serviço ${fs.name}?`)) {
-                        const { error } = await supabase.from('fixed_services').delete().eq('id', fs.id);
-                        if (!error) fetchData();
-                        else alert('Erro ao excluir serviço.');
-                      }
-                    }}
-                    className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Valor Repasse</p>
+                    <span className="font-black text-rose-600">R$ {fs.payout.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setEditingFixedService(fs);
+                        setFixedServiceForm({ name: fs.name, price: (fs as any).price?.toString() || '0', payout: fs.payout.toString() });
+                        setIsFixedServiceModalOpen(true);
+                      }}
+                      className="p-2 text-indigo-400 hover:bg-indigo-50 rounded-lg transition-colors"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (confirm(`Excluir serviço ${fs.name}?`)) {
+                          try {
+                            await localApi.delete('fixed_services', fs.id);
+                            fetchData();
+                          } catch (err) {
+                            alert('Erro ao excluir serviço.');
+                          }
+                        }
+                      }}
+                      className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Distributors List */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden lg:col-span-2">
+          <div className="p-6 border-b border-slate-400 flex items-center justify-between bg-slate-50">
+            <h3 className="font-bold text-slate-900 flex items-center gap-2">
+              <Truck size={18} className="text-rose-600" />
+              Distribuidoras e Fornecedores
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6 divide-y md:divide-y-0 max-h-[500px] overflow-y-auto">
+            {distributors.sort((a, b) => a.name.localeCompare(b.name)).map(d => (
+              <div key={d.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-400 hover:border-rose-500 transition-all group relative">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center font-bold text-xl">
+                    {d.name.charAt(0)}
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => {
+                        setEditingDistributor(d);
+                        setDistributorForm({ name: d.name, phone: d.phone, contact_person: d.contact_person || '' });
+                        setIsDistributorModalOpen(true);
+                      }}
+                      className="p-2 bg-white text-indigo-600 rounded-lg shadow-sm hover:shadow-md transition-all border border-slate-200"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (confirm(`Remover distribuidora ${d.name}?`)) {
+                          try {
+                            await localApi.delete('distributors', d.id);
+                            fetchData();
+                          } catch (err) {
+                            alert('Erro ao excluir distribuidor.');
+                          }
+                        }
+                      }}
+                      className="p-2 bg-white text-rose-600 rounded-lg shadow-sm hover:shadow-md transition-all border border-slate-200"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-black text-slate-900 uppercase text-sm truncate">{d.name}</h4>
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <MessageCircle size={14} className="text-emerald-500" />
+                    <span className="text-xs font-bold tracking-tight">{d.phone}</span>
+                  </div>
+                  {d.contact_person && (
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-2">Contato: {d.contact_person}</p>
+                  )}
+                </div>
+                <button 
+                  onClick={() => window.open(`https://wa.me/${d.phone.replace(/\D/g, '')}`, '_blank')}
+                  className="w-full mt-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100"
+                >
+                  WhatsApp Fornecedor
+                </button>
+              </div>
+            ))}
+            {distributors.length === 0 && (
+              <div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400 bg-white border-2 border-dashed border-slate-300 rounded-3xl">
+                <Truck size={48} className="mb-4 opacity-20" />
+                <p className="font-bold text-sm">Nenhum distribuidor cadastrado</p>
+                <button 
+                  onClick={() => setIsDistributorModalOpen(true)}
+                  className="mt-2 text-xs text-rose-600 hover:underline font-black uppercase"
+                >
+                  Clique para cadastrar o primeiro
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2659,14 +2780,13 @@ export default function App() {
     e.preventDefault();
     const id = Math.random().toString(36).substr(2, 9).toUpperCase();
     try {
-      const { error } = await supabase.from('cash_sessions').insert([{
+      await localApi.post('cash_sessions', {
         id,
         opened_at: new Date().toISOString(),
         opening_balance: parseFloat(cashForm.openingBalance.toString().replace(',', '.')) || 0,
         status: 'Aberto',
         notes: cashForm.notes
-      }]);
-      if (error) throw error;
+      });
 
       setIsCashModalOpen(false);
       setCashForm({ openingBalance: '', notes: '' });
@@ -2691,14 +2811,12 @@ export default function App() {
     const expected = activeSession.openingBalance + totalSales + totalTransactions;
 
     try {
-      const { error } = await supabase.from('cash_sessions').update({
+      await localApi.put('cash_sessions', activeSession.id, {
         closed_at: new Date().toISOString(),
         closing_balance: parseFloat(closingBalance) || 0,
         expected_balance: expected,
         status: 'Fechado'
-      }).eq('id', activeSession.id);
-
-      if (error) throw error;
+      });
 
       setActiveSession(null);
       alert(`Caixa fechado! \nEsperado: R$ ${expected.toFixed(2)} \nInformado: R$ ${parseFloat(closingBalance).toFixed(2)} \nDiferença: R$ ${(parseFloat(closingBalance) - expected).toFixed(2)}`);
@@ -2713,15 +2831,14 @@ export default function App() {
     e.preventDefault();
     const id = Math.random().toString(36).substr(2, 9).toUpperCase();
     try {
-      const { error } = await supabase.from('cash_transactions').insert([{
+      await localApi.post('cash_transactions', {
         id,
         session_id: activeSession?.id,
         type: transactionForm.type,
         amount: parseFloat(transactionForm.amount.toString().replace(',', '.')) || 0,
         description: transactionForm.description,
         date: new Date().toISOString()
-      }]);
-      if (error) throw error;
+      });
 
       setIsTransactionModalOpen(false);
       setTransactionForm({ type: 'Sangria', amount: '', description: '' });
@@ -2779,8 +2896,8 @@ export default function App() {
     window.open(`https://wa.me/${distributor.phone}?text=${encodeURIComponent(message)}`, '_blank');
 
     // Update status to Sent in database
-    supabase.from('purchase_orders').update({ status: 'Enviado' }).eq('id', order.id).then(({ error }) => {
-      if (!error) fetchData();
+    localApi.put('purchase_orders', order.id, { status: 'Enviado' }).then(() => {
+      fetchData();
     });
   };
 
@@ -2800,22 +2917,10 @@ export default function App() {
     };
 
     try {
-      const { error: orderError } = await supabase.from('purchase_orders').insert([{
-        id: newOrder.id,
+      await localApi.post('purchase_orders', {
         distributor_id: newOrder.distributor_id,
-        date: newOrder.date,
-        status: newOrder.status
-      }]);
-      if (orderError) throw orderError;
-
-      const orderItems = orderForm.items.map(item => ({
-        order_id: orderId,
-        description: item.description,
-        quantity: item.quantity
-      }));
-
-      const { error: itemsError } = await supabase.from('purchase_order_items').insert(orderItems);
-      if (itemsError) throw itemsError;
+        items: orderForm.items
+      });
 
       setPurchaseOrders([newOrder, ...purchaseOrders]);
       setIsOrderModalOpen(false);
@@ -2851,11 +2956,9 @@ export default function App() {
       };
 
       if (editingCustomer) {
-        const { error } = await supabase.from('customers').update(dataToSave).eq('id', editingCustomer.id);
-        if (error) throw error;
+        await localApi.put('customers', editingCustomer.id, dataToSave);
       } else {
-        const { error } = await supabase.from('customers').insert([dataToSave]);
-        if (error) throw error;
+        await localApi.post('customers', dataToSave);
       }
       setIsCustomerModalOpen(false);
       setEditingCustomer(null);
@@ -3021,16 +3124,9 @@ export default function App() {
       };
 
       if (editingProduct) {
-        const { error } = await supabase
-          .from('products')
-          .update(productData)
-          .eq('id', editingProduct.id);
-        if (error) throw error;
+        await localApi.put('products', editingProduct.id, productData);
       } else {
-        const { error } = await supabase
-          .from('products')
-          .insert([productData]);
-        if (error) throw error;
+        await localApi.post('products', productData);
       }
 
       setIsProductModalOpen(false);
@@ -3092,8 +3188,7 @@ export default function App() {
           setProducts(products.map(p => p.id === productId ? { ...p, image_url: originalUrl } : p));
 
           // Update in database with the lightweight URL
-          const { error } = await supabase.from('products').update({ image_url: finalUrl }).eq('id', productId);
-          if (error) throw error;
+          await localApi.put('products', productId, { image_url: finalUrl });
 
           fetchData();
         } catch (error) {
@@ -3115,8 +3210,7 @@ export default function App() {
         setProducts(products.map(p => p.id === productId ? { ...p, image_url: url } : p));
 
         // Update in database
-        const { error } = await supabase.from('products').update({ image_url: finalUrl }).eq('id', productId);
-        if (error) throw error;
+        await localApi.put('products', productId, { image_url: finalUrl });
 
         fetchData();
       } catch (error) {
@@ -3150,23 +3244,18 @@ export default function App() {
     if (!customer) return;
 
     try {
+      const dataToSave = {
+        customer_id: parseInt(motorcycleForm.customer_id),
+        plate: motorcycleForm.plate,
+        model: motorcycleForm.model,
+        current_km: parseInt(motorcycleForm.current_km.toString()) || 0
+      };
+
       if (editingMotorcycle) {
-        const { error } = await supabase.from('motorcycles').update({
-          customer_id: parseInt(motorcycleForm.customer_id),
-          plate: motorcycleForm.plate,
-          model: motorcycleForm.model,
-          current_km: parseInt(motorcycleForm.current_km.toString()) || 0
-        }).eq('id', editingMotorcycle.id);
-        if (error) throw error;
+        await localApi.put('motorcycles', editingMotorcycle.id, dataToSave);
         alert('Moto atualizada!');
       } else {
-        const { error } = await supabase.from('motorcycles').insert([{
-          customer_id: parseInt(motorcycleForm.customer_id),
-          plate: motorcycleForm.plate,
-          model: motorcycleForm.model,
-          current_km: parseInt(motorcycleForm.current_km.toString()) || 0
-        }]);
-        if (error) throw error;
+        await localApi.post('motorcycles', dataToSave);
         alert('Moto cadastrada!');
       }
 
@@ -3194,8 +3283,7 @@ export default function App() {
   const handleDeleteMotorcycle = async (id: number) => {
     if (confirm('Tem certeza que deseja excluir esta moto?')) {
       try {
-        const { error } = await supabase.from('motorcycles').delete().eq('id', id);
-        if (error) throw error;
+        await localApi.delete('motorcycles', id);
         alert('Moto excluída!');
         fetchData();
       } catch (error) {
@@ -3208,8 +3296,7 @@ export default function App() {
   const handleDeleteProduct = async (id: number) => {
     if (confirm('Tem certeza que deseja excluir este produto?')) {
       try {
-        const { error } = await supabase.from('products').delete().eq('id', id);
-        if (error) throw error;
+        await localApi.delete('products', id);
         alert('Produto excluído com sucesso!');
         fetchData();
       } catch (error) {
@@ -3230,15 +3317,15 @@ export default function App() {
           finalImageUrl = await shortenUrl(finalImageUrl);
         }
 
-        const { error } = await supabase.from('products').insert([{
+        const duplicateData = {
           ...productData,
           image_url: finalImageUrl,
           description: `${product.description} (Cópia)`,
           sku: `${product.sku}-copy`,
           barcode: '', // Clear barcode as it should be unique
           application: product.application || ''
-        }]);
-        if (error) throw error;
+        };
+        await localApi.post('products', duplicateData);
         alert('Produto duplicado com sucesso!');
         fetchData();
       } catch (error) {
@@ -3251,37 +3338,12 @@ export default function App() {
   const handleDeleteSale = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta venda? O estoque dos produtos será devolvido automaticamente. Esta ação não pode ser desfeita.')) {
       try {
-        // 1. Buscar os itens da venda para devolver ao estoque
-        const { data: itemsToReturn, error: itemsError } = await supabase
-          .from('sale_items')
-          .select('product_id, quantity')
-          .eq('sale_id', id);
-
-        if (itemsError) throw itemsError;
-
-        // 2. Devolver produtos ao estoque
-        if (itemsToReturn && itemsToReturn.length > 0) {
-          for (const item of itemsToReturn) {
-            if (item.product_id) {
-              const product = products.find(p => p.id === item.product_id);
-              if (product) {
-                const newStock = product.stock + item.quantity;
-                await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
-              }
-            }
-          }
-        }
-
-        // 3. Excluir os itens e a venda
-        await supabase.from('sale_items').delete().eq('sale_id', id);
-        const { error: deleteError } = await supabase.from('sales').delete().eq('id', id);
-        if (deleteError) throw deleteError;
-
+        await localApi.delete('sales', id);
         alert('Venda excluída e estoque devolvido com sucesso!');
         fetchData();
       } catch (error) {
         console.error('Error deleting sale:', error);
-        alert('Erro ao excluir venda e processar estoque.');
+        alert('Erro ao excluir venda.');
       }
     }
   };
@@ -3300,16 +3362,11 @@ export default function App() {
     const isFullyPaid = newPaidTotal >= sale.total;
 
     try {
-      const { error } = await supabase.from('sales').update({
+      await localApi.put('sales', sale.id, {
         paid_total: newPaidTotal,
         payment_status: isFullyPaid ? 'Pago' : 'Pendente',
         paid_date: isFullyPaid ? new Date().toISOString() : sale.paid_date
-      }).eq('id', sale.id);
-
-      if (error) {
-        console.error('Supabase Error:', error);
-        throw new Error(error.message);
-      }
+      });
       
       setSales(prev => prev.map(s => s.id === sale.id ? { 
         ...s, 
@@ -3323,7 +3380,7 @@ export default function App() {
       alert('Pagamento registrado com sucesso!');
     } catch (err: any) {
       console.error('Error registering partial payment:', err);
-      alert(`Erro ao registrar pagamento: ${err.message || 'Verifique se a coluna paid_total existe no Supabase'}`);
+      alert(`Erro ao registrar pagamento: ${err.message || 'Verifique a conexão com o servidor local.'}`);
     }
   };
 
@@ -3351,15 +3408,19 @@ export default function App() {
 
   const handleDownloadExcel = () => {
     const data = products.map(p => ({
-      ID: p.id,
-      Descrição: p.description,
-      SKU: p.sku,
-      EAN: p.barcode,
+      'ID': p.id,
+      'Descrição': p.description,
+      'SKU': p.sku || '',
+      'EAN': p.barcode || '',
+      'Marca': p.brand || '',
+      'Aplicação': p.application || '',
+      'Categoria': p.category || '',
+      'Localização': p.location || '',
       'Preço de Compra': p.purchase_price,
       'Preço de Venda': p.sale_price,
-      Estoque: p.stock,
-      Unidade: p.unit,
-      Localização: p.location,
+      'Estoque': p.stock,
+      'Unidade': p.unit || 'Unitário',
+      'Imagem': p.image_url || ''
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -3367,7 +3428,80 @@ export default function App() {
     XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
-    saveAs(blob, 'produtos.xlsx');
+    saveAs(blob, `estoque_kombat_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleDownloadTemplate = () => {
+    const data = [{
+      'Descrição': 'Ex: Pneu 90/90-18',
+      'SKU': 'PNE-001',
+      'EAN': '7891234567890',
+      'Marca': 'Pirelli',
+      'Aplicação': 'CG 150/160',
+      'Categoria': 'Pneus',
+      'Localização': 'A1-B2',
+      'Preço de Compra': 150.00,
+      'Preço de Venda': 220.00,
+      'Estoque': 10,
+      'Unidade': 'Unitário',
+      'Imagem': 'https://link-da-imagem.com/foto.jpg'
+    }];
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template');
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+    saveAs(blob, 'modelo_importacao_kombat.xlsx');
+  };
+
+  const handleExportCustomersExcel = () => {
+    const data = customers.map(c => {
+      const cSales = sales.filter(s => s.customer_id === c.id);
+      const totalSpent = cSales.reduce((acc, s) => acc + s.total, 0);
+      return {
+        'Nome': c.name,
+        'Apelido': c.nickname || '',
+        'CPF/CNPJ': c.cpf || c.cnpj || '',
+        'WhatsApp': c.whatsapp || '',
+        'Endereço': c.address || '',
+        'Bairro': c.neighborhood || '',
+        'Cidade': c.city || '',
+        'CEP': c.zip_code || '',
+        'Limite de Crédito': c.credit_limit,
+        'Total de Compras': cSales.length,
+        'Total Gasto': totalSpent
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+    saveAs(blob, `clientes_kombat_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleExportSalesExcel = () => {
+    const data = sales.map(s => ({
+      'Data': new Date(s.date).toLocaleDateString(),
+      'ID Venda': s.id,
+      'Cliente': s.customer_name,
+      'Tipo': s.type,
+      'Método Pagamento': s.payment_method,
+      'Status': s.payment_status,
+      'Valor Total': s.total,
+      'Mão de Obra': s.labor_value,
+      'Peças': s.total - s.labor_value,
+      'Descrição Serviço': s.service_description || ''
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Vendas');
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+    saveAs(blob, `vendas_kombat_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const handleImportCustomers = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3403,11 +3537,6 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!user) {
-      alert('Você precisa estar logado para importar produtos.');
-      return;
-    }
-
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
@@ -3422,62 +3551,48 @@ export default function App() {
           return;
         }
 
-        const newProducts = data.map((item: any) => {
-          const desc = item.Descrição || item.Description || item.description || '';
-          const skuRaw = String(item.SKU || item.sku || '').trim();
-          const barcodeRaw = String(item.EAN || item.Barcode || item.barcode || '').trim();
-          
-          return {
-            description: desc,
-            sku: skuRaw === '' ? null : skuRaw,
-            barcode: barcodeRaw === '' ? null : barcodeRaw,
-            purchase_price: parseFloat(String(item['Preço de Compra'] || item.PurchasePrice || item.purchase_price || 0).replace(',', '.')),
-            sale_price: parseFloat(String(item['Preço de Venda'] || item.SalePrice || item.sale_price || 0).replace(',', '.')),
-            stock: parseInt(item.Estoque || item.Stock || item.stock || 0),
-            unit: item.Unidade || item.Unit || item.unit || 'Unitário',
-            image_url: item.Imagem || item.Image || item.image_url || '',
-            category: categorizeProduct(desc),
-            brand: item.Marca || item.Brand || item.brand || '',
-            location: item.Localização || item.Location || item.location || '',
-            application: item.Aplicação || item.Application || item.application || ''
-          };
-        });
+        let importedCount = 0;
+        let errorCount = 0;
 
-        // Deduplicar os dados da planilha antes de enviar
-        const deduplicatedProducts: any[] = [];
-        const seenSkus = new Set();
-        const seenBarcodes = new Set();
-        
-        for (const prod of newProducts) {
-          // Se tem SKU, verifica se já vimos
-          if (prod.sku) {
-            if (seenSkus.has(prod.sku)) continue;
-            seenSkus.add(prod.sku);
-          }
-          
-          // Se tem Barcode, verifica se já vimos (opcional, mas evita erros de duplicidade no barcode)
-          if (prod.barcode) {
-            if (seenBarcodes.has(prod.barcode)) continue;
-            seenBarcodes.add(prod.barcode);
-          }
+        for (const item of (data as any[])) {
+          try {
+            const desc = item.Descrição || item.Description || item.description || '';
+            if (!desc) continue;
 
-          deduplicatedProducts.push(prod);
+            const skuRaw = String(item.SKU || item.sku || '').trim();
+            const barcodeRaw = String(item.EAN || item.Barcode || item.barcode || '').trim();
+            
+            const prod = {
+              description: desc,
+              sku: skuRaw === '' || skuRaw === 'undefined' || skuRaw === 'null' ? null : skuRaw,
+              barcode: barcodeRaw === '' || barcodeRaw === 'undefined' || barcodeRaw === 'null' ? null : barcodeRaw,
+              purchase_price: parseFloat(String(item['Preço de Compra'] || item.PurchasePrice || item.purchase_price || 0).replace(',', '.')),
+              sale_price: parseFloat(String(item['Preço de Venda'] || item.SalePrice || item.sale_price || 0).replace(',', '.')),
+              stock: parseInt(item.Estoque || item.Stock || item.stock || 0),
+              unit: item.Unidade || item.Unit || item.unit || 'Unitário',
+              image_url: item.Imagem || item.Image || item.image_url || '',
+              brand: item.Marca || item.Brand || item.brand || '',
+              location: item.Localização || item.Location || item.location || '',
+              application: item.Aplicação || item.Application || item.application || '',
+              category: item.Categoria || item.Category || item.category || categorizeProduct(desc)
+            };
+
+            await localApi.post('products', prod);
+            importedCount++;
+          } catch (err) {
+            errorCount++;
+            console.warn('Erro ao importar item individual:', err);
+          }
         }
 
-        const { error } = await supabase
-          .from('products')
-          .upsert(deduplicatedProducts, { onConflict: 'sku' });
-
-        if (error) throw error;
-        alert(`${deduplicatedProducts.length} produtos processados e salvos com sucesso!`);
+        alert(`Processamento concluído: ${importedCount} produtos importados.${errorCount > 0 ? ` (${errorCount} erros)` : ''}`);
         fetchData();
       } catch (error: any) {
         console.error('Erro na importação:', error);
-        alert('Erro ao importar e salvar produtos: ' + (error.message || 'Verifique o formato da planilha.'));
+        alert('Erro ao processar planilha: ' + (error.message || 'Verifique o formato.'));
       }
     };
     reader.readAsBinaryString(file);
-    // Limpar o input para permitir nova importação do mesmo arquivo se necessário
     e.target.value = '';
   };
 
@@ -3672,7 +3787,7 @@ export default function App() {
       {customerViewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {customers.filter(c => {
-            const search = (customerSearchTerm + globalSearchTerm).toLowerCase();
+            const search = (customerSearchTerm || globalSearchTerm).toLowerCase();
             return (
               (c.name || '').toLowerCase().includes(search) ||
               (c.nickname || '').toLowerCase().includes(search) ||
@@ -3719,6 +3834,7 @@ export default function App() {
                       setEditingCustomer(c);
                       setCustomerForm({
                         name: c.name,
+                        nickname: c.nickname || '',
                         cpf: c.cpf,
                         cnpj: c.cnpj || '',
                         whatsapp: c.whatsapp,
@@ -3795,7 +3911,7 @@ export default function App() {
               </thead>
               <tbody>
                 {customers.filter(c => {
-                  const search = (customerSearchTerm + globalSearchTerm).toLowerCase();
+                  const search = (customerSearchTerm || globalSearchTerm).toLowerCase();
                   return (
                     (c.name || '').toLowerCase().includes(search) ||
                     (c.nickname || '').toLowerCase().includes(search) ||
@@ -3847,6 +3963,7 @@ export default function App() {
                             setEditingCustomer(c);
                             setCustomerForm({
                               name: c.name,
+                              nickname: c.nickname || '',
                               cpf: c.cpf,
                               cnpj: c.cnpj || '',
                               whatsapp: c.whatsapp,
@@ -3891,11 +4008,9 @@ export default function App() {
 
     try {
       if (editingService) {
-        const { error } = await supabase.from('registered_services').update(data).eq('id', editingService.id);
-        if (error) throw error;
+        await localApi.put('registered_services', editingService.id, data);
       } else {
-        const { error } = await supabase.from('registered_services').insert([{ ...data, id: Math.random().toString(36).substr(2, 9).toUpperCase() }]);
-        if (error) throw error;
+        await localApi.post('registered_services', data);
       }
       fetchData();
       setIsServiceModalOpen(false);
@@ -3968,8 +4083,7 @@ export default function App() {
                       onClick={async () => {
                         if (confirm(`Excluir serviço "${s.description}"?`)) {
                           try {
-                            const { error } = await supabase.from('registered_services').delete().eq('id', s.id);
-                            if (error) throw error;
+                            await localApi.delete('registered_services', s.id);
                             fetchData();
                           } catch (error) {
                             console.error('Erro ao excluir serviço:', error);
@@ -4029,11 +4143,19 @@ export default function App() {
               <LayoutGrid size={20} />
             </button>
           </div>
-          <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium cursor-pointer">
-            <Package size={18} />
-            Importar Produtos
-            <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportProducts} />
-          </label>
+          <div className="flex flex-col items-center">
+            <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium cursor-pointer">
+              <Package size={18} />
+              Importar Produtos
+              <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportProducts} />
+            </label>
+            <button 
+              onClick={handleDownloadTemplate}
+              className="text-[9px] text-blue-600 hover:underline font-bold uppercase mt-1"
+            >
+              Baixar Modelo
+            </button>
+          </div>
           <button
             onClick={handleDownloadExcel}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-medium"
@@ -4090,20 +4212,42 @@ export default function App() {
                     <p className="text-slate-400 font-medium">Nenhum produto cadastrado.</p>
                   </td>
                 </tr>
-              ) : (
-                <>
-                {products.filter(p => {
+              ) : (() => {
                 const search = (inventorySearchTerm.trim() || globalSearchTerm.trim()).toLowerCase();
-                if (!search) return true;
-                return (
-                  (p.description || '').toLowerCase().includes(search) ||
-                  (p.sku || '').toLowerCase().includes(search) ||
-                  (p.location && (p.location || '').toLowerCase().includes(search)) ||
-                  (p.barcode || '').toLowerCase().includes(search) ||
-                  (p.brand && (p.brand || '').toLowerCase().includes(search))
+                const filtered = products.filter(p => {
+                  if (!search) return true;
+                  return (
+                    (p.description || '').toLowerCase().includes(search) ||
+                    (p.sku || '').toLowerCase().includes(search) ||
+                    (p.location && (p.location || '').toLowerCase().includes(search)) ||
+                    (p.barcode || '').toLowerCase().includes(search) ||
+                    (p.brand && (p.brand || '').toLowerCase().includes(search))
                   );
-                }).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                }).sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+
+                if (filtered.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-20 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <Search className="text-slate-300" size={40} />
+                          <p className="text-slate-400 font-medium font-black uppercase text-xs tracking-widest">Nenhum produto encontrado "{search}"</p>
+                          <button 
+                            onClick={() => { setInventorySearchTerm(''); setGlobalSearchTerm(''); }}
+                            className="mt-2 text-rose-600 font-bold text-xs underline"
+                          >
+                            Limpar Busca
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return (
+                  <>
+                  {filtered.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-400">
@@ -4182,94 +4326,120 @@ export default function App() {
                   </td>
                 </tr>
               ))}
-              </>
-              )}
-            </tbody>
+            </>
+          );
+        })()}
+      </tbody>
           </table>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {products.filter(p => {
+          {(() => {
             const search = (inventorySearchTerm.trim() || globalSearchTerm.trim()).toLowerCase();
-            if (!search) return true;
+            const filtered = products.filter(p => {
+              if (!search) return true;
+              return (
+                (p.description || '').toLowerCase().includes(search) ||
+                (p.sku || '').toLowerCase().includes(search) ||
+                (p.location && (p.location || '').toLowerCase().includes(search)) ||
+                (p.barcode || '').toLowerCase().includes(search) ||
+                (p.brand && (p.brand || '').toLowerCase().includes(search))
+              );
+            }).sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+
+            if (filtered.length === 0) {
+              return (
+                <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-slate-400">
+                  <div className="flex flex-col items-center gap-2">
+                    <Search className="text-slate-300" size={40} />
+                    <p className="text-slate-400 font-medium font-black uppercase text-xs tracking-widest">Nenhum produto encontrado "{search}"</p>
+                    <button 
+                      onClick={() => { setInventorySearchTerm(''); setGlobalSearchTerm(''); }}
+                      className="mt-2 text-rose-600 font-bold text-xs underline"
+                    >
+                      Limpar Busca
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
             return (
-              (p.description || '').toLowerCase().includes(search) ||
-              (p.sku || '').toLowerCase().includes(search) ||
-              (p.location && (p.location || '').toLowerCase().includes(search)) ||
-              (p.barcode || '').toLowerCase().includes(search) ||
-              (p.brand && (p.brand || '').toLowerCase().includes(search))
+              <>
+                {filtered.map((p) => (
+                  <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden hover:shadow-md transition-all group">
+                    <div className="h-48 bg-slate-50 relative overflow-hidden">
+                      {p.image_url ? (
+                        <img
+                          src={p.image_url}
+                          alt={p.description}
+                          className="w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-500 cursor-pointer"
+                          onClick={() => setSelectedProductDetail(p)}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-200">
+                          <ImageIcon size={48} />
+                        </div>
+                      )}
+                      <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <label className="p-2 bg-white/90 backdrop-blur shadow-sm rounded-lg text-slate-600 hover:text-rose-600 cursor-pointer transition-all">
+                          <Upload size={16} />
+                          <input type="file" accept="image/*,.jpg,.jpeg,.png,.gif,.webp" className="hidden" onChange={(e) => handleProductImageUpload(p.id, e)} />
+                        </label>
+                        <button
+                          onClick={() => handleProductImageUrl(p.id)}
+                          className="p-2 bg-white/90 backdrop-blur shadow-sm rounded-lg text-slate-600 hover:text-blue-600 transition-all"
+                        >
+                          <Link size={16} />
+                        </button>
+                      </div>
+                      <div className="absolute bottom-2 left-2">
+                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${p.stock < 5 ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'
+                          }`}>
+                          {p.stock} em estoque
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="text-[11px] font-bold text-slate-800 leading-tight uppercase line-clamp-3">{p.description}</h3>
+                        {p.location && <span className="text-[10px] font-bold text-indigo-600 uppercase border border-indigo-100 bg-indigo-50 px-1 rounded whitespace-nowrap">{p.location}</span>}
+                      </div>
+                      {p.brand && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold uppercase">{p.brand}</span>}
+                      <p className="text-xs text-slate-400 mb-3 font-mono">{p.sku}</p>
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Preço de Venda</p>
+                          <p className="text-lg font-black text-slate-900">R$ {p.sale_price.toFixed(2)}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleEditProduct(p)}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProduct(p.id)}
+                            className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDuplicateProduct(p)}
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="Duplicar Produto"
+                          >
+                            <Copy size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </>
             );
-          }).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map((p) => (
-            <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden hover:shadow-md transition-all group">
-              <div className="h-48 bg-slate-50 relative overflow-hidden">
-                {p.image_url ? (
-                  <img
-                    src={p.image_url}
-                    alt={p.description}
-                    className="w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-500 cursor-pointer"
-                    onClick={() => setSelectedProductDetail(p)}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-200">
-                    <ImageIcon size={48} />
-                  </div>
-                )}
-                <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <label className="p-2 bg-white/90 backdrop-blur shadow-sm rounded-lg text-slate-600 hover:text-rose-600 cursor-pointer transition-all">
-                    <Upload size={16} />
-                    <input type="file" accept="image/*,.jpg,.jpeg,.png,.gif,.webp" className="hidden" onChange={(e) => handleProductImageUpload(p.id, e)} />
-                  </label>
-                  <button
-                    onClick={() => handleProductImageUrl(p.id)}
-                    className="p-2 bg-white/90 backdrop-blur shadow-sm rounded-lg text-slate-600 hover:text-blue-600 transition-all"
-                  >
-                    <Link size={16} />
-                  </button>
-                </div>
-                <div className="absolute bottom-2 left-2">
-                  <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${p.stock < 5 ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'
-                    }`}>
-                    {p.stock} em estoque
-                  </span>
-                </div>
-              </div>
-              <div className="p-4">
-                <div className="flex justify-between items-start mb-1">
-                  <h3 className="text-[11px] font-bold text-slate-800 leading-tight uppercase line-clamp-3">{p.description}</h3>
-                  {p.location && <span className="text-[10px] font-bold text-indigo-600 uppercase border border-indigo-100 bg-indigo-50 px-1 rounded whitespace-nowrap">{p.location}</span>}
-                </div>
-                {p.brand && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold uppercase">{p.brand}</span>}
-                <p className="text-xs text-slate-400 mb-3 font-mono">{p.sku}</p>
-                <div className="flex items-end justify-between">
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Preço de Venda</p>
-                    <p className="text-lg font-black text-slate-900">R$ {p.sale_price.toFixed(2)}</p>
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handleEditProduct(p)}
-                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteProduct(p.id)}
-                      className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDuplicateProduct(p)}
-                      className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                      title="Duplicar Produto"
-                    >
-                      <Copy size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+          })()}
         </div>
       )}
     </div>
@@ -4836,8 +5006,16 @@ export default function App() {
                               <button
                                 onClick={async () => {
                                   if (confirm('Confirmar recebimento deste débito?')) {
-                                    const { error } = await supabase.from('sales').update({ payment_status: 'Pago', paid_date: new Date().toISOString() }).eq('id', sale.id);
-                                    if (!error) fetchData();
+                                    try {
+                                      await localApi.put('sales', sale.id, {
+                                        ...sale,
+                                        payment_status: 'Pago',
+                                        paid_date: new Date().toISOString()
+                                      });
+                                      fetchData();
+                                    } catch (err) {
+                                      alert('Erro ao liquidar débito.');
+                                    }
                                   }
                                 }}
                                 className="p-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
@@ -5339,7 +5517,18 @@ export default function App() {
           <div className="space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
               <h2 className="text-2xl font-bold text-slate-900">Relatório Geral de Clientes</h2>
-              <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200"><Printer size={20} /></button>
+              <div className="flex gap-2 no-print">
+                <button 
+                  onClick={handleExportCustomersExcel}
+                  className="flex items-center gap-2 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-all font-bold text-xs"
+                >
+                  <FileText size={16} />
+                  Exportar Excel
+                </button>
+                <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all text-slate-600">
+                  <Printer size={20} />
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
@@ -5450,7 +5639,18 @@ export default function App() {
           <div className="space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
               <h2 className="text-2xl font-bold text-slate-900">Relatório de Performance de Vendas</h2>
-              <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200"><Printer size={20} /></button>
+              <div className="flex gap-2 no-print">
+                <button 
+                  onClick={handleExportSalesExcel}
+                  className="flex items-center gap-2 px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-all font-bold text-xs"
+                >
+                  <FileText size={16} />
+                  Exportar Excel
+                </button>
+                <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all text-slate-600">
+                  <Printer size={20} />
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-4 gap-4">
               <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
@@ -8251,7 +8451,7 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedSaleForOS.items.map((item, index) => (
+                        {(selectedSaleForOS?.items || []).map((item, index) => (
                           <tr key={`item-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                             <td className="border p-2 text-center">{item.quantity}</td>
                             <td className="border p-2">{item.description}</td>
@@ -8259,12 +8459,12 @@ export default function App() {
                             <td className="border p-2 text-right">{formatBRL(item.quantity * item.price)}</td>
                           </tr>
                         ))}
-                        {selectedSaleForOS.labor_value > 0 && (
-                          <tr className={(selectedSaleForOS.items.length) % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                        {(selectedSaleForOS?.labor_value || 0) > 0 && (
+                          <tr className={((selectedSaleForOS?.items?.length || 0)) % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                             <td className="border p-2 text-center">1</td>
                             <td className="border p-2">Mão de Obra / Serviços Gerais</td>
-                            <td className="border p-2 text-right">{formatBRL(selectedSaleForOS.labor_value)}</td>
-                            <td className="border p-2 text-right">{formatBRL(selectedSaleForOS.labor_value)}</td>
+                            <td className="border p-2 text-right">{formatBRL(selectedSaleForOS?.labor_value || 0)}</td>
+                            <td className="border p-2 text-right">{formatBRL(selectedSaleForOS?.labor_value || 0)}</td>
                           </tr>
                         )}
                       </tbody>
@@ -8276,15 +8476,15 @@ export default function App() {
                     <div className="w-1/3 text-xs">
                       <div className="flex justify-between p-2 bg-slate-50 rounded-t-md">
                         <span className="font-bold">Total Peças:</span>
-                        <span>{formatBRL(selectedSaleForOS.total - selectedSaleForOS.labor_value)}</span>
+                        <span>{formatBRL((selectedSaleForOS?.total || 0) - (selectedSaleForOS?.labor_value || 0))}</span>
                       </div>
                       <div className="flex justify-between p-2 bg-slate-50">
                         <span className="font-bold">Total Serviços:</span>
-                        <span>{formatBRL(selectedSaleForOS.labor_value)}</span>
+                        <span>{formatBRL(selectedSaleForOS?.labor_value || 0)}</span>
                       </div>
                       <div className="flex justify-between p-2 bg-slate-200 text-base rounded-b-md">
                         <span className="font-bold">VALOR TOTAL GERAL:</span>
-                        <span className="font-bold">{formatBRL(selectedSaleForOS.total)}</span>
+                        <span className="font-bold">{formatBRL(selectedSaleForOS?.total || 0)}</span>
                       </div>
                     </div>
                   </div>
@@ -8391,21 +8591,34 @@ export default function App() {
       {/* Mechanic Registration Modal */}
       <Modal
         isOpen={isMechanicModalOpen}
-        onClose={() => setIsMechanicModalOpen(false)}
-        title="Cadastrar Novo Mecânico"
+        onClose={() => {
+          setIsMechanicModalOpen(false);
+          setEditingMechanic(null);
+          setMechanicForm({ name: '', commissionRate: '' });
+        }}
+        title={editingMechanic ? "Editar Mecânico" : "Cadastrar Novo Mecânico"}
       >
         <form onSubmit={handleAddMechanic} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Mecânico</label>
             <input
               type="text" required placeholder="Ex: João Silva"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
               value={mechanicForm.name}
-              onChange={e => setMechanicForm({ name: e.target.value })}
+              onChange={e => setMechanicForm({ ...mechanicForm, name: e.target.value })}
             />
           </div>
-          <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all">
-            Cadastrar Mecânico
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Comissão Padrão (%)</label>
+            <input
+              type="number" required placeholder="50"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
+              value={mechanicForm.commissionRate}
+              onChange={e => setMechanicForm({ ...mechanicForm, commissionRate: e.target.value })}
+            />
+          </div>
+          <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
+            {editingMechanic ? "Salvar Alterações" : "Cadastrar Mecânico"}
           </button>
         </form>
       </Modal>
@@ -8413,30 +8626,45 @@ export default function App() {
       {/* Fixed Service Modal */}
       <Modal
         isOpen={isFixedServiceModalOpen}
-        onClose={() => setIsFixedServiceModalOpen(false)}
-        title="Adicionar Serviço à Tabela"
+        onClose={() => {
+          setIsFixedServiceModalOpen(false);
+          setEditingFixedService(null);
+          setFixedServiceForm({ name: '', price: '', payout: '' });
+        }}
+        title={editingFixedService ? "Editar Serviço na Tabela" : "Adicionar Serviço à Tabela"}
       >
         <form onSubmit={handleAddFixedService} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Serviço</label>
             <input
               type="text" required placeholder="Ex: Troca de Óleo"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
               value={fixedServiceForm.name}
               onChange={e => setFixedServiceForm({ ...fixedServiceForm, name: e.target.value })}
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Valor de Repasse (R$)</label>
-            <input
-              type="number" step="0.01" required placeholder="0.00"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
-              value={fixedServiceForm.payout}
-              onChange={e => setFixedServiceForm({ ...fixedServiceForm, payout: e.target.value })}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Preço Venda (R$)</label>
+              <input
+                type="number" step="0.01" required placeholder="0.00"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold text-rose-600"
+                value={fixedServiceForm.price}
+                onChange={e => setFixedServiceForm({ ...fixedServiceForm, price: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Repasse Mecânico (R$)</label>
+              <input
+                type="number" step="0.01" required placeholder="0.00"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold text-indigo-600"
+                value={fixedServiceForm.payout}
+                onChange={e => setFixedServiceForm({ ...fixedServiceForm, payout: e.target.value })}
+              />
+            </div>
           </div>
-          <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all">
-            Adicionar Serviço
+          <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
+            {editingFixedService ? "Salvar Alterações" : "Adicionar à Tabela"}
           </button>
         </form>
       </Modal>
@@ -8543,15 +8771,19 @@ export default function App() {
       {/* Distributor Registration Modal */}
       <Modal
         isOpen={isDistributorModalOpen}
-        onClose={() => setIsDistributorModalOpen(false)}
-        title="Cadastrar Novo Distribuidor"
+        onClose={() => {
+          setIsDistributorModalOpen(false);
+          setEditingDistributor(null);
+          setDistributorForm({ name: '', phone: '', contact_person: '' });
+        }}
+        title={editingDistributor ? "Editar Distribuidor" : "Cadastrar Novo Distribuidor"}
       >
         <form onSubmit={handleAddDistributor} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Distribuidor</label>
             <input
               type="text" required
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
               value={distributorForm.name}
               onChange={e => setDistributorForm({ ...distributorForm, name: e.target.value })}
             />
@@ -8560,7 +8792,7 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Telefone (WhatsApp)</label>
             <input
               type="text" required
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
               value={distributorForm.phone}
               onChange={e => setDistributorForm({ ...distributorForm, phone: e.target.value })}
             />
@@ -8569,13 +8801,13 @@ export default function App() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Pessoa de Contato (Opcional)</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
               value={distributorForm.contact_person}
               onChange={e => setDistributorForm({ ...distributorForm, contact_person: e.target.value })}
             />
           </div>
-          <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all">
-            Cadastrar Distribuidor
+          <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
+            {editingDistributor ? "Salvar Alterações" : "Cadastrar Distribuidor"}
           </button>
         </form>
       </Modal>
@@ -9043,6 +9275,6 @@ export default function App() {
           )}
         </div>
       </Modal>
-    </div >
+    </div>
   );
 }

@@ -36,43 +36,31 @@ export default function Auth({ onLogin }: AuthProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      setError('Erro de configuração: Variáveis do Supabase não encontradas. Verifique o ambiente (Vercel/Local).');
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const finalEmail = username.includes('@') ? username : `${username}@kombatmoto.com`;
+      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro na autenticação');
+      }
 
       if (isLogin) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: finalEmail,
-          password: password,
-        });
-
-        if (error) throw error;
-        if (data.user) onLogin(data.user);
+        onLogin(data);
       } else {
-        const { data, error } = await supabase.auth.signUp({
-          email: finalEmail,
-          password: password,
-          options: {
-            data: {
-              username: username,
-            }
-          }
-        });
-
-        if (error) throw error;
         setIsLogin(true);
-        setError('Conta criada com sucesso! Verifique seu e-mail (ou tente logar).');
+        setError('Conta criada com sucesso! Faça login agora.');
       }
     } catch (err: any) {
       console.error('Auth error:', err);
-      setError(err.message === 'Invalid login credentials' ? 'Usuário ou senha inválidos' : (err.message || 'Erro ao processar autenticação'));
+      setError(err.message || 'Erro ao processar autenticação');
     } finally {
       setLoading(false);
     }
