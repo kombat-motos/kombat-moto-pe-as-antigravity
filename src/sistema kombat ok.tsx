@@ -516,15 +516,24 @@ export default function App() {
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
 
   const localApi = {
+    getHeaders: () => {
+      const token = localStorage.getItem('token');
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+    },
     get: async (route: string) => {
-      const res = await fetch(`/api/${route}`);
+      const res = await fetch(`/api/${route}`, {
+        headers: localApi.getHeaders()
+      });
       if (!res.ok) throw new Error(`Erro ao buscar ${route}`);
       return res.json();
     },
     post: async (route: string, body: any) => {
       const res = await fetch(`/api/${route}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: localApi.getHeaders(),
         body: JSON.stringify(body),
       });
       
@@ -542,21 +551,31 @@ export default function App() {
     put: async (route: string, id: any, body: any) => {
       const res = await fetch(`/api/${route}/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: localApi.getHeaders(),
         body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro na operação');
       return data;
     },
-    patch: async (route: string, id: any, action: string) => {
-      const res = await fetch(`/api/${route}/${id}/${action}`, { method: 'PATCH' });
+    patch: async (route: string, id: any, actionOrBody: any) => {
+      // Compatibility with action-style or body-style patches
+      const isAction = typeof actionOrBody === 'string';
+      const url = isAction ? `/api/${route}/${id}/${actionOrBody}` : `/api/${route}/${id}`;
+      const res = await fetch(url, { 
+        method: 'PATCH',
+        headers: localApi.getHeaders(),
+        body: isAction ? undefined : JSON.stringify(actionOrBody)
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro na operação');
       return data;
     },
     delete: async (route: string, id: any) => {
-      const res = await fetch(`/api/${route}/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/${route}/${id}`, { 
+        method: 'DELETE',
+        headers: localApi.getHeaders()
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro na operação');
       return data;
@@ -564,7 +583,7 @@ export default function App() {
     upload: async (fileName: string, fileContent: string) => {
       const res = await fetch('/api/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: localApi.getHeaders(),
         body: JSON.stringify({ fileName, fileContent })
       });
       return res.json();
@@ -3406,53 +3425,57 @@ export default function App() {
     }
   };
 
-  const handleDownloadExcel = () => {
-    const data = products.map(p => ({
-      'ID': p.id,
-      'Descrição': p.description,
-      'SKU': p.sku || '',
-      'EAN': p.barcode || '',
-      'Marca': p.brand || '',
-      'Aplicação': p.application || '',
-      'Categoria': p.category || '',
-      'Localização': p.location || '',
-      'Preço de Compra': p.purchase_price,
-      'Preço de Venda': p.sale_price,
-      'Estoque': p.stock,
-      'Unidade': p.unit || 'Unitário',
-      'Imagem': p.image_url || ''
-    }));
+  const downloadExcel = (wb: XLSX.WorkBook, filename: string) => {
+    try {
+      const b64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+      const url = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + b64;
+      
+      alert('Iniciando o download do arquivo: ' + filename + '\n\nSe ele baixar com um nome estranho, tente clicar nele e escolher "Abrir no Excel".');
+      
+      const a = document.createElement('a');
+      const event = new MouseEvent('click', {
+        'view': window,
+        'bubbles': true,
+        'cancelable': true
+      });
+      
+      a.href = url;
+      a.download = filename;
+      a.dispatchEvent(event);
+    } catch (error) {
+      console.error('Erro ao baixar excel:', error);
+      alert('Erro ao gerar o arquivo Excel. Por favor, tente novamente.');
+    }
+  };
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
-    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
-    saveAs(blob, `estoque_kombat_${new Date().toISOString().split('T')[0]}.xlsx`);
+  const handleDownloadExcel = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/export-products', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Falha no download');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `estoque_kombat_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Erro na exportação:', error);
+      alert('Erro ao exportar produtos. Certifique-se de estar logado.');
+    }
   };
 
   const handleDownloadTemplate = () => {
-    const data = [{
-      'Descrição': 'Ex: Pneu 90/90-18',
-      'SKU': 'PNE-001',
-      'EAN': '7891234567890',
-      'Marca': 'Pirelli',
-      'Aplicação': 'CG 150/160',
-      'Categoria': 'Pneus',
-      'Localização': 'A1-B2',
-      'Preço de Compra': 150.00,
-      'Preço de Venda': 220.00,
-      'Estoque': 10,
-      'Unidade': 'Unitário',
-      'Imagem': 'https://link-da-imagem.com/foto.jpg'
-    }];
-
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Template');
-    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
-    saveAs(blob, 'modelo_importacao_kombat.xlsx');
+    window.location.href = '/api/export-template';
   };
 
   const handleExportCustomersExcel = () => {
@@ -3477,9 +3500,7 @@ export default function App() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
-    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
-    saveAs(blob, `clientes_kombat_${new Date().toISOString().split('T')[0]}.xlsx`);
+    downloadExcel(wb, `clientes_kombat_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const handleExportSalesExcel = () => {
@@ -3499,9 +3520,7 @@ export default function App() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Vendas');
-    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
-    saveAs(blob, `vendas_kombat_${new Date().toISOString().split('T')[0]}.xlsx`);
+    downloadExcel(wb, `vendas_kombat_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const handleImportCustomers = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -4149,12 +4168,12 @@ export default function App() {
               Importar Produtos
               <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportProducts} />
             </label>
-            <button 
-              onClick={handleDownloadTemplate}
+            <a 
+              href="/api/export-template"
               className="text-[9px] text-blue-600 hover:underline font-bold uppercase mt-1"
             >
               Baixar Modelo
-            </button>
+            </a>
           </div>
           <button
             onClick={handleDownloadExcel}

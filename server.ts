@@ -9,6 +9,9 @@ import cookieParser from "cookie-parser";
 import { createClient } from "@supabase/supabase-js";
 import "dotenv/config";
 import fs from "fs";
+import * as XLSX from "xlsx";
+import cors from 'cors';
+import compression from 'compression';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -291,8 +294,10 @@ try { db.exec("ALTER TABLE mechanics ADD COLUMN commission_rate REAL DEFAULT 0")
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = 3001;
 
+  app.use(cors());
+  app.use(compression());
   app.use(express.json({ limit: "100mb" }));
   app.use(express.urlencoded({ limit: "100mb", extended: true }));
   app.use(cookieParser());
@@ -449,6 +454,73 @@ async function startServer() {
     } catch (err: any) {
       console.error('ERRO AO SALVAR PRODUTO:', err);
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/export-products", authenticateToken, (req, res) => {
+    try {
+      const products = db.prepare("SELECT * FROM products WHERE user_id = ? ORDER BY description ASC").all(req.user!.id) as any[];
+      
+      const data = products.map(p => ({
+        'ID': p.id,
+        'Descrição': p.description,
+        'SKU': p.sku || '',
+        'EAN': p.barcode || '',
+        'Marca': p.brand || '',
+        'Aplicação': p.application || '',
+        'Categoria': p.category || '',
+        'Localização': p.location || '',
+        'Preço de Compra': p.purchase_price,
+        'Preço de Venda': p.sale_price,
+        'Estoque': p.stock,
+        'Unidade': p.unit || 'Unitário',
+        'Imagem': p.image_url || ''
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Produtos");
+      
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      
+      res.setHeader('Content-Disposition', `attachment; filename="estoque_kombat_${new Date().toISOString().split('T')[0]}.xlsx"`);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(buf);
+    } catch (err: any) {
+      console.error('Erro na exportação:', err);
+      res.status(500).json({ error: "Erro ao exportar excel" });
+    }
+  });
+
+  app.get("/api/export-template", (req, res) => {
+    try {
+      const data = [{
+        'Descrição': 'Ex: Pneu 90/90-18',
+        'SKU': 'PNE-001',
+        'EAN': '7891234567890',
+        'Marca': 'Pirelli',
+        'Aplicação': 'CG 150/160',
+        'Categoria': 'Pneus',
+        'Localização': 'A1-B2',
+        'Preço de Compra': 150.00,
+        'Preço de Venda': 220.00,
+        'Estoque': 10,
+        'Unidade': 'Unitário',
+        'Imagem': 'https://link-da-imagem.com/foto.jpg'
+      }];
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Template");
+      
+      const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      
+      res.setHeader('Content-Disposition', 'attachment; filename="modelo_importacao_kombat.xlsx"');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(buf);
+    } catch (err: any) {
+      console.error('Erro no template:', err);
+      res.status(500).json({ error: "Erro ao gerar template" });
     }
   });
   app.put("/api/products/:id", authenticateToken, (req, res) => {
