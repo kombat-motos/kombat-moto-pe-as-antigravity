@@ -514,6 +514,33 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [authChecking, setAuthChecking] = useState(true);
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+
+  const toggleSelectProduct = (id: number) => {
+    setSelectedProductIds(prev =>
+      prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedProductIds.length) return;
+    if (confirm(`Excluir ${selectedProductIds.length} produtos selecionados?`)) {
+      try {
+        setLoading(true);
+        for (const id of selectedProductIds) {
+          await localApi.delete('products', id);
+        }
+        setSelectedProductIds([]);
+        fetchData();
+        alert('Produtos excluídos com sucesso!');
+      } catch (error) {
+        console.error('Erro na exclusão em massa:', error);
+        alert('Ocorreu um erro ao excluir alguns produtos.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   const localApi = {
     getHeaders: () => {
@@ -4124,345 +4151,296 @@ export default function App() {
     </div>
   );
 
-  const renderInventory = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Estoque de Peças</h2>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => fetchData()}
-            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-            title="Sincronizar Estoque"
-          >
-            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-          </button>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
-              type="text"
-              placeholder="Pesquisar produtos..."
-              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
-              value={inventorySearchTerm}
-              onChange={e => setInventorySearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex bg-slate-100 p-1 rounded-xl mr-2">
+  const renderInventory = () => {
+    const search = (inventorySearchTerm.trim() || globalSearchTerm.trim()).toLowerCase();
+    const filtered = products.filter(p => {
+      if (!search) return true;
+      return (
+        (p.description || '').toLowerCase().includes(search) ||
+        (p.sku || '').toLowerCase().includes(search) ||
+        (p.location && (p.location || '').toLowerCase().includes(search)) ||
+        (p.barcode || '').toLowerCase().includes(search) ||
+        (p.brand && (p.brand || '').toLowerCase().includes(search))
+      );
+    }).sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-slate-900">Estoque de Peças</h2>
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setInventoryView('list')}
-              className={`p-2 rounded-lg transition-all ${inventoryView === 'list' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              title="Visualização em Lista"
+              onClick={() => fetchData()}
+              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+              title="Sincronizar Estoque"
             >
-              <List size={20} />
+              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+            </button>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                type="text"
+                placeholder="Pesquisar produtos..."
+                className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
+                value={inventorySearchTerm}
+                onChange={e => setInventorySearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex bg-slate-100 p-1 rounded-xl mr-2">
+              <button
+                onClick={() => setInventoryView('list')}
+                className={`p-2 rounded-lg transition-all ${inventoryView === 'list' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                title="Visualização em Lista"
+              >
+                <List size={20} />
+              </button>
+              <button
+                onClick={() => setInventoryView('grid')}
+                className={`p-2 rounded-lg transition-all ${inventoryView === 'grid' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                title="Visualização em Cards"
+              >
+                <LayoutGrid size={20} />
+              </button>
+            </div>
+            {selectedProductIds.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-4 bg-rose-50 border border-rose-200 px-4 py-2 rounded-xl shadow-sm"
+              >
+                <span className="text-sm font-black text-rose-600 uppercase tracking-widest">
+                  {selectedProductIds.length} selecionado{selectedProductIds.length > 1 ? 's' : ''}
+                </span>
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex items-center gap-2 px-4 py-1.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-all font-bold text-xs uppercase"
+                >
+                  <Trash2 size={14} />
+                  Excluir em Massa
+                </button>
+                <button
+                  onClick={() => setSelectedProductIds([])}
+                  className="text-xs font-bold text-slate-400 hover:text-slate-600 uppercase"
+                >
+                  Cancelar
+                </button>
+              </motion.div>
+            )}
+            <div className="flex flex-col items-center">
+              <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium cursor-pointer">
+                <Package size={18} />
+                Importar Produtos
+                <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportProducts} />
+              </label>
+              <a
+                href="/api/export-template"
+                className="text-[9px] text-blue-600 hover:underline font-bold uppercase mt-1"
+              >
+                Baixar Modelo
+              </a>
+            </div>
+            <button
+              onClick={handleDownloadExcel}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-medium"
+            >
+              <Printer size={18} />
+              Exportar Produtos
             </button>
             <button
-              onClick={() => setInventoryView('grid')}
-              className={`p-2 rounded-lg transition-all ${inventoryView === 'grid' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              title="Visualização em Cards"
+              onClick={() => setIsQuickInventoryOpen(true)}
+              className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-black shadow-lg shadow-emerald-100 hover:scale-105 active:scale-95"
             >
-              <LayoutGrid size={20} />
+              <ClipboardCheck size={20} />
+              CONTAGEM RÁPIDA
+            </button>
+            <button
+              onClick={() => {
+                setEditingProduct(null);
+                setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '', application: '' });
+                setIsProductModalOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium"
+            >
+              <Plus size={18} />
+              Adicionar Produto
             </button>
           </div>
-          <div className="flex flex-col items-center">
-            <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium cursor-pointer">
-              <Package size={18} />
-              Importar Produtos
-              <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportProducts} />
-            </label>
-            <a 
-              href="/api/export-template"
-              className="text-[9px] text-blue-600 hover:underline font-bold uppercase mt-1"
-            >
-              Baixar Modelo
-            </a>
-          </div>
-          <button
-            onClick={handleDownloadExcel}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-medium"
-          >
-            <Printer size={18} />
-            Exportar Produtos
-          </button>
-          <button
-            onClick={() => setIsQuickInventoryOpen(true)}
-            className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-black shadow-lg shadow-emerald-100 hover:scale-105 active:scale-95"
-          >
-            <ClipboardCheck size={20} />
-            CONTAGEM RÁPIDA
-          </button>
-          <button
-            onClick={() => {
-              setEditingProduct(null);
-              setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '', application: '' });
-              setIsProductModalOpen(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium"
-          >
-            <Plus size={18} />
-            Adicionar Produto
-          </button>
         </div>
-      </div>
 
-      {inventoryView === 'list' ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-bottom border-slate-400">
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Produto</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">SKU / EAN</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Preços (C/V)</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Estoque</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-300">
-              {loading && products.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-20 text-center">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="w-8 h-8 border-4 border-rose-600 border-t-transparent rounded-full animate-spin" />
-                      <p className="text-slate-400 font-medium">Buscando estoque atualizado...</p>
-                    </div>
-                  </td>
+        {inventoryView === 'list' ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden text-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-400">
+                  <th className="px-6 py-4 w-10">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-slate-400 text-rose-600 focus:ring-rose-500"
+                      checked={filtered.length > 0 && selectedProductIds.length === filtered.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedProductIds(filtered.map(p => p.id));
+                        } else {
+                          setSelectedProductIds([]);
+                        }
+                      }}
+                    />
+                  </th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Produto</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">SKU / EAN</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">C / V (R$)</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">Estoque</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Ações</th>
                 </tr>
-              ) : products.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-20 text-center">
-                    <p className="text-slate-400 font-medium">Nenhum produto cadastrado.</p>
-                  </td>
-                </tr>
-              ) : (() => {
-                const search = (inventorySearchTerm.trim() || globalSearchTerm.trim()).toLowerCase();
-                const filtered = products.filter(p => {
-                  if (!search) return true;
-                  return (
-                    (p.description || '').toLowerCase().includes(search) ||
-                    (p.sku || '').toLowerCase().includes(search) ||
-                    (p.location && (p.location || '').toLowerCase().includes(search)) ||
-                    (p.barcode || '').toLowerCase().includes(search) ||
-                    (p.brand && (p.brand || '').toLowerCase().includes(search))
-                  );
-                }).sort((a, b) => (a.description || '').localeCompare(b.description || ''));
-
-                if (filtered.length === 0) {
-                  return (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-20 text-center">
-                        <div className="flex flex-col items-center gap-2">
-                          <Search className="text-slate-300" size={40} />
-                          <p className="text-slate-400 font-medium font-black uppercase text-xs tracking-widest">Nenhum produto encontrado "{search}"</p>
-                          <button 
-                            onClick={() => { setInventorySearchTerm(''); setGlobalSearchTerm(''); }}
-                            className="mt-2 text-rose-600 font-bold text-xs underline"
+              </thead>
+              <tbody className="divide-y divide-slate-300">
+                {loading && products.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-20 text-center">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-8 h-8 border-4 border-rose-600 border-t-transparent rounded-full animate-spin" />
+                        <p className="text-slate-400 font-medium">Buscando estoque...</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-medium">
+                      Nenhum produto encontrado.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((p) => (
+                    <tr key={p.id} className={`hover:bg-slate-50/50 transition-colors ${selectedProductIds.includes(p.id) ? 'bg-rose-50/30' : ''}`}>
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-slate-400 text-rose-600 focus:ring-rose-500"
+                          checked={selectedProductIds.includes(p.id)}
+                          onChange={() => toggleSelectProduct(p.id)}
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-400 cursor-pointer"
+                            onClick={() => setSelectedProductDetail(p)}
                           >
-                            Limpar Busca
-                          </button>
+                            {p.image_url ? (
+                              <img src={p.image_url} alt={p.description} className="w-full h-full object-cover" />
+                            ) : (
+                              <ImageIcon size={20} className="text-slate-300" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-800 line-clamp-1">{p.description}</p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-slate-400">{p.unit}</span>
+                              {p.brand && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase">{p.brand}</span>}
+                            </div>
+                          </div>
                         </div>
                       </td>
-                    </tr>
-                  );
-                }
-
-                return (
-                  <>
-                  {filtered.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center border border-slate-400">
-                        {p.image_url ? (
-                          <img
-                            src={p.image_url}
-                            alt={p.description}
-                            className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => setSelectedProductDetail(p)}
-                          />
-                        ) : (
-                          <ImageIcon size={20} className="text-slate-300" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-800">{p.description}</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-400">{p.unit}</span>
-                          {p.brand && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase">{p.brand}</span>}
-                          {p.location && <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-bold uppercase">Loc: {p.location}</span>}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-slate-500 font-mono">{p.sku}</p>
-                    <p className="text-[10px] text-slate-400 font-mono">{p.barcode}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-xs text-slate-400">C: {formatBRL(p.purchase_price)}</p>
-                    <p className="text-sm font-bold text-slate-900">V: {formatBRL(p.sale_price)}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-lg text-xs font-bold ${p.stock < 5 ? 'bg-rose-100 text-rose-700' : 'bg-rose-100 text-rose-700'
-                      }`}>
-                      {p.stock} un
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <div className="flex items-center bg-slate-50 rounded-lg p-1 mr-2">
-                        <label className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded transition-all cursor-pointer" title="Upload de Foto">
-                          <Upload size={14} />
-                          <input type="file" accept="image/*,.jpg,.jpeg,.png,.gif,.webp" className="hidden" onChange={(e) => handleProductImageUpload(p.id, e)} />
-                        </label>
-                        <button
-                          onClick={() => handleProductImageUrl(p.id)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded transition-all"
-                          title="Inserir URL da Foto"
-                        >
-                          <Link size={14} />
-                        </button>
-                      </div>
-                      <button
-                        onClick={() => handleEditProduct(p)}
-                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                        title="Editar Produto"
-                      >
-                        <Pencil size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProduct(p.id)}
-                        className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                        title="Excluir Produto"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDuplicateProduct(p)}
-                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                        title="Duplicar Produto"
-                      >
-                        <Copy size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </>
-          );
-        })()}
-      </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {(() => {
-            const search = (inventorySearchTerm.trim() || globalSearchTerm.trim()).toLowerCase();
-            const filtered = products.filter(p => {
-              if (!search) return true;
-              return (
-                (p.description || '').toLowerCase().includes(search) ||
-                (p.sku || '').toLowerCase().includes(search) ||
-                (p.location && (p.location || '').toLowerCase().includes(search)) ||
-                (p.barcode || '').toLowerCase().includes(search) ||
-                (p.brand && (p.brand || '').toLowerCase().includes(search))
-              );
-            }).sort((a, b) => (a.description || '').localeCompare(b.description || ''));
-
-            if (filtered.length === 0) {
-              return (
-                <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-slate-400">
-                  <div className="flex flex-col items-center gap-2">
-                    <Search className="text-slate-300" size={40} />
-                    <p className="text-slate-400 font-medium font-black uppercase text-xs tracking-widest">Nenhum produto encontrado "{search}"</p>
-                    <button 
-                      onClick={() => { setInventorySearchTerm(''); setGlobalSearchTerm(''); }}
-                      className="mt-2 text-rose-600 font-bold text-xs underline"
-                    >
-                      Limpar Busca
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-
-            return (
-              <>
-                {filtered.map((p) => (
-                  <div key={p.id} className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden hover:shadow-md transition-all group">
-                    <div className="h-48 bg-slate-50 relative overflow-hidden">
-                      {p.image_url ? (
-                        <img
-                          src={p.image_url}
-                          alt={p.description}
-                          className="w-full h-full object-contain p-2 group-hover:scale-110 transition-transform duration-500 cursor-pointer"
-                          onClick={() => setSelectedProductDetail(p)}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-200">
-                          <ImageIcon size={48} />
-                        </div>
-                      )}
-                      <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <label className="p-2 bg-white/90 backdrop-blur shadow-sm rounded-lg text-slate-600 hover:text-rose-600 cursor-pointer transition-all">
-                          <Upload size={16} />
-                          <input type="file" accept="image/*,.jpg,.jpeg,.png,.gif,.webp" className="hidden" onChange={(e) => handleProductImageUpload(p.id, e)} />
-                        </label>
-                        <button
-                          onClick={() => handleProductImageUrl(p.id)}
-                          className="p-2 bg-white/90 backdrop-blur shadow-sm rounded-lg text-slate-600 hover:text-blue-600 transition-all"
-                        >
-                          <Link size={16} />
-                        </button>
-                      </div>
-                      <div className="absolute bottom-2 left-2">
-                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${p.stock < 5 ? 'bg-rose-500 text-white' : 'bg-rose-500 text-white'
-                          }`}>
-                          {p.stock} em estoque
+                      <td className="px-6 py-4 text-center font-mono text-[11px] text-slate-500">
+                        {p.sku || '-'} / {p.barcode || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <p className="text-[10px] text-slate-400">{formatBRL(p.purchase_price)}</p>
+                        <p className="font-bold text-slate-900">{formatBRL(p.sale_price)}</p>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="px-2 py-1 bg-rose-100 text-rose-700 rounded-lg text-xs font-bold">
+                          {p.stock} {p.unit === 'Unitário' ? 'un' : p.unit}
                         </span>
-                      </div>
-                    </div>
-                    <div className="p-4">
-                      <div className="flex justify-between items-start mb-1">
-                        <h3 className="text-[11px] font-bold text-slate-800 leading-tight uppercase line-clamp-3">{p.description}</h3>
-                        {p.location && <span className="text-[10px] font-bold text-indigo-600 uppercase border border-indigo-100 bg-indigo-50 px-1 rounded whitespace-nowrap">{p.location}</span>}
-                      </div>
-                      {p.brand && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold uppercase">{p.brand}</span>}
-                      <p className="text-xs text-slate-400 mb-3 font-mono">{p.sku}</p>
-                      <div className="flex items-end justify-between">
-                        <div>
-                          <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Preço de Venda</p>
-                          <p className="text-lg font-black text-slate-900">R$ {p.sale_price.toFixed(2)}</p>
-                        </div>
-                        <div className="flex gap-1">
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleEditProduct(p)}
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                           >
                             <Pencil size={16} />
                           </button>
                           <button
                             onClick={() => handleDeleteProduct(p.id)}
-                            className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
                           >
                             <Trash2 size={16} />
                           </button>
-                          <button
-                            onClick={() => handleDuplicateProduct(p)}
-                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Duplicar Produto"
-                          >
-                            <Copy size={16} />
-                          </button>
                         </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filtered.length === 0 ? (
+              <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-slate-400 text-slate-400 font-medium">
+                Nenhum produto encontrado.
+              </div>
+            ) : (
+              filtered.map((p) => (
+                <div key={p.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group relative ${selectedProductIds.includes(p.id) ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-slate-400'}`}>
+                  <div className="absolute top-3 left-3 z-20">
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5 rounded-lg border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer shadow-sm"
+                      checked={selectedProductIds.includes(p.id)}
+                      onChange={() => toggleSelectProduct(p.id)}
+                    />
+                  </div>
+                  <div className="h-48 bg-slate-50 relative overflow-hidden flex items-center justify-center">
+                    {p.image_url ? (
+                      <img
+                        src={p.image_url}
+                        alt={p.description}
+                        className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform cursor-pointer"
+                        onClick={() => setSelectedProductDetail(p)}
+                      />
+                    ) : (
+                      <ImageIcon size={48} className="text-slate-200" />
+                    )}
+                    <div className="absolute bottom-2 left-2">
+                       <span className="px-2 py-1 bg-rose-500 text-white rounded-lg text-[10px] font-black uppercase tracking-wider">
+                         {p.stock} em estoque
+                       </span>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-sm font-bold text-slate-800 line-clamp-2 mb-1 uppercase leading-tight">{p.description}</h3>
+                    <p className="text-[10px] text-slate-400 font-mono mb-3">{p.sku}</p>
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <p className="text-[9px] text-slate-400 uppercase font-black">Preço de Venda</p>
+                        <p className="text-lg font-black text-slate-900">{formatBRL(p.sale_price)}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEditProduct(p)}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(p.id)}
+                          className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
                   </div>
-                ))}
-              </>
-            );
-          })()}
-        </div>
-      )}
-    </div>
-  );
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderManualInventory = () => (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -5988,21 +5966,8 @@ export default function App() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input
-                type="text"
-                placeholder="Pesquisar..."
-                className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
-                value={globalSearchTerm}
-                onChange={e => setGlobalSearchTerm(e.target.value)}
-              />
-            </div>
             <div className="flex flex-col items-end gap-1">
               <span className="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">SISTEMA ATUALIZADO V2.1</span>
-              <div className="w-10 h-10 bg-slate-200 rounded-full overflow-hidden border-2 border-white shadow-sm">
-                <img src="https://picsum.photos/seed/admin/100/100" alt="Admin Avatar" referrerPolicy="no-referrer" />
-              </div>
             </div>
           </div>
         </header>

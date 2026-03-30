@@ -922,7 +922,12 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`\n=================================================`);
+    console.log(`🚀 ERP Kombat Moto Pecas - Sistema Pronto!`);
+    console.log(`📞 Local: http://localhost:${PORT}`);
+    console.log(`🌐 Rede: Disponivel em qualquer computador da oficina`);
+    console.log(`   Use o seu IP seguido de :${PORT}`);
+    console.log(`=================================================\n`);
   });
 }
 
