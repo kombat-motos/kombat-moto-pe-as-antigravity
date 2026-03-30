@@ -1287,6 +1287,7 @@ export default function App() {
     
     try {
       await localApi.put('products', selectedQuickProduct.id, {
+        ...selectedQuickProduct,
         stock: newStock
       });
       
@@ -3234,7 +3235,10 @@ export default function App() {
           setProducts(products.map(p => p.id === productId ? { ...p, image_url: originalUrl } : p));
 
           // Update in database with the lightweight URL
-          await localApi.put('products', productId, { image_url: finalUrl });
+          const prodToUpdate = products.find((p: Product) => p.id === productId);
+          if (prodToUpdate) {
+            await localApi.put('products', productId, { ...prodToUpdate, image_url: finalUrl });
+          }
 
           fetchData();
         } catch (error) {
@@ -3256,7 +3260,10 @@ export default function App() {
         setProducts(products.map(p => p.id === productId ? { ...p, image_url: url } : p));
 
         // Update in database
-        await localApi.put('products', productId, { image_url: finalUrl });
+        const prodToUpdate = products.find((p: Product) => p.id === productId);
+        if (prodToUpdate) {
+          await localApi.put('products', productId, { ...prodToUpdate, image_url: finalUrl });
+        }
 
         fetchData();
       } catch (error) {
