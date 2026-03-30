@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useDeferredValue } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -735,6 +735,17 @@ export default function App() {
   const [selectedQuickProduct, setSelectedQuickProduct] = useState<Product | null>(null);
   const [quickInventoryStock, setQuickInventoryStock] = useState<string>('');
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  
+  const d_globalSearchTerm = useDeferredValue(globalSearchTerm);
+  const d_inventorySearchTerm = useDeferredValue(inventorySearchTerm);
+  const d_customerSearchTerm = useDeferredValue(customerSearchTerm);
+  const d_searchTerm = useDeferredValue(searchTerm);
+  const d_quoteSearchTerm = useDeferredValue(quoteSearchTerm);
+  const d_stockSearchTerm = useDeferredValue(stockSearchTerm);
+  const d_pdvSearchProduct = useDeferredValue(pdvSearchProduct);
+  const d_osSearchProduct = useDeferredValue(osSearchProduct);
+  const d_osSearchService = useDeferredValue(osSearchService);
+  const d_serviceSearchTerm = useDeferredValue(serviceSearchTerm);
 
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
@@ -774,7 +785,9 @@ export default function App() {
       if (productsData) setProducts(productsData);
       if (customersData) setCustomers(customersData);
       if (motorcyclesData) setMotorcycles(motorcyclesData);
-      if (salesData) setSales(salesData);
+      if (salesData) {
+        setSales(salesData.map((s: any) => ({ ...s, items: s.sale_items || [] })));
+      }
       if (leadsData) setLeads(leadsData);
       if (mechanicsData) setMechanics(mechanicsData);
       if (fixedServicesData) setFixedServices(fixedServicesData);
@@ -2358,8 +2371,8 @@ export default function App() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {quotes.filter(q =>
-          q.customer_name.toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||
-          q.motorcycle_details?.toLowerCase().includes(quoteSearchTerm.toLowerCase())
+          q.customer_name.toLowerCase().includes(d_quoteSearchTerm.toLowerCase()) ||
+          q.motorcycle_details?.toLowerCase().includes(d_quoteSearchTerm.toLowerCase())
         ).map((q) => (
           <div key={q.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-all group relative overflow-hidden">
             <div className="absolute top-0 right-0 p-3">
@@ -4115,7 +4128,7 @@ export default function App() {
           </thead>
           <tbody className="divide-y divide-slate-300">
             {registeredServices.filter(s =>
-              s.description.toLowerCase().includes(serviceSearchTerm.toLowerCase())
+              s.description.toLowerCase().includes(d_serviceSearchTerm.toLowerCase())
             ).map(s => (
               <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 font-bold text-slate-900">{s.description}</td>
@@ -4159,7 +4172,7 @@ export default function App() {
   );
 
   const renderInventory = () => {
-    const search = (inventorySearchTerm.trim() || globalSearchTerm.trim()).toLowerCase();
+    const search = (d_inventorySearchTerm.trim() || d_globalSearchTerm.trim()).toLowerCase();
     const filtered = products.filter(p => {
       if (!search) return true;
       return (
@@ -6406,7 +6419,7 @@ export default function App() {
                 <tbody className="divide-y divide-slate-300">
                   {products
                     .filter(p => {
-                      const search = stockSearchTerm.toLowerCase();
+                      const search = d_stockSearchTerm.toLowerCase();
                       return (
                         p.description.toLowerCase().includes(search) ||
                         p.sku.toLowerCase().includes(search) ||
@@ -6455,7 +6468,7 @@ export default function App() {
                       </tr>
                     ))}
                   {products.filter(p => {
-                    const search = stockSearchTerm.toLowerCase();
+                    const search = d_stockSearchTerm.toLowerCase();
                     return (
                       p.description.toLowerCase().includes(search) ||
                       p.sku.toLowerCase().includes(search)
@@ -6967,9 +6980,9 @@ export default function App() {
                 {pdvSearchProduct && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                     {products.filter(p =>
-                      (p.description || '').toLowerCase().includes(pdvSearchProduct.toLowerCase()) ||
-                      (p.brand && (p.brand || '').toLowerCase().includes(pdvSearchProduct.toLowerCase())) ||
-                      (p.sku || '').toLowerCase().includes(pdvSearchProduct.toLowerCase())
+                      (p.description || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase()) ||
+                      (p.brand && (p.brand || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase())) ||
+                      (p.sku || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase())
                     ).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map(p => (
                       <button
                         key={p.id}
@@ -7808,9 +7821,9 @@ export default function App() {
                   {osSearchProduct && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                       {products.filter(p =>
-                        (p.description || '').toLowerCase().includes(osSearchProduct.toLowerCase()) ||
-                        (p.brand && (p.brand || '').toLowerCase().includes(osSearchProduct.toLowerCase())) ||
-                        (p.sku || '').toLowerCase().includes(osSearchProduct.toLowerCase())
+                        (p.description || '').toLowerCase().includes(d_osSearchProduct.toLowerCase()) ||
+                        (p.brand && (p.brand || '').toLowerCase().includes(d_osSearchProduct.toLowerCase())) ||
+                        (p.sku || '').toLowerCase().includes(d_osSearchProduct.toLowerCase())
                       ).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map(p => (
                         <button
                           key={p.id}
@@ -7850,7 +7863,7 @@ export default function App() {
                   {osSearchService && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                       {registeredServices.filter(s =>
-                        (s.description || '').toLowerCase().includes(osSearchService.toLowerCase())
+                        (s.description || '').toLowerCase().includes(d_osSearchService.toLowerCase())
                       ).map(s => (
                         <button
                           key={s.id}
