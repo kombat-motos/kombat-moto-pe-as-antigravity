@@ -7,4 +7,4 @@ startCommand = "npm run start"
 restartPolicyType = "ON_FAILURE"
 
 [phases.setup]
-nixPkgs = ["...", "sqlite"]
+nixPkgs = ["nodejs_22", "sqlite"]
