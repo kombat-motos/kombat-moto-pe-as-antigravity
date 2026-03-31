@@ -107,7 +107,7 @@ const VirtualCatalogModal: React.FC<VirtualCatalogModalProps> = ({ products, sho
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2">
-        {filteredProducts.map(product => (
+        {filteredProducts.slice(0, 50).map(product => (
           <div
             key={product.id}
             className={`relative bg-white p-4 rounded-xl shadow-sm border transition-all ${selectedProducts.some(p => p.id === product.id) ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-slate-400 hover:border-slate-400'}`}
@@ -141,6 +141,9 @@ const VirtualCatalogModal: React.FC<VirtualCatalogModalProps> = ({ products, sho
         ))}
         {filteredProducts.length === 0 && (
           <p className="col-span-full text-center text-slate-400 py-8">Nenhum produto encontrado.</p>
+        )}
+        {filteredProducts.length > 50 && (
+          <p className="col-span-full text-center text-slate-400 py-4 font-medium text-xs uppercase bg-slate-50 rounded-xl">Mostrando os primeiros 50 de {filteredProducts.length} resultados. Refine sua busca.</p>
         )}
       </div>
 

@@ -564,6 +564,36 @@ export default function App() {
     }
   };
 
+  const handleMassUpdate = async () => {
+    try {
+      const val = parseFloat(massUpdateForm.value.replace(',', '.'));
+      if (isNaN(val) || val <= 0) return alert('Insira um valor maior que zero válido.');
+      
+      const confirmMsg = selectedProductIds.length > 0 
+        ? `Você vai alterar os preços de ${selectedProductIds.length} PRODUTOS SELECIONADOS. Tem certeza?`
+        : `Você vai alterar os preços de TODOS OS PRODUTOS DO SISTEMA. Tem certeza absoluta?`;
+        
+      if (!confirm(confirmMsg)) return;
+
+      setLoading(true);
+      await localApi.post('products/mass-update', {
+        ...massUpdateForm,
+        value: val,
+        productIds: selectedProductIds.length > 0 ? selectedProductIds : []
+      });
+      setIsMassUpdateModalOpen(false);
+      setMassUpdateForm({ type: 'percent', action: 'increase', value: '' });
+      setSelectedProductIds([]);
+      fetchData();
+      alert('Preços atualizados com sucesso!');
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || 'Erro ao atualizar preços em massa');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const localApi = {
     getHeaders: () => {
       const token = localStorage.getItem('token');
@@ -642,6 +672,8 @@ export default function App() {
   // Modal States
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isMassUpdateModalOpen, setIsMassUpdateModalOpen] = useState(false);
+  const [massUpdateForm, setMassUpdateForm] = useState<{type: 'percent'|'fixed', action: 'increase'|'decrease', value: string}>({ type: 'percent', action: 'increase', value: '' });
   const [isMotorcycleModalOpen, setIsMotorcycleModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -4299,6 +4331,13 @@ export default function App() {
               CONTAGEM RÁPIDA
             </button>
             <button
+              onClick={() => setIsMassUpdateModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-all font-medium whitespace-nowrap"
+            >
+              <TrendingUp size={18} />
+              Atualização em Massa
+            </button>
+            <button
               onClick={() => {
                 setEditingProduct(null);
                 setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', brand: '', location: '', application: '' });
@@ -4355,8 +4394,9 @@ export default function App() {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((p) => (
-                    <tr key={p.id} className={`hover:bg-slate-50/50 transition-colors ${selectedProductIds.includes(p.id) ? 'bg-rose-50/30' : ''}`}>
+                  <>
+                    {filtered.slice(0, 100).map((p) => (
+                      <tr key={p.id} className={`hover:bg-slate-50/50 transition-colors ${selectedProductIds.includes(p.id) ? 'bg-rose-50/30' : ''}`}>
                       <td className="px-6 py-4">
                         <input
                           type="checkbox"
@@ -4415,7 +4455,15 @@ export default function App() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                  ))}
+                  {filtered.length > 100 && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-4 text-center text-slate-400 font-medium text-xs uppercase bg-slate-50">
+                        Mostrando os primeiros 100 de {filtered.length} resultados. Refine sua busca para ver mais.
+                      </td>
+                    </tr>
+                  )}
+                  </>
                 )}
               </tbody>
             </table>
@@ -4427,8 +4475,9 @@ export default function App() {
                 Nenhum produto encontrado.
               </div>
             ) : (
-              filtered.map((p) => (
-                <div key={p.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group relative ${selectedProductIds.includes(p.id) ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-slate-400'}`}>
+              <>
+                {filtered.slice(0, 100).map((p) => (
+                  <div key={p.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group relative ${selectedProductIds.includes(p.id) ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-slate-400'}`}>
                   <div className="absolute top-3 left-3 z-20">
                     <input
                       type="checkbox"
@@ -4479,7 +4528,13 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-              ))
+                ))}
+                {filtered.length > 100 && (
+                  <div className="col-span-full py-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 font-medium text-xs uppercase">
+                    Mostrando os primeiros 100 de {filtered.length} resultados. Refine sua busca para ver mais.
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -9300,6 +9355,69 @@ export default function App() {
               <p className="text-slate-400 font-medium">Use a busca acima ou bipe o <br /> código para começar a contar.</p>
             </div>
           )}
+        </div>
+      </Modal>
+
+      <Modal isOpen={isMassUpdateModalOpen} onClose={() => setIsMassUpdateModalOpen(false)} title="Atualização de Preços em Massa">
+        <div className="space-y-6">
+          <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
+            <h4 className="font-bold text-amber-800 text-sm mb-1 uppercase">Atenção Especial</h4>
+            <p className="text-xs text-amber-700">
+              {selectedProductIds.length > 0 
+                ? `Esta ação vai atualizar o preço de VENDA dos ${selectedProductIds.length} produtos que você selecionou agora.`
+                : `Você NÃO selecionou nenhum produto, então esta ação vai atualizar o preço de TODOS (${products.length}) os produtos do seu estoque que pertencem a você.`}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-400 mb-2 uppercase">Ação</label>
+              <select
+                value={massUpdateForm.action}
+                onChange={e => setMassUpdateForm({...massUpdateForm, action: e.target.value as 'increase'|'decrease'})}
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 font-bold bg-white"
+              >
+                <option value="increase">AUMENTAR (Subir preços)</option>
+                <option value="decrease">DIMINUIR (Baixar preços)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 mb-2 uppercase">Tipo de Reajuste</label>
+              <select
+                value={massUpdateForm.type}
+                onChange={e => setMassUpdateForm({...massUpdateForm, type: e.target.value as 'percent'|'fixed'})}
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 font-bold bg-white"
+              >
+                <option value="percent">Porcentagem (%)</option>
+                <option value="fixed">Valor Fixo (R$)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-400 mb-2 uppercase">
+              {massUpdateForm.type === 'percent' ? 'Qual a porcentagem (%) ?' : 'Qual o valor (R$) ?'}
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+                {massUpdateForm.type === 'percent' ? '%' : 'R$'}
+              </span>
+              <input
+                type="number"
+                value={massUpdateForm.value}
+                onChange={e => setMassUpdateForm({...massUpdateForm, value: e.target.value})}
+                placeholder="Exemplo: 10"
+                className="w-full border border-slate-300 rounded-xl pl-12 pr-4 py-4 font-black text-xl focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={handleMassUpdate}
+            className="w-full py-4 bg-amber-500 text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+          >
+            CONFIRMAR {massUpdateForm.action === 'increase' ? 'AUMENTO' : 'REDUÇÃO'} EM MASSA
+          </button>
         </div>
       </Modal>
     </div>
