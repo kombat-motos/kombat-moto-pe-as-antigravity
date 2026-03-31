@@ -18,7 +18,8 @@ const __dirname = path.dirname(__filename);
 
 const JWT_SECRET = process.env.JWT_SECRET || "kombat-moto-secret-key-2024";
 
-const db = new Database("./kombat_moto_backup.db");
+const dbPath = process.env.DB_PATH || "./kombat_moto_backup.db";
+const db = new Database(dbPath);
 
 // Extend Express Request type to include user
 declare global {
@@ -294,7 +295,7 @@ try { db.exec("ALTER TABLE mechanics ADD COLUMN commission_rate REAL DEFAULT 0")
 
 async function startServer() {
   const app = express();
-  const PORT = 3001;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 
   app.use(cors());
   app.use(compression());
@@ -910,7 +911,11 @@ async function startServer() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        host: '0.0.0.0',
+        hmr: { port: 24678 }
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
