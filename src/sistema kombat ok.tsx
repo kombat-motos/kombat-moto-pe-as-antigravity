@@ -4374,7 +4374,7 @@ export default function App() {
                   </tr>
                 ) : (
                   <>
-                    {filtered.slice(0, 100).map((p) => (
+                    {filtered.map((p) => (
                       <tr key={p.id} className={`hover:bg-slate-50/50 transition-colors ${selectedProductIds.includes(p.id) ? 'bg-rose-50/30' : ''}`}>
                       <td className="px-6 py-4">
                         <input
@@ -4435,13 +4435,6 @@ export default function App() {
                       </td>
                     </tr>
                   ))}
-                  {filtered.length > 100 && (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-4 text-center text-slate-400 font-medium text-xs uppercase bg-slate-50">
-                        Mostrando os primeiros 100 de {filtered.length} resultados. Refine sua busca para ver mais.
-                      </td>
-                    </tr>
-                  )}
                   </>
                 )}
               </tbody>
@@ -4455,7 +4448,7 @@ export default function App() {
               </div>
             ) : (
               <>
-                {filtered.slice(0, 100).map((p) => (
+                {filtered.map((p) => (
                   <div key={p.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group relative ${selectedProductIds.includes(p.id) ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-slate-400'}`}>
                   <div className="absolute top-3 left-3 z-20">
                     <input
@@ -4508,11 +4501,6 @@ export default function App() {
                   </div>
                 </div>
                 ))}
-                {filtered.length > 100 && (
-                  <div className="col-span-full py-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 font-medium text-xs uppercase">
-                    Mostrando os primeiros 100 de {filtered.length} resultados. Refine sua busca para ver mais.
-                  </div>
-                )}
               </>
             )}
           </div>
