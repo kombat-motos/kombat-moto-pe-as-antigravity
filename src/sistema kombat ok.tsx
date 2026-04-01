@@ -499,28 +499,6 @@ const VendaCalculator = ({ initialCost, onApply, cardFees }: { initialCost: numb
     </div>
   );
 };
-const DebouncedInput = ({ value, onChange, placeholder, className }: { value: string, onChange: (val: string) => void, placeholder?: string, className?: string }) => {
-  const [localValue, setLocalValue] = useState(value);
-  
-  useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
-
-  useEffect(() => {
-    const handler = setTimeout(() => onChange(localValue), 300);
-    return () => clearTimeout(handler);
-  }, [localValue, onChange]);
-
-  return (
-    <input 
-      type="text" 
-      value={localValue} 
-      onChange={e => setLocalValue(e.target.value)} 
-      placeholder={placeholder} 
-      className={className} 
-    />
-  );
-};
 
 export default function App() {
   const [user, setUser] = useState<any>({ id: 'local-user', email: 'admin@sistema.local' });
@@ -4256,11 +4234,12 @@ export default function App() {
             </button>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <DebouncedInput
+              <input
+                type="text"
                 placeholder="Pesquisar produtos..."
                 className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
                 value={inventorySearchTerm}
-                onChange={setInventorySearchTerm}
+                onChange={e => setInventorySearchTerm(e.target.value)}
               />
             </div>
             <div className="flex bg-slate-100 p-1 rounded-xl mr-2">
@@ -7049,11 +7028,12 @@ export default function App() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Adicionar Peça / Produto</label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <DebouncedInput
+                  <input
+                    type="text"
                     placeholder="Buscar no estoque..."
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
                     value={pdvSearchProduct}
-                    onChange={setPdvSearchProduct}
+                    onChange={e => setPdvSearchProduct(e.target.value)}
                   />
                 </div>
                 {pdvSearchProduct && (
@@ -7889,11 +7869,12 @@ export default function App() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Adicionar Peça / Produto</label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <DebouncedInput
+                    <input
+                      type="text"
                       placeholder="Buscar no estoque..."
                       className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
                       value={osSearchProduct}
-                      onChange={setOsSearchProduct}
+                      onChange={e => setOsSearchProduct(e.target.value)}
                     />
                   </div>
                   {osSearchProduct && (
