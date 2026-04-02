@@ -231,6 +231,7 @@ interface Distributor {
 interface PurchaseOrderItem {
   description: string;
   quantity: number;
+  price?: number;
 }
 
 interface PurchaseOrder {
@@ -239,7 +240,7 @@ interface PurchaseOrder {
   distributor_name: string;
   items: PurchaseOrderItem[];
   date: string;
-  status: 'Pendente' | 'Enviado' | 'Recebido';
+  status: string;
 }
 
 // --- Utils ---
@@ -3092,13 +3093,10 @@ export default function App() {
 
       setIsOrderModalOpen(false);
       setOrderForm({ distributor_id: '', items: [] });
+      setEditingOrder(null);
       fetchData();
-
-      if (confirm('Pedido criado! Deseja enviar via WhatsApp agora?')) {
-        handleSendOrderWhatsApp(newOrder);
-      }
     } catch (error) {
-      console.error('Error creating purchase order:', error);
+      console.error('Error saving purchase order:', error);
       alert('Erro ao salvar pedido.');
     }
   };
@@ -5573,6 +5571,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-slate-900">Pedidos de Peças</h2>
         <div className="flex gap-2">
+          <button
             onClick={() => {
               setEditingOrder(null);
               setOrderForm({ distributor_id: '', items: [] });
@@ -5597,48 +5596,53 @@ export default function App() {
           {purchaseOrders.length === 0 ? (
             <p className="text-center text-slate-400 py-8 italic">Nenhum pedido de peças registrado ainda.</p>
           ) : (
-            purchaseOrders.map(order => (
-              <div key={order.id} className="p-4 bg-slate-50 rounded-xl border border-slate-400 flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-slate-800">Pedido #{order.id}</p>
-                  <p className="text-sm text-slate-500">Distribuidor: {order.distributor_name}</p>
-                  <p className="text-xs text-slate-400">Data: {new Date(order.date).toLocaleDateString('pt-BR')}</p>
+            purchaseOrders.map(order => {
+              const statusClass = order.status === 'Pendente' ? 'bg-amber-100 text-amber-600' : 
+                                order.status === 'Enviado' ? 'bg-blue-100 text-blue-600' : 
+                                'bg-rose-100 text-rose-600';
+              return (
+                <div key={order.id} className="p-4 bg-slate-50 rounded-xl border border-slate-400 flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-slate-800">Pedido #{order.id}</p>
+                    <p className="text-sm text-slate-500">Distribuidor: {order.distributor_name}</p>
+                    <p className="text-xs text-slate-400">Data: {new Date(order.date).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${statusClass}`}>
+                      {(order.status || 'Pendente').toUpperCase()}
+                    </span>
+                    <button
+                      onClick={() => handleOpenEditOrder(order)}
+                      className="p-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
+                      title="Editar Pedido"
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteOrder(order.id)}
+                      className="p-2 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition-colors"
+                      title="Deletar Pedido"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleSendOrderWhatsApp(order)}
+                      className="p-2 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition-colors"
+                      title="Enviar via WhatsApp"
+                    >
+                      <Send size={18} />
+                    </button>
+                    <button
+                      onClick={() => setPurchaseOrders(purchaseOrders.map(o => o.id === order.id ? { ...o, status: 'Recebido' } : o))}
+                      className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                      title="Marcar como Recebido"
+                    >
+                      <ClipboardList size={18} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${order.status === 'Pendente' ? 'bg-amber-100 text-amber-600' : order.status === 'Enviado' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}`}>
-                    {order.status.toUpperCase()}
-                  </span>
-                  <button
-                    onClick={() => handleOpenEditOrder(order)}
-                    className="p-2 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition-colors"
-                    title="Editar Pedido"
-                  >
-                    <Pencil size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteOrder(order.id)}
-                    className="p-2 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition-colors"
-                    title="Deletar Pedido"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleSendOrderWhatsApp(order)}
-                    className="p-2 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition-colors"
-                    title="Enviar via WhatsApp"
-                  >
-                    <Send size={18} />
-                  </button>
-                  <button
-                    onClick={() => setPurchaseOrders(purchaseOrders.map(o => o.id === order.id ? { ...o, status: 'Recebido' } : o))}
-                    className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                    title="Marcar como Recebido"
-                  >
-                    <ClipboardList size={18} />
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

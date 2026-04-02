@@ -841,8 +841,17 @@ async function startServer() {
 
   // Purchase Orders
   app.get("/api/purchase_orders", authenticateToken, (req, res) => {
-    const orders = db.prepare("SELECT * FROM purchase_orders WHERE user_id = ? ORDER BY created_at DESC").all(req.user!.id) as any[];
-    res.json(orders.map(o => ({ ...o, items: db.prepare("SELECT * FROM purchase_order_items WHERE purchase_order_id = ?").all(o.id) })));
+    const orders = db.prepare(`
+      SELECT o.*, d.name as distributor_name, o.created_at as date 
+      FROM purchase_orders o 
+      LEFT JOIN distributors d ON o.distributor_id = d.id 
+      WHERE o.user_id = ? 
+      ORDER BY o.created_at DESC
+    `).all(req.user!.id) as any[];
+    res.json(orders.map(o => ({ 
+      ...o, 
+      items: db.prepare("SELECT * FROM purchase_order_items WHERE purchase_order_id = ?").all(o.id) 
+    })));
   });
   app.post("/api/purchase_orders", authenticateToken, (req, res) => {
     const { distributor_id, items } = req.body;
