@@ -664,6 +664,7 @@ export default function App() {
   const [editingMechanic, setEditingMechanic] = useState<Mechanic | null>(null);
   const [editingFixedService, setEditingFixedService] = useState<FixedService | null>(null);
   const [editingDistributor, setEditingDistributor] = useState<Distributor | null>(null);
+  const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
   const [labelPreviewProduct, setLabelPreviewProduct] = useState<Product | null>(null);
   const [showPdvCalculator, setShowPdvCalculator] = useState(false);
@@ -2990,7 +2991,7 @@ export default function App() {
     }
   };
 
-  const handleAddOrderItem = (product: Product) => {
+  const handleAddOrderItem = (product: any) => {
     const existing = orderForm.items.find(i => i.description === product.description);
     if (existing) {
       setOrderForm({
@@ -3000,10 +3001,23 @@ export default function App() {
     } else {
       setOrderForm({
         ...orderForm,
-        items: [...orderForm.items, { description: product.description, quantity: 1 }]
+        items: [...orderForm.items, { description: product.description, quantity: 1, price: product.purchase_price || 0 }]
       });
     }
     setOrderSearchProduct('');
+  };
+
+  const handleOpenEditOrder = (order: PurchaseOrder) => {
+    setEditingOrder(order);
+    setOrderForm({
+      distributor_id: String(order.distributor_id),
+      items: order.items.map(item => ({
+        description: item.description,
+        quantity: item.quantity,
+        price: item.price || 0
+      }))
+    });
+    setIsOrderModalOpen(true);
   };
 
   const handleRemoveOrderItem = (description: string) => {
@@ -3062,23 +3076,20 @@ export default function App() {
       return;
     }
 
-    const orderId = Math.random().toString(36).substr(2, 9).toUpperCase();
-    const newOrder: PurchaseOrder = {
-      id: orderId,
-      distributor_id: orderForm.distributor_id,
-      distributor_name: distributor.name,
-      items: orderForm.items,
-      date: new Date().toISOString(),
-      status: 'Pendente'
-    };
-
     try {
-      await localApi.post('purchase_orders', {
-        distributor_id: newOrder.distributor_id,
+      const payload = {
+        distributor_id: orderForm.distributor_id,
         items: orderForm.items
-      });
+      };
 
-      setPurchaseOrders([newOrder, ...purchaseOrders]);
+      if (editingOrder) {
+        await localApi.put('purchase_orders', editingOrder.id, payload);
+        alert('Pedido atualizado com sucesso!');
+      } else {
+        await localApi.post('purchase_orders', payload);
+        alert('Pedido criado com sucesso!');
+      }
+
       setIsOrderModalOpen(false);
       setOrderForm({ distributor_id: '', items: [] });
       fetchData();
@@ -5562,8 +5573,11 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-slate-900">Pedidos de Peças</h2>
         <div className="flex gap-2">
-          <button
-            onClick={() => setIsOrderModalOpen(true)}
+            onClick={() => {
+              setEditingOrder(null);
+              setOrderForm({ distributor_id: '', items: [] });
+              setIsOrderModalOpen(true);
+            }}
             className="px-6 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 flex items-center gap-2"
           >
             <Plus size={18} /> Novo Pedido
@@ -5594,6 +5608,13 @@ export default function App() {
                   <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${order.status === 'Pendente' ? 'bg-amber-100 text-amber-600' : order.status === 'Enviado' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'}`}>
                     {order.status.toUpperCase()}
                   </span>
+                  <button
+                    onClick={() => handleOpenEditOrder(order)}
+                    className="p-2 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition-colors"
+                    title="Editar Pedido"
+                  >
+                    <Pencil size={18} />
+                  </button>
                   <button
                     onClick={() => handleDeleteOrder(order.id)}
                     className="p-2 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition-colors"
@@ -8969,7 +8990,11 @@ export default function App() {
       {/* Purchase Order Modal */}
       <Modal
         isOpen={isOrderModalOpen}
-        onClose={() => setIsOrderModalOpen(false)}
+        onClose={() => {
+          setIsOrderModalOpen(false);
+          setEditingOrder(null);
+          setOrderForm({ distributor_id: '', items: [] });
+        }}
         title="Novo Pedido de Peças"
         maxWidth="max-w-[95%]"
       >
@@ -9066,7 +9091,7 @@ export default function App() {
           )}
 
           <button type="submit" className="w-full py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all">
-            Criar Pedido
+            {editingOrder ? "Atualizar Pedido" : "Criar Pedido"}
           </button>
         </form>
       </Modal>

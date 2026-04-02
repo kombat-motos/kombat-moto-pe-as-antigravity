@@ -850,10 +850,42 @@ async function startServer() {
       const info = db.prepare("INSERT INTO purchase_orders (user_id, distributor_id, status) VALUES (?, ?, ?)").run(req.user!.id, distId, 'Pendente');
       const orderId = info.lastInsertRowid;
       const insertItem = db.prepare("INSERT INTO purchase_order_items (purchase_order_id, description, quantity, price) VALUES (?, ?, ?, ?)");
-      for (const item of orderItems) insertItem.run(orderId, item.description, item.quantity, item.price);
+      for (const item of orderItems) insertItem.run(orderId, item.description, item.quantity, item.price || 0);
       return orderId;
     });
     res.json({ id: parseInt(insertOrder(distributor_id, items).toString()) });
+  });
+
+  app.put("/api/purchase_orders/:id", authenticateToken, (req, res) => {
+    const { distributor_id, items, status } = req.body;
+    const updateOrder = db.transaction((orderId, distId, orderStatus, orderItems) => {
+      if (distId) db.prepare("UPDATE purchase_orders SET distributor_id = ? WHERE id = ? AND user_id = ?").run(distId, orderId, req.user!.id);
+      if (orderStatus) db.prepare("UPDATE purchase_orders SET status = ? WHERE id = ? AND user_id = ?").run(orderStatus, orderId, req.user!.id);
+      
+      if (orderItems) {
+        db.prepare("DELETE FROM purchase_order_items WHERE purchase_order_id = ?").run(orderId);
+        const insertItem = db.prepare("INSERT INTO purchase_order_items (purchase_order_id, description, quantity, price) VALUES (?, ?, ?, ?)");
+        for (const item of orderItems) insertItem.run(orderId, item.description, item.quantity, item.price || 0);
+      }
+    });
+
+    try {
+      updateOrder(req.params.id, distributor_id, status, items);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Erro ao atualizar pedido" });
+    }
+  });
+
+  app.delete("/api/purchase_orders/:id", authenticateToken, (req, res) => {
+    try {
+      db.prepare("DELETE FROM purchase_orders WHERE id = ? AND user_id = ?").run(req.params.id, req.user!.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Erro ao excluir pedido" });
+    }
   });
 
   // Cash Sessions & Transactions
