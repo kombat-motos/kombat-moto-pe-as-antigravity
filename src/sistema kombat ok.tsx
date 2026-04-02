@@ -222,7 +222,9 @@ interface CashTransaction {
 interface Distributor {
   id: string;
   name: string;
-  phone: string;
+  whatsapp?: string;
+  phone?: string;
+  contact?: string;
   contact_person?: string;
 }
 
@@ -825,7 +827,13 @@ export default function App() {
       if (leadsData) setLeads(leadsData);
       if (mechanicsData) setMechanics(mechanicsData);
       if (fixedServicesData) setFixedServices(fixedServicesData);
-      if (distributorsData) setDistributors(distributorsData);
+      if (distributorsData) {
+        setDistributors(distributorsData.map((d: any) => ({
+          ...d,
+          phone: d.whatsapp || d.phone,
+          contact_person: d.contact || d.contact_person
+        })));
+      }
       if (ordersData) setPurchaseOrders(ordersData);
       if (cashSessionsData) setCashSessions(cashSessionsData);
       if (cashTransactionsData) setCashTransactions(cashTransactionsData);
@@ -3019,6 +3027,12 @@ export default function App() {
       return;
     }
 
+    const phone = (distributor.whatsapp || distributor.phone || '').replace(/\D/g, '');
+    if (!phone) {
+      alert('Telefone do distribuidor não cadastrado ou inválido.');
+      return;
+    }
+
     let message = `*PEDIDO DE PEÇAS - KOMBAT MOTO*\n`;
     message += `Data: ${new Date(order.date).toLocaleDateString('pt-BR')}\n`;
     message += `Pedido ID: ${order.id}\n\n`;
@@ -3028,7 +3042,7 @@ export default function App() {
     });
     message += `\nFavor confirmar recebimento e informar previsão de entrega.`;
 
-    window.open(`https://wa.me/${distributor.phone}?text=${encodeURIComponent(message)}`, '_blank');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
 
     // Update status to Sent in database
     localApi.put('purchase_orders', order.id, { status: 'Enviado' }).then(() => {

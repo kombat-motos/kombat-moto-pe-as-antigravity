@@ -770,13 +770,13 @@ async function startServer() {
 
   // Distributors
   app.get("/api/distributors", authenticateToken, (req, res) => {
-    const data = db.prepare(`SELECT * FROM distributors WHERE user_id = ?`).all(req.user!.id);
+    const data = db.prepare(`SELECT id, name, whatsapp as phone, contact as contact_person, created_at FROM distributors WHERE user_id = ?`).all(req.user!.id);
     res.json(data);
   });
   app.post("/api/distributors", authenticateToken, (req, res) => {
     const { name, phone, contact_person } = req.body;
     const info = db.prepare("INSERT INTO distributors (user_id, name, whatsapp, contact) VALUES (?, ?, ?, ?)").run(req.user!.id, name, phone, contact_person);
-    res.json({ id: parseInt(info.lastInsertRowid.toString()) });
+    res.json({ id: parseInt(info.lastInsertRowid.toString()), name, phone, contact_person });
   });
   app.put("/api/distributors/:id", authenticateToken, (req, res) => {
     const { name, phone, contact_person } = req.body;
