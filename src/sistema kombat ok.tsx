@@ -779,19 +779,7 @@ export default function App() {
   const d_osSearchService = useDeferredValue(osSearchService);
   const d_serviceSearchTerm = useDeferredValue(serviceSearchTerm);
 
-  const filteredInventoryProducts = useMemo(() => {
-    const search = (d_inventorySearchTerm.trim() || d_globalSearchTerm.trim()).toLowerCase();
-    return products.filter(p => {
-      if (!search) return true;
-      return (
-        (p.description || '').toLowerCase().includes(search) ||
-        (p.sku || '').toLowerCase().includes(search) ||
-        (p.location && (p.location || '').toLowerCase().includes(search)) ||
-        (p.barcode || '').toLowerCase().includes(search) ||
-        (p.brand && (p.brand || '').toLowerCase().includes(search))
-      );
-    }).sort((a, b) => (a.description || '').localeCompare(b.description || ''));
-  }, [products, d_inventorySearchTerm, d_globalSearchTerm]);
+
   
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
@@ -1015,6 +1003,44 @@ export default function App() {
   // Distributor States
   const [isDistributorModalOpen, setIsDistributorModalOpen] = useState(false);
   const [distributorForm, setDistributorForm] = useState({ name: '', phone: '', contact_person: '' });
+
+  const sortedProducts = useMemo(() => {
+    return [...products].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+  }, [products]);
+
+  const sortedCustomers = useMemo(() => {
+    return [...customers].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [customers]);
+
+  const sortedRegisteredServices = useMemo(() => {
+    return [...registeredServices].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+  }, [registeredServices]);
+
+  const sortedFixedServices = useMemo(() => {
+    return [...fixedServices].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [fixedServices]);
+
+  const sortedMechanics = useMemo(() => {
+    return [...mechanics].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [mechanics]);
+
+  const sortedDistributors = useMemo(() => {
+    return [...distributors].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [distributors]);
+
+  const filteredInventoryProducts = useMemo(() => {
+    const search = (d_inventorySearchTerm.trim() || d_globalSearchTerm.trim()).toLowerCase();
+    return sortedProducts.filter(p => {
+      if (!search) return true;
+      return (
+        (p.description || '').toLowerCase().includes(search) ||
+        (p.sku || '').toLowerCase().includes(search) ||
+        (p.location && (p.location || '').toLowerCase().includes(search)) ||
+        (p.barcode || '').toLowerCase().includes(search) ||
+        (p.brand && (p.brand || '').toLowerCase().includes(search))
+      );
+    });
+  }, [sortedProducts, d_inventorySearchTerm, d_globalSearchTerm]);
 
   const handleAddDistributor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2693,7 +2719,7 @@ export default function App() {
             </h3>
           </div>
           <div className="divide-y divide-slate-300 max-h-[400px] overflow-y-auto">
-            {mechanics.sort((a, b) => a.name.localeCompare(b.name)).map(m => (
+            {sortedMechanics.map(m => (
               <div key={m.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold">
@@ -2754,7 +2780,7 @@ export default function App() {
             </h3>
           </div>
           <div className="divide-y divide-slate-300 max-h-[400px] overflow-y-auto">
-            {fixedServices.sort((a, b) => a.name.localeCompare(b.name)).map(fs => (
+            {sortedFixedServices.map(fs => (
               <div key={fs.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div>
                   <p className="font-bold text-slate-900">{fs.name}</p>
@@ -2807,7 +2833,7 @@ export default function App() {
             </h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6 divide-y md:divide-y-0 max-h-[500px] overflow-y-auto">
-            {distributors.sort((a, b) => a.name.localeCompare(b.name)).map(d => (
+            {sortedDistributors.map(d => (
               <div key={d.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-400 hover:border-rose-500 transition-all group relative">
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center font-bold text-xl">
@@ -2987,8 +3013,11 @@ export default function App() {
   };
 
   const handleSendOrderWhatsApp = (order: PurchaseOrder) => {
-    const distributor = distributors.find(d => d.id === order.distributor_id);
-    if (!distributor) return;
+    const distributor = distributors.find(d => String(d.id) === String(order.distributor_id));
+    if (!distributor) {
+      alert('Distribuidor não encontrado para este pedido.');
+      return;
+    }
 
     let message = `*PEDIDO DE PEÇAS - KOMBAT MOTO*\n`;
     message += `Data: ${new Date(order.date).toLocaleDateString('pt-BR')}\n`;
@@ -3009,8 +3038,15 @@ export default function App() {
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    const distributor = distributors.find(d => d.id === orderForm.distributor_id);
-    if (!distributor || orderForm.items.length === 0) return;
+    const distributor = distributors.find(d => String(d.id) === String(orderForm.distributor_id));
+    if (!distributor) {
+      alert('Selecione um distribuidor válido.');
+      return;
+    }
+    if (orderForm.items.length === 0) {
+      alert('Adicione pelo menos um item ao pedido.');
+      return;
+    }
 
     const orderId = Math.random().toString(36).substr(2, 9).toUpperCase();
     const newOrder: PurchaseOrder = {
@@ -3820,7 +3856,7 @@ export default function App() {
       <div className="grid grid-cols-1 gap-8">
         <BillingAutomationBox
           pendingSales={sales.filter(s => s.payment_status === 'Pendente')}
-          customers={customers}
+          customers={sortedCustomers}
           companyData={companyData}
           onUpdateDueDate={handleUpdateDueDate}
           onPartialPayment={handlePartialPayment}
@@ -3898,7 +3934,7 @@ export default function App() {
 
       {customerViewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {customers.filter(c => {
+          {sortedCustomers.filter(c => {
             const search = (customerSearchTerm || globalSearchTerm).toLowerCase();
             return (
               (c.name || '').toLowerCase().includes(search) ||
@@ -4022,7 +4058,7 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {customers.filter(c => {
+                {sortedCustomers.filter(c => {
                   const search = (customerSearchTerm || globalSearchTerm).toLowerCase();
                   return (
                     (c.name || '').toLowerCase().includes(search) ||
@@ -4173,7 +4209,7 @@ export default function App() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-300">
-            {registeredServices.filter(s =>
+            {sortedRegisteredServices.filter(s =>
               s.description.toLowerCase().includes(d_serviceSearchTerm.toLowerCase())
             ).map(s => (
               <tr key={s.id} className="hover:bg-slate-50 transition-colors">
@@ -6464,16 +6500,15 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-300">
-                  {products
+                  {sortedProducts
                     .filter(p => {
                       const search = d_stockSearchTerm.toLowerCase();
                       return (
-                        p.description.toLowerCase().includes(search) ||
-                        p.sku.toLowerCase().includes(search) ||
-                        p.barcode?.toLowerCase().includes(search)
+                        (p.description || '').toLowerCase().includes(search) ||
+                        (p.sku || '').toLowerCase().includes(search) ||
+                        (p.barcode || '').toLowerCase().includes(search)
                       );
                     })
-                    .sort((a, b) => a.description.localeCompare(b.description))
                     .map(product => (
                       <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
                         <td className="px-4 py-3">
@@ -6514,11 +6549,11 @@ export default function App() {
                         </td>
                       </tr>
                     ))}
-                  {products.filter(p => {
+                  {sortedProducts.filter(p => {
                     const search = d_stockSearchTerm.toLowerCase();
                     return (
-                      p.description.toLowerCase().includes(search) ||
-                      p.sku.toLowerCase().includes(search)
+                      (p.description || '').toLowerCase().includes(search) ||
+                      (p.sku || '').toLowerCase().includes(search)
                     );
                   }).length === 0 && (
                       <tr>
@@ -6675,36 +6710,40 @@ export default function App() {
             setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '' });
           }}
           title={editingProduct ? "Editar Produto" : "Adicionar Produto ao Estoque"}
+          maxWidth="max-w-4xl"
         >
           <form onSubmit={handleAddProduct} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Descrição do Produto</label>
-              <input
-                type="text" required placeholder="Ex: Pneu Traseiro 90/90-18"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
-                value={productForm.description}
-                onChange={e => setProductForm({ ...productForm, description: e.target.value })}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Descrição do Produto</label>
+                <input
+                  type="text" required placeholder="Ex: Pneu Traseiro 90/90-18"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  value={productForm.description}
+                  onChange={e => setProductForm({ ...productForm, description: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Marca</label>
+                <input
+                  type="text" placeholder="Ex: Honda, Pirelli, Mobil"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  value={productForm.brand}
+                  onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Marca</label>
-              <input
-                type="text" placeholder="Ex: Honda, Pirelli, Mobil"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
-                value={productForm.brand}
-                onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Localização no Estoque</label>
-              <input
-                type="text" placeholder="Ex: Prateleira A, Corredor 2"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
-                value={productForm.location}
-                onChange={e => setProductForm({ ...productForm, location: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Localização no Estoque</label>
+                <input
+                  type="text" placeholder="Ex: Prateleira A, Corredor 2"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  value={productForm.location}
+                  onChange={e => setProductForm({ ...productForm, location: e.target.value })}
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">SKU / Código Interno</label>
                 <input
@@ -6724,7 +6763,8 @@ export default function App() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Unidade de Medida</label>
                 <select
@@ -6738,7 +6778,6 @@ export default function App() {
                   <option value="Litro">Litro</option>
                   <option value="Conjunto">Conjunto</option>
                 </select>
-                <p className="text-[10px] text-slate-400 mt-1">Ex: Unitário, Par, Kit</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Estoque Inicial</label>
@@ -6749,27 +6788,26 @@ export default function App() {
                   onChange={e => setProductForm({ ...productForm, stock: e.target.value })}
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Preço de Compra (R$)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Preço Compra (R$)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700"
                   value={productForm.purchase_price}
                   onChange={e => setProductForm({ ...productForm, purchase_price: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Preço de Venda (R$)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Preço Venda (R$)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600"
                   value={productForm.sale_price}
                   onChange={e => setProductForm({ ...productForm, sale_price: e.target.value })}
                 />
               </div>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Aplicação das Peças</label>
               <textarea
@@ -6881,36 +6919,96 @@ export default function App() {
             </button>
           </form>
         </Modal>
+
+        <Modal
+          isOpen={isDistributorModalOpen}
+          onClose={() => {
+            setIsDistributorModalOpen(false);
+            setEditingDistributor(null);
+            setDistributorForm({ name: '', phone: '', contact_person: '' });
+          }}
+          title={editingDistributor ? "Editar Distribuidor" : "Cadastrar Novo Distribuidor"}
+          maxWidth="max-w-4xl"
+        >
+          <form onSubmit={handleAddDistributor} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Distribuidor</label>
+                <input
+                  type="text" required
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
+                  value={distributorForm.name}
+                  onChange={e => setDistributorForm({ ...distributorForm, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Telefone (WhatsApp)</label>
+                <input
+                  type="text" required
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
+                  value={distributorForm.phone}
+                  onChange={e => setDistributorForm({ ...distributorForm, phone: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Pessoa de Contato (Opcional)</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold text-slate-700"
+                  value={distributorForm.contact_person}
+                  onChange={e => setDistributorForm({ ...distributorForm, contact_person: e.target.value })}
+                />
+              </div>
+            </div>
+            <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
+              {editingDistributor ? "Salvar Alterações" : "Cadastrar Distribuidor"}
+            </button>
+          </form>
+        </Modal>
+
         <Modal
           isOpen={isLeadModalOpen}
           onClose={() => setIsLeadModalOpen(false)}
           title="Novo Lead de Venda"
+          maxWidth="max-w-4xl"
         >
           <form onSubmit={handleAddLead} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Cliente</label>
-              <input
-                type="text" required
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
-                value={leadForm.name}
-                onChange={e => setLeadForm({ ...leadForm, name: e.target.value })}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Cliente</label>
+                <input
+                  type="text" required
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                  value={leadForm.name}
+                  onChange={e => setLeadForm({ ...leadForm, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Empresa / Frota</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                  value={leadForm.company}
+                  onChange={e => setLeadForm({ ...leadForm, company: e.target.value })}
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Empresa / Frota</label>
-              <input
-                type="text"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
-                value={leadForm.company}
-                onChange={e => setLeadForm({ ...leadForm, company: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
+                <input
+                  type="text" required placeholder="Ex: 11999999999"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                  value={leadForm.phone}
+                  onChange={e => setLeadForm({ ...leadForm, phone: e.target.value })}
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Valor Estimado (R$)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                   value={leadForm.value}
                   onChange={e => setLeadForm({ ...leadForm, value: e.target.value })}
                 />
@@ -6918,7 +7016,7 @@ export default function App() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Prioridade</label>
                 <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                   value={leadForm.priority}
                   onChange={e => setLeadForm({ ...leadForm, priority: e.target.value })}
                 >
@@ -6927,15 +7025,6 @@ export default function App() {
                   <option value="Alta">Alta</option>
                 </select>
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
-              <input
-                type="text" required placeholder="Ex: 11999999999"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
-                value={leadForm.phone}
-                onChange={e => setLeadForm({ ...leadForm, phone: e.target.value })}
-              />
             </div>
             <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
               Criar Lead
@@ -6996,7 +7085,7 @@ export default function App() {
                   onChange={e => setPdvForm({ ...pdvForm, customer_id: e.target.value })}
                 >
                   <option value="">Consumidor Final</option>
-                  {customers.sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+                  {sortedCustomers.map(c => (
                     <option key={c.id} value={c.id}>
                       {c.name}{c.nickname ? ` (${c.nickname})` : ''}
                     </option>
@@ -7026,11 +7115,11 @@ export default function App() {
                 </div>
                 {pdvSearchProduct && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                    {products.filter(p =>
+                    {sortedProducts.filter(p =>
                       (p.description || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase()) ||
                       (p.brand && (p.brand || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase())) ||
                       (p.sku || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase())
-                    ).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map(p => (
+                    ).map(p => (
                       <button
                         key={p.id}
                         onClick={() => handleAddPdvItem(p)}
@@ -7814,7 +7903,7 @@ export default function App() {
                   onChange={e => setOsForm({ ...osForm, customer_id: e.target.value, motorcycle_id: '' })}
                 >
                   <option value="">Selecione o Cliente</option>
-                  {customers.sort((a, b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {sortedCustomers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 {osForm.customer_id && (
                   <div className="mt-2 flex items-center justify-between px-2">
@@ -7867,11 +7956,11 @@ export default function App() {
                   </div>
                   {osSearchProduct && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                      {products.filter(p =>
+                      {sortedProducts.filter(p =>
                         (p.description || '').toLowerCase().includes(d_osSearchProduct.toLowerCase()) ||
                         (p.brand && (p.brand || '').toLowerCase().includes(d_osSearchProduct.toLowerCase())) ||
                         (p.sku || '').toLowerCase().includes(d_osSearchProduct.toLowerCase())
-                      ).sort((a, b) => (a.description || '').localeCompare(b.description || '')).map(p => (
+                      ).map(p => (
                         <button
                           key={p.id}
                           onClick={() => handleAddOsItem(p)}
@@ -7909,7 +7998,7 @@ export default function App() {
                   </div>
                   {osSearchService && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                      {registeredServices.filter(s =>
+                      {sortedRegisteredServices.filter(s =>
                         (s.description || '').toLowerCase().includes(d_osSearchService.toLowerCase())
                       ).map(s => (
                         <button
@@ -8117,7 +8206,7 @@ export default function App() {
                   onChange={e => setOsForm({ ...osForm, mechanic_id: e.target.value })}
                 >
                   <option value="">Selecione o Mecânico</option>
-                  {mechanics.sort((a, b) => a.name.localeCompare(b.name)).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  {sortedMechanics.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </div>
 
@@ -8148,7 +8237,7 @@ export default function App() {
                     }}
                   >
                     <option value="">Selecione um Serviço Fixo</option>
-                    {fixedServices.map(fs => (
+                    {sortedFixedServices.map(fs => (
                       <option key={fs.id} value={fs.id}>{fs.name} (Repasse: {formatBRL(fs.payout)})</option>
                     ))}
                   </select>
@@ -8880,7 +8969,7 @@ export default function App() {
               onChange={e => setOrderForm({ ...orderForm, distributor_id: e.target.value })}
             >
               <option value="">Selecione um distribuidor</option>
-              {distributors.sort((a, b) => a.name.localeCompare(b.name)).map(d => (
+              {sortedDistributors.map(d => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
@@ -8900,7 +8989,7 @@ export default function App() {
             </div>
             {orderSearchProduct && (
               <div className="absolute z-10 bg-white border border-slate-400 rounded-xl mt-2 w-full max-h-60 overflow-y-auto shadow-lg">
-                {products.filter(p =>
+                {sortedProducts.filter(p =>
                   (p.description || '').toLowerCase().includes(orderSearchProduct.toLowerCase()) ||
                   (p.sku || '').toLowerCase().includes(orderSearchProduct.toLowerCase())
                 ).map(product => (
