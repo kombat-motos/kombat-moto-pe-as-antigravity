@@ -725,6 +725,18 @@ async function startServer() {
     }
   });
 
+  app.patch("/api/sales/:id/due-date", authenticateToken, (req, res) => {
+    const { due_date } = req.body;
+    try {
+      db.prepare("UPDATE sales SET due_date = ? WHERE id = ? AND user_id = ?")
+        .run(due_date, req.params.id, req.user!.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Erro ao atualizar vencimento" });
+    }
+  });
+
   // Quotes
   app.get("/api/quotes", authenticateToken, (req, res) => {
     const quotes = db.prepare("SELECT * FROM quotes WHERE user_id = ? ORDER BY created_at DESC LIMIT 100").all(req.user!.id) as any[];

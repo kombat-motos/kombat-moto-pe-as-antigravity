@@ -618,18 +618,26 @@ export default function App() {
       if (!res.ok) throw new Error(data.error || 'Erro na operação');
       return data;
     },
-    patch: async (route: string, id: any, actionOrBody: any) => {
+    patch: async (route: string, id: any, actionOrBody: any, body?: any) => {
       // Compatibility with action-style or body-style patches
       const isAction = typeof actionOrBody === 'string';
       const url = isAction ? `/api/${route}/${id}/${actionOrBody}` : `/api/${route}/${id}`;
       const res = await fetch(url, { 
         method: 'PATCH',
         headers: localApi.getHeaders(),
-        body: isAction ? undefined : JSON.stringify(actionOrBody)
+        body: isAction ? (body ? JSON.stringify(body) : undefined) : JSON.stringify(actionOrBody)
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro na operação');
-      return data;
+      
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erro na operação');
+        return data;
+      } else {
+        const text = await res.text();
+        if (!res.ok) throw new Error(`Erro no servidor (${res.status}): ${text || 'Erro desconhecido'}`);
+        return text;
+      }
     },
     delete: async (route: string, id: any) => {
       const res = await fetch(`/api/${route}/${id}`, { 
@@ -1238,8 +1246,13 @@ export default function App() {
 
 
 
-  const handleUpdateDueDate = (saleId: string, newDate: string) => {
-    setSales(sales.map(s => s.id === saleId ? { ...s, due_date: new Date(newDate).toISOString() } : s));
+  const handleUpdateDueDate = async (saleId: string, newDate: string) => {
+    try {
+      await localApi.patch('sales', saleId, 'due-date', { due_date: new Date(newDate).toISOString() });
+      setSales(sales.map(s => s.id === saleId ? { ...s, due_date: new Date(newDate).toISOString() } : s));
+    } catch (err: any) {
+      alert('Erro ao atualizar vencimento: ' + err.message);
+    }
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2195,13 +2208,17 @@ export default function App() {
     const pendingFiadoSales = sales.filter(sale => sale.payment_status === 'Pendente');
 
     const handleMarkAsPaid = async (saleId: string) => {
-      await localApi.put('sales', saleId, {
-        payment_status: 'Pago',
-        paid_date: new Date().toISOString()
-      });
-      setSales(sales.map(sale =>
-        sale.id === saleId ? { ...sale, payment_status: 'Pago', paid_date: new Date().toISOString() } : sale
-      ));
+      try {
+        await localApi.patch('sales', saleId, 'partial-payment', {
+          payment_status: 'Pago',
+          paid_date: new Date().toISOString()
+        });
+        setSales(sales.map(sale =>
+          sale.id === saleId ? { ...sale, payment_status: 'Pago', paid_date: new Date().toISOString() } : sale
+        ));
+      } catch (err: any) {
+        alert('Erro ao marcar como pago: ' + err.message);
+      }
     };
 
     return (
@@ -3520,6 +3537,7 @@ export default function App() {
   };
 
   const handlePartialPayment = async (sale: Sale, amountStr: string) => {
+    if (!amountStr) return;
     // Converte vírgula para ponto e limpa caracteres não numéricos exceto o ponto
     const cleanedAmount = amountStr.replace(',', '.');
     const amount = Number(cleanedAmount);
@@ -3533,7 +3551,7 @@ export default function App() {
     const isFullyPaid = newPaidTotal >= sale.total;
 
     try {
-      await localApi.put('sales', sale.id, {
+      await localApi.patch('sales', sale.id, 'partial-payment', {
         paid_total: newPaidTotal,
         payment_status: isFullyPaid ? 'Pago' : 'Pendente',
         paid_date: isFullyPaid ? new Date().toISOString() : sale.paid_date
@@ -3548,6 +3566,7 @@ export default function App() {
       
       setPayingSaleId(null);
       setPartialPaymentAmount('');
+      fetchData(); // Sincroniza dados globais
       alert('Pagamento registrado com sucesso!');
     } catch (err: any) {
       console.error('Error registering partial payment:', err);
