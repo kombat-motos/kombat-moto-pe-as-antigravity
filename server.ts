@@ -1025,4 +1025,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("ERRO CRÍTICO AO INICIAR O SERVIDOR:", err);
+  process.exit(1);
+});
