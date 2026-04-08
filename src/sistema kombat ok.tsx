@@ -6232,6 +6232,34 @@ export default function App() {
                                 <p className="text-[10px] uppercase font-black tracking-widest text-slate-300">Entrada Financeira</p>
                               </div>
                             </div>
+                            
+                            {/* Installments Detail */}
+                            {purchase.installments && (
+                              <div className="mt-2 ml-14 p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
+                                  <Calendar size={12} />
+                                  Plano de Vencimentos
+                                </p>
+                                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                  {(() => {
+                                    try {
+                                      const insts = typeof purchase.installments === 'string' ? JSON.parse(purchase.installments) : purchase.installments;
+                                      if (!Array.isArray(insts)) return null;
+                                      return insts.map((inst: any, i: number) => (
+                                        <div key={i} className="flex-none bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm">
+                                          <p className="text-[8px] font-black text-slate-300 uppercase leading-none mb-1">{inst.installment || (i+1)}ª Parcela</p>
+                                          <p className="text-[11px] font-bold text-slate-700 leading-none mb-1">{new Date(inst.date).toLocaleDateString('pt-BR')}</p>
+                                          <p className="text-[12px] font-black text-rose-600 leading-none">{formatBRL(inst.value)}</p>
+                                        </div>
+                                      ));
+                                    } catch (e) {
+                                      return null;
+                                    }
+                                  })()}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                           ))
                         )}
                         {workshopPurchases.length > 10 && (
