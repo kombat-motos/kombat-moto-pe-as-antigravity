@@ -508,7 +508,7 @@ const VendaCalculator = ({ initialCost, onApply, cardFees }: { initialCost: numb
 export default function App() {
   const [user, setUser] = useState<any>({ id: 'local-user', email: 'admin@sistema.local' });
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
   const [inventoryView, setInventoryView] = useState<'list' | 'grid'>('list');
   const [customerViewMode, setCustomerViewMode] = useState<'list' | 'grid'>('grid');
   const [stats, setStats] = useState<Stats | null>(null);
@@ -2434,10 +2434,18 @@ export default function App() {
   const handleSaveWorkshopPurchase = async (purchaseData: any) => {
     try {
       setLoading(true);
-      await localApi.post('workshop_purchases', purchaseData);
+      // Map frontend fields to backend fields
+      const payload = {
+        description: purchaseData.description,
+        purchase_date: purchaseData.date,
+        total_value: purchaseData.totalValue,
+        details: `${purchaseData.quantity}x ${purchaseData.description}`,
+        installments: purchaseData.installments
+      };
+      await localApi.post('workshop_purchases', payload);
       alert('Compra registrada com sucesso!');
       setActiveTab('dashboard');
-      fetchData();
+      if (typeof fetchData === 'function') fetchData();
     } catch (error: any) {
       console.error('Erro ao salvar compra:', error);
       alert('Erro ao salvar compra: ' + error.message);
@@ -6181,7 +6189,7 @@ export default function App() {
                 {activeTab === 'os' && renderOS()}
                 {activeTab === 'financial' && renderFinancial()}
                 {activeTab === 'orders' && renderOrders()}
-                {activeTab === 'purchases' && <QuickEntryModule onSave={handleSaveWorkshopPurchase} />}
+                {activeTab === 'purchases' && <QuickEntryModule onSave={handleSaveWorkshopPurchase} formatBRL={formatBRL} />}
                 {activeTab === 'mechanics' && renderMechanics()}
                 {activeTab === 'quotes' && renderQuotes()}
                 {activeTab === 'settings' && renderSettings()}
