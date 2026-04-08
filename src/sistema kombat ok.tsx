@@ -299,7 +299,7 @@ const localApi = {
 const SidebarItem = ({ icon: Icon, label, active, onClick }: any) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${active
+    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 notranslate ${active
       ? 'bg-rose-600 text-white shadow-lg shadow-rose-200 translate-x-1'
       : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
       }`}
@@ -6057,7 +6057,7 @@ export default function App() {
             onClick={() => { setActiveTab('orders'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
-            icon={ShoppingBag}
+            icon={ShoppingCart}
             label="Entrada de Compras"
             active={activeTab === 'purchases'}
             onClick={() => { setActiveTab('purchases'); setIsSidebarOpen(false); }}
