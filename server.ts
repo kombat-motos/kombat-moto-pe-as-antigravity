@@ -899,7 +899,7 @@ async function startServer() {
     }
   });
 
-  // Workshop Purchases (Entrada de Dados)
+  // Workshop Purchases (Entrada de Dados) - UPDATED 2026-04-08
   db.exec(`
     CREATE TABLE IF NOT EXISTS workshop_purchases (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

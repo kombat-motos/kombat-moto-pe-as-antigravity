@@ -829,6 +829,7 @@ export default function App() {
       const cashTransactionsData = await fetchTable('cash_transactions').catch(() => []);
       const quotesData = await fetchTable('quotes').catch(() => []);
       const servicesData = await fetchTable('registered_services').catch(() => []);
+      const workshopPurchasesData = await fetchTable('workshop_purchases').catch(() => []);
 
       if (productsData) setProducts(productsData);
       if (customersData) setCustomers(customersData);
@@ -851,6 +852,7 @@ export default function App() {
       if (cashTransactionsData) setCashTransactions(cashTransactionsData);
       if (quotesData) setQuotes(quotesData);
       if (servicesData) setRegisteredServices(servicesData);
+      if (workshopPurchasesData) setWorkshopPurchases(workshopPurchasesData);
 
       if (Array.isArray(cashSessionsData)) {
         const sessions = cashSessionsData.map((s: any) => ({
@@ -1023,6 +1025,9 @@ export default function App() {
   // Distributor States
   const [isDistributorModalOpen, setIsDistributorModalOpen] = useState(false);
   const [distributorForm, setDistributorForm] = useState({ name: '', phone: '', contact_person: '' });
+
+  // Workshop Purchases History State
+  const [workshopPurchases, setWorkshopPurchases] = useState<any[]>([]);
 
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
@@ -6190,8 +6195,50 @@ export default function App() {
                 {activeTab === 'financial' && renderFinancial()}
                 {activeTab === 'orders' && renderOrders()}
                 {activeTab === 'purchases' && (
-                  <div key="purchases-module-wrapper" className="notranslate" translate="no">
+                  <div key="purchases-module-wrapper" className="space-y-12 pb-20 notranslate" translate="no">
                     <QuickEntryModule onSave={handleSaveWorkshopPurchase} formatBRL={formatBRL} />
+                    
+                    {/* Compact Purchases Dashboard */}
+                    <div className="max-w-4xl mx-auto space-y-6">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                          <History size={20} className="text-slate-400" />
+                          Histórico de Lançamentos
+                        </h3>
+                        <div className="text-sm font-medium text-slate-500">
+                          Total em compras: <span className="font-black text-rose-600">{formatBRL(workshopPurchases.reduce((acc, p) => acc + (p.total_value || 0), 0))}</span>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3">
+                        {workshopPurchases.length === 0 ? (
+                          <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-8 text-center text-slate-400">
+                            Nenhuma compra registrada ainda.
+                          </div>
+                        ) : (
+                          workshopPurchases.slice(0, 10).map((purchase) => (
+                            <div key={purchase.id} className="bg-white p-5 rounded-3xl border border-slate-200 flex items-center justify-between hover:shadow-md transition-all group">
+                              <div className="flex items-center gap-4">
+                                <div className="p-3 bg-slate-50 rounded-2xl text-slate-400 group-hover:bg-rose-50 group-hover:text-rose-600 transition-colors">
+                                  <ShoppingBag size={20} />
+                                </div>
+                                <div>
+                                  <p className="font-bold text-slate-900">{purchase.description}</p>
+                                  <p className="text-xs text-slate-400 font-medium">Lançado em {new Date(purchase.purchase_date).toLocaleDateString()}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-black text-slate-900">{formatBRL(purchase.total_value)}</p>
+                                <p className="text-[10px] uppercase font-black tracking-widest text-slate-300">Entrada Financeira</p>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                        {workshopPurchases.length > 10 && (
+                          <p className="text-center text-xs text-slate-400 font-medium py-2">Mostrando as 10 compras mais recentes.</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
                 {activeTab === 'mechanics' && renderMechanics()}
