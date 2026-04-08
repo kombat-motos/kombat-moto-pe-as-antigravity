@@ -51,8 +51,10 @@ import {
   Scan,
   ClipboardCheck,
   Camera,
-  RefreshCw
+  RefreshCw,
+  ShoppingBag
 } from 'lucide-react';
+import QuickEntryModule from './components/QuickEntryModule';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
 import VirtualCatalogModal from './components/VirtualCatalogModal';
@@ -2426,6 +2428,21 @@ export default function App() {
       console.error('Error generating PDF:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
       alert(`Erro ao gerar PDF: ${errorMessage}\nTente usar a função de imprimir.`);
+    }
+  };
+
+  const handleSaveWorkshopPurchase = async (purchaseData: any) => {
+    try {
+      setLoading(true);
+      await localApi.post('workshop_purchases', purchaseData);
+      alert('Compra registrada com sucesso!');
+      setActiveTab('dashboard');
+      fetchData();
+    } catch (error: any) {
+      console.error('Erro ao salvar compra:', error);
+      alert('Erro ao salvar compra: ' + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -6032,6 +6049,12 @@ export default function App() {
             onClick={() => { setActiveTab('orders'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
+            icon={ShoppingBag}
+            label="Entrada de Compras"
+            active={activeTab === 'purchases'}
+            onClick={() => { setActiveTab('purchases'); setIsSidebarOpen(false); }}
+          />
+          <SidebarItem
             icon={FileText}
             label="Orçamentos"
             active={activeTab === 'quotes'}
@@ -6118,6 +6141,7 @@ export default function App() {
               {activeTab === 'os' && 'Ordens de Serviço'}
               {activeTab === 'financial' && 'Gestão Financeira'}
               {activeTab === 'orders' && 'Pedidos de Peças'}
+              {activeTab === 'purchases' && 'Entrada de Compras (Oficina)'}
               {activeTab === 'mechanics' && 'Gestão de Mecânicos'}
               {activeTab === 'quotes' && 'Orçamentos Profissionais'}
               {activeTab === 'settings' && 'Configurações do Sistema'}
@@ -6157,6 +6181,7 @@ export default function App() {
                 {activeTab === 'os' && renderOS()}
                 {activeTab === 'financial' && renderFinancial()}
                 {activeTab === 'orders' && renderOrders()}
+                {activeTab === 'purchases' && <QuickEntryModule onSave={handleSaveWorkshopPurchase} />}
                 {activeTab === 'mechanics' && renderMechanics()}
                 {activeTab === 'quotes' && renderQuotes()}
                 {activeTab === 'settings' && renderSettings()}
