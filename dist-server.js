@@ -801,6 +801,28 @@ async function startServer() {
       res.status(500).json({ error: "Erro ao atualizar pedido" });
     }
   });
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS workshop_purchases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      description TEXT NOT NULL,
+      purchase_date TEXT NOT NULL,
+      total_value REAL NOT NULL,
+      details TEXT,
+      installments TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    );
+  `);
+  app.get("/api/workshop_purchases", authenticateToken, (req, res) => {
+    const data = db.prepare("SELECT * FROM workshop_purchases WHERE user_id = ? ORDER BY purchase_date DESC").all(req.user.id);
+    res.json(data);
+  });
+  app.post("/api/workshop_purchases", authenticateToken, (req, res) => {
+    const { description, purchase_date, total_value, details, installments } = req.body;
+    const info = db.prepare("INSERT INTO workshop_purchases (user_id, description, purchase_date, total_value, details, installments) VALUES (?, ?, ?, ?, ?, ?)").run(req.user.id, description, purchase_date, total_value, details, JSON.stringify(installments));
+    res.json({ id: parseInt(info.lastInsertRowid.toString()) });
+  });
   app.delete("/api/purchase_orders/:id", authenticateToken, (req, res) => {
     try {
       db.prepare("DELETE FROM purchase_orders WHERE id = ? AND user_id = ?").run(req.params.id, req.user.id);
@@ -909,4 +931,7 @@ async function startServer() {
 `);
   });
 }
-startServer();
+startServer().catch((err) => {
+  console.error("ERRO CR\xCDTICO AO INICIAR O SERVIDOR:", err);
+  process.exit(1);
+});
