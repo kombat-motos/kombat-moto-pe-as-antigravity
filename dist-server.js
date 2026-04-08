@@ -814,6 +814,10 @@ async function startServer() {
       FOREIGN KEY (user_id) REFERENCES users (id)
     );
   `);
+  try {
+    db.exec(`ALTER TABLE workshop_purchases ADD COLUMN installments TEXT;`);
+  } catch (e) {
+  }
   app.get("/api/workshop_purchases", authenticateToken, (req, res) => {
     const data = db.prepare("SELECT * FROM workshop_purchases WHERE user_id = ? ORDER BY purchase_date DESC").all(req.user.id);
     res.json(data);

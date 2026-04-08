@@ -15,6 +15,7 @@ import {
 const QuickEntryModule = ({ onSave, formatBRL }: any) => {
   const [description, setDescription] = useState('');
   const [totalValue, setTotalValue] = useState('');
+  const [brand, setBrand] = useState('');
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentType, setPaymentType] = useState<'Vista' | 'Prazo'>('Vista');
   const [installments, setInstallments] = useState(1);
@@ -58,6 +59,7 @@ const QuickEntryModule = ({ onSave, formatBRL }: any) => {
       description,
       totalValue: val,
       date: purchaseDate,
+      details: brand,
       quantity: 1, // Default for manual entries unless we add a qty field
       installments: generateInstallments()
     };
@@ -67,6 +69,7 @@ const QuickEntryModule = ({ onSave, formatBRL }: any) => {
       // Reset form after save (parent logic might navigate away, but good to reset)
       setDescription('');
       setTotalValue('');
+      setBrand('');
       setPaymentType('Vista');
       setInstallments(1);
     } finally {
@@ -131,6 +134,17 @@ const QuickEntryModule = ({ onSave, formatBRL }: any) => {
                   className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-slate-700 font-bold focus:border-rose-500 outline-none transition-all"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Marca / Fabricante (Opcional)</label>
+              <input
+                type="text"
+                value={brand}
+                onChange={(e) => setBrand(e.target.value)}
+                placeholder="Ex: Pirelli, Honda, Bosch..."
+                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-slate-700 font-bold focus:border-rose-500 outline-none transition-all"
+              />
             </div>
           </div>
 
