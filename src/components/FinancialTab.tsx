@@ -1,10 +1,12 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { 
   Wallet, CreditCard, Calculator, Bell, Plus, ArrowUpCircle, X, 
   Package, Bike, TrendingUp, Truck, DollarSign, Percent, BarChart3,
   AlertTriangle, Calendar, ShieldCheck, Gavel, MessageCircle, Printer, FileText, CheckCircle 
 } from 'lucide-react';
+import Modal from './Modal';
+
 
 interface SaleItem {
   product_id?: number;
@@ -301,7 +303,8 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
   const sendBillingWhatsapp = (sale: Sale, type: 'reminder' | 'overdue' | 'thanks') => {
     let msg = '';
     const name = sale.customer_name.split(' ')[0];
-    const cleanPhone = sale.whatsapp?.replace(/\D/g, '') || '';
+    const customer = customers.find(c => c.id === Number(sale.customer_id));
+    const cleanPhone = (customer?.whatsapp || '').replace(/\D/g, '') || '';
     if (type === 'reminder') {
       msg = `Olá ${name}! Passando para lembrar que sua parcela na Kombat Moto Peças vence em 2 dias (R$ ${sale.total.toFixed(2)}). Chave PIX: ${companyData.telefone}. Obrigado!`;
     } else if (type === 'overdue') {
@@ -696,7 +699,86 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
           </div>
         </div>
       )}
+
+
+
+      {/* Financial Modals Migrated from App */}
+      <Modal
+        isOpen={isCashModalOpen}
+        onClose={() => setIsCashModalOpen(false)}
+        title="Abrir Caixa"
+      >
+        <form onSubmit={handleOpenCash} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Saldo Inicial em Dinheiro (R$)</label>
+            <input
+              type="number" step="0.01" required placeholder="0.00"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              value={cashForm.openingBalance}
+              onChange={e => setCashForm({ ...cashForm, openingBalance: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Observações (Opcional)</label>
+            <textarea
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none min-h-[80px] resize-none"
+              value={cashForm.notes}
+              onChange={e => setCashForm({ ...cashForm, notes: e.target.value })}
+            />
+          </div>
+          <button type="submit" className="w-full py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all">
+            Confirmar Abertura
+          </button>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={isTransactionModalOpen}
+        onClose={() => setIsTransactionModalOpen(false)}
+        title="Sangria / Suprimento"
+      >
+        <form onSubmit={handleAddTransaction} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => setTransactionForm({ ...transactionForm, type: 'Suprimento' })}
+              className={`py-3 rounded-xl font-bold border transition-all ${transactionForm.type === 'Suprimento' ? 'bg-rose-600 border-rose-600 text-white shadow-lg shadow-rose-100' : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'}`}
+            >
+              Suprimento (+)
+            </button>
+            <button
+              type="button"
+              onClick={() => setTransactionForm({ ...transactionForm, type: 'Sangria' })}
+              className={`py-3 rounded-xl font-bold border transition-all ${transactionForm.type === 'Sangria' ? 'bg-rose-600 border-rose-600 text-white shadow-lg shadow-rose-100' : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'}`}
+            >
+              Sangria (-)
+            </button>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Valor (R$)</label>
+            <input
+              type="number" step="0.01" required placeholder="0.00"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              value={transactionForm.amount}
+              onChange={e => setTransactionForm({ ...transactionForm, amount: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Descrição / Motivo</label>
+            <input
+              type="text" required placeholder="Ex: Troco inicial, Pagamento fornecedor..."
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              value={transactionForm.description}
+              onChange={e => setTransactionForm({ ...transactionForm, description: e.target.value })}
+            />
+          </div>
+          <button type="submit" className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all">
+            Registrar Movimentação
+          </button>
+        </form>
+      </Modal>
     </div>
+
   );
 };
 

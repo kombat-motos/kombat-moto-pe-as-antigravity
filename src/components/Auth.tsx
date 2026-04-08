@@ -1,15 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { User, Lock, LogIn, UserRoundPlus as UserPlus, ShieldCheck } from 'lucide-react';
-import { supabase } from '../supabase';
 
-// Validate environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("ERRO: VITE_SUPABASE_URL ou VITE_SUPABASE_ANON_KEY não estão configurados!");
-}
 
 interface AuthProps {
   onLogin: (user: any) => void;
@@ -53,7 +45,8 @@ export default function Auth({ onLogin }: AuthProps) {
       }
 
       if (isLogin) {
-        onLogin(data);
+        if (data.token) localStorage.setItem('token', data.token);
+        onLogin(data.user || data);
       } else {
         setIsLogin(true);
         setError('Conta criada com sucesso! Faça login agora.');

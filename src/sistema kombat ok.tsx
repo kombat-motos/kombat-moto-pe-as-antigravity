@@ -63,6 +63,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
 import VirtualCatalogModal from './components/VirtualCatalogModal';
 import Auth from './components/Auth';
+import Modal from './components/Modal';
+
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import * as htmlToImage from 'html-to-image';
@@ -326,37 +328,8 @@ const StatCard = ({ title, value, icon: Icon, color, subtitle }: any) => (
   </div>
 );
 
-const Modal = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }: any) => (
-  <AnimatePresence>
-    {isOpen && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-        />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className={`relative bg-white w-full ${maxWidth} rounded-3xl shadow-2xl overflow-hidden`}
-        >
-          <div className="flex items-center justify-between p-6 border-b border-slate-400">
-            <h3 className="text-xl font-bold text-slate-900">{title}</h3>
-            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-              <X size={20} className="text-slate-400" />
-            </button>
-          </div>
-          <div className="p-6 max-h-[80vh] overflow-y-auto">
-            {children}
-          </div>
-        </motion.div>
-      </div>
-    )}
-  </AnimatePresence>
-);
+
+
 
 const DEFAULT_CARD_FEES: Record<number, number> = {
   1: 3.05, 2: 4.3, 3: 5.25, 4: 6.20, 5: 7.15, 6: 8.01,
@@ -3516,8 +3489,8 @@ export default function App() {
             Top 5 Produtos Mais Vendidos
           </h3>
           <div className="space-y-4">
-            {stats?.topProducts.map((p, i) => (
-              <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+            {(stats?.topProducts || []).map((p, i) => (
+              <div key={`prod-${i}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
                 <div className="flex items-center gap-3">
                   <span className="w-8 h-8 flex items-center justify-center bg-white rounded-lg text-sm font-bold text-slate-400 border border-slate-400">
                     {i + 1}
@@ -3539,15 +3512,15 @@ export default function App() {
             Próximas Revisões (CRM)
           </h3>
           <div className="space-y-4">
-            {motorcycles.slice(0, 5).map((m) => (
-              <div key={m.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+            {(motorcycles || []).slice(0, 5).map((m, idx) => (
+              <div key={m.id || `moto-${idx}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
                 <div>
-                  <p className="font-bold text-slate-800">{m.customer_name}</p>
-                  <p className="text-xs text-slate-500">{m.model} • {m.plate}</p>
+                  <p className="font-bold text-slate-800">{m.customer_name || 'Cliente s/ nome'}</p>
+                  <p className="text-xs text-slate-500">{m.model || 'Moto'} • {m.plate || 'S/ Placa'}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium px-2 py-1 bg-amber-100 text-amber-700 rounded-lg">
-                    {m.current_km} km
+                    {m.current_km || 0} km
                   </span>
                   <button
                     onClick={() => handleWhatsApp(m)}
@@ -3558,6 +3531,9 @@ export default function App() {
                 </div>
               </div>
             ))}
+            {(!motorcycles || motorcycles.length === 0) && (
+              <p className="text-center text-slate-400 py-8">Nenhuma revisão pendente.</p>
+            )}
           </div>
         </div>
       </div>
@@ -7585,81 +7561,8 @@ export default function App() {
         <VirtualCatalogModal products={products} shortenUrl={shortenUrl} />
       </Modal>
 
-      {/* Financial Modals */}
-      <Modal
-        isOpen={isCashModalOpen}
-        onClose={() => setIsCashModalOpen(false)}
-        title="Abrir Caixa"
-      >
-        <form onSubmit={handleOpenCash} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Saldo Inicial em Dinheiro (R$)</label>
-            <input
-              type="number" step="0.01" required placeholder="0.00"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
-              value={cashForm.openingBalance}
-              onChange={e => setCashForm({ ...cashForm, openingBalance: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Observações (Opcional)</label>
-            <textarea
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none min-h-[80px] resize-none"
-              value={cashForm.notes}
-              onChange={e => setCashForm({ ...cashForm, notes: e.target.value })}
-            />
-          </div>
-          <button type="submit" className="w-full py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all">
-            Confirmar Abertura
-          </button>
-        </form>
-      </Modal>
 
-      <Modal
-        isOpen={isTransactionModalOpen}
-        onClose={() => setIsTransactionModalOpen(false)}
-        title="Sangria / Suprimento"
-      >
-        <form onSubmit={handleAddTransaction} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              type="button"
-              onClick={() => setTransactionForm({ ...transactionForm, type: 'Suprimento' })}
-              className={`py-3 rounded-xl font-bold border transition-all ${transactionForm.type === 'Suprimento' ? 'bg-rose-600 border-rose-600 text-white shadow-lg shadow-rose-100' : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'}`}
-            >
-              Suprimento (+)
-            </button>
-            <button
-              type="button"
-              onClick={() => setTransactionForm({ ...transactionForm, type: 'Sangria' })}
-              className={`py-3 rounded-xl font-bold border transition-all ${transactionForm.type === 'Sangria' ? 'bg-rose-600 border-rose-600 text-white shadow-lg shadow-rose-100' : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'}`}
-            >
-              Sangria (-)
-            </button>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Valor (R$)</label>
-            <input
-              type="number" step="0.01" required placeholder="0.00"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
-              value={transactionForm.amount}
-              onChange={e => setTransactionForm({ ...transactionForm, amount: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Descrição / Motivo</label>
-            <input
-              type="text" required placeholder="Ex: Troco inicial, Pagamento fornecedor..."
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
-              value={transactionForm.description}
-              onChange={e => setTransactionForm({ ...transactionForm, description: e.target.value })}
-            />
-          </div>
-          <button type="submit" className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all">
-            Registrar Movimentação
-          </button>
-        </form>
-      </Modal>
+
 
       {/* Mechanic Registration Modal */}
       <Modal
