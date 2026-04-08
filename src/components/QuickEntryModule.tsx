@@ -1,196 +1,195 @@
-import React, { useState } from 'react';
-import { Calculator, Calendar, PlusCircle, Trash2, Send } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Send, 
+  ShoppingCart, 
+  Calendar, 
+  CreditCard, 
+  Plus, 
+  CheckCircle, 
+  Trash2, 
+  AlertTriangle,
+  Package,
+  ArrowRight
+} from 'lucide-react';
 
 const QuickEntryModule = ({ onSave, formatBRL }: any) => {
-    const [rawText, setRawText] = useState('');
-    const [preview, setPreview] = useState<any>(null);
+  const [inputText, setInputText] = useState('');
+  const [preview, setPreview] = useState<any>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-    const parseEntry = (text: string) => {
-        // Default values
-        let data = {
-            description: "Compra Indefinida",
-            date: "08/04/2026",
-            totalValue: 0,
-            quantity: 1,
-            unitValue: 0,
-            installments: [] as any[]
-        };
+  const safeFormat = (val: number) => {
+    if (typeof formatBRL === 'function') {
+      return formatBRL(val);
+    }
+    return `R$ ${(val || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  };
 
-        const lowerText = text.toLowerCase();
+  const parseInput = () => {
+    setIsProcessing(true);
+    // Simular processamento (Regex simplificado para estabilidade)
+    setTimeout(() => {
+      const text = inputText.toLowerCase();
+      
+      // Extrair valor principal
+      const priceMatch = text.match(/(\d+[,.]?\d*)\s*(reais|real|\$|r\$)/i) || text.match(/(reais|real|\$|r\$)\s*(\d+[,.]?\d*)/i);
+      let totalValue = 0;
+      if (priceMatch) {
+         const valStr = priceMatch[1].match(/\d/) ? priceMatch[1] : priceMatch[2];
+         totalValue = parseFloat(valStr.replace(',', '.'));
+      }
 
-        // 1. Extract Quantity & Description
-        // Pattern: "5 pneus Levorin para Biz"
-        const qtyMatch = text.match(/(\d+)\s+([a-zA-Záàâãéèêíïóôõöúçñ\s]+?)(?=\s+para|\s+total|\s+de|\s+dividi|$)/i);
-        if (qtyMatch) {
-            data.quantity = parseInt(qtyMatch[1]);
-            data.description = qtyMatch[2].trim();
-        }
+      // Extrair quantidade
+      const qtyMatch = text.match(/(\d+)\s*(unidades|un|x|pneus|pneu|pecas|peca)/i);
+      const quantity = qtyMatch ? parseInt(qtyMatch[1]) : 1;
 
-        // 2. Extract Total Value
-        // Pattern: "total de 750 reais" or "750 reais" or "R$ 750"
-        const totalMatch = text.match(/(?:total\s+de\s+|total\s+)?(?:R\$\s*)?([\d.,]+)\s*(?:reais|)?/i);
-        if (totalMatch) {
-            data.totalValue = parseFloat(totalMatch[1].replace('.', '').replace(',', '.'));
-        }
+      // Extrair parcelas
+      const installmentsMatch = text.match(/(\d+)\s*(vezes|x|parcelas|pago em)/i);
+      const installments = installmentsMatch ? parseInt(installmentsMatch[1]) : 1;
 
-        // 3. Extract Installments
-        // Pattern: "dividi em 3 vezes"
-        const instMatch = text.match(/dividi\s+em\s+(\d+)\s+vezes/i);
-        const numInst = instMatch ? parseInt(instMatch[1]) : 1;
+      // Descrição simples
+      const description = inputText.split(/[0-9]/)[0].trim() || "Compra de Oficina";
 
-        // 4. Extract Date
-        if (lowerText.includes('hoje')) {
-            data.date = "08/04/2026";
-        } else if (lowerText.includes('ontem')) {
-            data.date = "07/04/2026";
-        } else {
-            const dateMatch = text.match(/(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/);
-            if (dateMatch) data.date = dateMatch[1];
-        }
+      const today = new Date();
+      const plan = [];
+      const installmentValue = totalValue / installments;
 
-        // Calculations
-        data.unitValue = data.totalValue / data.quantity;
-        
-        const instValue = data.totalValue / numInst;
-        
-        // Parse date for building installment schedule
-        const [day, month, year] = data.date.split('/').map(Number);
-        const baseDate = new Date(year || 2026, (month || 4) - 1, day || 8);
+      for (let i = 0; i < installments; i++) {
+        const dueDate = new Date(today);
+        dueDate.setDate(today.getDate() + (i * 30));
+        plan.push({
+          installment: i + 1,
+          value: installmentValue,
+          date: dueDate.toISOString().split('T')[0]
+        });
+      }
 
-        for (let i = 0; i < numInst; i++) {
-            const d = new Date(baseDate);
-            d.setMonth(baseDate.getMonth() + i);
-            data.installments.push({
-                index: i + 1,
-                value: instValue,
-                date: d.toLocaleDateString('pt-BR')
-            });
-        }
+      setPreview({
+        description,
+        totalValue,
+        quantity,
+        installments: plan,
+        date: today.toISOString().split('T')[0]
+      });
+      setIsProcessing(false);
+    }, 600);
+  };
 
-        return data;
-    };
+  return (
+    <div className="flex flex-col gap-8 max-w-5xl mx-auto">
+      <div className="flex flex-col gap-2">
+        <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+          <div className="p-2 bg-rose-600 rounded-xl text-white">
+            <Package size={28} />
+          </div>
+          Entrada Estruturada
+        </h2>
+        <p className="text-slate-500 font-medium">Digitalize suas compras enviando o texto da nota ou descrição informal.</p>
+      </div>
 
-    const handleProcess = () => {
-        if (!rawText.trim()) return;
-        const result = parseEntry(rawText);
-        setPreview(result);
-    };
-
-    return (
-        <div className="space-y-6">
-            <div className="bg-slate-50 p-6 rounded-3xl border-2 border-dashed border-rose-200">
-                <div className="flex items-center gap-2 mb-4">
-                    <div className="p-2 bg-rose-100 rounded-lg">
-                        <Calculator size={18} className="text-rose-600" />
-                    </div>
-                    <h3 className="font-black text-xs uppercase tracking-widest text-slate-700">Módulo de Entrada Inteligente</h3>
-                </div>
-                
-                <label className="block text-[10px] uppercase font-black text-slate-400 mb-2 tracking-widest">Descreva a Compra (Linguagem Natural)</label>
-                <textarea 
-                    value={rawText}
-                    onChange={(e) => setRawText(e.target.value)}
-                    placeholder='Ex: "Chegou hoje 5 pneus Levorin para Biz, total de 750 reais. Dividi em 3 vezes no boleto pro fornecedor."'
-                    className="w-full bg-white border border-slate-200 rounded-2xl p-4 h-32 focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all font-medium text-slate-700 shadow-inner"
-                />
-                
-                <div className="flex gap-2">
-                    <button 
-                       onClick={handleProcess}
-                       className="mt-4 flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] hover:bg-rose-700 transition-all shadow-lg shadow-rose-200 flex items-center justify-center gap-2"
-                    >
-                        <Calculator size={18} strokeWidth={3} />
-                        Processar e Organizar
-                    </button>
-                    <button 
-                       onClick={() => { setRawText(''); setPreview(null); }}
-                       className="mt-4 p-4 bg-slate-200 text-slate-500 rounded-2xl hover:bg-slate-300 transition-all"
-                    >
-                        <Trash2 size={18} />
-                    </button>
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        {/* Input Section */}
+        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-slate-400 uppercase tracking-widest px-2">Entrada de Texto</span>
+              <div className="flex gap-2">
+                <span className="w-2 h-2 rounded-full bg-slate-200"></span>
+                <span className="w-2 h-2 rounded-full bg-slate-200"></span>
+                <span className="w-2 h-2 rounded-full bg-slate-200"></span>
+              </div>
             </div>
+            
+            <textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder="Ex: Chegou hoje 5 pneus Levorin para Biz, total de 750 reais. Dividi em 3 vezes no cartão."
+              className="w-full h-48 bg-white border-2 border-slate-200 rounded-2xl p-5 text-slate-700 font-medium focus:border-rose-500 outline-none transition-all placeholder:text-slate-300 resize-none shadow-inner"
+            />
 
-            <AnimatePresence>
-                {preview && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="bg-white p-6 rounded-3xl border border-slate-200 shadow-2xl space-y-4 relative overflow-hidden"
-                    >
-                        <div className="absolute top-0 right-0 p-8 opacity-5">
-                            <PlusCircle size={120} className="text-rose-600" />
-                        </div>
-
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                            <div className="flex flex-col">
-                                <h4 className="font-black text-slate-900 uppercase text-sm tracking-tighter">Entrada Estruturada</h4>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase">Kombat Moto Peças v1.0</p>
-                            </div>
-                            <div className="bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100">
-                                <span className="text-[10px] font-black text-rose-600 flex items-center gap-1">
-                                    <Calendar size={12} /> {preview.date}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                <p className="text-[10px] uppercase font-black text-slate-400 mb-1">COMPRA (Peça/Fornecedor)</p>
-                                <p className="font-bold text-slate-800 text-lg uppercase">{preview.description}</p>
-                            </div>
-                            <div className="p-4 bg-rose-600 rounded-2xl shadow-lg shadow-rose-100">
-                                <p className="text-[10px] uppercase font-black text-rose-200 mb-1">VALOR TOTAL</p>
-                                <p className="font-black text-white text-2xl">{formatBRL(preview.totalValue)}</p>
-                            </div>
-                        </div>
-
-                        <div className="p-5 bg-slate-900 rounded-2xl text-white">
-                            <p className="text-[10px] uppercase font-black text-slate-500 mb-2 tracking-[0.2em]">Detalhamento de Itens</p>
-                            <div className="flex items-center justify-between">
-                                <p className="text-sm font-black text-rose-400">
-                                   DETALHES: {preview.quantity}x {preview.description}
-                                </p>
-                                <p className="text-xs font-bold text-slate-400">
-                                   Unid: {formatBRL(preview.unitValue)}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3">
-                             <div className="flex items-center justify-between">
-                                <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest">Plano Financeiro</p>
-                                <div className="h-[1px] flex-1 bg-slate-100 mx-4"></div>
-                             </div>
-                             
-                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                {preview.installments.map((inst: any) => (
-                                    <div key={inst.index} className="p-3 border border-slate-100 rounded-2xl bg-slate-50 flex flex-col">
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className="text-[9px] font-black text-slate-400 uppercase">Parcela {inst.index}</span>
-                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
-                                        </div>
-                                        <p className="text-sm font-black text-slate-800">{formatBRL(inst.value)}</p>
-                                        <p className="text-[10px] text-slate-500 font-bold">{inst.date}</p>
-                                    </div>
-                                ))}
-                             </div>
-                        </div>
-
-                        <button 
-                            onClick={() => onSave(preview)}
-                            className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-[0.3em] hover:bg-slate-800 transition-all flex items-center justify-center gap-3 mt-4"
-                        >
-                            <Send size={18} className="text-rose-500" />
-                            Confirmar e Salvar no Financeiro
-                        </button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            <button
+              onClick={parseInput}
+              disabled={!inputText || isProcessing}
+              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-800 transition-all disabled:opacity-50 group overflow-hidden relative"
+            >
+              {isProcessing ? (
+                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <span>Processar e Organizar</span>
+                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
+            </button>
+          </div>
         </div>
-    );
+
+        {/* Preview Section */}
+        <div className="min-h-[400px]">
+          {!preview ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] gap-4">
+              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-slate-300 shadow-sm">
+                <Send size={32} />
+              </div>
+              <div>
+                <h3 className="text-slate-400 font-bold">Aguardando Entrada</h3>
+                <p className="text-slate-400 text-sm max-w-[200px]">Os dados estruturados aparecerão aqui após o processamento.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white border-2 border-rose-100 rounded-[2rem] shadow-xl shadow-rose-900/5 overflow-hidden flex flex-col transition-all duration-300">
+              <div className="bg-rose-600 p-6 text-white">
+                <div className="flex justify-between items-start mb-4">
+                  <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">Dados Extraídos</span>
+                  <CheckCircle size={24} />
+                </div>
+                <h3 className="text-xl font-bold line-clamp-1">{preview.description}</h3>
+                <p className="text-white/70 text-sm font-medium">Quantidade: {preview.quantity} unidades</p>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-white/60 text-sm">Total:</span>
+                  <p className="font-black text-white text-2xl">{safeFormat(preview.totalValue)}</p>
+                </div>
+              </div>
+
+              <div className="p-6 flex flex-col gap-5">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black tracking-widest uppercase">
+                    <Calendar size={14} />
+                    Plano Financeiro
+                  </div>
+                  <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
+                    {preview.installments.map((inst: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group hover:border-rose-200 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">{inst.installment}ª</span>
+                          <span className="text-sm font-bold text-slate-700">{new Date(inst.date).toLocaleDateString()}</span>
+                        </div>
+                        <span className="text-sm font-black text-slate-900">{safeFormat(inst.value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-auto">
+                  <button
+                    onClick={() => setPreview(null)}
+                    className="flex-1 py-3 border-2 border-slate-100 text-slate-400 rounded-xl font-bold text-xs uppercase hover:bg-slate-50 transition-all"
+                  >
+                    Limpar
+                  </button>
+                  <button
+                    onClick={() => onSave(preview)}
+                    className="flex-[2] py-3 bg-rose-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all active:scale-95"
+                  >
+                    Confirmar e Salvar no Financeiro
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default QuickEntryModule;

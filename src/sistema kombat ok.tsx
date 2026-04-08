@@ -6189,7 +6189,11 @@ export default function App() {
                 {activeTab === 'os' && renderOS()}
                 {activeTab === 'financial' && renderFinancial()}
                 {activeTab === 'orders' && renderOrders()}
-                {activeTab === 'purchases' && <QuickEntryModule onSave={handleSaveWorkshopPurchase} formatBRL={formatBRL} />}
+                {activeTab === 'purchases' && (
+                  <div key="purchases-module-wrapper">
+                    <QuickEntryModule onSave={handleSaveWorkshopPurchase} formatBRL={formatBRL} />
+                  </div>
+                )}
                 {activeTab === 'mechanics' && renderMechanics()}
                 {activeTab === 'quotes' && renderQuotes()}
                 {activeTab === 'settings' && renderSettings()}
