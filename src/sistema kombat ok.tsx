@@ -5986,7 +5986,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 flex relative overflow-hidden notranslate" translate="no">
       {/* Sidebar Trigger Area (Hover zone) */}
       <div
         className="fixed left-0 top-0 bottom-0 w-4 z-50"
@@ -6190,7 +6190,7 @@ export default function App() {
                 {activeTab === 'financial' && renderFinancial()}
                 {activeTab === 'orders' && renderOrders()}
                 {activeTab === 'purchases' && (
-                  <div key="purchases-module-wrapper">
+                  <div key="purchases-module-wrapper" className="notranslate" translate="no">
                     <QuickEntryModule onSave={handleSaveWorkshopPurchase} formatBRL={formatBRL} />
                   </div>
                 )}
