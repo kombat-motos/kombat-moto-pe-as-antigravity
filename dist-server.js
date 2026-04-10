@@ -827,6 +827,27 @@ async function startServer() {
     const info = db.prepare("INSERT INTO workshop_purchases (user_id, description, purchase_date, total_value, details, installments) VALUES (?, ?, ?, ?, ?, ?)").run(req.user.id, description, purchase_date, total_value, details, JSON.stringify(installments));
     res.json({ id: parseInt(info.lastInsertRowid.toString()) });
   });
+  app.delete("/api/workshop_purchases", authenticateToken, (req, res) => {
+    try {
+      db.prepare("DELETE FROM workshop_purchases WHERE user_id = ?").run(req.user.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("SERVER ERROR (CLEAR):", err);
+      res.status(500).json({ error: "Erro ao limpar hist\xF3rico" });
+    }
+  });
+  app.delete("/api/workshop_purchases/:id", authenticateToken, (req, res) => {
+    try {
+      const result = db.prepare("DELETE FROM workshop_purchases WHERE id = ? AND user_id = ?").run(req.params.id, req.user.id);
+      if (result.changes === 0) {
+        return res.status(404).json({ error: "Registro n\xE3o encontrado" });
+      }
+      res.json({ success: true });
+    } catch (err) {
+      console.error("SERVER ERROR (DELETE):", err);
+      res.status(500).json({ error: "Erro ao excluir compra" });
+    }
+  });
   app.delete("/api/purchase_orders/:id", authenticateToken, (req, res) => {
     try {
       db.prepare("DELETE FROM purchase_orders WHERE id = ? AND user_id = ?").run(req.params.id, req.user.id);

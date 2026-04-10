@@ -37,7 +37,12 @@ const PurchasesTab: React.FC<PurchasesTabProps> = ({ onSave, onDelete, onClearHi
             </div>
             {workshopPurchases.length > 0 && (
               <button
-                onClick={onClearHistory}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onClearHistory();
+                }}
                 className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 transition-all text-[10px] font-black uppercase tracking-widest border border-rose-100"
               >
                 <Trash2 size={12} /> Limpar Histórico
@@ -84,7 +89,12 @@ const PurchasesTab: React.FC<PurchasesTabProps> = ({ onSave, onDelete, onClearHi
                         <p className="text-[10px] uppercase font-black tracking-widest text-slate-300">Entrada Financeira</p>
                       </div>
                       <button 
-                        onClick={() => onDelete(purchase.id)}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onDelete(purchase.id);
+                        }}
                         className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"
                         title="Excluir Registro"
                       >

@@ -621,8 +621,9 @@ export default function App() {
         return text;
       }
     },
-    delete: async (route: string, id: any) => {
-      const res = await fetch(`/api/${route}/${id}`, { 
+    delete: async (route: string, id?: any) => {
+      const url = id ? `/api/${route}/${id}` : `/api/${route}`;
+      const res = await fetch(url, { 
         method: 'DELETE',
         headers: localApi.getHeaders()
       });
