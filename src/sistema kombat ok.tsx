@@ -19,6 +19,8 @@ import {
   MinusCircle,
   Printer,
   Settings,
+  Settings2,
+  Wrench,
   Wallet,
   LayoutGrid,
   List,
@@ -52,7 +54,8 @@ import {
   ClipboardCheck,
   Camera,
   RefreshCw,
-  ShoppingBag
+  ShoppingBag,
+  Wrench
 } from 'lucide-react';
 import PurchasesTab from './components/PurchasesTab';
 import InventoryTab from './components/InventoryTab';
@@ -3888,16 +3891,22 @@ export default function App() {
           <thead>
             <tr className="bg-slate-50 border-bottom border-slate-400">
               <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Descrição / Serviço</th>
+              <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Categoria</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Preço Sugerido</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-300">
             {sortedRegisteredServices.filter(s =>
-              s.description.toLowerCase().includes(d_serviceSearchTerm.toLowerCase())
+              (s.description || '').toLowerCase().includes(d_serviceSearchTerm.toLowerCase())
             ).map(s => (
               <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 font-bold text-slate-900">{s.description}</td>
+                <td className="px-6 py-4">
+                  <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase">
+                    {s.category || 'Geral'}
+                  </span>
+                </td>
                 <td className="px-6 py-4 text-rose-600 font-bold">R$ {s.price.toFixed(2)}</td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
@@ -3933,6 +3942,69 @@ export default function App() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Tabela de Repasses Fixos - Unificando na aba de Serviços */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
+        <div className="p-6 border-b border-slate-400 flex items-center justify-between bg-slate-50">
+          <div>
+            <h3 className="font-bold text-slate-900 flex items-center gap-2">
+              <Settings size={18} className="text-amber-500" />
+              Tabela de Repasses Fixos (Mecânicos)
+            </h3>
+            <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Valores fixos pagos aos mecânicos por serviço</p>
+          </div>
+          <button
+            onClick={() => {
+              setEditingFixedService(null);
+              setFixedServiceForm({ name: '', price: '', payout: '' });
+              setIsFixedServiceModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all text-xs font-bold"
+          >
+            <Plus size={14} /> Novo Repasse Fixo
+          </button>
+        </div>
+        <div className="divide-y divide-slate-300 max-h-[400px] overflow-y-auto">
+          {sortedFixedServices.map(fs => (
+            <div key={fs.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+              <div>
+                <p className="font-bold text-slate-900">{fs.name}</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Repasse p/ Mecânico: <span className="text-rose-600">R$ {fs.payout.toFixed(2)}</span></p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setEditingFixedService(fs);
+                    setFixedServiceForm({ name: fs.name, price: (fs as any).price?.toString() || '0', payout: fs.payout.toString() });
+                    setIsFixedServiceModalOpen(true);
+                  }}
+                  className="p-2 text-indigo-400 hover:bg-indigo-50 rounded-lg transition-colors"
+                >
+                  <Pencil size={18} />
+                </button>
+                <button
+                  onClick={async () => {
+                    if (confirm(`Excluir repasse fixo "${fs.name}"?`)) {
+                      try {
+                        await localApi.delete('fixed_services', fs.id);
+                        fetchData();
+                      } catch (err) {
+                        alert('Erro ao excluir repasse fixo.');
+                      }
+                    }
+                  }}
+                  className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-colors"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          ))}
+          {sortedFixedServices.length === 0 && (
+            <div className="p-8 text-center text-slate-400 text-sm italic">Nenhum repasse fixo cadastrado.</div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -4783,7 +4855,7 @@ export default function App() {
             onClick={() => { setActiveTab('manual_inventory'); setIsSidebarOpen(false); }}
           />
           <SidebarItem
-            icon={Settings}
+            icon={Wrench}
             label="Serviços"
             active={activeTab === 'services'}
             onClick={() => { setActiveTab('services'); setIsSidebarOpen(false); }}
@@ -6306,6 +6378,21 @@ export default function App() {
                 onChange={e => setServiceForm({ ...serviceForm, price: e.target.value })}
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Categoria (Opcional)</label>
+              <select
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                value={serviceForm.category}
+                onChange={e => setServiceForm({ ...serviceForm, category: e.target.value })}
+              >
+                <option value="">Geral</option>
+                <option value="Mecânica">Mecânica</option>
+                <option value="Elétrica">Elétrica</option>
+                <option value="Limpeza">Limpeza</option>
+                <option value="Revisão">Revisão</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
             <button
               onClick={handleSaveService}
               className="w-full py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 mt-4"
@@ -6725,59 +6812,7 @@ export default function App() {
             </div>
           )}
         </Modal>
-        <Modal
-          isOpen={isFixedServiceModalOpen}
-          onClose={() => setIsFixedServiceModalOpen(false)}
-          title="Configurar Tabela de Repasses"
-        >
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const newService = {
-              id: Math.random().toString(36).substr(2, 9),
-              name: fixedServiceForm.name,
-              payout: parseFloat(fixedServiceForm.payout) || 0,
-              customer_price: parseFloat(fixedServiceForm.customer_price) || 0
-            };
-            setFixedServices([...fixedServices, newService]);
-            setFixedServiceForm({ name: '', payout: '' });
-          }} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Serviço</label>
-                <input
-                  type="text" required placeholder="Ex: Troca de Pneu"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
-                  value={fixedServiceForm.name}
-                  onChange={e => setFixedServiceForm({ ...fixedServiceForm, name: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Repasse (R$)</label>
-                <input
-                  type="number" required step="0.01"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
-                  value={fixedServiceForm.payout}
-                  onChange={e => setFixedServiceForm({ ...fixedServiceForm, payout: e.target.value })}
-                />
-              </div>
-            </div>
-            <button type="submit" className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-black transition-all">
-              Adicionar à Tabela
-            </button>
-          </form>
 
-          <div className="mt-6 border-t border-slate-400 pt-6">
-            <p className="text-xs font-bold text-slate-400 uppercase mb-4">Serviços Atuais</p>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {fixedServices.map(fs => (
-                <div key={fs.id} className="flex justify-between items-center p-2 bg-slate-50 rounded-lg text-sm">
-                  <span className="text-slate-700">{fs.name}</span>
-                  <span className="font-bold text-rose-600">R$ {fs.payout.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Modal>
 
         <Modal
           isOpen={isOsModalOpen}
