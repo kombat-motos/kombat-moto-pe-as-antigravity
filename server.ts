@@ -932,6 +932,16 @@ async function startServer() {
     res.json({ id: parseInt(info.lastInsertRowid.toString()) });
   });
 
+  app.delete("/api/workshop_purchases/:id", authenticateToken, (req, res) => {
+    db.prepare("DELETE FROM workshop_purchases WHERE id = ? AND user_id = ?").run(req.params.id, req.user!.id);
+    res.json({ success: true });
+  });
+
+  app.delete("/api/workshop_purchases", authenticateToken, (req, res) => {
+    db.prepare("DELETE FROM workshop_purchases WHERE user_id = ?").run(req.user!.id);
+    res.json({ success: true });
+  });
+
   app.delete("/api/purchase_orders/:id", authenticateToken, (req, res) => {
     try {
       db.prepare("DELETE FROM purchase_orders WHERE id = ? AND user_id = ?").run(req.params.id, req.user!.id);

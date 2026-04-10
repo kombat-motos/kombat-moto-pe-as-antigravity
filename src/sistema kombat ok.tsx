@@ -2145,6 +2145,21 @@ export default function App() {
     }
   };
 
+  const handleClearWorkshopPurchases = async () => {
+    if (!confirm('Deseja realmente LIMPAR TODO O HISTÓRICO de compras? Esta ação não pode ser desfeita.')) return;
+    try {
+      setLoading(true);
+      await localApi.delete('workshop_purchases');
+      if (typeof fetchData === 'function') fetchData();
+      alert('Histórico de compras limpo com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao limpar histórico:', error);
+      alert('Erro ao limpar histórico.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderQuotes = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -5080,6 +5095,7 @@ export default function App() {
                   <PurchasesTab 
                     onSave={handleSaveWorkshopPurchase} 
                     onDelete={handleDeleteWorkshopPurchase}
+                    onClearHistory={handleClearWorkshopPurchases}
                     formatBRL={formatBRL} 
                     workshopPurchases={workshopPurchases} 
                   />

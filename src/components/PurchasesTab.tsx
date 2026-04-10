@@ -14,11 +14,12 @@ interface WorkshopPurchase {
 interface PurchasesTabProps {
   onSave: (data: any) => Promise<void>;
   onDelete: (id: any) => Promise<void>;
+  onClearHistory: () => Promise<void>;
   formatBRL: (val: number) => string;
   workshopPurchases: WorkshopPurchase[];
 }
 
-const PurchasesTab: React.FC<PurchasesTabProps> = ({ onSave, onDelete, formatBRL, workshopPurchases }) => {
+const PurchasesTab: React.FC<PurchasesTabProps> = ({ onSave, onDelete, onClearHistory, formatBRL, workshopPurchases }) => {
   return (
     <div key="purchases-module-wrapper" className="space-y-12 pb-20 notranslate" translate="no">
       <QuickEntryModule onSave={onSave} formatBRL={formatBRL} />
@@ -30,8 +31,18 @@ const PurchasesTab: React.FC<PurchasesTabProps> = ({ onSave, onDelete, formatBRL
             <History size={20} className="text-slate-400" />
             Histórico de Lançamentos
           </h3>
-          <div className="text-sm font-medium text-slate-500">
-            Total em compras: <span className="font-black text-rose-600">{formatBRL(workshopPurchases.reduce((acc, p) => acc + (p.total_value || 0), 0))}</span>
+          <div className="flex items-center gap-4">
+            <div className="text-sm font-black text-slate-500 uppercase tracking-tighter">
+              Total em compras: <span className="text-rose-600 font-black">{formatBRL(workshopPurchases.reduce((acc, p) => acc + (p.total_value || 0), 0))}</span>
+            </div>
+            {workshopPurchases.length > 0 && (
+              <button
+                onClick={onClearHistory}
+                className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 transition-all text-[10px] font-black uppercase tracking-widest border border-rose-100"
+              >
+                <Trash2 size={12} /> Limpar Histórico
+              </button>
+            )}
           </div>
         </div>
 
@@ -74,7 +85,7 @@ const PurchasesTab: React.FC<PurchasesTabProps> = ({ onSave, onDelete, formatBRL
                       </div>
                       <button 
                         onClick={() => onDelete(purchase.id)}
-                        className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all opacity-0 group-hover:opacity-100"
+                        className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"
                         title="Excluir Registro"
                       >
                         <Trash2 size={18} />
