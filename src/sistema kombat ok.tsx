@@ -2532,13 +2532,17 @@ export default function App() {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Valor Repasse</p>
-                    <span className="font-black text-rose-600">R$ {fs.payout.toFixed(2)}</span>
+                    <span className="font-black text-rose-600">R$ {(fs.payout || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
                         setEditingFixedService(fs);
-                        setFixedServiceForm({ name: fs.name, price: (fs as any).price?.toString() || '0', payout: fs.payout.toString() });
+                        setFixedServiceForm({ 
+                          name: fs.name || '', 
+                          price: ((fs as any).price || 0).toString(), 
+                          payout: (fs.payout || 0).toString() 
+                        });
                         setIsFixedServiceModalOpen(true);
                       }}
                       className="p-2 text-indigo-400 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -3901,19 +3905,19 @@ export default function App() {
               (s.description || '').toLowerCase().includes(d_serviceSearchTerm.toLowerCase())
             ).map(s => (
               <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4 font-bold text-slate-900">{s.description}</td>
+                <td className="px-6 py-4 font-bold text-slate-900">{s.description || 'Sem Descrição'}</td>
                 <td className="px-6 py-4">
                   <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase">
                     {s.category || 'Geral'}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-rose-600 font-bold">R$ {s.price.toFixed(2)}</td>
+                <td className="px-6 py-4 text-rose-600 font-bold">R$ {(s.price || 0).toFixed(2)}</td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => {
                         setEditingService(s);
-                        setServiceForm({ description: s.description, price: s.price.toString(), category: s.category || '' });
+                        setServiceForm({ description: s.description || '', price: (s.price || 0).toString(), category: s.category || '' });
                         setIsServiceModalOpen(true);
                       }}
                       className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
@@ -3969,14 +3973,14 @@ export default function App() {
           {sortedFixedServices.map(fs => (
             <div key={fs.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
               <div>
-                <p className="font-bold text-slate-900">{fs.name}</p>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Repasse p/ Mecânico: <span className="text-rose-600">R$ {fs.payout.toFixed(2)}</span></p>
+                <p className="font-bold text-slate-900">{fs.name || 'Sem Nome'}</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Repasse p/ Mecânico: <span className="text-rose-600">R$ {(fs.payout || 0).toFixed(2)}</span></p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
                     setEditingFixedService(fs);
-                    setFixedServiceForm({ name: fs.name, price: (fs as any).price?.toString() || '0', payout: fs.payout.toString() });
+                    setFixedServiceForm({ name: fs.name || '', price: ((fs as any).price || 0).toString(), payout: (fs.payout || 0).toString() });
                     setIsFixedServiceModalOpen(true);
                   }}
                   className="p-2 text-indigo-400 hover:bg-indigo-50 rounded-lg transition-colors"
