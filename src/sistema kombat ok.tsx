@@ -2132,6 +2132,10 @@ export default function App() {
   };
 
   const handleDeleteWorkshopPurchase = async (id: any) => {
+    if (!id) {
+      alert('Erro: ID do registro não identificado.');
+      return;
+    }
     if (!confirm('Deseja realmente excluir este registro de compra?')) return;
     try {
       setLoading(true);
@@ -2139,14 +2143,14 @@ export default function App() {
       if (typeof fetchData === 'function') fetchData();
     } catch (error: any) {
       console.error('Erro ao excluir compra:', error);
-      alert('Erro ao excluir compra.');
+      alert(`Erro ao excluir: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleClearWorkshopPurchases = async () => {
-    if (!confirm('Deseja realmente LIMPAR TODO O HISTÓRICO de compras? Esta ação não pode ser desfeita.')) return;
+    if (!confirm('⚠️ ATENÇÃO: Deseja realmente LIMPAR TODO O HISTÓRICO de compras?\n\nEsta ação apagará todos os lançamentos permanentemente.')) return;
     try {
       setLoading(true);
       await localApi.delete('workshop_purchases');
@@ -2154,7 +2158,7 @@ export default function App() {
       alert('Histórico de compras limpo com sucesso!');
     } catch (error: any) {
       console.error('Erro ao limpar histórico:', error);
-      alert('Erro ao limpar histórico.');
+      alert(`Erro ao limpar histórico: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
