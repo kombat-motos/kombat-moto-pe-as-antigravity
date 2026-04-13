@@ -8,3 +8,5 @@ coverage/
 !.env.example
 
 dist-server.js
+
+dist-server.js
