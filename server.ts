@@ -743,9 +743,40 @@ async function startServer() {
     res.json(quotes.map(q => ({ ...q, items: JSON.parse(q.items || '[]') })));
   });
   app.post("/api/quotes", authenticateToken, (req, res) => {
-    const { customer_id, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
-    const info = db.prepare("INSERT INTO quotes (user_id, customer_id, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(req.user!.id, customer_id, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, JSON.stringify(items));
-    res.json({ id: parseInt(info.lastInsertRowid.toString()) });
+    const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
+    try {
+      const info = db.prepare("INSERT INTO quotes (user_id, customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(req.user!.id, customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, JSON.stringify(items));
+      
+      const newQuote = db.prepare("SELECT * FROM quotes WHERE id = ?").get(info.lastInsertRowid) as any;
+      if (newQuote) {
+        newQuote.items = JSON.parse(newQuote.items || '[]');
+      }
+      res.json(newQuote);
+    } catch (err: any) {
+      console.error('ERRO AO SALVAR ORÇAMENTO:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.put("/api/quotes/:id", authenticateToken, (req, res) => {
+    const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
+    try {
+      db.prepare(`
+        UPDATE quotes 
+        SET customer_id = ?, customer_name = ?, motorcycle_details = ?, total_value = ?, observations = ?, warranty_terms = ?, validity_days = ?, status = ?, items = ?
+        WHERE id = ? AND user_id = ?
+      `).run(customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, JSON.stringify(items), req.params.id, req.user!.id);
+      
+      const updatedQuote = db.prepare("SELECT * FROM quotes WHERE id = ?").get(req.params.id) as any;
+      if (updatedQuote) {
+        updatedQuote.items = JSON.parse(updatedQuote.items || '[]');
+      }
+      res.json(updatedQuote);
+    } catch (err: any) {
+      console.error('ERRO AO ATUALIZAR ORÇAMENTO:', err);
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Credit / Fiado

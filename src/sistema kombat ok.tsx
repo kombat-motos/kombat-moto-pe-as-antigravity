@@ -683,6 +683,7 @@ export default function App() {
   const [isPrintingQuote, setIsPrintingQuote] = useState<Quote | null>(null);
   const [isStockSelectorOpen, setIsStockSelectorOpen] = useState(false);
   const [stockSearchTerm, setStockSearchTerm] = useState('');
+  const [quoteCustomerSearch, setQuoteCustomerSearch] = useState('');
 
   // Form States
   const [customerForm, setCustomerForm] = useState({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
@@ -762,6 +763,7 @@ export default function App() {
   const [selectedQuickProduct, setSelectedQuickProduct] = useState<Product | null>(null);
   const [quickInventoryStock, setQuickInventoryStock] = useState<string>('');
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  const [quoteCustomerSearchTerm, setQuoteCustomerSearchTerm] = useState('');
   
   const d_globalSearchTerm = useDeferredValue(globalSearchTerm);
   const d_inventorySearchTerm = useDeferredValue(inventorySearchTerm);
@@ -773,6 +775,7 @@ export default function App() {
   const d_osSearchProduct = useDeferredValue(osSearchProduct);
   const d_osSearchService = useDeferredValue(osSearchService);
   const d_serviceSearchTerm = useDeferredValue(serviceSearchTerm);
+  const d_quoteCustomerSearch = useDeferredValue(quoteCustomerSearchTerm);
 
 
   
@@ -1990,6 +1993,7 @@ export default function App() {
 
       setIsQuoteModalOpen(false);
       setEditingQuote(null);
+      setQuoteCustomerSearchTerm('');
       setQuoteForm({
         customer_name: '',
         customer_id: undefined,
@@ -2206,8 +2210,8 @@ export default function App() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {quotes.filter(q =>
-          q.customer_name.toLowerCase().includes(d_quoteSearchTerm.toLowerCase()) ||
-          q.motorcycle_details?.toLowerCase().includes(d_quoteSearchTerm.toLowerCase())
+          (q.customer_name || '').toLowerCase().includes(d_quoteSearchTerm.toLowerCase()) ||
+          (q.motorcycle_details || '').toLowerCase().includes(d_quoteSearchTerm.toLowerCase())
         ).map((q) => (
           <div key={q.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-all group relative overflow-hidden">
             <div className="absolute top-0 right-0 p-3">
@@ -2223,7 +2227,7 @@ export default function App() {
                 <FileText size={24} />
               </div>
               <div className="w-[calc(100%-60px)]">
-                <h4 className="font-bold text-slate-900 uppercase text-sm truncate">{q.customer_name}</h4>
+                <h4 className="font-bold text-slate-900 uppercase text-sm truncate">{q.customer_name || 'Cliente não identificado'}</h4>
                 <p className="text-xs text-slate-500">{new Date(q.created_at).toLocaleDateString('pt-BR')}</p>
               </div>
             </div>
@@ -2310,7 +2314,7 @@ export default function App() {
               <div className="bg-slate-900 text-white p-4 rounded-xl mb-6 flex flex-col md:flex-row justify-between gap-4">
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Cliente</p>
-                  <p className="font-bold uppercase">{isPrintingQuote.customer_name}</p>
+                  <p className="font-bold uppercase">{isPrintingQuote.customer_name || 'Cliente não identificado'}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Motocicleta / Detalhes</p>
@@ -5257,16 +5261,58 @@ export default function App() {
         >
           <form onSubmit={handleCreateQuote} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-400">
-              <div>
+              <div className="relative">
                 <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Cliente / Razão Social</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
-                  placeholder="Nome Completo do Cliente..."
-                  value={quoteForm.customer_name}
-                  onChange={e => setQuoteForm({ ...quoteForm, customer_name: e.target.value })}
-                />
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input
+                    type="text"
+                    required
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
+                    placeholder="Pesquisar ou digitar nome do cliente..."
+                    value={quoteForm.customer_name}
+                    onChange={e => {
+                      setQuoteForm({ ...quoteForm, customer_name: e.target.value, customer_id: undefined });
+                      setQuoteCustomerSearchTerm(e.target.value);
+                    }}
+                    onFocus={() => {
+                      if (quoteForm.customer_name) setQuoteCustomerSearchTerm(quoteForm.customer_name);
+                    }}
+                  />
+                </div>
+                {quoteCustomerSearchTerm && (
+                  <div className="absolute z-[110] w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                    {sortedCustomers.filter(c => 
+                      c.name.toLowerCase().includes(d_quoteCustomerSearch.toLowerCase()) ||
+                      (c.nickname && c.nickname.toLowerCase().includes(d_quoteCustomerSearch.toLowerCase()))
+                    ).map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setQuoteForm({ ...quoteForm, customer_name: c.name, customer_id: c.id });
+                          setQuoteCustomerSearchTerm('');
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-rose-50 flex justify-between items-center border-b border-slate-100 last:border-none transition-colors"
+                      >
+                        <div>
+                          <p className="text-sm font-bold text-slate-900 uppercase">{c.name}</p>
+                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">
+                            {c.nickname ? `${c.nickname} | ` : ''}{c.whatsapp}
+                          </p>
+                        </div>
+                        <Plus size={14} className="text-rose-500" />
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setQuoteCustomerSearchTerm('')}
+                      className="w-full py-2 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase hover:text-slate-600 transition-colors"
+                    >
+                      Manter apenas texto digitado
+                    </button>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Motocicleta (Modelo/Placa/KM)</label>
