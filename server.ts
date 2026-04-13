@@ -397,8 +397,85 @@ async function startServer() {
     });
   };
 
-  // Specific Routes & CRUD
-  
+  // Health check
+  app.get("/api/health-check", (req, res) => res.json({ status: "ok", version: "1.0.1", timestamp: new Date().toISOString() }));
+
+  // Quotes
+  app.get("/api/quotes", authenticateToken, (req, res) => {
+    const quotes = db.prepare("SELECT * FROM quotes WHERE user_id = ? ORDER BY created_at DESC LIMIT 100").all(req.user!.id) as any[];
+    res.json(quotes.map(q => ({ ...q, items: JSON.parse(q.items || '[]') })));
+  });
+  app.post("/api/quotes", authenticateToken, (req, res) => {
+    const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
+    const userId = req.user!.id;
+
+    try {
+      const info = db.prepare(`
+        INSERT INTO quotes (user_id, customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        userId, 
+        customer_id, 
+        customer_name, 
+        motorcycle_details, 
+        total_value, 
+        observations, 
+        warranty_terms, 
+        validity_days, 
+        status, 
+        JSON.stringify(items)
+      );
+      
+      const newQuote = db.prepare("SELECT * FROM quotes WHERE id = ?").get(info.lastInsertRowid) as any;
+      if (newQuote) {
+        newQuote.items = JSON.parse(newQuote.items || '[]');
+      }
+      res.json(newQuote);
+    } catch (err: any) {
+      console.error('ERRO AO CRIAR ORÇAMENTO:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.put("/api/quotes/:id", authenticateToken, (req, res) => {
+    const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
+    const quoteId = Number(req.params.id);
+    const userId = req.user!.id;
+    
+    try {
+      const result = db.prepare(`
+        UPDATE quotes 
+        SET customer_id = ?, customer_name = ?, motorcycle_details = ?, total_value = ?, observations = ?, warranty_terms = ?, validity_days = ?, status = ?, items = ?
+        WHERE id = ? AND user_id = ?
+      `).run(
+        customer_id, 
+        customer_name, 
+        motorcycle_details, 
+        total_value, 
+        observations, 
+        warranty_terms, 
+        validity_days, 
+        status, 
+        JSON.stringify(items), 
+        quoteId, 
+        userId
+      );
+      
+      if (result.changes === 0) {
+        return res.status(404).json({ error: "Orçamento não encontrado ou sem permissão de edição." });
+      }
+      
+      const updatedQuote = db.prepare("SELECT * FROM quotes WHERE id = ?").get(quoteId) as any;
+      if (updatedQuote) {
+        updatedQuote.items = JSON.parse(updatedQuote.items || '[]');
+      }
+      res.json(updatedQuote);
+    } catch (err: any) {
+      console.error('ERRO AO ATUALIZAR ORÇAMENTO:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Customers
   app.get("/api/customers", authenticateToken, (req, res) => {
     const customers = db.prepare("SELECT * FROM customers WHERE user_id = ? ORDER BY name ASC").all(req.user!.id);
@@ -734,82 +811,6 @@ async function startServer() {
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Erro ao atualizar vencimento" });
-    }
-  });
-
-  // Quotes
-  app.get("/api/quotes", authenticateToken, (req, res) => {
-    const quotes = db.prepare("SELECT * FROM quotes WHERE user_id = ? ORDER BY created_at DESC LIMIT 100").all(req.user!.id) as any[];
-    res.json(quotes.map(q => ({ ...q, items: JSON.parse(q.items || '[]') })));
-  });
-  app.post("/api/quotes", authenticateToken, (req, res) => {
-    const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
-    const userId = req.user!.id;
-
-    try {
-      const info = db.prepare(`
-        INSERT INTO quotes (user_id, customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        userId, 
-        customer_id, 
-        customer_name, 
-        motorcycle_details, 
-        total_value, 
-        observations, 
-        warranty_terms, 
-        validity_days, 
-        status, 
-        JSON.stringify(items)
-      );
-      
-      const newQuote = db.prepare("SELECT * FROM quotes WHERE id = ?").get(info.lastInsertRowid) as any;
-      if (newQuote) {
-        newQuote.items = JSON.parse(newQuote.items || '[]');
-      }
-      res.json(newQuote);
-    } catch (err: any) {
-      console.error('ERRO AO CRIAR ORÇAMENTO:', err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.put("/api/quotes/:id", authenticateToken, (req, res) => {
-    const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
-    const quoteId = Number(req.params.id);
-    const userId = req.user!.id;
-    
-    try {
-      const result = db.prepare(`
-        UPDATE quotes 
-        SET customer_id = ?, customer_name = ?, motorcycle_details = ?, total_value = ?, observations = ?, warranty_terms = ?, validity_days = ?, status = ?, items = ?
-        WHERE id = ? AND user_id = ?
-      `).run(
-        customer_id, 
-        customer_name, 
-        motorcycle_details, 
-        total_value, 
-        observations, 
-        warranty_terms, 
-        validity_days, 
-        status, 
-        JSON.stringify(items), 
-        quoteId, 
-        userId
-      );
-      
-      if (result.changes === 0) {
-        return res.status(404).json({ error: "Orçamento não encontrado ou sem permissão de edição." });
-      }
-      
-      const updatedQuote = db.prepare("SELECT * FROM quotes WHERE id = ?").get(quoteId) as any;
-      if (updatedQuote) {
-        updatedQuote.items = JSON.parse(updatedQuote.items || '[]');
-      }
-      res.json(updatedQuote);
-    } catch (err: any) {
-      console.error('ERRO AO ATUALIZAR ORÇAMENTO:', err);
-      res.status(500).json({ error: err.message });
     }
   });
 
