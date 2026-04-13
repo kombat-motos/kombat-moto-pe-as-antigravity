@@ -398,7 +398,7 @@ async function startServer() {
   };
 
   // Health check
-  app.get("/api/health-check", (req, res) => res.json({ status: "ok", version: "1.0.1", timestamp: new Date().toISOString() }));
+  app.get("/api/health-check", (req, res) => res.json({ status: "ok", version: "1.0.2", timestamp: new Date().toISOString() }));
 
   // Quotes
   app.get("/api/quotes", authenticateToken, (req, res) => {
@@ -438,6 +438,7 @@ async function startServer() {
   });
 
   app.put("/api/quotes/:id", authenticateToken, (req, res) => {
+    console.log(`[API] Recebendo PUT /api/quotes/${req.params.id}`);
     const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
     const quoteId = Number(req.params.id);
     const userId = req.user!.id;
