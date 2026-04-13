@@ -744,9 +744,24 @@ async function startServer() {
   });
   app.post("/api/quotes", authenticateToken, (req, res) => {
     const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
+    const userId = req.user!.id;
+
     try {
-      const info = db.prepare("INSERT INTO quotes (user_id, customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        .run(req.user!.id, customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, JSON.stringify(items));
+      const info = db.prepare(`
+        INSERT INTO quotes (user_id, customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        userId, 
+        customer_id, 
+        customer_name, 
+        motorcycle_details, 
+        total_value, 
+        observations, 
+        warranty_terms, 
+        validity_days, 
+        status, 
+        JSON.stringify(items)
+      );
       
       const newQuote = db.prepare("SELECT * FROM quotes WHERE id = ?").get(info.lastInsertRowid) as any;
       if (newQuote) {
@@ -754,21 +769,40 @@ async function startServer() {
       }
       res.json(newQuote);
     } catch (err: any) {
-      console.error('ERRO AO SALVAR ORÇAMENTO:', err);
+      console.error('ERRO AO CRIAR ORÇAMENTO:', err);
       res.status(500).json({ error: err.message });
     }
   });
 
   app.put("/api/quotes/:id", authenticateToken, (req, res) => {
     const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
+    const quoteId = Number(req.params.id);
+    const userId = req.user!.id;
+    
     try {
-      db.prepare(`
+      const result = db.prepare(`
         UPDATE quotes 
         SET customer_id = ?, customer_name = ?, motorcycle_details = ?, total_value = ?, observations = ?, warranty_terms = ?, validity_days = ?, status = ?, items = ?
         WHERE id = ? AND user_id = ?
-      `).run(customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, JSON.stringify(items), req.params.id, req.user!.id);
+      `).run(
+        customer_id, 
+        customer_name, 
+        motorcycle_details, 
+        total_value, 
+        observations, 
+        warranty_terms, 
+        validity_days, 
+        status, 
+        JSON.stringify(items), 
+        quoteId, 
+        userId
+      );
       
-      const updatedQuote = db.prepare("SELECT * FROM quotes WHERE id = ?").get(req.params.id) as any;
+      if (result.changes === 0) {
+        return res.status(404).json({ error: "Orçamento não encontrado ou sem permissão de edição." });
+      }
+      
+      const updatedQuote = db.prepare("SELECT * FROM quotes WHERE id = ?").get(quoteId) as any;
       if (updatedQuote) {
         updatedQuote.items = JSON.parse(updatedQuote.items || '[]');
       }
