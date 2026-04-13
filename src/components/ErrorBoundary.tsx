@@ -12,7 +12,7 @@ interface State {
 class ErrorBoundary extends Component<any, any> {
   constructor(props: any) {
     super(props);
-    this.state = { hasError: false };
+    (this as any).state = { hasError: false };
   }
 
   public static getDerivedStateFromError(error: Error): State {
@@ -24,7 +24,8 @@ class ErrorBoundary extends Component<any, any> {
   }
 
   public render() {
-    if (this.state.hasError) {
+    const self = this as any;
+    if (self.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
           <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-400 max-w-md">
@@ -35,9 +36,9 @@ class ErrorBoundary extends Component<any, any> {
             <p className="text-slate-600 mb-6">
               Ocorreu um erro inesperado na interface. Tente recarregar a página.
             </p>
-            {this.state.error && (
+            {self.state.error && (
               <pre className="mt-4 p-4 bg-rose-50 rounded-xl text-rose-700 text-xs overflow-auto max-h-32 text-left border border-rose-100 mb-6 font-mono">
-                {this.state.error.toString()}
+                {self.state.error.toString()}
               </pre>
             )}
             <button
@@ -51,7 +52,7 @@ class ErrorBoundary extends Component<any, any> {
       );
     }
 
-    return this.props.children;
+    return self.props.children;
   }
 }
 
