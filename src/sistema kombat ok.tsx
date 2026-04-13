@@ -596,9 +596,17 @@ export default function App() {
         headers: localApi.getHeaders(),
         body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro na operação');
-      return data;
+      
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Erro na operação');
+        return data;
+      } else {
+        const text = await res.text();
+        if (!res.ok) throw new Error(`Erro no servidor (${res.status}): A rota /api/${route}/${id} pode estar faltando ou o servidor precisa ser reiniciado.`);
+        return text;
+      }
     },
     patch: async (route: string, id: any, actionOrBody: any, body?: any) => {
       // Compatibility with action-style or body-style patches
@@ -2005,9 +2013,9 @@ export default function App() {
         status: 'Pendente',
         items: []
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving quote:', err);
-      alert('Erro ao salvar orçamento.');
+      alert(`Erro ao salvar orçamento: ${err.message || 'Erro desconhecido'}`);
     }
   };
 
