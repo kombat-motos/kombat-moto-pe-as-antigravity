@@ -463,6 +463,7 @@ async function startServer() {
       );
       
       if (result.changes === 0) {
+        console.warn(`[API] Orçamento não encontrado ou sem permissão de edição. ID: ${quoteId}, Usuário: ${userId}`);
         return res.status(404).json({ error: "Orçamento não encontrado ou sem permissão de edição." });
       }
       
@@ -473,7 +474,7 @@ async function startServer() {
       res.json(updatedQuote);
     } catch (err: any) {
       console.error('ERRO AO ATUALIZAR ORÇAMENTO:', err);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: err.message || 'Erro interno no servidor sqlite' });
     }
   });
 

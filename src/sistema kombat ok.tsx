@@ -600,7 +600,10 @@ export default function App() {
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Erro na operação');
+        if (!res.ok) {
+          const errMsg = data.error || data.message || (typeof data === 'object' ? JSON.stringify(data) : 'Erro na operação');
+          throw new Error(errMsg);
+        }
         return data;
       } else {
         const text = await res.text();
