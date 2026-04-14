@@ -692,6 +692,8 @@ export default function App() {
   });
   const [isPrintingQuote, setIsPrintingQuote] = useState<Quote | null>(null);
   const [isStockSelectorOpen, setIsStockSelectorOpen] = useState(false);
+  const [activeQuoteManualType, setActiveQuoteManualType] = useState<'Peça' | 'Serviço' | null>(null);
+  const [manualQuoteItem, setManualQuoteItem] = useState({ description: '', quantity: '1', price: '' });
   const [stockSearchTerm, setStockSearchTerm] = useState('');
   const [quoteCustomerSearch, setQuoteCustomerSearch] = useState('');
 
@@ -5407,17 +5409,8 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => {
-                      const desc = prompt('Descrição da Peça:');
-                      const qty = Number(prompt('Quantidade:', '1'));
-                      const val = Number(prompt('Valor Unitário:', '0'));
-                      if (desc && qty && val) {
-                        const newItem: QuoteItem = { description: desc, quantity: qty, price: val, total: qty * val, type: 'Peça' };
-                        setQuoteForm(prev => ({
-                          ...prev,
-                          items: [...prev.items, newItem],
-                          total_value: prev.total_value + (qty * val)
-                        }));
-                      }
+                      setManualQuoteItem({ description: '', quantity: '1', price: '' });
+                      setActiveQuoteManualType('Peça');
                     }}
                     className="px-3 py-1.5 bg-black text-white rounded-lg text-[10px] font-black uppercase hover:bg-slate-800 transition-all flex items-center gap-1"
                   >
@@ -5426,16 +5419,8 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => {
-                      const desc = prompt('Descrição do Serviço:');
-                      const val = Number(prompt('Valor do Serviço:', '0'));
-                      if (desc && val) {
-                        const newItem: QuoteItem = { description: desc, quantity: 1, price: val, total: val, type: 'Serviço' };
-                        setQuoteForm(prev => ({
-                          ...prev,
-                          items: [...prev.items, newItem],
-                          total_value: prev.total_value + val
-                        }));
-                      }
+                      setManualQuoteItem({ description: '', quantity: '1', price: '' });
+                      setActiveQuoteManualType('Serviço');
                     }}
                     className="px-3 py-1.5 bg-rose-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-rose-700 transition-all flex items-center gap-1"
                   >
@@ -5443,6 +5428,77 @@ export default function App() {
                   </button>
                 </div>
               </div>
+
+              {activeQuoteManualType && (
+                <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Novo Item Manual: {activeQuoteManualType}</span>
+                    <button onClick={() => setActiveQuoteManualType(null)} className="text-slate-400 hover:text-rose-500"><X size={16} /></button>
+                  </div>
+                  <div className="grid grid-cols-12 gap-2">
+                    <div className="col-span-6">
+                      <input
+                        type="text"
+                        placeholder="Nome da Peça/Serviço"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold focus:border-rose-500 outline-none"
+                        value={manualQuoteItem.description}
+                        onChange={e => setManualQuoteItem({...manualQuoteItem, description: e.target.value})}
+                        autoFocus
+                      />
+                    </div>
+                    {activeQuoteManualType === 'Peça' && (
+                      <div className="col-span-2">
+                        <input
+                          type="number"
+                          placeholder="Qtd"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold focus:border-rose-500 outline-none"
+                          value={manualQuoteItem.quantity}
+                          onChange={e => setManualQuoteItem({...manualQuoteItem, quantity: e.target.value})}
+                        />
+                      </div>
+                    )}
+                    <div className={activeQuoteManualType === 'Peça' ? 'col-span-3' : 'col-span-5'}>
+                      <input
+                        type="number"
+                        placeholder="Preço R$"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold focus:border-rose-500 outline-none"
+                        value={manualQuoteItem.price}
+                        onChange={e => setManualQuoteItem({...manualQuoteItem, price: e.target.value})}
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const qty = Number(manualQuoteItem.quantity) || 1;
+                          const val = Number(manualQuoteItem.price) || 0;
+                          if (manualQuoteItem.description && val > 0) {
+                            const newItem: QuoteItem = { 
+                              description: manualQuoteItem.description.toUpperCase(), 
+                              quantity: qty, 
+                              price: val, 
+                              total: qty * val, 
+                              type: activeQuoteManualType 
+                            };
+                            setQuoteForm(prev => ({
+                              ...prev,
+                              items: [...prev.items, newItem],
+                              total_value: prev.total_value + (qty * val)
+                            }));
+                            setActiveQuoteManualType(null);
+                            setManualQuoteItem({ description: '', quantity: '1', price: '' });
+                          } else {
+                            alert("Preencha a descrição e o valor.");
+                          }
+                        }}
+                        className="w-full h-full bg-rose-600 text-white rounded-lg flex items-center justify-center hover:bg-rose-700 transition-all"
+                      >
+                        <CheckCircle size={18} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="border border-slate-400 rounded-2xl overflow-hidden">
                 <table className="w-full text-left">
