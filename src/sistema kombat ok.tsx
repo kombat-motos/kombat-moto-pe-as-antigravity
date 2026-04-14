@@ -5359,7 +5359,14 @@ export default function App() {
                         key={c.id}
                         type="button"
                         onClick={() => {
-                          setQuoteForm({ ...quoteForm, customer_name: c.name, customer_id: c.id });
+                          const moto = motorcycles.find(m => m.customer_id === c.id);
+                          const motoDetails = moto ? `${moto.model} - ${moto.plate}` : '';
+                          setQuoteForm({ 
+                            ...quoteForm, 
+                            customer_name: c.name, 
+                            customer_id: c.id,
+                            motorcycle_details: motoDetails
+                          });
                           setQuoteCustomerSearchTerm('');
                         }}
                         className="w-full text-left px-4 py-3 hover:bg-rose-50 flex justify-between items-center border-b border-slate-100 last:border-none transition-colors"
