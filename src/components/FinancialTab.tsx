@@ -255,7 +255,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
         </div>
         <div style="margin: 30px 0; text-align: center;">
           <h1 style="text-transform: uppercase; letter-spacing: 2px;">CARNÊ DE PAGAMENTO</h1>
-          <p>Documento No: ${sale.id.slice(-8).toUpperCase()}</p>
+          <p>Documento No: ${String(sale.id).slice(-8).toUpperCase()}</p>
         </div>
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 40px; margin-bottom: 40px;">
           <div style="border: 1px solid #ddd; padding: 15px; border-radius: 8px;">
@@ -284,7 +284,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
     if (!printWindow) return;
     const content = `
       <div style="font-family: serif; max-width: 900px; margin: 50px auto; padding: 40px; border: 4px solid #000; position: relative;">
-        <div style="position: absolute; top: 10px; right: 20px; font-size: 24px; font-weight: bold;">Nº ${sale.id.slice(-6).toUpperCase()}</div>
+        <div style="position: absolute; top: 10px; right: 20px; font-size: 24px; font-weight: bold;">Nº ${String(sale.id).slice(-6).toUpperCase()}</div>
         <div style="text-align: center; margin-bottom: 40px;">
           <h1 style="font-size: 40px; margin: 0;">NOTA PROMISSÓRIA</h1>
           <p style="font-size: 18px;">VENCIMENTO: ${new Date(sale.due_date || '').toLocaleDateString('pt-BR')}</p>
