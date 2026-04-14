@@ -398,14 +398,60 @@ async function startServer() {
   };
 
   // Health check
-  app.get("/api/health-check", (req, res) => res.json({ status: "ok", version: "1.0.2", timestamp: new Date().toISOString() }));
+  app.get("/api/health-check", (req, res) => res.json({ status: "ok", version: "1.0.3", timestamp: new Date().toISOString() }));
 
   // Quotes
   app.get("/api/quotes", authenticateToken, (req, res) => {
     const quotes = db.prepare("SELECT * FROM quotes WHERE user_id = ? ORDER BY created_at DESC LIMIT 100").all(req.user!.id) as any[];
     res.json(quotes.map(q => ({ ...q, items: JSON.parse(q.items || '[]') })));
   });
+
+  app.get("/api/quotes-update/:id", authenticateToken, (req, res) => {
+    console.error(`[API] Teste GET para /api/quotes-update/${req.params.id}`);
+    const quote = db.prepare("SELECT * FROM quotes WHERE id = ?").get(req.params.id);
+    res.json(quote || { error: "Não encontrado" });
+  });
+
+  app.put("/api/quotes-update/:id", authenticateToken, (req, res) => {
+    console.error(`[API] Recebendo PUT /api/quotes-update/${req.params.id}`);
+    const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
+    const quoteId = Number(req.params.id);
+    const userId = req.user!.id;
+    
+    try {
+      const result = db.prepare(`
+        UPDATE quotes 
+        SET customer_id = ?, customer_name = ?, motorcycle_details = ?, total_value = ?, observations = ?, warranty_terms = ?, validity_days = ?, status = ?, items = ?
+        WHERE id = ? AND user_id = ?
+      `).run(
+        customer_id, 
+        customer_name, 
+        motorcycle_details, 
+        total_value, 
+        observations, 
+        warranty_terms, 
+        validity_days, 
+        status, 
+        JSON.stringify(items), 
+        quoteId,
+        userId
+      );
+
+      console.error(`[API] Resultado do UPDATE quote ${quoteId}:`, result.changes);
+
+      if (result.changes === 0) {
+        return res.status(404).json({ error: "Orçamento não encontrado ou sem permissão" });
+      }
+
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('ERRO AO ATUALIZAR ORÇAMENTO:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post("/api/quotes", authenticateToken, (req, res) => {
+    console.error(`[API] Recebendo POST /api/quotes`);
     const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
     const userId = req.user!.id;
 

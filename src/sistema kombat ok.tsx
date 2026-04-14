@@ -1992,7 +1992,7 @@ export default function App() {
       };
 
       if (editingQuote) {
-        const updatedQuote = await localApi.put('quotes', editingQuote.id, dataToSave);
+        const updatedQuote = await localApi.put('quotes-update', editingQuote.id, dataToSave);
         setQuotes(prev => prev.map(q => q.id === updatedQuote.id ? updatedQuote : q));
         alert('Orçamento atualizado com sucesso!');
       } else {
