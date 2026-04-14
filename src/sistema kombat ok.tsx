@@ -1955,6 +1955,49 @@ export default function App() {
     }
   };
 
+  const handleConvertQuoteToSale = (quote: Quote) => {
+    setPdvForm({
+      customer_id: quote.customer_id ? String(quote.customer_id) : '',
+      items: quote.items.map(item => ({
+        ...item,
+        total: item.price * item.quantity
+      })),
+      payment_method: 'Pix',
+      due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      sale_condition: 'Vista',
+      installments: 1
+    });
+    setIsPdvModalOpen(true);
+  };
+
+  const handleConvertQuoteToOS = (quote: Quote) => {
+    // Try to find the motorcycle if details are provided
+    const motorcycle = quote.motorcycle_details 
+      ? motorcycles.find(m => 
+          quote.motorcycle_details?.toLowerCase().includes(m.plate.toLowerCase()) || 
+          quote.motorcycle_details?.toLowerCase().includes(m.model.toLowerCase())
+        ) 
+      : undefined;
+
+    setOsForm({
+      customer_id: quote.customer_id ? String(quote.customer_id) : '',
+      motorcycle_id: motorcycle ? String(motorcycle.id) : '',
+      items: quote.items.map(item => ({
+        ...item,
+        total: item.price * item.quantity
+      })),
+      selected_fixed_services: [],
+      labor_value: '0',
+      mechanic_id: '',
+      payment_method: 'Pix',
+      status: 'Aberto',
+      due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      service_description: quote.observations || '',
+      km: '',
+    });
+    setIsOsModalOpen(true);
+  };
+
   const handleEditQuote = (quote: Quote) => {
     setEditingQuote(quote);
     setQuoteForm({
@@ -2271,6 +2314,20 @@ export default function App() {
                 title="Editar Orçamento"
               >
                 <Pencil size={16} />
+              </button>
+              <button
+                onClick={() => handleConvertQuoteToSale(q)}
+                className="p-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors border border-emerald-100"
+                title="Gerar Venda (Finalizar)"
+              >
+                <ShoppingCart size={16} />
+              </button>
+              <button
+                onClick={() => handleConvertQuoteToOS(q)}
+                className="p-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors border border-indigo-100"
+                title="Gerar Ordem de Serviço"
+              >
+                <Wrench size={16} />
               </button>
               <button
                 onClick={() => handleDeleteQuote(q.id)}
