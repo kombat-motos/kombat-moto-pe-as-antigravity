@@ -2315,7 +2315,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="bg-black text-white px-4 py-2 rounded-lg font-black text-sm uppercase mb-2">Orçamento #{isPrintingQuote.id.slice(0, 8)}</div>
+                  <div className="bg-black text-white px-4 py-2 rounded-lg font-black text-sm uppercase mb-2">Orçamento #{String(isPrintingQuote.id).slice(0, 8)}</div>
                   <p className="text-slate-400 text-xs font-bold uppercase">Data: {new Date(isPrintingQuote.created_at).toLocaleDateString('pt-BR')}</p>
                   <p className="text-rose-600 text-xs font-black uppercase">Válido por {isPrintingQuote.validity_days} dias</p>
                 </div>
@@ -4716,7 +4716,7 @@ export default function App() {
                 {sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(s => (
                   <tr key={s.id} className="border-b">
                     <td className="py-3">{new Date(s.date).toLocaleDateString()}</td>
-                    <td>{s.id.slice(-6)}</td>
+                    <td>{String(s.id).slice(-6)}</td>
                     <td className="font-bold">{s.customer_name}</td>
                     <td>{s.type}</td>
                     <td>{s.payment_method}</td>
@@ -4802,7 +4802,7 @@ export default function App() {
                 {purchaseOrders.map(o => (
                   <tr key={o.id} className="border-b">
                     <td className="py-3">{new Date(o.date).toLocaleDateString()}</td>
-                    <td>#{o.id.slice(-4)}</td>
+                    <td>#{String(o.id).slice(-4)}</td>
                     <td className="font-bold">{o.distributor_name}</td>
                     <td>{o.items.length} itens</td>
                     <td>
