@@ -5360,7 +5360,7 @@ export default function App() {
                         type="button"
                         onClick={() => {
                           const moto = motorcycles.find(m => m.customer_id === c.id);
-                          const motoDetails = moto ? `${moto.model} - ${moto.plate}` : '';
+                          const motoDetails = moto ? `${moto.model} - ${moto.plate} - ${moto.current_km}km` : '';
                           setQuoteForm({ 
                             ...quoteForm, 
                             customer_name: c.name, 
