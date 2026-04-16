@@ -27,6 +27,7 @@ import {
   Image as ImageIcon,
   Link,
   Upload,
+  Download,
   DollarSign,
   Calendar,
   BarChart3,
@@ -3525,6 +3526,61 @@ export default function App() {
     e.target.value = '';
   };
 
+  const handleExportBackup = () => {
+    try {
+      const backupData = {
+        products,
+        customers,
+        motorcycles,
+        sales,
+        leads,
+        mechanics,
+        fixedServices,
+        distributors,
+        purchaseOrders,
+        workshopPurchases,
+        registeredServices,
+        quotes,
+        companyData,
+        exportDate: new Date().toISOString(),
+        version: '1.0'
+      };
+
+      const json = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `backup_kombat_moto_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      alert('Backup exportado com sucesso! Arquivo JSON salvo.');
+    } catch (error) {
+      console.error('Erro ao exportar backup:', error);
+      alert('Falha ao gerar backup.');
+    }
+  };
+
+  const handleClearCache = () => {
+    if (confirm('Limpar o cache removerá configurações locais (como logo e dados da empresa no navegador). Dados do servidor continuam salvos. Deseja continuar?')) {
+      const token = localStorage.getItem('token');
+      const companyData = localStorage.getItem('companyData');
+      const companyLogo = localStorage.getItem('companyLogo');
+      
+      localStorage.clear();
+      
+      if (token) localStorage.setItem('token', token);
+      if (companyData) localStorage.setItem('companyData', companyData);
+      if (companyLogo) localStorage.setItem('companyLogo', companyLogo);
+      
+      alert('Cache limpo! Recarregando...');
+      window.location.reload();
+    }
+  };
+
   const renderDashboard = () => (
     <div className="space-y-8">
       {/* Atalhos Rápidos no Topo do Dashboard */}
@@ -4507,10 +4563,17 @@ export default function App() {
           </div>
         </div>
         <div className="flex gap-4">
-          <button className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm">
+          <button 
+            onClick={handleExportBackup}
+            className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm flex items-center gap-2"
+          >
+            <Download size={18} />
             Exportar Backup (JSON)
           </button>
-          <button className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm">
+          <button 
+            onClick={handleClearCache}
+            className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm"
+          >
             Limpar Cache do Sistema
           </button>
         </div>
