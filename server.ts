@@ -524,6 +524,20 @@ async function startServer() {
     }
   });
 
+  app.delete("/api/quotes/:id", authenticateToken, (req, res) => {
+    try {
+      const result = db.prepare("DELETE FROM quotes WHERE id = ? AND user_id = ?").run(req.params.id, req.user!.id);
+      if (result.changes === 0) {
+        return res.status(404).json({ error: "Orçamento não encontrado" });
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('ERRO AO EXCLUIR ORÇAMENTO:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+
   // Customers
   app.get("/api/customers", authenticateToken, (req, res) => {
     const customers = db.prepare("SELECT * FROM customers WHERE user_id = ? ORDER BY name ASC").all(req.user!.id);
