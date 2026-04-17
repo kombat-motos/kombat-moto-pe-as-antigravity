@@ -853,15 +853,44 @@ export default function App() {
       const savedFees = localStorage.getItem('cardFeesSettings');
       if (savedFees) setCardFeesSettings(JSON.parse(savedFees));
 
-      // Stats Simplificados
+      // Stats Robustos
       if (Array.isArray(salesData)) {
         const rev = salesData.reduce((acc: number, s: any) => acc + (s.total || 0), 0);
+        
+        // Calcular Produtos Mais Vendidos
+        const productCounts: Record<string, number> = {};
+        salesData.forEach((sale: any) => {
+          const items = sale.sale_items || [];
+          items.forEach((item: any) => {
+            if (item.type === 'Peça' || !item.type) {
+              const desc = item.description || 'Produto s/ nome';
+              productCounts[desc] = (productCounts[desc] || 0) + (item.quantity || 0);
+            }
+          });
+        });
+        
+        const topProducts = Object.entries(productCounts)
+          .map(([description, total_sold]) => ({ description, total_sold }))
+          .sort((a, b) => b.total_sold - a.total_sold)
+          .slice(0, 5);
+
+        // Calcular Ticket Médio
+        const counterSales = salesData.filter((s: any) => s.type === 'Balcão');
+        const serviceSales = salesData.filter((s: any) => s.type === 'Oficina');
+        
+        const avgCounter = counterSales.length > 0 
+          ? counterSales.reduce((acc, s) => acc + (s.total || 0), 0) / counterSales.length 
+          : 0;
+        const avgService = serviceSales.length > 0 
+          ? serviceSales.reduce((acc, s) => acc + (s.total || 0), 0) / serviceSales.length 
+          : 0;
+
         setStats({
           revenue: rev,
           openServiceOrders: salesData.filter((s: any) => s.type === 'Oficina' && s.status !== 'Entregue').length,
-          topProducts: [],
-          avgTicketCounter: 0,
-          avgTicketService: 0
+          topProducts,
+          avgTicketCounter: avgCounter,
+          avgTicketService: avgService
         });
       }
 
@@ -3644,11 +3673,11 @@ export default function App() {
             <TrendingUp size={20} className="text-rose-500" />
             Top 5 Produtos Mais Vendidos
           </h3>
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
             {(stats?.topProducts || []).map((p, i) => (
               <div key={`prod-${i}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <span className="w-8 h-8 flex items-center justify-center bg-white rounded-lg text-sm font-bold text-slate-400 border border-slate-400">
+                  <span className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-sm font-bold text-slate-400 border border-slate-400">
                     {i + 1}
                   </span>
                   <span className="font-medium text-slate-700">{p.description}</span>
@@ -3667,7 +3696,7 @@ export default function App() {
             <Bike size={20} className="text-amber-500" />
             Próximas Revisões (CRM)
           </h3>
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
             {(motorcycles || []).slice(0, 5).map((m, idx) => (
               <div key={m.id || `moto-${idx}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
                 <div>
