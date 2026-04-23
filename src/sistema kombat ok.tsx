@@ -131,6 +131,8 @@ interface Lead {
 interface Mechanic {
   id: string;
   name: string;
+  commission_rate: number;
+  active: boolean;
 }
 
 interface FixedService {
@@ -1573,8 +1575,8 @@ export default function App() {
     let total = totalBase;
     let finalItems = [...osForm.items];
     const customer = osForm.customer_id ? customers.find(c => c.id === parseInt(osForm.customer_id)) : null;
-    const motorcycle = osForm.motorcycle_id ? motorcycles.find(m => m.id === parseInt(osForm.motorcycle_id)) : null;
-    const mechanic = mechanics.find(m => m.id === osForm.mechanic_id);
+    const motorcycle = osForm.motorcycle_id ? motorcycles.find(m => String(m.id) === String(osForm.motorcycle_id)) : null;
+    const mechanic = mechanics.find(m => String(m.id) === String(osForm.mechanic_id));
 
     if (osForm.payment_method === 'Fiado') {
       if (!osForm.customer_id) {
@@ -1605,7 +1607,8 @@ export default function App() {
       });
 
       if (laborValue > 0) {
-        commission += laborValue * 0.5;
+        const rate = (mechanic.commission_rate ?? 50) / 100;
+        commission += laborValue * rate;
       }
     }
 
@@ -1912,7 +1915,7 @@ export default function App() {
 
     return sales
       .filter(sale =>
-        sale.mechanic_id === mechanicId &&
+        String(sale.mechanic_id) === String(mechanicId) &&
         sale.type === 'Oficina' &&
         new Date(sale.date) >= startDate
       )

@@ -796,8 +796,9 @@ async function startServer() {
     
     const runTransaction = db.transaction(() => {
       // 1. Update Sale
-      db.prepare("UPDATE sales SET customer_id = ?, customer_name = ?, labor_value = ?, commission = ?, total = ?, payment_method = ?, payment_status = ?, due_date = ?, paid_date = ?, status = ?, moto_details = ?, service_description = ?, paid_total = ?, motorcycle_id = ?, motorcycle_km = ? WHERE id = ? AND user_id = ?")
-        .run(customer_id, customer_name, labor_value, commission, total, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, paid_total, motorcycle_id, motorcycle_km, req.params.id, req.user!.id);
+      const safeMechId = parseInt(mechanic_id) || null;
+      db.prepare("UPDATE sales SET customer_id = ?, customer_name = ?, labor_value = ?, commission = ?, mechanic_id = ?, total = ?, payment_method = ?, payment_status = ?, due_date = ?, paid_date = ?, status = ?, moto_details = ?, service_description = ?, paid_total = ?, motorcycle_id = ?, motorcycle_km = ? WHERE id = ? AND user_id = ?")
+        .run(customer_id, customer_name, labor_value, commission, safeMechId, total, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, paid_total, motorcycle_id, motorcycle_km, req.params.id, req.user!.id);
       
       // 2. Reversal logic for stock
       const oldItems = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(req.params.id) as any[];
