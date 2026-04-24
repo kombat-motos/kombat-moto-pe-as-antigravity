@@ -109,6 +109,7 @@ db.exec(`
     labor_value REAL DEFAULT 0,
     commission REAL DEFAULT 0,
     mechanic_id INTEGER,
+    mechanic_name TEXT,
     total REAL NOT NULL,
     payment_method TEXT,
     payment_status TEXT,
@@ -250,6 +251,7 @@ const migrations = [
   "ALTER TABLE sales ADD COLUMN labor_value REAL DEFAULT 0",
   "ALTER TABLE sales ADD COLUMN commission REAL DEFAULT 0",
   "ALTER TABLE sales ADD COLUMN mechanic_id INTEGER",
+  "ALTER TABLE sales ADD COLUMN mechanic_name TEXT",
   "ALTER TABLE sales ADD COLUMN total REAL DEFAULT 0",
   "ALTER TABLE sales ADD COLUMN payment_method TEXT",
   "ALTER TABLE sales ADD COLUMN payment_status TEXT",
@@ -745,7 +747,7 @@ async function startServer() {
     res.json(salesWithItems);
   });
   app.post("/api/sales", authenticateToken, (req, res) => {
-    const { id, customer_id, customer_name, labor_value, commission, mechanic_id, total, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, sale_items, motorcycle_km, motorcycle_id, paid_total } = req.body;
+    const { id, customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, sale_items, motorcycle_km, motorcycle_id, paid_total } = req.body;
     
     const runTransaction = db.transaction(() => {
       // 1. Insert Sale
@@ -758,8 +760,8 @@ async function startServer() {
       const safeMechId = parseInt(mechanic_id) || null;
       const safeMotoId = parseInt(motorcycle_id) || null;
 
-      db.prepare("INSERT INTO sales (id, user_id, customer_id, customer_name, labor_value, commission, mechanic_id, total, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, paid_total, motorcycle_id, motorcycle_km) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        .run(id, req.user!.id, safeCustId, customer_name, safeLabor, safeCommission, safeMechId, safeTotal, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, safePaidTotal, safeMotoId, safeKm);
+      db.prepare("INSERT INTO sales (id, user_id, customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, paid_total, motorcycle_id, motorcycle_km) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(id, req.user!.id, safeCustId, customer_name, safeLabor, safeCommission, safeMechId, mechanic_name, safeTotal, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, safePaidTotal, safeMotoId, safeKm);
       
       // 2. Insert Items & Update Stock
       const insertItem = db.prepare("INSERT INTO sale_items (sale_id, product_id, description, quantity, price, type) VALUES (?, ?, ?, ?, ?, ?)");
@@ -792,13 +794,13 @@ async function startServer() {
   });
 
   app.put("/api/sales/:id", authenticateToken, (req, res) => {
-    const { customer_id, customer_name, labor_value, commission, mechanic_id, total, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, sale_items, motorcycle_km, motorcycle_id, paid_total } = req.body;
+    const { customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, sale_items, motorcycle_km, motorcycle_id, paid_total } = req.body;
     
     const runTransaction = db.transaction(() => {
       // 1. Update Sale
       const safeMechId = parseInt(mechanic_id) || null;
-      db.prepare("UPDATE sales SET customer_id = ?, customer_name = ?, labor_value = ?, commission = ?, mechanic_id = ?, total = ?, payment_method = ?, payment_status = ?, due_date = ?, paid_date = ?, status = ?, moto_details = ?, service_description = ?, paid_total = ?, motorcycle_id = ?, motorcycle_km = ? WHERE id = ? AND user_id = ?")
-        .run(customer_id, customer_name, labor_value, commission, safeMechId, total, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, paid_total, motorcycle_id, motorcycle_km, req.params.id, req.user!.id);
+      db.prepare("UPDATE sales SET customer_id = ?, customer_name = ?, labor_value = ?, commission = ?, mechanic_id = ?, mechanic_name = ?, total = ?, payment_method = ?, payment_status = ?, due_date = ?, paid_date = ?, status = ?, moto_details = ?, service_description = ?, paid_total = ?, motorcycle_id = ?, motorcycle_km = ? WHERE id = ? AND user_id = ?")
+        .run(customer_id, customer_name, labor_value, commission, safeMechId, mechanic_name, total, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, paid_total, motorcycle_id, motorcycle_km, req.params.id, req.user!.id);
       
       // 2. Reversal logic for stock
       const oldItems = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(req.params.id) as any[];
