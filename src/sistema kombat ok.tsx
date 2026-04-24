@@ -116,6 +116,7 @@ interface Product {
   image_url3?: string;
   image_url4?: string;
   application?: string;
+  distributor?: string;
 }
 
 interface Lead {
@@ -702,7 +703,7 @@ export default function App() {
 
   // Form States
   const [customerForm, setCustomerForm] = useState({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
-  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '' });
+  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '' });
   const [serviceForm, setServiceForm] = useState({ description: '', price: '', category: '' });
   const [motorcycleForm, setMotorcycleForm] = useState({ customer_id: '', plate: '', model: '', current_km: '' });
 
@@ -3074,7 +3075,8 @@ export default function App() {
         category: categorizeProduct(productForm.description),
         brand: productForm.brand,
         location: productForm.location,
-        application: productForm.application
+        application: productForm.application,
+        distributor: productForm.distributor
       };
 
       if (editingProduct) {
@@ -3094,9 +3096,13 @@ export default function App() {
         stock: '',
         unit: 'Unitário',
         image_url: '',
+        image_url2: '',
+        image_url3: '',
+        image_url4: '',
         brand: '',
         location: '',
-        application: ''
+        application: '',
+        distributor: ''
       });
       fetchData();
     } catch (error: any) {
@@ -3122,7 +3128,8 @@ export default function App() {
       category: product.category || categorizeProduct(product.description),
       brand: product.brand || '',
       location: product.location || '',
-      application: product.application || ''
+      application: product.application || '',
+      distributor: product.distributor || ''
     });
     setIsProductModalOpen(true);
   };
@@ -3536,7 +3543,8 @@ export default function App() {
               brand: item.Marca || item.Brand || item.brand || '',
               location: item.Localização || item.Location || item.location || '',
               application: item.Aplicação || item.Application || item.application || '',
-              category: item.Categoria || item.Category || item.category || categorizeProduct(desc)
+              category: item.Categoria || item.Category || item.category || categorizeProduct(desc),
+              distributor: item.Distribuidor || item.Distributor || item.distributor || ''
             };
 
             await localApi.post('products', prod);
@@ -5984,7 +5992,7 @@ export default function App() {
           onClose={() => {
             setIsProductModalOpen(false);
             setEditingProduct(null);
-            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '' });
+            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '' });
           }}
           title={editingProduct ? "Editar Produto" : "Adicionar Produto ao Estoque"}
           maxWidth="max-w-4xl"
@@ -6007,6 +6015,15 @@ export default function App() {
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
                   value={productForm.brand}
                   onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Distribuidor</label>
+                <input
+                  type="text" placeholder="Ex: Distribuidora X, Fornecedor Y"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  value={productForm.distributor}
+                  onChange={e => setProductForm({ ...productForm, distributor: e.target.value })}
                 />
               </div>
             </div>
