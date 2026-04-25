@@ -78,6 +78,7 @@ db.exec(`
     image_url TEXT,
     application TEXT,
     distributor TEXT,
+    alt_code TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
   );
@@ -284,7 +285,8 @@ const migrations = [
   "ALTER TABLE leads ADD COLUMN priority TEXT DEFAULT 'Média'",
   "ALTER TABLE leads ADD COLUMN phone TEXT",
   "ALTER TABLE leads ADD COLUMN name TEXT",
-  "ALTER TABLE products ADD COLUMN distributor TEXT"
+  "ALTER TABLE products ADD COLUMN distributor TEXT",
+  "ALTER TABLE products ADD COLUMN alt_code TEXT"
 ];
 
 migrations.forEach(m => {
@@ -591,9 +593,9 @@ async function startServer() {
   });
     app.post("/api/products", authenticateToken, (req, res) => {
       try {
-        const { description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor } = req.body;
-        const info = db.prepare("INSERT INTO products (user_id, description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-          .run(req.user!.id, description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor);
+        const { description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
+        const info = db.prepare("INSERT INTO products (user_id, description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+          .run(req.user!.id, description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code);
       res.json({ id: parseInt(info.lastInsertRowid.toString()) });
     } catch (err: any) {
       console.error('ERRO AO SALVAR PRODUTO:', err);
@@ -669,9 +671,9 @@ async function startServer() {
   });
     app.put("/api/products/:id", authenticateToken, (req, res) => {
       try {
-        const { description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor } = req.body;
-        db.prepare("UPDATE products SET description = ?, sku = ?, barcode = ?, purchase_price = ?, sale_price = ?, stock = ?, unit = ?, image_url = ?, image_url2 = ?, image_url3 = ?, image_url4 = ?, brand = ?, application = ?, category = ?, location = ?, distributor = ? WHERE id = ? AND user_id = ?")
-          .run(description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, req.params.id, req.user!.id);
+        const { description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
+        db.prepare("UPDATE products SET description = ?, sku = ?, barcode = ?, purchase_price = ?, sale_price = ?, stock = ?, unit = ?, image_url = ?, image_url2 = ?, image_url3 = ?, image_url4 = ?, brand = ?, application = ?, category = ?, location = ?, distributor = ?, alt_code = ? WHERE id = ? AND user_id = ?")
+          .run(description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code, req.params.id, req.user!.id);
       res.json({ success: true });
     } catch (err: any) {
       console.error('ERRO AO EDITAR PRODUTO:', err);

@@ -117,6 +117,7 @@ interface Product {
   image_url4?: string;
   application?: string;
   distributor?: string;
+  alt_code?: string;
 }
 
 interface Lead {
@@ -703,7 +704,7 @@ export default function App() {
 
   // Form States
   const [customerForm, setCustomerForm] = useState({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
-  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '' });
+  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '', alt_code: '' });
   const [serviceForm, setServiceForm] = useState({ description: '', price: '', category: '' });
   const [motorcycleForm, setMotorcycleForm] = useState({ customer_id: '', plate: '', model: '', current_km: '' });
 
@@ -1048,6 +1049,7 @@ export default function App() {
       return (
         (p.description || '').toLowerCase().includes(search) ||
         (p.sku || '').toLowerCase().includes(search) ||
+        (p.alt_code || '').toLowerCase().includes(search) ||
         (p.location && (p.location || '').toLowerCase().includes(search)) ||
         (p.barcode || '').toLowerCase().includes(search) ||
         (p.brand && (p.brand || '').toLowerCase().includes(search))
@@ -3076,7 +3078,8 @@ export default function App() {
         brand: productForm.brand,
         location: productForm.location,
         application: productForm.application,
-        distributor: productForm.distributor
+        distributor: productForm.distributor,
+        alt_code: productForm.alt_code
       };
 
       if (editingProduct) {
@@ -3102,7 +3105,8 @@ export default function App() {
         brand: '',
         location: '',
         application: '',
-        distributor: ''
+        distributor: '',
+        alt_code: ''
       });
       fetchData();
     } catch (error: any) {
@@ -3129,7 +3133,8 @@ export default function App() {
       brand: product.brand || '',
       location: product.location || '',
       application: product.application || '',
-      distributor: product.distributor || ''
+      distributor: product.distributor || '',
+      alt_code: product.alt_code || ''
     });
     setIsProductModalOpen(true);
   };
@@ -3544,7 +3549,8 @@ export default function App() {
               location: item.Localização || item.Location || item.location || '',
               application: item.Aplicação || item.Application || item.application || '',
               category: item.Categoria || item.Category || item.category || categorizeProduct(desc),
-              distributor: item.Distribuidor || item.Distributor || item.distributor || ''
+              distributor: item.Distribuidor || item.Distributor || item.distributor || '',
+              alt_code: item.Alternativo || item.AltCode || item.alt_code || ''
             };
 
             await localApi.post('products', prod);
@@ -4244,6 +4250,7 @@ export default function App() {
               {products.filter(p => 
                 (p.description || '').toLowerCase().includes(quickInventorySearch.toLowerCase()) ||
                 (p.sku || '').toLowerCase().includes(quickInventorySearch.toLowerCase()) ||
+                (p.alt_code || '').toLowerCase().includes(quickInventorySearch.toLowerCase()) ||
                 (p.barcode || '').toLowerCase().includes(quickInventorySearch.toLowerCase())
               ).slice(0, 15).map(p => (
                 <button
@@ -4768,7 +4775,8 @@ export default function App() {
       case 'inventory':
         const filteredInventory = products.filter(p =>
           p.description.toLowerCase().includes(inventoryReportSearchTerm.toLowerCase()) ||
-          p.sku.toLowerCase().includes(inventoryReportSearchTerm.toLowerCase())
+          (p.sku || '').toLowerCase().includes(inventoryReportSearchTerm.toLowerCase()) ||
+          (p.alt_code || '').toLowerCase().includes(inventoryReportSearchTerm.toLowerCase())
         ).sort((a, b) => a.description.localeCompare(b.description));
 
         return (
@@ -5791,6 +5799,7 @@ export default function App() {
                       return (
                         (p.description || '').toLowerCase().includes(search) ||
                         (p.sku || '').toLowerCase().includes(search) ||
+                        (p.alt_code || '').toLowerCase().includes(search) ||
                         (p.barcode || '').toLowerCase().includes(search)
                       );
                     })
@@ -5992,7 +6001,7 @@ export default function App() {
           onClose={() => {
             setIsProductModalOpen(false);
             setEditingProduct(null);
-            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '' });
+            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '', alt_code: '' });
           }}
           title={editingProduct ? "Editar Produto" : "Adicionar Produto ao Estoque"}
           maxWidth="max-w-4xl"
@@ -6017,6 +6026,9 @@ export default function App() {
                   onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Distribuidor</label>
                 <input
@@ -6026,9 +6038,15 @@ export default function App() {
                   onChange={e => setProductForm({ ...productForm, distributor: e.target.value })}
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Código Alternativo (Similar)</label>
+                <input
+                  type="text" placeholder="Ex: 52400-KVS-J01, Similar X"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  value={productForm.alt_code}
+                  onChange={e => setProductForm({ ...productForm, alt_code: e.target.value })}
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Localização no Estoque</label>
                 <input
@@ -6038,6 +6056,7 @@ export default function App() {
                   onChange={e => setProductForm({ ...productForm, location: e.target.value })}
                 />
               </div>
+            </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">SKU / Código Interno</label>
                 <input
@@ -6412,6 +6431,7 @@ export default function App() {
                     {sortedProducts.filter(p =>
                       (p.description || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase()) ||
                       (p.brand && (p.brand || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase())) ||
+                      (p.alt_code || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase()) ||
                       (p.sku || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase())
                     ).map(p => (
                       <button
@@ -6423,6 +6443,7 @@ export default function App() {
                           <p className="text-sm font-medium text-slate-900">{p.description}</p>
                           <p className="text-[10px] text-slate-500 flex items-center gap-2">
                             Estoque: {p.stock} {p.unit}
+                            {p.alt_code && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold font-mono">ALT: {p.alt_code}</span>}
                             {p.brand && (
                               <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase tracking-tighter">
                                 {p.brand}
@@ -7216,6 +7237,7 @@ export default function App() {
                       {sortedProducts.filter(p =>
                         (p.description || '').toLowerCase().includes(d_osSearchProduct.toLowerCase()) ||
                         (p.brand && (p.brand || '').toLowerCase().includes(d_osSearchProduct.toLowerCase())) ||
+                        (p.alt_code || '').toLowerCase().includes(d_osSearchProduct.toLowerCase()) ||
                         (p.sku || '').toLowerCase().includes(d_osSearchProduct.toLowerCase())
                       ).map(p => (
                         <button
@@ -7227,6 +7249,7 @@ export default function App() {
                             <p className="text-sm font-medium text-slate-900">{p.description}</p>
                             <p className="text-[10px] text-slate-500 flex items-center gap-2">
                               Estoque: {p.stock} {p.unit}
+                              {p.alt_code && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold font-mono">ALT: {p.alt_code}</span>}
                               {p.brand && (
                                 <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase tracking-tighter">
                                   {p.brand}
@@ -8179,6 +8202,7 @@ export default function App() {
               <div className="absolute z-10 bg-white border border-slate-400 rounded-xl mt-2 w-full max-h-60 overflow-y-auto shadow-lg">
                 {sortedProducts.filter(p =>
                   (p.description || '').toLowerCase().includes(orderSearchProduct.toLowerCase()) ||
+                  (p.alt_code || '').toLowerCase().includes(orderSearchProduct.toLowerCase()) ||
                   (p.sku || '').toLowerCase().includes(orderSearchProduct.toLowerCase())
                 ).map(product => (
                   <button
@@ -8482,6 +8506,7 @@ export default function App() {
                   if (val.length > 3) {
                     const found = products.find(p => 
                       (p.barcode === val) || 
+                      (p.alt_code === val) || 
                       (p.sku === val)
                     );
                     if (found) {
@@ -8497,6 +8522,7 @@ export default function App() {
                     const found = products.find(p => 
                       (p.description || '').toLowerCase().includes(q) ||
                       (p.sku || '').toLowerCase() === q ||
+                      (p.alt_code || '').toLowerCase() === q ||
                       (p.barcode || '') === q
                     );
                     if (found) {
@@ -8516,7 +8542,8 @@ export default function App() {
                   if (!search) return false;
                   return (
                     (p.description || '').toLowerCase().includes(search) ||
-                    (p.sku || '').toLowerCase().includes(search)
+                    (p.sku || '').toLowerCase().includes(search) ||
+                    (p.alt_code || '').toLowerCase().includes(search)
                   );
                 }).slice(0, 10).map(p => (
                   <button
