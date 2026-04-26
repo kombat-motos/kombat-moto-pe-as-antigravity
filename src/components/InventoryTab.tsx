@@ -27,6 +27,8 @@ interface Product {
   brand?: string;
   location?: string;
   image_url?: string;
+  alt_code?: string;
+  distributor?: string;
 }
 
 interface InventoryTabProps {
@@ -88,6 +90,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
       return (
         (p.description || '').toLowerCase().includes(search) ||
         (p.sku || '').toLowerCase().includes(search) ||
+        (p.alt_code || '').toLowerCase().includes(search) ||
         (p.location && (p.location || '').toLowerCase().includes(search)) ||
         (p.barcode || '').toLowerCase().includes(search) ||
         (p.brand && (p.brand || '').toLowerCase().includes(search))
@@ -283,8 +286,16 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center font-mono text-[11px] text-slate-500">
-                        {p.sku || '-'} <br/> {p.barcode || '-'}
+                      <td className="px-6 py-4 text-center font-mono text-[11px] text-slate-500 leading-tight">
+                        <div className="flex flex-col items-center">
+                          <span>{p.sku || '-'}</span>
+                          <span>{p.barcode || '-'}</span>
+                          {p.alt_code && (
+                            <span className="mt-1 text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded uppercase border border-rose-100">
+                              ALT: {p.alt_code}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <p className="text-[10px] text-slate-300 line-through">{formatBRL(p.purchase_price)}</p>
