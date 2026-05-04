@@ -5478,13 +5478,13 @@ export default function App() {
                         key={c.id}
                         type="button"
                         onClick={() => {
-                          const moto = motorcycles.find(m => m.customer_id === c.id);
-                          const motoDetails = moto ? `${moto.model} - ${moto.plate} - ${moto.current_km}km` : '';
+                          const customerMotos = motorcycles.filter(m => m.customer_id === c.id);
                           setQuoteForm({ 
                             ...quoteForm, 
                             customer_name: c.name, 
                             customer_id: c.id,
-                            motorcycle_details: motoDetails
+                            // Só preenche automático se tiver EXATAMENTE uma moto
+                            motorcycle_details: customerMotos.length === 1 ? `${customerMotos[0].model} (${customerMotos[0].plate})` : ''
                           });
                           setQuoteCustomerSearchTerm('');
                         }}
@@ -5510,14 +5510,33 @@ export default function App() {
                 )}
               </div>
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Motocicleta (Modelo/Placa/KM)</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Motocicleta</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
-                  placeholder="Ex: Honda CG 160 Titan - ABC-1234 - 15.000km"
+                  className="w-full p-2 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all text-sm"
+                  placeholder="Ex: Honda CG 160 (ABC-1234)"
                   value={quoteForm.motorcycle_details}
                   onChange={e => setQuoteForm({ ...quoteForm, motorcycle_details: e.target.value })}
                 />
+                
+                {/* Lista de seleção rápida de motos do cliente */}
+                {quoteForm.customer_id && motorcycles.filter(m => m.customer_id === parseInt(quoteForm.customer_id)).length > 0 && (
+                  <div className="mt-2 space-y-1 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Motos Cadastradas (Clique para selecionar)</p>
+                    <div className="grid grid-cols-1 gap-1">
+                      {motorcycles.filter(m => m.customer_id === parseInt(quoteForm.customer_id)).map(m => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setQuoteForm({ ...quoteForm, motorcycle_details: `${m.model} (${m.plate})` })}
+                          className={`text-left p-2 rounded-lg text-xs font-bold transition-all border ${quoteForm.motorcycle_details.includes(m.plate) ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                        >
+                          {m.model} <span className="opacity-60 ml-1">({m.plate})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -7204,17 +7223,46 @@ export default function App() {
               </div>
 
               {osForm.customer_id && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Moto do Cliente</label>
-                    <select
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
-                      value={osForm.motorcycle_id}
-                      onChange={e => setOsForm({ ...osForm, motorcycle_id: e.target.value })}
-                    >
-                      <option value="">Selecione a Moto</option>
-                      {motorcycles.filter(m => m.customer_id === parseInt(osForm.customer_id)).map(m => <option key={m.id} value={m.id}>{m.model} ({m.plate})</option>)}
-                    </select>
+                    <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">Selecione a Moto</label>
+                    <div className="border border-slate-400 rounded-xl bg-slate-50 overflow-hidden">
+                      <div className="max-h-48 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                        {motorcycles.filter(m => m.customer_id === parseInt(osForm.customer_id)).length > 0 ? (
+                          motorcycles.filter(m => m.customer_id === parseInt(osForm.customer_id)).map(m => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => setOsForm({ ...osForm, motorcycle_id: m.id.toString() })}
+                              className={`w-full text-left p-3 rounded-lg transition-all flex items-center justify-between group ${osForm.motorcycle_id === m.id.toString() ? 'bg-rose-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-700 hover:border-rose-300 hover:bg-rose-50'}`}
+                            >
+                              <div>
+                                <p className={`font-black text-sm uppercase ${osForm.motorcycle_id === m.id.toString() ? 'text-white' : 'text-slate-900'}`}>{m.model}</p>
+                                <p className={`text-[10px] font-bold ${osForm.motorcycle_id === m.id.toString() ? 'text-rose-100' : 'text-slate-400'}`}>PLACA: {m.plate}</p>
+                              </div>
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center ${osForm.motorcycle_id === m.id.toString() ? 'bg-white text-rose-600' : 'bg-slate-100 text-slate-400 group-hover:bg-rose-100 group-hover:text-rose-600'}`}>
+                                <Bike size={14} />
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="py-8 text-center">
+                            <p className="text-xs font-bold text-slate-400 uppercase italic">Nenhuma moto cadastrada</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingMotorcycle(null);
+                                setMotorcycleForm({ customer_id: osForm.customer_id, plate: '', model: '', current_km: '' });
+                                setIsMotorcycleModalOpen(true);
+                              }}
+                              className="mt-2 text-[10px] font-black text-rose-600 uppercase hover:underline"
+                            >
+                              Cadastrar Moto
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">KM Atual</label>
