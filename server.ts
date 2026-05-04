@@ -1220,3 +1220,5 @@ startServer().catch(err => {
   console.error("ERRO CRÍTICO AO INICIAR O SERVIDOR:", err);
   process.exit(1);
 });
+
+// Force redeploy - 2024-05-04
