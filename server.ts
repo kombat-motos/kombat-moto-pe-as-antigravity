@@ -16,6 +16,15 @@ import compression from 'compression';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Test if DB is writable
+try {
+  const dbPathTest = process.env.DB_PATH || "./kombat_moto_backup.db";
+  fs.accessSync(path.dirname(path.resolve(dbPathTest)), fs.constants.W_OK);
+  console.log(`[DB] Database directory is writable: ${path.dirname(path.resolve(dbPathTest))}`);
+} catch (e) {
+  console.error(`[DB] CRITICAL: Database directory is NOT writable!`, e);
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || "kombat-moto-secret-key-2024";
 
 const dbPath = process.env.DB_PATH || "./kombat_moto_backup.db";
@@ -309,6 +318,12 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "100mb", extended: true }));
   app.use(cookieParser());
 
+  // Logging Middleware
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+
   // Helper to calculate interest
   const calculateCreditUpdate = (item: any) => {
     if (item.status === 'Pago') return { ...item, total_updated: item.original_value, fine: 0, interest: 0, days_late: 0 };
@@ -341,6 +356,18 @@ async function startServer() {
   // Authentication Middleware - Bypass for local standalone mode
   const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
     // For local standalone mode, we automatically assign a default user
+    // We check if user 1 exists, if not we create it (fallback)
+    try {
+      const user = db.prepare("SELECT id FROM users WHERE id = 1").get();
+      if (!user) {
+        const hashedPassword = bcrypt.hashSync("admin123", 10);
+        db.prepare("INSERT INTO users (id, username, password) VALUES (1, 'admin', ?)").run(hashedPassword);
+        console.log("[AUTH] Default admin user created (ID 1)");
+      }
+    } catch (e) {
+      console.error("[AUTH] Error ensuring default user:", e);
+    }
+    
     req.user = { id: 1, username: 'admin' };
     next();
   };
@@ -1205,6 +1232,15 @@ async function startServer() {
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
+
+  // Global Error Handler for API
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.error(`[FATAL ERROR] ${req.method} ${req.url}:`, err);
+    res.status(500).json({ 
+      error: err.message || "Erro interno no servidor",
+      details: err.stack 
+    });
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`\n=================================================`);

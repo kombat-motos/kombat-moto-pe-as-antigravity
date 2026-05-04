@@ -586,11 +586,15 @@ export default function App() {
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Erro na operação');
+        if (!res.ok) {
+          const errorMsg = data.error || data.message || 'Erro na operação';
+          const details = data.details ? `\n\nDetalhes: ${data.details}` : '';
+          throw new Error(errorMsg + details);
+        }
         return data;
       } else {
         const text = await res.text();
-        if (!res.ok) throw new Error(`Erro no servidor (${res.status}): A rota /api/${route} pode estar faltando ou o servidor precisa ser reiniciado.`);
+        if (!res.ok) throw new Error(`Erro no servidor (${res.status}): A rota /api/${route} pode estar faltando ou o servidor precisa ser reiniciado.\n${text.substring(0, 100)}`);
         return text;
       }
     },
