@@ -135,6 +135,11 @@ const OSTab: React.FC<OSTabProps> = ({
                         {os.status}
                       </span>
                     )}
+                    {os.payment_status === 'Pago' && (
+                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full uppercase">
+                        PAGO
+                      </span>
+                    )}
                   </div>
                   <h4 className="text-lg font-bold text-slate-900">{os.customer_name}</h4>
                   <p className="text-sm text-slate-500 flex items-center gap-1">

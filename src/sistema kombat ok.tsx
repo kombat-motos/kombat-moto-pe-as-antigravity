@@ -1777,7 +1777,12 @@ export default function App() {
                     s.items.some(i => (i.description || '').toLowerCase().includes(search))
                   );
                 }).map(sale => (
-                  <div key={sale.id} className="p-4 hover:bg-slate-50 transition-colors">
+                  <div key={sale.id} className="p-4 hover:bg-slate-50 transition-colors relative overflow-hidden">
+                    {sale.payment_status === 'Pago' && (
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-4 border-emerald-500/30 text-emerald-500/30 font-black text-4xl uppercase p-2 rounded-xl -rotate-12 pointer-events-none z-0">
+                        PAGO
+                      </div>
+                    )}
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block ${sale.type === 'Oficina' ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'
@@ -5382,6 +5387,9 @@ export default function App() {
                               <span className={`text-sm font-black ${sale.total - (sale.paid_total || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                                 R$ {(sale.total - (sale.paid_total || 0)).toFixed(2)}
                               </span>
+                              {sale.payment_status === 'Pago' && (
+                                <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-600 text-[10px] font-black rounded-full uppercase">PAGO</span>
+                              )}
                             </div>
 
                             {sale.payment_method === 'Fiado' && sale.total - (sale.paid_total || 0) > 0 && (
