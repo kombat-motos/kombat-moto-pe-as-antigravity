@@ -2400,236 +2400,7 @@ export default function App() {
         )}
       </div>
 
-      {/* Quote Print View / High Resolution Layout */}
-      {isPrintingQuote && (
-        <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:relative print:p-0 print:overflow-visible print:z-0">
-          <style>{`
-            @media print {
-              @page {
-                size: A4;
-                margin: 15mm;
-              }
-              body {
-                background: white !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              .no-print {
-                display: none !important;
-              }
-              /* Hide EVERYTHING by default during print */
-              body > * {
-                display: none !important;
-              }
-              /* Show ONLY the print modal and its contents */
-              .print-modal-container {
-                display: block !important;
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100% !important;
-                height: auto !important;
-                z-index: 9999 !important;
-                background: white !important;
-              }
-              .print-modal-container * {
-                display: initial;
-                visibility: visible !important;
-              }
-              /* Specifically show block elements */
-              .print-modal-container div, 
-              .print-modal-container table, 
-              .print-modal-container tr, 
-              .print-modal-container td, 
-              .print-modal-container h1, 
-              .print-modal-container h3, 
-              .print-modal-container p {
-                display: block !important;
-              }
-              .print-modal-container table {
-                display: table !important;
-              }
-              .print-modal-container tr {
-                display: table-row !important;
-              }
-              .print-modal-container td, 
-              .print-modal-container th {
-                display: table-cell !important;
-              }
-              .print-modal-container .flex {
-                display: flex !important;
-              }
 
-              .max-w-4xl {
-                max-width: none !important;
-                width: 100% !important;
-                box-shadow: none !important;
-                border: none !important;
-                margin: 0 !important;
-              }
-              tr {
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
-              }
-              .avoid-break {
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
-              }
-              table {
-                width: 100% !important;
-                table-layout: auto !important;
-              }
-              .overflow-hidden {
-                overflow: visible !important;
-              }
-            }
-          `}</style>
-          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-400 relative print-modal-container">
-            <div id="quote-capture-area" className="p-10 bg-white print:p-0">
-              <div className="flex justify-between items-start border-b-4 border-rose-600 pb-6 mb-6">
-                <div className="flex gap-6 items-center">
-                  <div className="w-24 h-24 bg-black rounded-2xl flex items-center justify-center overflow-hidden">
-                    {companyLogo ? (
-                      <img src={companyLogo} alt="Logo" className="w-full h-full object-contain" />
-                    ) : (
-                      <Bike size={48} className="text-white" />
-                    )}
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-black text-black tracking-tighter uppercase">{companyData.nomeFantasia || 'Kombat Moto Peças'}</h1>
-                    <p className="text-slate-500 font-bold text-sm">Oficina Mecânica Multimarcas & Acessórios</p>
-                    <div className="mt-2 text-xs text-slate-400 font-medium">
-                      <p>{companyData.endereco}, {companyData.bairro}</p>
-                      <p>Andirá - PR | {companyData.cep}</p>
-                      <p className="text-black font-bold">Contato: {companyData.telefone}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="bg-black text-white px-4 py-2 rounded-lg font-black text-sm uppercase mb-2">Orçamento #{String(isPrintingQuote.id).slice(0, 8)}</div>
-                  <p className="text-slate-400 text-xs font-bold uppercase">Data: {new Date(isPrintingQuote.created_at).toLocaleDateString('pt-BR')}</p>
-                  <p className="text-rose-600 text-xs font-black uppercase">Válido por {isPrintingQuote.validity_days} dias</p>
-                </div>
-              </div>
-
-              <div className="bg-slate-900 text-white p-4 rounded-xl mb-6 flex flex-col md:flex-row justify-between gap-4 avoid-break">
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Cliente</p>
-                  <p className="font-bold uppercase">{isPrintingQuote.customer_name || 'Cliente não identificado'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Motocicleta / Detalhes</p>
-                  <p className="font-bold uppercase">{isPrintingQuote.motorcycle_details || '--'}</p>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="overflow-hidden print:overflow-visible">
-                  <h3 className="text-xs font-black bg-black text-white px-3 py-1 inline-block uppercase mb-2 tracking-widest">Descrição de Peças e Acessórios</h3>
-                  <table className="w-full text-left border-collapse table-fixed print:table-auto">
-                    <thead>
-                      <tr className="border-b-2 border-slate-900">
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 w-[40px]">Qtd</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400">Descrição do Item</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Valor Unit.</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {isPrintingQuote.items.filter(i => i.type === 'Peça').map((item, idx) => (
-                        <tr key={idx} className="border-b border-slate-400 hover:bg-slate-50">
-                          <td className="py-2 font-bold text-slate-800 text-[11px] align-top">{item.quantity}</td>
-                          <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4">{item.description}</td>
-                          <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top">R$ {item.price.toFixed(2)}</td>
-                          <td className="py-2 font-black text-black text-[11px] text-right align-top">R$ {item.total.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                      {isPrintingQuote.items.filter(i => i.type === 'Peça').length === 0 && (
-                        <tr><td colSpan={4} className="py-4 text-center text-slate-300 text-xs italic">Nenhuma peça relacionada.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="overflow-hidden print:overflow-visible">
-                  <h3 className="text-xs font-black bg-rose-600 text-white px-3 py-1 inline-block uppercase mb-2 tracking-widest">Serviços / Mão de Obra</h3>
-                  <table className="w-full text-left border-collapse table-fixed print:table-auto">
-                    <thead>
-                      <tr className="border-b-2 border-slate-900">
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 w-[40px]">Qtd</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400">Descrição do Serviço</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Valor Unit.</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {isPrintingQuote.items.filter(i => i.type === 'Serviço').map((item, idx) => (
-                        <tr key={idx} className="border-b border-slate-400 hover:bg-slate-50">
-                          <td className="py-2 font-bold text-slate-800 text-[11px] align-top">{item.quantity}</td>
-                          <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4">{item.description}</td>
-                          <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top">R$ {item.price.toFixed(2)}</td>
-                          <td className="py-2 font-black text-rose-600 text-[11px] text-right align-top">R$ {item.total.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                      {isPrintingQuote.items.filter(i => i.type === 'Serviço').length === 0 && (
-                        <tr><td colSpan={4} className="py-4 text-center text-slate-300 text-xs italic">Nenhum serviço relacionado.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 avoid-break">
-                <div className="space-y-4">
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-400">
-                    <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Observações Técnicas</p>
-                    <p className="text-xs text-slate-700 leading-relaxed italic">{isPrintingQuote.observations || 'Nenhuma observação técnica.'}</p>
-                  </div>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-400">
-                    <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Termos de Garantia</p>
-                    <p className="text-[10px] text-slate-600 leading-tight">{isPrintingQuote.warranty_terms}</p>
-                  </div>
-                </div>
-                <div className="flex flex-col justify-end items-end space-y-4">
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total das Peças</p>
-                    <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Peça').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total dos Serviços</p>
-                    <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
-                  </div>
-                  <div className="bg-black text-white p-6 rounded-2xl text-right w-full">
-                    <p className="text-xs font-black uppercase tracking-[0.2em] mb-2">Total Geral do Orçamento</p>
-                    <p className="text-4xl font-black text-rose-500">R$ {isPrintingQuote.total_value.toFixed(2)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-12 pt-6 border-t border-slate-400 flex flex-col items-center avoid-break">
-                <div className="w-64 border-b border-slate-900 mb-2"></div>
-                <p className="text-xs font-black uppercase text-black tracking-widest">{isPrintingQuote.customer_name}</p>
-                <p className="text-[10px] text-slate-400 uppercase font-bold text-center">Autorização de Execução / Cliente</p>
-              </div>
-            </div> {/* End of quote-capture-area */}
-
-            <div className="mt-8 flex justify-center gap-4 no-print flex-wrap pb-10">
-              <button onClick={() => window.print()} className="px-8 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all flex items-center gap-2">
-                <Printer size={20} /> Imprimir Orçamento
-              </button>
-              <button onClick={() => handleShareQuotePDF(isPrintingQuote!)} className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center gap-2">
-                <FileText size={20} /> Enviar PDF WhatsApp
-              </button>
-              <button onClick={() => handleShareQuoteWhatsApp(isPrintingQuote!)} className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center gap-2">
-                <MessageCircle size={20} /> Enviar Texto WhatsApp
-              </button>
-              <button onClick={() => setIsPrintingQuote(null)} className="px-8 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">
-                Fechar Visualização
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -5125,7 +4896,8 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex relative overflow-hidden notranslate" translate="no">
+    <>
+      <div className={`min-h-screen bg-slate-50 flex relative overflow-hidden notranslate main-layout-root ${isPrintingQuote ? 'no-print' : ''}`} translate="no">
       {/* Sidebar Trigger Area (Hover zone) */}
       <div
         className="fixed left-0 top-0 bottom-0 w-4 z-50"
@@ -8889,6 +8661,239 @@ export default function App() {
           </button>
         </div>
       </Modal>
-    </div>
+      </div>
+
+      {/* Quote Print View / High Resolution Layout */}
+      {isPrintingQuote && (
+        <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:relative print:p-0 print:overflow-visible print:z-0">
+          <style>{`
+            @media print {
+              @page {
+                size: A4;
+                margin: 15mm;
+              }
+              body {
+                background: white !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .no-print {
+                display: none !important;
+              }
+              /* Hide EVERYTHING by default during print */
+              .main-layout-root {
+                display: none !important;
+              }
+              
+              /* Show ONLY the print modal and its contents */
+              .print-modal-container {
+                display: block !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                z-index: 9999 !important;
+                background: white !important;
+                visibility: visible !important;
+              }
+              .print-modal-container * {
+                visibility: visible !important;
+              }
+              /* Specifically show block elements */
+              .print-modal-container div, 
+              .print-modal-container table, 
+              .print-modal-container tr, 
+              .print-modal-container td, 
+              .print-modal-container h1, 
+              .print-modal-container h3, 
+              .print-modal-container p {
+                display: block !important;
+              }
+              .print-modal-container table {
+                display: table !important;
+              }
+              .print-modal-container tr {
+                display: table-row !important;
+              }
+              .print-modal-container td, 
+              .print-modal-container th {
+                display: table-cell !important;
+              }
+              .print-modal-container .flex {
+                display: flex !important;
+              }
+
+              .max-w-4xl {
+                max-width: none !important;
+                width: 100% !important;
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+              }
+              tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
+              .avoid-break {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
+              table {
+                width: 100% !important;
+                table-layout: auto !important;
+              }
+              .overflow-hidden {
+                overflow: visible !important;
+              }
+            }
+          `}</style>
+          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-400 relative print-modal-container">
+            <div id="quote-capture-area" className="p-10 bg-white print:p-0">
+              <div className="flex justify-between items-start border-b-4 border-rose-600 pb-6 mb-6">
+                <div className="flex gap-6 items-center">
+                  <div className="w-24 h-24 bg-black rounded-2xl flex items-center justify-center overflow-hidden">
+                    {companyLogo ? (
+                      <img src={companyLogo} alt="Logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <Bike size={48} className="text-white" />
+                    )}
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-black text-black tracking-tighter uppercase">{companyData.nomeFantasia || 'Kombat Moto Peças'}</h1>
+                    <p className="text-slate-500 font-bold text-sm">Oficina Mecânica Multimarcas & Acessórios</p>
+                    <div className="mt-2 text-xs text-slate-400 font-medium">
+                      <p>{companyData.endereco}, {companyData.bairro}</p>
+                      <p>Andirá - PR | {companyData.cep}</p>
+                      <p className="text-black font-bold">Contato: {companyData.telefone}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="bg-black text-white px-4 py-2 rounded-lg font-black text-sm uppercase mb-2">Orçamento #{String(isPrintingQuote.id).slice(0, 8)}</div>
+                  <p className="text-slate-400 text-xs font-bold uppercase">Data: {new Date(isPrintingQuote.created_at).toLocaleDateString('pt-BR')}</p>
+                  <p className="text-rose-600 text-xs font-black uppercase">Válido por {isPrintingQuote.validity_days} dias</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-900 text-white p-4 rounded-xl mb-6 flex flex-col md:flex-row justify-between gap-4 avoid-break">
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Cliente</p>
+                  <p className="font-bold uppercase">{isPrintingQuote.customer_name || 'Cliente não identificado'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Motocicleta / Detalhes</p>
+                  <p className="font-bold uppercase">{isPrintingQuote.motorcycle_details || '--'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="overflow-hidden print:overflow-visible">
+                  <h3 className="text-xs font-black bg-black text-white px-3 py-1 inline-block uppercase mb-2 tracking-widest">Descrição de Peças e Acessórios</h3>
+                  <table className="w-full text-left border-collapse table-fixed print:table-auto">
+                    <thead>
+                      <tr className="border-b-2 border-slate-900">
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 w-[40px]">Qtd</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400">Descrição do Item</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Valor Unit.</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {isPrintingQuote.items.filter(i => i.type === 'Peça').map((item, idx) => (
+                        <tr key={idx} className="border-b border-slate-400 hover:bg-slate-50">
+                          <td className="py-2 font-bold text-slate-800 text-[11px] align-top">{item.quantity}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4">{item.description}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top">R$ {item.price.toFixed(2)}</td>
+                          <td className="py-2 font-black text-black text-[11px] text-right align-top">R$ {item.total.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                      {isPrintingQuote.items.filter(i => i.type === 'Peça').length === 0 && (
+                        <tr><td colSpan={4} className="py-4 text-center text-slate-300 text-xs italic">Nenhuma peça relacionada.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="overflow-hidden print:overflow-visible">
+                  <h3 className="text-xs font-black bg-rose-600 text-white px-3 py-1 inline-block uppercase mb-2 tracking-widest">Serviços / Mão de Obra</h3>
+                  <table className="w-full text-left border-collapse table-fixed print:table-auto">
+                    <thead>
+                      <tr className="border-b-2 border-slate-900">
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 w-[40px]">Qtd</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400">Descrição do Serviço</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Valor Unit.</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {isPrintingQuote.items.filter(i => i.type === 'Serviço').map((item, idx) => (
+                        <tr key={idx} className="border-b border-slate-400 hover:bg-slate-50">
+                          <td className="py-2 font-bold text-slate-800 text-[11px] align-top">{item.quantity}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4">{item.description}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top">R$ {item.price.toFixed(2)}</td>
+                          <td className="py-2 font-black text-rose-600 text-[11px] text-right align-top">R$ {item.total.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                      {isPrintingQuote.items.filter(i => i.type === 'Serviço').length === 0 && (
+                        <tr><td colSpan={4} className="py-4 text-center text-slate-300 text-xs italic">Nenhum serviço relacionado.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 avoid-break">
+                <div className="space-y-4">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-400">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Observações Técnicas</p>
+                    <p className="text-xs text-slate-700 leading-relaxed italic">{isPrintingQuote.observations || 'Nenhuma observação técnica.'}</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-400">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Termos de Garantia</p>
+                    <p className="text-[10px] text-slate-600 leading-tight">{isPrintingQuote.warranty_terms}</p>
+                  </div>
+                </div>
+                <div className="flex flex-col justify-end items-end space-y-4">
+                  <div className="text-right">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total das Peças</p>
+                    <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Peça').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total dos Serviços</p>
+                    <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
+                  </div>
+                  <div className="bg-black text-white p-6 rounded-2xl text-right w-full">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] mb-2">Total Geral do Orçamento</p>
+                    <p className="text-4xl font-black text-rose-500">R$ {isPrintingQuote.total_value.toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-12 pt-6 border-t border-slate-400 flex flex-col items-center avoid-break">
+                <div className="w-64 border-b border-slate-900 mb-2"></div>
+                <p className="text-xs font-black uppercase text-black tracking-widest">{isPrintingQuote.customer_name}</p>
+                <p className="text-[10px] text-slate-400 uppercase font-bold text-center">Autorização de Execução / Cliente</p>
+              </div>
+            </div> {/* End of quote-capture-area */}
+
+            <div className="mt-8 flex justify-center gap-4 no-print flex-wrap pb-10">
+              <button onClick={() => window.print()} className="px-8 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all flex items-center gap-2">
+                <Printer size={20} /> Imprimir Orçamento
+              </button>
+              <button onClick={() => handleShareQuotePDF(isPrintingQuote!)} className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center gap-2">
+                <FileText size={20} /> Enviar PDF WhatsApp
+              </button>
+              <button onClick={() => handleShareQuoteWhatsApp(isPrintingQuote!)} className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center gap-2">
+                <MessageCircle size={20} /> Enviar Texto WhatsApp
+              </button>
+              <button onClick={() => setIsPrintingQuote(null)} className="px-8 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">
+                Fechar Visualização
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
