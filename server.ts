@@ -586,12 +586,12 @@ async function startServer() {
   });
 
   app.put("/api/customers/:id", authenticateToken, (req, res) => {
-    const { name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate } = req.body;
+    const { name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate, image_url } = req.body;
     db.prepare(`
       UPDATE customers 
-      SET name = ?, nickname = ?, cpf = ?, cnpj = ?, whatsapp = ?, address = ?, neighborhood = ?, city = ?, zip_code = ?, credit_limit = ?, fine_rate = ?, interest_rate = ? 
+      SET name = ?, nickname = ?, cpf = ?, cnpj = ?, whatsapp = ?, address = ?, neighborhood = ?, city = ?, zip_code = ?, credit_limit = ?, fine_rate = ?, interest_rate = ?, image_url = ? 
       WHERE id = ? AND user_id = ?
-    `).run(name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit || 0, fine_rate || 2, interest_rate || 1, req.params.id, req.user!.id);
+    `).run(name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit || 0, fine_rate || 2, interest_rate || 1, image_url, req.params.id, req.user!.id);
     res.json({ success: true });
   });
 
