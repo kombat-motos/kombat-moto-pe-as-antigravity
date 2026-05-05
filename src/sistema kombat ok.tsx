@@ -2402,9 +2402,55 @@ export default function App() {
 
       {/* Quote Print View / High Resolution Layout */}
       {isPrintingQuote && (
-        <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:p-0">
+        <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:relative print:p-0 print:overflow-visible print:z-0">
+          <style>{`
+            @media print {
+              @page {
+                size: A4;
+                margin: 15mm;
+              }
+              body {
+                background: white !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .no-print {
+                display: none !important;
+              }
+              .fixed.inset-0 {
+                position: relative !important;
+                overflow: visible !important;
+                height: auto !important;
+                display: block !important;
+                padding: 0 !important;
+                background: white !important;
+              }
+              .max-w-4xl {
+                max-width: none !important;
+                width: 100% !important;
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+              }
+              tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
+              .avoid-break {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
+              table {
+                width: 100% !important;
+                table-layout: auto !important;
+              }
+              .overflow-hidden {
+                overflow: visible !important;
+              }
+            }
+          `}</style>
           <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-400 relative">
-            <div id="quote-capture-area" className="p-10 bg-white">
+            <div id="quote-capture-area" className="p-10 bg-white print:p-0">
               <div className="flex justify-between items-start border-b-4 border-rose-600 pb-6 mb-6">
                 <div className="flex gap-6 items-center">
                   <div className="w-24 h-24 bg-black rounded-2xl flex items-center justify-center overflow-hidden">
@@ -2431,7 +2477,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-slate-900 text-white p-4 rounded-xl mb-6 flex flex-col md:flex-row justify-between gap-4">
+              <div className="bg-slate-900 text-white p-4 rounded-xl mb-6 flex flex-col md:flex-row justify-between gap-4 avoid-break">
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Cliente</p>
                   <p className="font-bold uppercase">{isPrintingQuote.customer_name || 'Cliente não identificado'}</p>
@@ -2443,9 +2489,9 @@ export default function App() {
               </div>
 
               <div className="space-y-6">
-                <div className="overflow-hidden">
+                <div className="overflow-hidden print:overflow-visible">
                   <h3 className="text-xs font-black bg-black text-white px-3 py-1 inline-block uppercase mb-2 tracking-widest">Descrição de Peças e Acessórios</h3>
-                  <table className="w-full text-left border-collapse table-fixed">
+                  <table className="w-full text-left border-collapse table-fixed print:table-auto">
                     <thead>
                       <tr className="border-b-2 border-slate-900">
                         <th className="py-2 text-[10px] font-black uppercase text-slate-400 w-[40px]">Qtd</th>
@@ -2470,9 +2516,9 @@ export default function App() {
                   </table>
                 </div>
 
-                <div className="overflow-hidden">
+                <div className="overflow-hidden print:overflow-visible">
                   <h3 className="text-xs font-black bg-rose-600 text-white px-3 py-1 inline-block uppercase mb-2 tracking-widest">Serviços / Mão de Obra</h3>
-                  <table className="w-full text-left border-collapse table-fixed">
+                  <table className="w-full text-left border-collapse table-fixed print:table-auto">
                     <thead>
                       <tr className="border-b-2 border-slate-900">
                         <th className="py-2 text-[10px] font-black uppercase text-slate-400 w-[40px]">Qtd</th>
@@ -2498,7 +2544,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 avoid-break">
                 <div className="space-y-4">
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-400">
                     <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Observações Técnicas</p>
@@ -2525,7 +2571,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="mt-12 pt-6 border-t border-slate-400 flex flex-col items-center">
+              <div className="mt-12 pt-6 border-t border-slate-400 flex flex-col items-center avoid-break">
                 <div className="w-64 border-b border-slate-900 mb-2"></div>
                 <p className="text-xs font-black uppercase text-black tracking-widest">{isPrintingQuote.customer_name}</p>
                 <p className="text-[10px] text-slate-400 uppercase font-bold text-center">Autorização de Execução / Cliente</p>
