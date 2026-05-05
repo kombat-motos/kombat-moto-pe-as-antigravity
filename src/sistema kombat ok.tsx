@@ -55,7 +55,8 @@ import {
   ClipboardCheck,
   Camera,
   RefreshCw,
-  ShoppingBag
+  ShoppingBag,
+  User
 } from 'lucide-react';
 import PurchasesTab from './components/PurchasesTab';
 import InventoryTab from './components/InventoryTab';
