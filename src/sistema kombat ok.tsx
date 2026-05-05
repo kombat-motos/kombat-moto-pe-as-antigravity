@@ -2417,14 +2417,49 @@ export default function App() {
               .no-print {
                 display: none !important;
               }
-              .fixed.inset-0 {
-                position: relative !important;
-                overflow: visible !important;
-                height: auto !important;
+              /* Hide EVERYTHING by default during print */
+              body > * {
+                display: none !important;
+              }
+              /* Show ONLY the print modal and its contents */
+              .print-modal-container {
                 display: block !important;
-                padding: 0 !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                z-index: 9999 !important;
                 background: white !important;
               }
+              .print-modal-container * {
+                display: initial;
+                visibility: visible !important;
+              }
+              /* Specifically show block elements */
+              .print-modal-container div, 
+              .print-modal-container table, 
+              .print-modal-container tr, 
+              .print-modal-container td, 
+              .print-modal-container h1, 
+              .print-modal-container h3, 
+              .print-modal-container p {
+                display: block !important;
+              }
+              .print-modal-container table {
+                display: table !important;
+              }
+              .print-modal-container tr {
+                display: table-row !important;
+              }
+              .print-modal-container td, 
+              .print-modal-container th {
+                display: table-cell !important;
+              }
+              .print-modal-container .flex {
+                display: flex !important;
+              }
+
               .max-w-4xl {
                 max-width: none !important;
                 width: 100% !important;
@@ -2449,7 +2484,7 @@ export default function App() {
               }
             }
           `}</style>
-          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-400 relative">
+          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-400 relative print-modal-container">
             <div id="quote-capture-area" className="p-10 bg-white print:p-0">
               <div className="flex justify-between items-start border-b-4 border-rose-600 pb-6 mb-6">
                 <div className="flex gap-6 items-center">
@@ -5098,7 +5133,7 @@ export default function App() {
       />
 
       <aside
-        className={`fixed left-4 top-4 bottom-4 w-60 bg-white/80 backdrop-blur-xl border border-white/20 p-5 flex flex-col gap-6 z-50 transition-all duration-500 ease-in-out shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-[2rem] ${isSidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'
+        className={`fixed left-4 top-4 bottom-4 w-60 bg-white/80 backdrop-blur-xl border border-white/20 p-5 flex flex-col gap-6 z-50 transition-all duration-500 ease-in-out shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-[2rem] no-print ${isSidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'
           }`}
         onMouseLeave={() => setIsSidebarOpen(false)}
       >
@@ -5239,7 +5274,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto ml-0">
+      <main className="flex-1 p-8 overflow-y-auto ml-0 no-print">
         <header className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold text-slate-900">
