@@ -88,6 +88,7 @@ interface Customer {
   credit_limit: number;
   fine_rate?: number;
   interest_rate?: number;
+  image_url?: string;
 }
 
 interface Motorcycle {
@@ -707,7 +708,11 @@ export default function App() {
   const [quoteCustomerSearch, setQuoteCustomerSearch] = useState('');
 
   // Form States
-  const [customerForm, setCustomerForm] = useState({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
+  const [customerForm, setCustomerForm] = useState({ 
+    name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', 
+    neighborhood: '', city: '', zip_code: '', credit_limit: 0, 
+    fine_rate: 2, interest_rate: 1, image_url: '' 
+  });
   const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '', alt_code: '' });
   const [serviceForm, setServiceForm] = useState({ description: '', price: '', category: '' });
   const [motorcycleForm, setMotorcycleForm] = useState({ customer_id: '', plate: '', model: '', current_km: '' });
@@ -2905,7 +2910,7 @@ export default function App() {
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, fine_rate, interest_rate } = customerForm;
+      const { name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, fine_rate, interest_rate, image_url } = customerForm;
       const dataToSave = {
         name,
         nickname,
@@ -2918,7 +2923,8 @@ export default function App() {
         zip_code,
         credit_limit: parseFloat(customerForm.credit_limit.toString().replace(',', '.')) || 0,
         fine_rate: parseFloat((fine_rate || 0).toString().replace(',', '.')) || 0,
-        interest_rate: parseFloat((interest_rate || 0).toString().replace(',', '.')) || 0
+        interest_rate: parseFloat((interest_rate || 0).toString().replace(',', '.')) || 0,
+        image_url
       };
 
       if (editingCustomer) {
@@ -2928,7 +2934,7 @@ export default function App() {
       }
       setIsCustomerModalOpen(false);
       setEditingCustomer(null);
-      setCustomerForm({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
+      setCustomerForm({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1, image_url: '' });
       fetchData();
     } catch (error: any) {
       console.error('Error adding/updating customer:', error);
@@ -3198,6 +3204,22 @@ export default function App() {
         console.error("Failed to update product image URL", error);
         alert("Erro ao salvar a URL da imagem.");
       }
+    }
+  };
+
+  const handleCustomerImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCustomerForm({ ...customerForm, image_url: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    } catch (e) {
+      console.error("Erro ao processar imagem do cliente:", e);
+      alert("Erro ao processar imagem. Tente novamente.");
     }
   };
 
@@ -3842,7 +3864,7 @@ export default function App() {
           }).map(c => (
             <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start mb-4">
-                <div>
+                <div className="flex-1">
                   <h4 className="font-bold text-slate-900 text-lg leading-tight">{c.name}</h4>
                   {c.nickname && <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mb-1">{c.nickname}</p>}
                   <p className="text-sm text-slate-500">CPF: {c.cpf || 'Não informado'}</p>
@@ -3859,6 +3881,13 @@ export default function App() {
                       </span>
                     </div>
                   </div>
+                </div>
+                <div className="w-24 h-24 bg-slate-100 border border-slate-400 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center">
+                  {c.image_url ? (
+                    <img src={c.image_url} alt={c.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={32} className="text-slate-300" />
+                  )}
                 </div>
                 <div className="flex flex-col gap-1">
                   <button
@@ -3887,7 +3916,8 @@ export default function App() {
                         zip_code: c.zip_code,
                         credit_limit: c.credit_limit || 0,
                         fine_rate: c.fine_rate || 2,
-                        interest_rate: c.interest_rate || 1
+                        interest_rate: c.interest_rate || 1,
+                        image_url: c.image_url || ''
                       });
                       setIsCustomerModalOpen(true);
                     }}
@@ -5896,12 +5926,34 @@ export default function App() {
           onClose={() => {
             setIsCustomerModalOpen(false);
             setEditingCustomer(null);
-            setCustomerForm({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1 });
+            setCustomerForm({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1, image_url: '' });
           }}
           title={editingCustomer ? "Editar Cliente" : "Cadastrar Novo Cliente"}
           maxWidth="max-w-4xl"
         >
           <form onSubmit={handleAddCustomer} className="space-y-4">
+            <div className="flex flex-col items-center mb-6">
+              <div className="relative w-32 h-32 bg-slate-100 border-2 border-slate-200 rounded-[2rem] overflow-hidden group shadow-inner flex items-center justify-center">
+                {customerForm.image_url ? (
+                  <img src={customerForm.image_url} alt="Foto do Cliente" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={48} className="text-slate-300" />
+                )}
+                <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-all">
+                  <Camera size={24} className="text-white mb-1" />
+                  <span className="text-[10px] text-white font-bold uppercase">Foto do Cliente</span>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    capture="environment" 
+                    className="hidden" 
+                    onChange={handleCustomerImageUpload} 
+                  />
+                </label>
+              </div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2 tracking-widest">Toque para capturar foto</p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>

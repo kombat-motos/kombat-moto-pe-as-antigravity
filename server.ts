@@ -57,6 +57,7 @@ db.exec(`
     address TEXT,
     neighborhood TEXT,
     zip_code TEXT,
+    image_url TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
   );
@@ -284,6 +285,7 @@ const migrations = [
   "ALTER TABLE products ADD COLUMN category TEXT",
   "ALTER TABLE customers ADD COLUMN nickname TEXT",
   "ALTER TABLE customers ADD COLUMN cnpj TEXT",
+  "ALTER TABLE customers ADD COLUMN image_url TEXT",
   "ALTER TABLE registered_services ADD COLUMN category TEXT",
   "ALTER TABLE quotes ADD COLUMN motorcycle_details TEXT",
   "ALTER TABLE quotes ADD COLUMN customer_id INTEGER",
@@ -577,9 +579,9 @@ async function startServer() {
     res.json(customers);
   });
   app.post("/api/customers", authenticateToken, (req, res) => {
-    const { name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate } = req.body;
-    const info = db.prepare("INSERT INTO customers (user_id, name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(req.user!.id, name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit || 0, fine_rate || 2, interest_rate || 1);
+    const { name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate, image_url } = req.body;
+    const info = db.prepare("INSERT INTO customers (user_id, name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(req.user!.id, name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit || 0, fine_rate || 2, interest_rate || 1, image_url);
     res.json({ id: parseInt(info.lastInsertRowid.toString()) });
   });
 
