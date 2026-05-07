@@ -66,6 +66,7 @@ import OSTab from './components/OSTab';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
 import VirtualCatalogModal from './components/VirtualCatalogModal';
+import ProfessionalCatalog from './components/ProfessionalCatalog';
 import Auth from './components/Auth';
 import Modal from './components/Modal';
 
@@ -5011,7 +5012,7 @@ export default function App() {
           />
           <SidebarItem
             icon={MessageCircle}
-            label="Catálogo Virtual"
+            label="Catálogo Komat"
             active={isCatalogModalOpen}
             onClick={() => { setIsCatalogModalOpen(true); setIsSidebarOpen(false); }}
           />
@@ -7895,10 +7896,15 @@ export default function App() {
 
       </main>
       <FiadoModal isOpen={isFiadoModalOpen} onClose={() => setIsFiadoModalOpen(false)} />
-      {/* Virtual Catalog Modal */}
-      <Modal isOpen={isCatalogModalOpen} onClose={() => setIsCatalogModalOpen(false)} title="Gerador de Catálogo WhatsApp">
-        <VirtualCatalogModal products={products} shortenUrl={shortenUrl} />
-      </Modal>
+      {/* Professional Catalog */}
+      <AnimatePresence>
+        {isCatalogModalOpen && (
+          <ProfessionalCatalog 
+            products={products} 
+            onClose={() => setIsCatalogModalOpen(false)} 
+          />
+        )}
+      </AnimatePresence>
 
 
 
