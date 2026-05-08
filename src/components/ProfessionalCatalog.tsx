@@ -127,6 +127,18 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
     window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
   };
 
+  const shareProduct = (product: Product) => {
+    const message = `Olá! Gostei muito deste produto no catálogo da *Komat Moto Peças*:\n\n` +
+      `*${product.description}*\n` +
+      `💰 *Preço:* ${formatBRL(product.sale_price)}\n` +
+      `📦 *SKU:* ${product.sku}\n\n` +
+      `Você pode ver mais detalhes e comprar aqui: ${window.location.href}\n\n` +
+      `Quero reservar este item!`;
+    
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/554335384537?text=${encodedMessage}`, '_blank');
+  };
+
   return (
     <div className="fixed inset-0 z-[100] bg-[#f8fafc] overflow-hidden flex flex-col font-sans">
       {/* Header with gradient */}
@@ -221,12 +233,12 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
               key={product.id}
               className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 border border-slate-100 flex flex-col group"
             >
-              <div className="aspect-[4/5] bg-slate-50 relative overflow-hidden">
+              <div className="aspect-square bg-white relative overflow-hidden p-4 flex items-center justify-center">
                 {product.image_url ? (
                   <img 
                     src={product.image_url} 
                     alt={product.description} 
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    className="max-w-full max-h-full object-contain group-hover:scale-110 transition-transform duration-700"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
@@ -241,7 +253,17 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
                   </span>
                 </div>
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); shareProduct(product); }}
+                    className="bg-green-500 text-white p-2.5 rounded-xl shadow-lg hover:bg-green-600 transition-colors"
+                    title="Enviar via WhatsApp"
+                  >
+                    <MessageCircle size={18} />
+                  </button>
+                </div>
+
+                <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
               </div>
 
               <div className="p-6 flex-1 flex flex-col justify-between relative">
@@ -260,13 +282,22 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
                     </div>
                   </div>
                   
-                  <button 
-                    onClick={() => addToCart(product)}
-                    className="w-full py-4 bg-slate-900 hover:bg-red-600 text-white rounded-[1.5rem] text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl hover:shadow-red-200 active:scale-95"
-                  >
-                    <Plus size={16} />
-                    Adicionar
-                  </button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => addToCart(product)}
+                      className="py-4 bg-slate-900 hover:bg-red-600 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-xl hover:shadow-red-200 active:scale-95"
+                    >
+                      <Plus size={14} />
+                      Comprar
+                    </button>
+                    <button 
+                      onClick={() => shareProduct(product)}
+                      className="py-4 bg-white border-2 border-green-500 text-green-600 hover:bg-green-50 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 active:scale-95"
+                    >
+                      <MessageCircle size={14} />
+                      Enviar
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
