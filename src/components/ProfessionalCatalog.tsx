@@ -217,45 +217,6 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
           />
         </div>
 
-        <div className="flex flex-col gap-5 max-w-4xl mx-auto">
-          <div className="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar px-1">
-            {categories.map((cat, idx) => (
-              <motion.button
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05 }}
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-6 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border-2 ${
-                  selectedCategory === cat 
-                    ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-200 scale-105' 
-                    : 'bg-white border-slate-100 text-slate-400 hover:border-red-100 hover:text-red-500'
-                }`}
-              >
-                {cat}
-              </motion.button>
-            ))}
-          </div>
-          
-          <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex flex-col gap-3">
-            <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-widest px-1">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Filter size={14} className="text-red-500" />
-                <span>Faixa de Preço</span>
-              </div>
-              <span className="text-red-600 bg-red-50 px-3 py-1 rounded-full">Até {formatBRL(priceRange[1])}</span>
-            </div>
-            <input 
-              type="range" 
-              min="0" 
-              max="5000" 
-              step="10"
-              value={priceRange[1]}
-              onChange={(e) => setPriceRange([0, Number(e.target.value)])}
-              className="w-full accent-red-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-            />
-          </div>
-        </div>
       </div>
 
       {/* Product Grid - Modern Cards */}
@@ -321,8 +282,11 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
               <div className="p-6 flex-1 flex flex-col justify-between relative">
                 <div>
                   <h3 className="font-bold text-slate-800 text-base line-clamp-2 leading-snug mb-2 group-hover:text-red-600 transition-colors">{product.description}</h3>
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-2 mb-4 flex-wrap">
                     <span className="text-[10px] text-slate-400 font-black uppercase tracking-tighter bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">SKU: {product.sku}</span>
+                    {product.brand && (
+                      <span className="text-[10px] text-red-600 font-black uppercase tracking-tighter bg-red-50 px-2 py-0.5 rounded-md border border-red-100">Marca: {product.brand}</span>
+                    )}
                   </div>
                 </div>
 
