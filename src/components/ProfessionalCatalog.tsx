@@ -52,6 +52,7 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [selectedForShare, setSelectedForShare] = useState<number[]>([]);
   const [customerData, setCustomerData] = useState({
     name: '',
     address: '',
@@ -143,6 +144,36 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
     
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/554335384537?text=${encodedMessage}`, '_blank');
+  };
+
+  const toggleShareSelection = (id: number) => {
+    setSelectedForShare(prev => 
+      prev.includes(id) ? prev.filter(itemId => itemId !== id) : [...prev, id]
+    );
+  };
+
+  const shareMultipleProducts = () => {
+    if (selectedForShare.length === 0) return;
+    
+    const selectedItems = products.filter(p => selectedForShare.includes(p.id));
+    const brandName = "Komat Moto Peças";
+    const whatsappNumber = "554335384537";
+
+    let message = `*📦 SUGESTÃO DE PRODUTOS - ${brandName.toUpperCase()}*\n\n`;
+    message += `Olá! Selecionei estes itens do nosso catálogo para você conferir:\n\n`;
+
+    selectedItems.forEach((product, idx) => {
+      const publicUrl = `${window.location.origin}${window.location.pathname}?view=catalog&sku=${encodeURIComponent(product.sku || product.description)}`;
+      message += `*${idx + 1}. ${product.description}*\n`;
+      message += `💰 Preço: ${formatBRL(product.sale_price)}\n`;
+      message += `🔗 Ver item: ${publicUrl}\n\n`;
+    });
+
+    message += `_Gostou de algum? É só me avisar por aqui!_`;
+
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
+    setSelectedForShare([]); // Clear after sending
   };
 
   return (
@@ -240,6 +271,21 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
               className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 border border-slate-100 flex flex-col group"
             >
               <div className="aspect-square bg-white relative overflow-hidden p-4 flex items-center justify-center">
+                {/* Selection Checkbox */}
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleShareSelection(product.id);
+                  }}
+                  className={`absolute top-4 left-4 z-20 w-8 h-8 rounded-xl border-2 cursor-pointer flex items-center justify-center transition-all ${
+                    selectedForShare.includes(product.id) 
+                      ? 'bg-red-600 border-red-600 shadow-lg shadow-red-200' 
+                      : 'bg-white/80 backdrop-blur-sm border-slate-200 hover:border-red-400'
+                  }`}
+                >
+                  <div className={`w-3 h-3 rounded-sm transition-all ${selectedForShare.includes(product.id) ? 'bg-white scale-100' : 'bg-transparent scale-0'}`} />
+                </div>
+
                 {product.image_url ? (
                   <img 
                     src={product.image_url} 
@@ -577,6 +623,40 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Selection FAB */}
+      <AnimatePresence>
+        {selectedForShare.length > 0 && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-lg"
+          >
+            <div className="bg-slate-900/90 backdrop-blur-xl p-4 rounded-[2rem] border border-white/10 shadow-2xl flex items-center justify-between gap-4">
+              <div className="flex flex-col pl-2">
+                <span className="text-white font-black text-lg">{selectedForShare.length}</span>
+                <span className="text-slate-400 text-[10px] uppercase font-black tracking-widest">Itens Selecionados</span>
+              </div>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setSelectedForShare([])}
+                  className="px-6 py-3 text-slate-400 font-bold hover:text-white transition-colors"
+                >
+                  Limpar
+                </button>
+                <button 
+                  onClick={shareMultipleProducts}
+                  className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-2xl font-black uppercase tracking-tighter flex items-center gap-2 shadow-lg shadow-red-500/30 transition-all active:scale-95"
+                >
+                  <MessageCircle size={20} />
+                  Enviar Lista
+                </button>
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
