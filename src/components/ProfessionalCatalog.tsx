@@ -47,8 +47,6 @@ interface ProfessionalCatalogProps {
 
 const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onClose, initialSearch = '' }) => {
   const [searchTerm, setSearchTerm] = useState(initialSearch);
-  const [selectedCategory, setSelectedCategory] = useState('Todas');
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -67,12 +65,11 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       const matchesSearch = p.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            p.sku.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === 'Todas' || p.category === selectedCategory;
-      const matchesPrice = p.sale_price >= priceRange[0] && p.sale_price <= priceRange[1];
-      return matchesSearch && matchesCategory && matchesPrice;
+                            p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()));
+      return matchesSearch;
     });
-  }, [products, searchTerm, selectedCategory, priceRange]);
+  }, [products, searchTerm]);
 
   const addToCart = (product: Product) => {
     setCart(prev => {
@@ -190,7 +187,10 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
           </div>
           <div>
             <h1 className="text-2xl font-black uppercase tracking-tighter leading-none drop-shadow-md">Komat</h1>
-            <p className="text-[11px] uppercase font-black tracking-[0.3em] opacity-90">Moto Peças</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] uppercase font-black tracking-[0.3em] opacity-90">Moto Peças</p>
+              <span className="text-[8px] bg-white/20 px-1 rounded">v2.0</span>
+            </div>
           </div>
         </motion.div>
         
