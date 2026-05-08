@@ -15,6 +15,7 @@ import {
   Filter,
   ArrowRight,
   Package,
+  MessageCircle,
   Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
