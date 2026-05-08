@@ -508,6 +508,14 @@ export default function App() {
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
 
+  const isCatalogPublicView = useMemo(() => {
+    return new URLSearchParams(window.location.search).get('view') === 'catalog';
+  }, []);
+
+  const [initialSku, setInitialSku] = useState(() => {
+    return new URLSearchParams(window.location.search).get('sku');
+  });
+
   const toggleSelectProduct = (id: number) => {
     setSelectedProductIds(prev =>
       prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
@@ -4888,6 +4896,19 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-rose-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (isCatalogPublicView) {
+    return (
+      <div className="min-h-screen bg-white">
+        <ProfessionalCatalog 
+          isOpen={true} 
+          onClose={() => {}} 
+          products={products}
+          initialSearch={initialSku || ''}
+        />
       </div>
     );
   }

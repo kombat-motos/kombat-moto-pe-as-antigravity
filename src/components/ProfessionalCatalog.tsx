@@ -42,10 +42,11 @@ interface CartItem extends Product {
 interface ProfessionalCatalogProps {
   products: Product[];
   onClose: () => void;
+  initialSearch?: string;
 }
 
-const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onClose }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onClose, initialSearch = '' }) => {
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -130,11 +131,14 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
   };
 
   const shareProduct = (product: Product) => {
+    // Generate a public link that only shows the catalog
+    const publicUrl = `${window.location.origin}${window.location.pathname}?view=catalog&sku=${encodeURIComponent(product.sku || product.description)}`;
+    
     const message = `Olá! Gostei muito deste produto no catálogo da *Komat Moto Peças*:\n\n` +
       `*${product.description}*\n` +
       `💰 *Preço:* ${formatBRL(product.sale_price)}\n` +
-      `📦 *SKU:* ${product.sku}\n\n` +
-      `Você pode ver mais detalhes e comprar aqui: ${window.location.href}\n\n` +
+      `📦 *SKU:* ${product.sku || 'N/A'}\n\n` +
+      `Você pode ver mais detalhes e comprar aqui:\n${publicUrl}\n\n` +
       `Quero reservar este item!`;
     
     const encodedMessage = encodeURIComponent(message);
