@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { 
   Wallet, CreditCard, Calculator, Bell, Plus, ArrowUpCircle, X, 
   Package, Bike, TrendingUp, Truck, DollarSign, Percent, BarChart3,
-  AlertTriangle, Calendar, ShieldCheck, Gavel, MessageCircle, Printer, FileText, CheckCircle 
+  AlertTriangle, Calendar, ShieldCheck, Gavel, MessageCircle, Printer, FileText, CheckCircle, Search
 } from 'lucide-react';
 import Modal from './Modal';
 
@@ -110,6 +110,21 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
   const [cashForm, setCashForm] = React.useState({ openingBalance: '', notes: '' });
   const [isTransactionModalOpen, setIsTransactionModalOpen] = React.useState(false);
   const [transactionForm, setTransactionForm] = React.useState({ type: 'Sangria' as 'Suprimento' | 'Sangria', amount: '', description: '' });
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  const filteredSales = React.useMemo(() => {
+    return (sales || [])
+      .filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pendente')
+      .filter(s => {
+        if (!searchTerm) return true;
+        const term = searchTerm.toLowerCase();
+        return (
+          (s.customer_name || '').toLowerCase().includes(term) ||
+          (s.id || '').toLowerCase().includes(term)
+        );
+      })
+      .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime());
+  }, [sales, searchTerm]);
 
   // --- Data Loading (Financial Specific) ---
   const loadFinancialData = React.useCallback(async () => {
@@ -511,11 +526,23 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-400 overflow-hidden">
-            <div className="p-6 border-b border-slate-400 flex justify-between items-center">
+            <div className="p-6 border-b border-slate-400 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <h3 className="font-extrabold text-slate-900 flex items-center gap-2">
                 <Gavel size={20} className="text-rose-500" />
                 Listagem de Débitos Ativos
               </h3>
+              <div className="relative group w-full md:w-64">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-rose-500 transition-colors">
+                  <Search size={16} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Buscar devedor..."
+                  className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 transition-all w-full shadow-sm"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -529,7 +556,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-300">
-                  {sales.filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pendente').sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime()).map(sale => {
+                  {filteredSales.map(sale => {
                     const isOverdue = new Date(sale.due_date!) < now;
                     const score = getCustomerScore(sale.customer_id || 0);
                     return (
@@ -592,8 +619,10 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                   })}
                 </tbody>
               </table>
-              {sales.filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pendente').length === 0 && (
-                <div className="p-12 text-center text-slate-400">Nenhum fiado pendente. 🎉</div>
+              {filteredSales.length === 0 && (
+                <div className="p-12 text-center text-slate-400 italic font-medium">
+                  {searchTerm ? `Nenhum débito encontrado para "${searchTerm}"` : "Nenhum fiado pendente. 🎉"}
+                </div>
               )}
             </div>
           </div>
