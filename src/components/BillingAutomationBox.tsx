@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Send, MessageCircle, Pencil, X, Check, Printer, FileText, DollarSign } from 'lucide-react';
+import { Send, MessageCircle, Pencil, X, Check, Printer, FileText, DollarSign, Search } from 'lucide-react';
 
 interface Sale {
   id: string;
@@ -138,6 +138,17 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
   const [editingChargesId, setEditingChargesId] = React.useState<string | null>(null);
   const [tempRates, setTempRates] = React.useState({ fine: 2, interest: 1 });
   const [selectedPromissory, setSelectedPromissory] = React.useState<any>(null);
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  const filteredSales = React.useMemo(() => {
+    const list = Array.isArray(pendingSales) ? pendingSales : [];
+    if (!searchTerm) return list;
+    const term = searchTerm.toLowerCase();
+    return list.filter(sale => 
+      (sale.customer_name || '').toLowerCase().includes(term) ||
+      (sale.id || '').toLowerCase().includes(term)
+    );
+  }, [pendingSales, searchTerm]);
 
   const handlePrintPromissory = (sale: any, totalWithCharges: number) => {
     setSelectedPromissory({ ...sale, totalWithCharges });
@@ -222,13 +233,31 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
       transition={{ duration: 0.3 }}
       className="bg-white p-6 rounded-2xl shadow-md col-span-2"
     >
-      <h2 className="text-xl font-bold text-slate-800 mb-4">Automação de Cobrança</h2>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <h2 className="text-xl font-bold text-slate-800">Automação de Cobrança</h2>
+        <div className="relative group">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-rose-500 transition-colors">
+            <Search size={18} />
+          </div>
+          <input
+            type="text"
+            placeholder="Buscar cliente na cobrança..."
+            className="block w-full md:w-80 pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 transition-all shadow-sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
 
       {pendingSales.length === 0 ? (
         <p className="text-slate-500">Nenhuma cobrança pendente no momento.</p>
+      ) : filteredSales.length === 0 ? (
+        <div className="text-center py-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+          <p className="text-slate-400 font-medium">Nenhum cliente encontrado para "{searchTerm}"</p>
+        </div>
       ) : (
         <div className="space-y-4">
-          {(Array.isArray(pendingSales) ? pendingSales : []).map(sale => {
+          {filteredSales.map(sale => {
             const customer = customers.find(c => c.id === sale.customer_id);
             const customerWhatsapp = getCustomerWhatsapp(sale.customer_id);
             const dueDate = sale.due_date ? new Date(sale.due_date) : null;
