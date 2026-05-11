@@ -1851,6 +1851,12 @@ export default function App() {
                       >
                         <Printer size={10} /> Ver Recibo Térmico
                       </button>
+                      <button
+                        onClick={() => handleSendSaleWhatsApp(sale)}
+                        className="text-[10px] font-bold text-emerald-600 hover:underline flex items-center gap-1"
+                      >
+                        <MessageCircle size={10} /> Enviar WhatsApp
+                      </button>
                       {sale.type === 'Oficina' && (
                         <button
                           onClick={() => setSelectedSaleForOS(sale)}
@@ -2731,6 +2737,37 @@ export default function App() {
     localApi.put('purchase_orders', order.id, { status: 'Enviado' }).then(() => {
       fetchData();
     });
+  };
+
+  const handleSendSaleWhatsApp = (sale: Sale) => {
+    const customer = customers.find(c => c.id === sale.customer_id);
+    const phone = (sale.whatsapp || customer?.whatsapp || '').replace(/\D/g, '');
+    
+    if (!phone) {
+      alert('Telefone do cliente não cadastrado ou inválido.');
+      return;
+    }
+
+    let message = `*COMPROVANTE DE PAGAMENTO - KOMBAT MOTO*\n\n`;
+    message += `Olá *${sale.customer_name}*, segue o resumo da sua compra:\n\n`;
+    message += `📅 *Data:* ${new Date(sale.date).toLocaleDateString('pt-BR')} ${new Date(sale.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}\n`;
+    message += `🔢 *ID:* ${sale.id}\n`;
+    message += `💰 *Total:* ${formatBRL(sale.total)}\n`;
+    message += `💳 *Pagamento:* ${sale.payment_method}\n\n`;
+    
+    message += `*ITENS:*\n`;
+    sale.items.forEach(item => {
+      message += `- ${item.quantity}x ${item.description}: ${formatBRL(item.price * item.quantity)}\n`;
+    });
+    
+    if (sale.type === 'Oficina' && (sale.labor_value || 0) > 0) {
+      message += `- Mão de Obra: ${formatBRL(sale.labor_value)}\n`;
+    }
+
+    message += `\n*Kombat Moto Peças agradece a preferência!* 🏍️💨`;
+
+    const cleanPhone = phone.length <= 11 ? '55' + phone : phone;
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const handleCreateOrder = async (e: React.FormEvent) => {
@@ -5180,6 +5217,7 @@ export default function App() {
                     handleEditOS={handleEditOS}
                     setSelectedSaleForOS={setSelectedSaleForOS}
                     setSelectedSaleForReceipt={setSelectedSaleForReceipt}
+                    handleSendSaleWhatsApp={handleSendSaleWhatsApp}
                   />
                 )}
                 {activeTab === 'financial' && (

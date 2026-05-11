@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, PlusCircle, Bike, Edit, Printer } from 'lucide-react';
+import { Search, PlusCircle, Bike, Edit, Printer, MessageCircle } from 'lucide-react';
 
 interface SaleItem {
   product_id?: number;
@@ -41,6 +41,7 @@ interface OSTabProps {
   handleEditOS: (os: Sale) => void;
   setSelectedSaleForOS: (os: Sale) => void;
   setSelectedSaleForReceipt: (os: Sale) => void;
+  handleSendSaleWhatsApp: (sale: Sale) => void;
 }
 
 const OSTab: React.FC<OSTabProps> = ({
@@ -54,7 +55,8 @@ const OSTab: React.FC<OSTabProps> = ({
   formatBRL,
   handleEditOS,
   setSelectedSaleForOS,
-  setSelectedSaleForReceipt
+  setSelectedSaleForReceipt,
+  handleSendSaleWhatsApp
 }) => {
   const osSales = sales.filter(s => s.type === 'Oficina');
 
@@ -178,6 +180,12 @@ const OSTab: React.FC<OSTabProps> = ({
                     className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors flex items-center gap-1"
                   >
                     <Printer size={14} /> Recibo 80mm
+                  </button>
+                  <button
+                    onClick={() => handleSendSaleWhatsApp(os)}
+                    className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                  >
+                    <MessageCircle size={14} /> Enviar WhatsApp
                   </button>
                 </div>
               </div>
