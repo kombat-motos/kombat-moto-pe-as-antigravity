@@ -6957,16 +6957,14 @@ export default function App() {
                 }
               `}</style>
 
-              <div style={{ textAlign: 'center', marginBottom: '8px', fontWeight: 'bold' }}>
-                <h4 style={{ fontWeight: '900', fontSize: '16px', margin: '0' }}>KOMBAT MOTO PECAS</h4>
-                <p style={{ margin: '2px 0' }}>CNPJ: 12.802.931/0001-92</p>
-                <p style={{ margin: '2px 0' }}>R PARANA, 342</p>
-                <p style={{ margin: '2px 0' }}>CENTRO, Andirá / PR</p>
-                <p style={{ margin: '2px 0' }}>Tel (43) 3538-4537</p>
-                <p style={{ margin: '2px 0' }}>Email: kombatpecas@gmail.com</p>
+              <div style={{ textAlign: 'center', marginBottom: '4px', fontWeight: 'bold' }}>
+                <h4 style={{ fontWeight: '900', fontSize: '15px', margin: '0' }}>KOMBAT MOTO PECAS</h4>
+                <p style={{ margin: '0', fontSize: '11px' }}>CNPJ: 12.802.931/0001-92</p>
+                <p style={{ margin: '0', fontSize: '11px' }}>R PARANA, 342 - CENTRO, Andirá / PR</p>
+                <p style={{ margin: '0', fontSize: '11px' }}>Tel (43) 3538-4537 | Email: kombatpecas@gmail.com</p>
               </div>
 
-              <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
+              <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
 
               <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
                 <tbody>
@@ -6978,19 +6976,18 @@ export default function App() {
                 </tbody>
               </table>
 
-              <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
+              <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
 
               {/* Customer Info */}
-              <div style={{ padding: '4px 0' }}>
+              <div style={{ padding: '2px 0' }}>
                 <p style={{ fontWeight: 'bold' }}>Cliente: {selectedSaleForReceipt.customer_id || '---'} - {(selectedSaleForReceipt.customer_name || 'Consumidor Final').toUpperCase()}</p>
                 {(() => {
                   const customer = customers.find(c => c.id === selectedSaleForReceipt.customer_id);
                   if (customer) {
                     return (
                       <div style={{ fontSize: '12px', fontWeight: 'bold' }}>
-                        <p>TEL: {customer.whatsapp || '---'}</p>
-                        <p>{customer.cpf ? `CPF: ${customer.cpf}` : (customer.cnpj ? `CNPJ: ${customer.cnpj}` : '')}</p>
-                        <p>Endereço: {customer.address || ''} {customer.neighborhood ? ` - ${customer.neighborhood}` : ''}</p>
+                        <p>TEL: {customer.whatsapp || '---'} | {customer.cpf ? `CPF: ${customer.cpf}` : (customer.cnpj ? `CNPJ: ${customer.cnpj}` : '')}</p>
+                        <p>End: {customer.address || ''} {customer.neighborhood ? ` - ${customer.neighborhood}` : ''}</p>
                         <p>Cidade: {customer.city || 'Andirá'} / PR</p>
                       </div>
                     );
@@ -7016,7 +7013,7 @@ export default function App() {
 
               {/* Observations */}
               {selectedSaleForReceipt.service_description && (
-                <div style={{ padding: '4px 0' }}>
+                <div style={{ padding: '2px 0' }}>
                   <p style={{ fontWeight: 'bold' }}>Observações:</p>
                   <p style={{ fontSize: '10px', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{selectedSaleForReceipt.service_description}</p>
                 </div>
@@ -7026,15 +7023,15 @@ export default function App() {
               {/* Items Table */}
               <div className="py-1">
                 {(selectedSaleForReceipt.items || []).filter(i => i.product_id).length > 0 && (
-                  <div style={{ marginBottom: '8px' }}>
+                  <div style={{ marginBottom: '4px' }}>
                     <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>PEÇAS E PRODUTOS</p>
                     <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
                       <tbody>
                         {(selectedSaleForReceipt.items || []).filter(i => i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
                           <React.Fragment key={idx}>
                             <tr>
-                              <td style={{ paddingTop: '4px', width: '20%' }}>{item.product_id || '---'}</td>
-                              <td style={{ paddingTop: '4px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
+                              <td style={{ paddingTop: '2px', width: '20%' }}>{item.product_id || '---'}</td>
+                              <td style={{ paddingTop: '2px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
                             </tr>
                             <tr style={{ borderBottom: '1px dotted black' }}>
                               <td style={{ textAlign: 'left', paddingLeft: '8px' }}>{item.quantity}</td>
@@ -7049,15 +7046,15 @@ export default function App() {
                 )}
 
                 {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).length > 0 && (
-                  <div style={{ marginBottom: '8px' }}>
+                  <div style={{ marginBottom: '4px' }}>
                     <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>SERVIÇOS EXECUTADOS</p>
                     <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
                       <tbody>
                         {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
                           <React.Fragment key={idx}>
                             <tr>
-                              <td style={{ paddingTop: '4px', width: '20%' }}>---</td>
-                              <td style={{ paddingTop: '4px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
+                              <td style={{ paddingTop: '2px', width: '20%' }}>---</td>
+                              <td style={{ paddingTop: '2px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
                             </tr>
                             <tr style={{ borderBottom: '1px dotted black' }}>
                               <td style={{ textAlign: 'left', paddingLeft: '8px' }}>{item.quantity}</td>
@@ -7072,7 +7069,7 @@ export default function App() {
                 )}
 
                 {(selectedSaleForReceipt.labor_value || 0) > 0 && (
-                  <div style={{ marginTop: '8px', paddingTop: '4px', borderTop: '1px dotted black' }}>
+                  <div style={{ marginTop: '4px', paddingTop: '2px', borderTop: '1px dotted black' }}>
                     <table style={{ width: '100%', fontSize: '10px', fontWeight: 'bold' }}>
                       <tbody>
                         <tr>
@@ -7084,10 +7081,10 @@ export default function App() {
                   </div>
                 )}
               </div>
-              <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
+              <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
 
               {/* Totals Section */}
-              <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
+              <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
               <table style={{ width: '100%', fontSize: '11px', fontWeight: 'bold' }}>
                 <tbody>
                   <tr>
@@ -7110,7 +7107,7 @@ export default function App() {
               </table>
 
               {/* Payment Info */}
-              <div style={{ marginTop: '16px', paddingTop: '4px', borderTop: '1px dashed black' }}>
+              <div style={{ marginTop: '6px', paddingTop: '2px', borderTop: '1px dashed black' }}>
                 <table style={{ width: '100%', fontSize: '11px', fontWeight: '900', borderBottom: '1.5px solid black', marginBottom: '4px' }}>
                   <thead>
                     <tr>
@@ -7129,7 +7126,7 @@ export default function App() {
                 </table>
               </div>
 
-              <div style={{ borderTop: '1px dashed black', margin: '8px 0' }}></div>
+              <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
 
               <table style={{ width: '100%' }}>
                 <tbody>
@@ -7140,7 +7137,7 @@ export default function App() {
                   {selectedSaleForReceipt.payment_method === 'Fiado' && (
                     <>
                       <tr style={{ fontSize: '11px', fontWeight: '900' }}>
-                        <td colSpan={2} style={{ paddingTop: '8px', borderTop: '1px solid black' }}>REGRA DE PAGAMENTO (FIADO):</td>
+                        <td colSpan={2} style={{ paddingTop: '4px', borderTop: '1.5px solid black' }}>REGRA DE PAGAMENTO (FIADO):</td>
                       </tr>
                       <tr style={{ fontSize: '13px', fontWeight: '900' }}>
                         <td style={{ textAlign: 'left' }}>VALOR NORMAL (ATÉ 30 DIAS):</td>
@@ -7153,34 +7150,34 @@ export default function App() {
                     </>
                   )}
                   <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '1px dashed black' }}>
-                    <td style={{ textAlign: 'left', paddingTop: '4px' }}>TOTAL PAGO:</td>
-                    <td style={{ textAlign: 'right', paddingTop: '4px' }}>R$ {(selectedSaleForReceipt.paid_total || (selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0) : 0)).toFixed(2)}</td>
+                    <td style={{ textAlign: 'left', paddingTop: '2px' }}>TOTAL PAGO:</td>
+                    <td style={{ textAlign: 'right', paddingTop: '2px' }}>R$ {(selectedSaleForReceipt.paid_total || (selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0) : 0)).toFixed(2)}</td>
                   </tr>
                   {selectedSaleForReceipt.payment_method === 'Fiado' && (
                     <tr style={{ fontWeight: '900', fontSize: '14px', color: 'red' }}>
-                      <td style={{ textAlign: 'left', paddingTop: '4px' }}>RESTANTE DEVIDO:</td>
-                      <td style={{ textAlign: 'right', paddingTop: '4px' }}>R$ {(selectedSaleForReceipt.total - (selectedSaleForReceipt.paid_total || 0)).toFixed(2)}</td>
+                      <td style={{ textAlign: 'left', paddingTop: '2px' }}>RESTANTE DEVIDO:</td>
+                      <td style={{ textAlign: 'right', paddingTop: '2px' }}>R$ {(selectedSaleForReceipt.total - (selectedSaleForReceipt.paid_total || 0)).toFixed(2)}</td>
                     </tr>
                   )}
                   {selectedSaleForReceipt.customer_id && (
                     <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '2.5px solid black' }}>
-                      <td style={{ textAlign: 'left', paddingTop: '8px' }}>SALDO LIMITE:</td>
-                      <td style={{ textAlign: 'right', paddingTop: '8px', color: 'red' }}>R$ {getCustomerRemainingCredit(selectedSaleForReceipt.customer_id).toFixed(2)}</td>
+                      <td style={{ textAlign: 'left', paddingTop: '4px' }}>SALDO LIMITE:</td>
+                      <td style={{ textAlign: 'right', paddingTop: '4px', color: 'red' }}>R$ {getCustomerRemainingCredit(selectedSaleForReceipt.customer_id).toFixed(2)}</td>
                     </tr>
                   )}
                 </tbody>
               </table>
 
-              <div style={{ textAlign: 'center', marginTop: '40px', paddingBottom: '20px' }}>
-                <div style={{ borderTop: '2px solid black', width: '220px', margin: '0 auto' }}></div>
-                <p style={{ fontSize: '11px', marginTop: '4px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
+              <div style={{ textAlign: 'center', marginTop: '20px', paddingBottom: '10px' }}>
+                <div style={{ borderTop: '2px solid black', width: '200px', margin: '0 auto' }}></div>
+                <p style={{ fontSize: '11px', marginTop: '2px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
               </div>
 
               <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '8px', borderTop: '1px dashed black' }}>
                 <p style={{ fontWeight: '900', fontSize: '10px', textTransform: 'uppercase' }}>Esse cupom não é um documento fiscal</p>
               </div>
-              <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
-              <div style={{ height: '40px' }}></div> {/* Buffer for thermal cutter */}
+              <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
+              <div style={{ height: '20px' }}></div> {/* Buffer for thermal cutter */}
 
               <button
                 onClick={handlePrintReceipt}
