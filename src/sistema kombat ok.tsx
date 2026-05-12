@@ -1606,6 +1606,15 @@ export default function App() {
     }));
     
     let finalItems = [...osForm.items, ...fixedServiceItems];
+    
+    if (laborValueManual > 0) {
+      finalItems.push({
+        description: 'MÃO DE OBRA / SERVIÇOS AVULSOS',
+        quantity: 1,
+        price: laborValueManual,
+        type: 'Serviço'
+      });
+    }
     const customer = osForm.customer_id ? customers.find(c => c.id === parseInt(osForm.customer_id)) : null;
     const motorcycle = osForm.motorcycle_id ? motorcycles.find(m => String(m.id) === String(osForm.motorcycle_id)) : null;
     const mechanic = mechanics.find(m => String(m.id) === String(osForm.mechanic_id));
@@ -1650,7 +1659,7 @@ export default function App() {
       customer_id: customer?.id,
       customer_name: customer?.name || 'Cliente O.S.',
       items: finalItems,
-      labor_value: laborValue,
+      labor_value: 0,
       mechanic_id: mechanic?.id,
       mechanic_name: mechanic?.name,
       commission,
@@ -1684,7 +1693,7 @@ export default function App() {
           paid_date: newOS.paid_date,
           service_description: newOS.service_description,
           status: newOS.status,
-          sale_items: osForm.items,
+          sale_items: finalItems,
           motorcycle_id: motorcycle?.id,
           motorcycle_km: parseInt(osForm.km) || 0
         });
@@ -1707,7 +1716,7 @@ export default function App() {
           paid_date: newOS.paid_date,
           service_description: newOS.service_description,
           status: newOS.status,
-          sale_items: osForm.items,
+          sale_items: finalItems,
           motorcycle_id: motorcycle?.id,
           motorcycle_km: parseInt(osForm.km) || 0
         });
@@ -7083,11 +7092,11 @@ export default function App() {
                 <tbody>
                   <tr>
                     <td style={{ textAlign: 'left' }}>Total Peças:</td>
-                    <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total - (selectedSaleForReceipt.labor_value || 0)).toFixed(2)}</td>
+                    <td style={{ textAlign: 'right' }}>R$ {((selectedSaleForReceipt.items || []).filter(i => i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0)).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ textAlign: 'left' }}>Total Serviços:</td>
-                    <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.labor_value || 0).toFixed(2)}</td>
+                    <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total - (selectedSaleForReceipt.items || []).filter(i => i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0)).toFixed(2)}</td>
                   </tr>
                   <tr style={{ borderTop: '1px dotted black' }}>
                     <td style={{ textAlign: 'left', paddingTop: '4px', fontSize: '12px' }}>TOTAL GERAL:</td>
@@ -8091,11 +8100,11 @@ export default function App() {
                     <div className="w-1/3 text-xs">
                       <div className="flex justify-between p-2 bg-slate-50 rounded-t-md">
                         <span className="font-bold">Total Peças:</span>
-                        <span>{formatBRL((selectedSaleForOS?.total || 0) - (selectedSaleForOS?.labor_value || 0))}</span>
+                        <span>{formatBRL((selectedSaleForOS?.items || []).filter(i => !!i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0))}</span>
                       </div>
                       <div className="flex justify-between p-2 bg-slate-50">
                         <span className="font-bold">Total Serviços:</span>
-                        <span>{formatBRL(selectedSaleForOS?.labor_value || 0)}</span>
+                        <span>{formatBRL((selectedSaleForOS?.total || 0) - (selectedSaleForOS?.items || []).filter(i => !!i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0))}</span>
                       </div>
                       <div className="flex justify-between p-2 bg-slate-200 text-base rounded-b-md">
                         <span className="font-bold">VALOR TOTAL GERAL:</span>
