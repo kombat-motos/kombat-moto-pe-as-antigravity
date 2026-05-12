@@ -143,6 +143,7 @@ interface Mechanic {
 interface FixedService {
   id: string;
   name: string;
+  price: number;
   payout: number;
 }
 
@@ -756,7 +757,7 @@ export default function App() {
     customer_id: string;
     motorcycle_id: string;
     items: SaleItem[];
-    selected_fixed_services: { id: string; name: string; payout: number; quantity: number }[];
+    selected_fixed_services: { id: string; name: string; price: number; payout: number; quantity: number }[];
     labor_value: string;
     mechanic_id: string;
     payment_method: 'Pix' | 'Cartão' | 'Dinheiro' | 'Fiado';
@@ -1593,9 +1594,18 @@ export default function App() {
     const laborValueFromItems = osForm.items.filter(i => !i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
     const laborValueManual = parseFloat(osForm.labor_value.toString().replace(',', '.')) || 0;
     const laborValue = laborValueFromItems + laborValueManual;
-    const totalBase = totalItems + laborValue;
+    const fixedServicesTotal = (osForm.selected_fixed_services || []).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    const totalBase = totalItems + laborValue + fixedServicesTotal;
     let total = totalBase;
-    let finalItems = [...osForm.items];
+    
+    const fixedServiceItems: SaleItem[] = (osForm.selected_fixed_services || []).map(sfs => ({
+      description: sfs.name,
+      quantity: sfs.quantity,
+      price: sfs.price,
+      type: 'Serviço'
+    }));
+    
+    let finalItems = [...osForm.items, ...fixedServiceItems];
     const customer = osForm.customer_id ? customers.find(c => c.id === parseInt(osForm.customer_id)) : null;
     const motorcycle = osForm.motorcycle_id ? motorcycles.find(m => String(m.id) === String(osForm.motorcycle_id)) : null;
     const mechanic = mechanics.find(m => String(m.id) === String(osForm.mechanic_id));
@@ -7498,7 +7508,10 @@ export default function App() {
                       </div>
                     ))}
                     <div className="flex justify-end pr-4">
-                      <p className="text-xs font-bold text-amber-600">Subtotal Serviços: R$ {osForm.items.filter(i => !i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</p>
+                      <p className="text-xs font-bold text-amber-600">Subtotal Serviços: R$ {(
+                        osForm.items.filter(i => !i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0) +
+                        (osForm.selected_fixed_services || []).reduce((acc, sfs) => acc + (sfs.price * sfs.quantity), 0)
+                      ).toFixed(2)}</p>
                     </div>
                   </div>
                 )}
@@ -7533,7 +7546,7 @@ export default function App() {
                     className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
                     value=""
                     onChange={e => {
-                      const selectedService = fixedServices.find(fs => fs.id === e.target.value);
+                      const selectedService = fixedServices.find(fs => String(fs.id) === String(e.target.value));
                       if (selectedService) {
                         const existingService = osForm.selected_fixed_services.find(sfs => sfs.id === selectedService.id);
                         if (existingService) {
@@ -7677,7 +7690,11 @@ export default function App() {
                   </div>
                   <div className="flex justify-between text-[10px]">
                     <span className="text-slate-500 font-bold uppercase">Total em Serviços:</span>
-                    <span className="font-bold text-slate-700">R$ {(osForm.items.filter(i => !i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)).toFixed(2)}</span>
+                    <span className="font-bold text-slate-700">R$ {(
+                      osForm.items.filter(i => !i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + 
+                      (osForm.selected_fixed_services || []).reduce((acc, sfs) => acc + (sfs.price * sfs.quantity), 0) +
+                      (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)
+                    ).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-slate-400 mt-1">
                     <div className="flex flex-col">
@@ -7685,12 +7702,20 @@ export default function App() {
                       {osForm.payment_method === 'Fiado' && (
                         <div className="mt-1 flex flex-col">
                           <span className="text-[10px] text-slate-400 font-bold uppercase">Valor Normal (Até 30 Dias)</span>
-                          <span className="text-[10px] text-rose-500 font-black uppercase tracking-tighter">* Valor após 30 dias: {formatBRL((osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)) * 1.15)}</span>
+                          <span className="text-[10px] text-rose-500 font-black uppercase tracking-tighter">* Valor após 30 dias: {formatBRL((
+                            osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + 
+                            (osForm.selected_fixed_services || []).reduce((acc, sfs) => acc + (sfs.price * sfs.quantity), 0) +
+                            (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)
+                          ) * 1.15)}</span>
                         </div>
                       )}
                     </div>
                     <span className="text-2xl font-black text-rose-600">
-                      R$ {(osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)).toFixed(2)}
+                      R$ {(
+                        osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + 
+                        (osForm.selected_fixed_services || []).reduce((acc, sfs) => acc + (sfs.price * sfs.quantity), 0) +
+                        (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)
+                      ).toFixed(2)}
                     </span>
                   </div>
                 </div>
