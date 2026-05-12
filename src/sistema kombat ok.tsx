@@ -3320,6 +3320,17 @@ export default function App() {
     }
   };
 
+  const handlePrintMechanicReport = () => {
+    const printContent = document.getElementById('mechanic-report-thermal-content');
+    if (printContent) {
+      const originalContents = document.body.innerHTML;
+      document.body.innerHTML = printContent.outerHTML;
+      window.print();
+      document.body.innerHTML = originalContents;
+      window.location.reload();
+    }
+  };
+
   const downloadExcel = (wb: XLSX.WorkBook, filename: string) => {
     try {
       const b64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
@@ -7768,7 +7779,16 @@ export default function App() {
         >
           {selectedMechanicForReport && (
             <div className="space-y-6">
-              <p className="text-sm text-slate-600">Visão geral dos serviços e comissões de {selectedMechanicForReport.name}.</p>
+              <div className="flex justify-between items-start">
+                <p className="text-sm text-slate-600">Visão geral dos serviços e comissões de {selectedMechanicForReport.name}.</p>
+                <button
+                  onClick={handlePrintMechanicReport}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-all text-xs font-bold shadow-sm"
+                >
+                  <Printer size={14} />
+                  Imprimir Térmico
+                </button>
+              </div>
 
               {/* Time Period Filters (Optional, for future enhancement) */}
               {/* <div className="flex gap-2 text-xs">
@@ -7827,6 +7847,109 @@ export default function App() {
             </div>
           )}
         </Modal>
+
+        {/* Thermal Print Content for Mechanic Report */}
+        <div className="hidden">
+          <div id="mechanic-report-thermal-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
+            <style>{`
+              @media print {
+                @page {
+                  margin: 0;
+                  size: 80mm auto;
+                }
+                html, body {
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  height: auto !important;
+                  background: white !important;
+                  width: 80mm !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                #mechanic-report-thermal-content {
+                  width: 76mm !important;
+                  margin: 0 auto !important;
+                  padding: 2mm !important;
+                  display: block !important;
+                  background: white !important;
+                  height: auto !important;
+                  overflow: visible !important;
+                }
+              }
+            `}</style>
+
+            <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+              <h4 style={{ fontWeight: '900', fontSize: '18px', margin: '0' }}>KOMBAT MOTO PECAS</h4>
+              <p style={{ margin: '4px 0', fontSize: '14px', textTransform: 'uppercase' }}>Relatório de Mecânico</p>
+            </div>
+
+            <div style={{ borderTop: '1px dashed black', margin: '6px 0' }}></div>
+
+            <div style={{ padding: '4px 0' }}>
+              <p style={{ fontSize: '16px', fontWeight: '900' }}>MECÂNICO: {selectedMechanicForReport?.name.toUpperCase()}</p>
+              <p>Data Impressão: {new Date().toLocaleDateString('pt-BR')} {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+            </div>
+
+            <div style={{ borderTop: '1px dashed black', margin: '6px 0' }}></div>
+
+            <div style={{ padding: '4px 0' }}>
+              <p style={{ fontSize: '14px', marginBottom: '4px' }}>RESUMO DE COMISSÕES:</p>
+              <table style={{ width: '100%', fontSize: '13px' }}>
+                <tbody>
+                  <tr>
+                    <td>TOTAL HOJE:</td>
+                    <td style={{ textAlign: 'right' }}>{formatBRL(calculateMechanicTotal(selectedMechanicForReport?.id || '', 'day'))}</td>
+                  </tr>
+                  <tr>
+                    <td>TOTAL SEMANA:</td>
+                    <td style={{ textAlign: 'right' }}>{formatBRL(calculateMechanicTotal(selectedMechanicForReport?.id || '', 'week'))}</td>
+                  </tr>
+                  <tr>
+                    <td>TOTAL QUINZENA:</td>
+                    <td style={{ textAlign: 'right' }}>{formatBRL(calculateMechanicTotal(selectedMechanicForReport?.id || '', 'fortnight'))}</td>
+                  </tr>
+                  <tr>
+                    <td>TOTAL MÊS:</td>
+                    <td style={{ textAlign: 'right' }}>{formatBRL(calculateMechanicTotal(selectedMechanicForReport?.id || '', 'month'))}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ borderTop: '1px dashed black', margin: '6px 0' }}></div>
+
+            <div style={{ padding: '4px 0' }}>
+              <p style={{ fontSize: '14px', marginBottom: '6px', textAlign: 'center' }}>SERVIÇOS DETALHADOS (OFICINA)</p>
+              <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid black' }}>
+                    <th style={{ textAlign: 'left', paddingBottom: '4px' }}>DATA/OS</th>
+                    <th style={{ textAlign: 'right', paddingBottom: '4px' }}>COMISSÃO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedMechanicForReport && sales
+                    .filter(s => s.mechanic_id === selectedMechanicForReport.id && s.type === 'Oficina')
+                    .map(sale => (
+                      <tr key={sale.id} style={{ borderBottom: '1px dashed #eee' }}>
+                        <td style={{ padding: '4px 0' }}>
+                          <div>#{sale.id}</div>
+                          <div style={{ fontSize: '9px', color: '#666' }}>{new Date(sale.date).toLocaleDateString('pt-BR')}</div>
+                          <div style={{ fontSize: '10px' }}>{sale.customer_name.substring(0, 15)}</div>
+                        </td>
+                        <td style={{ textAlign: 'right', verticalAlign: 'top', padding: '4px 0' }}>
+                          {formatBRL(sale.commission)}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ borderTop: '2px solid black', margin: '15px 0 5px 0' }}></div>
+            <p style={{ textAlign: 'center', fontSize: '10px' }}>*** FIM DO RELATÓRIO ***</p>
+          </div>
+        </div>
 
         <AnimatePresence>
           {selectedSaleForOS && (
