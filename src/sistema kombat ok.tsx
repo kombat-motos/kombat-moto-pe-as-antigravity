@@ -7269,10 +7269,12 @@ export default function App() {
                   {osSearchProduct && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                       {sortedProducts.filter(p =>
-                        (p.description || '').toLowerCase().includes(d_osSearchProduct.toLowerCase()) ||
-                        (p.brand && (p.brand || '').toLowerCase().includes(d_osSearchProduct.toLowerCase())) ||
-                        (p.alt_code || '').toLowerCase().includes(d_osSearchProduct.toLowerCase()) ||
-                        (p.sku || '').toLowerCase().includes(d_osSearchProduct.toLowerCase())
+                        p && (
+                          (p.description || '').toLowerCase().includes(osSearchProduct.toLowerCase()) ||
+                          ((p.brand || '').toLowerCase().includes(osSearchProduct.toLowerCase())) ||
+                          ((p.alt_code || '').toLowerCase().includes(osSearchProduct.toLowerCase())) ||
+                          ((p.sku || '').toLowerCase().includes(osSearchProduct.toLowerCase()))
+                        )
                       ).map(p => (
                         <button
                           key={p.id}
@@ -7291,7 +7293,7 @@ export default function App() {
                               )}
                             </p>
                           </div>
-                          <span className="text-sm font-bold text-rose-600">R$ {p.sale_price.toFixed(2)}</span>
+                          <span className="text-sm font-bold text-rose-600">R$ {(p.sale_price || 0).toFixed(2)}</span>
                         </button>
                       ))}
                     </div>
@@ -7313,7 +7315,7 @@ export default function App() {
                   {osSearchService && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                       {sortedRegisteredServices.filter(s =>
-                        (s.description || '').toLowerCase().includes(d_osSearchService.toLowerCase())
+                        s && (s.description || '').toLowerCase().includes((d_osSearchService || '').toLowerCase())
                       ).map(s => (
                         <button
                           key={s.id}
@@ -7335,7 +7337,7 @@ export default function App() {
                           <div>
                             <p className="text-sm font-medium text-slate-900">{s.description}</p>
                           </div>
-                          <span className="text-sm font-bold text-blue-600">R$ {s.price.toFixed(2)}</span>
+                          <span className="text-sm font-bold text-blue-600">R$ {(s.price || 0).toFixed(2)}</span>
                         </button>
                       ))}
                     </div>
