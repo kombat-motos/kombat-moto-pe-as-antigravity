@@ -7113,8 +7113,14 @@ export default function App() {
                   )}
                   <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '1px dashed black' }}>
                     <td style={{ textAlign: 'left', paddingTop: '4px' }}>TOTAL PAGO:</td>
-                    <td style={{ textAlign: 'right', paddingTop: '4px' }}>R$ {selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0).toFixed(2) : '0,00'}</td>
+                    <td style={{ textAlign: 'right', paddingTop: '4px' }}>R$ {(selectedSaleForReceipt.paid_total || (selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0) : 0)).toFixed(2)}</td>
                   </tr>
+                  {selectedSaleForReceipt.payment_method === 'Fiado' && (
+                    <tr style={{ fontWeight: '900', fontSize: '14px', color: 'red' }}>
+                      <td style={{ textAlign: 'left', paddingTop: '4px' }}>RESTANTE DEVIDO:</td>
+                      <td style={{ textAlign: 'right', paddingTop: '4px' }}>R$ {(selectedSaleForReceipt.total - (selectedSaleForReceipt.paid_total || 0)).toFixed(2)}</td>
+                    </tr>
+                  )}
                   {selectedSaleForReceipt.customer_id && (
                     <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '2.5px solid black' }}>
                       <td style={{ textAlign: 'left', paddingTop: '8px' }}>SALDO LIMITE:</td>
