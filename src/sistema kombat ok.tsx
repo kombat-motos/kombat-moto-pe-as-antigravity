@@ -3331,6 +3331,17 @@ export default function App() {
     }
   };
 
+  const handlePrintCustomerHistory = () => {
+    const printContent = document.getElementById('customer-history-print-content');
+    if (printContent) {
+      const originalContents = document.body.innerHTML;
+      document.body.innerHTML = printContent.outerHTML;
+      window.print();
+      document.body.innerHTML = originalContents;
+      window.location.reload();
+    }
+  };
+
   const downloadExcel = (wb: XLSX.WorkBook, filename: string) => {
     try {
       const b64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
@@ -6763,7 +6774,7 @@ export default function App() {
           maxWidth={selectedCustomerForPrint?.type === 'A4' ? "max-w-6xl" : "max-w-lg"}
         >
           {selectedCustomerForPrint && (
-            <div className={`bg-white p-8 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'font-bold text-[15px] w-[80mm] mx-auto overflow-visible print:p-0'}`} style={selectedCustomerForPrint.type === '80mm' ? { fontFamily: '"Arial Black", Gadget, sans-serif' } : {}}>
+            <div id="customer-history-print-content" className={`bg-white p-8 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'font-bold text-[15px] w-[80mm] mx-auto overflow-visible print:p-0'}`} style={selectedCustomerForPrint.type === '80mm' ? { fontFamily: '"Arial Black", Gadget, sans-serif' } : {}}>
               <style>{selectedCustomerForPrint.type === '80mm' ? `
                 @media print {
                   @page { margin: 0; size: 80mm auto; }
@@ -6889,7 +6900,7 @@ export default function App() {
                   <p className="text-xl font-black text-rose-700">R$ {getCustomerRemainingCredit(selectedCustomerForPrint.customer.id).toFixed(2)}</p>
                 </div>
                 <button
-                  onClick={() => window.print()}
+                  onClick={handlePrintCustomerHistory}
                   className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all flex items-center justify-center gap-2"
                 >
                   <Printer size={18} />
