@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Send, MessageCircle, Pencil, X, Check, Printer, FileText, DollarSign, Search } from 'lucide-react';
+import { Send, MessageCircle, Pencil, X, Check, Printer, FileText, DollarSign, Search, AlertTriangle } from 'lucide-react';
 
 interface Sale {
   id: string;
@@ -139,16 +139,28 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
   const [tempRates, setTempRates] = React.useState({ fine: 2, interest: 1 });
   const [selectedPromissory, setSelectedPromissory] = React.useState<any>(null);
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [filterOverdue, setFilterOverdue] = React.useState(false);
 
   const filteredSales = React.useMemo(() => {
-    const list = Array.isArray(pendingSales) ? pendingSales : [];
+    let list = Array.isArray(pendingSales) ? pendingSales : [];
+    
+    if (filterOverdue) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      list = list.filter(sale => {
+        if (!sale.due_date) return false;
+        const dueDate = new Date(sale.due_date);
+        return differenceInDays(dueDate, today) < 0;
+      });
+    }
+
     if (!searchTerm) return list;
     const term = searchTerm.toLowerCase();
     return list.filter(sale => 
       (sale.customer_name || '').toLowerCase().includes(term) ||
       (sale.id || '').toLowerCase().includes(term)
     );
-  }, [pendingSales, searchTerm]);
+  }, [pendingSales, searchTerm, filterOverdue]);
 
   const handlePrintPromissory = (sale: any, totalWithCharges: number) => {
     setSelectedPromissory({ ...sale, totalWithCharges });
@@ -235,17 +247,37 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <h2 className="text-xl font-bold text-slate-800">Automação de Cobrança</h2>
-        <div className="relative group">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-rose-500 transition-colors">
-            <Search size={18} />
+        
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setFilterOverdue(!filterOverdue)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${
+              filterOverdue 
+                ? 'bg-rose-600 text-white border-rose-600 shadow-lg shadow-rose-200' 
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-rose-300'
+            }`}
+          >
+            <AlertTriangle size={18} className={filterOverdue ? 'animate-pulse' : 'text-rose-500'} />
+            {filterOverdue ? 'Mostrando Atrasados' : 'Ver Atrasados'}
+            {filterOverdue && (
+              <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px]">
+                {filteredSales.length}
+              </span>
+            )}
+          </button>
+
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-rose-500 transition-colors">
+              <Search size={18} />
+            </div>
+            <input
+              type="text"
+              placeholder="Buscar cliente na cobrança..."
+              className="block w-full md:w-80 pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 transition-all shadow-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <input
-            type="text"
-            placeholder="Buscar cliente na cobrança..."
-            className="block w-full md:w-80 pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 transition-all shadow-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
         </div>
       </div>
 
