@@ -470,6 +470,76 @@ async function startServer() {
     }
   });
 
+  // Public Visual Catalog for AI/Users
+  app.get("/api/public/catalog-page", (req, res) => {
+    try {
+      const products = db.prepare("SELECT * FROM products WHERE user_id = 1 AND stock > 0 ORDER BY description ASC").all() as any[];
+      let html = `
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Catálogo Kombat Moto</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 40px 20px; }
+            .container { max-width: 1200px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 50px; }
+            .header h1 { font-weight: 900; text-transform: uppercase; letter-spacing: -2px; font-size: 42px; margin: 0; color: #b91c1c; }
+            .header p { color: #64748b; font-weight: 500; }
+            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; }
+            .card { background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid #e2e8f0; transition: transform 0.3s ease; }
+            .card:hover { transform: translateY(-5px); }
+            .img-container { width: 100%; height: 250px; background: white; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 10px; }
+            img { max-width: 100%; max-height: 100%; object-fit: contain; }
+            .content { padding: 20px; }
+            .category { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #ef4444; background: #fef2f2; padding: 4px 12px; border-radius: 100px; display: inline-block; margin-bottom: 10px; }
+            h3 { font-size: 18px; font-weight: 700; margin: 0 0 10px 0; line-height: 1.2; height: 43px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+            .price { font-size: 24px; font-weight: 900; color: #0f172a; margin-bottom: 15px; }
+            .details { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; font-weight: 600; color: #64748b; }
+            .details span { background: #f1f5f9; padding: 4px 10px; border-radius: 8px; }
+            .no-image { color: #cbd5e1; font-weight: bold; font-size: 12px; text-transform: uppercase; }
+            .print-btn { position: fixed; bottom: 30px; right: 30px; background: #b91c1c; color: white; border: none; padding: 15px 30px; border-radius: 100px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 25px -5px rgba(185, 28, 28, 0.4); text-transform: uppercase; letter-spacing: 1px; z-index: 100; }
+            @media print { .print-btn { display: none; } body { padding: 0; background: white; } .card { box-shadow: none; border: 1px solid #eee; break-inside: avoid; } }
+          </style>
+        </head>
+        <body>
+          <button class="print-btn" onclick="window.print()">Salvar como PDF / Imprimir</button>
+          <div class="container">
+            <div class="header">
+              <h1>Kombat Moto Peças</h1>
+              <p>Catálogo Geral de Produtos | Atualizado em ${new Date().toLocaleDateString('pt-BR')}</p>
+            </div>
+            <div class="grid">
+              ${products.map(p => `
+                <div class="card">
+                  <div class="img-container">
+                    ${p.image_url ? `<img src="${p.image_url}" alt="${p.description}">` : `<div class="no-image">Sem Imagem</div>`}
+                  </div>
+                  <div class="content">
+                    <div class="category">${p.category || 'Peças'}</div>
+                    <h3>${p.description}</h3>
+                    <div class="price">R$ ${p.sale_price.toFixed(2)}</div>
+                    <div class="details">
+                      <span>SKU: ${p.sku || 'N/A'}</span>
+                      <span>Marca: ${p.brand || 'N/A'}</span>
+                      <span>Estoque: ${p.stock} ${p.unit || 'un'}</span>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+      res.send(html);
+    } catch (err: any) {
+      res.status(500).send("Erro ao gerar página: " + err.message);
+    }
+  });
+
   // Quotes
   app.get("/api/quotes", authenticateToken, (req, res) => {
     const quotes = db.prepare("SELECT * FROM quotes WHERE user_id = ? ORDER BY created_at DESC LIMIT 100").all(req.user!.id) as any[];

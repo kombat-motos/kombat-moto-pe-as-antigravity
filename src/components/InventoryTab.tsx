@@ -13,7 +13,9 @@ import {
   RefreshCw,
   Image as ImageIcon,
   Link,
-  Share2
+  Share2,
+  FileText,
+  Eye
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -164,8 +166,20 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition-all font-medium text-sm whitespace-nowrap shadow-lg shadow-slate-200"
               title="Copiar link para a IA estudar seu estoque"
             >
-              <Share2 size={18} />
-              Link p/ IA
+              <Link size={18} />
+              Link de Texto p/ IA
+            </button>
+
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}/api/public/catalog-page`;
+                window.open(url, '_blank');
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium text-sm whitespace-nowrap shadow-lg shadow-rose-200"
+              title="Abrir catálogo visual com fotos para a IA ou para salvar como PDF"
+            >
+              <Eye size={18} />
+              Catálogo com Fotos (p/ IA)
             </button>
           </div>
 
