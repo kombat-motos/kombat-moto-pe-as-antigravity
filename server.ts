@@ -435,13 +435,35 @@ async function startServer() {
   // Health check
   app.get("/api/health-check", (req, res) => res.json({ status: "ok", version: "1.0.3", timestamp: new Date().toISOString() }));
 
+  // Internal Image Shortener/Redirector
+  app.get("/api/public/img/:id/:index", (req, res) => {
+    try {
+      const { id, index } = req.params;
+      const product = db.prepare("SELECT image_url, image_url2, image_url3, image_url4 FROM products WHERE id = ?").get(id) as any;
+      
+      if (!product) return res.status(404).send("Produto não encontrado");
+      
+      const fields = ['image_url', 'image_url2', 'image_url3', 'image_url4'];
+      const field = fields[parseInt(index) - 1] || 'image_url';
+      const url = product[field];
+      
+      if (!url) return res.status(404).send("Foto não disponível");
+      
+      res.redirect(url);
+    } catch (err: any) {
+      res.status(500).send("Erro ao redirecionar: " + err.message);
+    }
+  });
+
   // Public Catalog for AI
   app.get("/api/public/catalog-ai", (req, res) => {
     try {
-      const products = db.prepare("SELECT * FROM products WHERE user_id = 1 AND stock > 0 ORDER BY description ASC").all() as any[];
+      const products = db.prepare("SELECT * FROM products WHERE user_id = 1 ORDER BY description ASC").all() as any[];
       let content = "# CATÁLOGO DE ESTOQUE - KOMBAT MOTO\n";
       content += `Gerado em: ${new Date().toLocaleString('pt-BR')}\n\n`;
       
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+
       products.forEach(p => {
         content += `PRODUTO: ${p.description}\n`;
         if (p.sku) content += `SKU: ${p.sku}\n`;
@@ -450,7 +472,13 @@ async function startServer() {
         content += `ESTOQUE: ${p.stock} ${p.unit || 'un'}\n`;
         if (p.category) content += `CATEGORIA: ${p.category}\n`;
         if (p.application) content += `APLICAÇÃO: ${p.application}\n`;
-        if (p.image_url) content += `FOTO: ${p.image_url}\n`;
+        
+        // Use shortened internal URL for photos
+        if (p.image_url) content += `FOTO 1: ${baseUrl}/api/public/img/${p.id}/1\n`;
+        if (p.image_url2) content += `FOTO 2: ${baseUrl}/api/public/img/${p.id}/2\n`;
+        if (p.image_url3) content += `FOTO 3: ${baseUrl}/api/public/img/${p.id}/3\n`;
+        if (p.image_url4) content += `FOTO 4: ${baseUrl}/api/public/img/${p.id}/4\n`;
+        
         content += `------------------------------------------\n\n`;
       });
       
