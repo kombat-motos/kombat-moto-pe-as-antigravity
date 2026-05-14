@@ -435,6 +435,41 @@ async function startServer() {
   // Health check
   app.get("/api/health-check", (req, res) => res.json({ status: "ok", version: "1.0.3", timestamp: new Date().toISOString() }));
 
+  // Public Catalog for AI
+  app.get("/api/public/catalog-ai", (req, res) => {
+    try {
+      const products = db.prepare("SELECT * FROM products WHERE user_id = 1 AND stock > 0 ORDER BY description ASC").all() as any[];
+      let content = "# CATÁLOGO DE ESTOQUE - KOMBAT MOTO\n";
+      content += `Gerado em: ${new Date().toLocaleString('pt-BR')}\n\n`;
+      
+      products.forEach(p => {
+        content += `PRODUTO: ${p.description}\n`;
+        if (p.sku) content += `SKU: ${p.sku}\n`;
+        if (p.brand) content += `MARCA: ${p.brand}\n`;
+        content += `PREÇO: R$ ${p.sale_price.toFixed(2)}\n`;
+        content += `ESTOQUE: ${p.stock} ${p.unit || 'un'}\n`;
+        if (p.category) content += `CATEGORIA: ${p.category}\n`;
+        if (p.application) content += `APLICAÇÃO: ${p.application}\n`;
+        if (p.image_url) content += `FOTO: ${p.image_url}\n`;
+        content += `------------------------------------------\n\n`;
+      });
+      
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.send(content);
+    } catch (err: any) {
+      res.status(500).send("Erro ao gerar catálogo: " + err.message);
+    }
+  });
+
+  app.get("/api/public/inventory.json", (req, res) => {
+    try {
+      const products = db.prepare("SELECT description, sku, brand, sale_price, stock, category, application, image_url FROM products WHERE user_id = 1 ORDER BY description ASC").all();
+      res.json(products);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Quotes
   app.get("/api/quotes", authenticateToken, (req, res) => {
     const quotes = db.prepare("SELECT * FROM quotes WHERE user_id = ? ORDER BY created_at DESC LIMIT 100").all(req.user!.id) as any[];

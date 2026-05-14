@@ -11,7 +11,9 @@ import {
   ClipboardCheck, 
   TrendingUp, 
   RefreshCw,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Link,
+  Share2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -151,6 +153,19 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
             >
               <Printer size={18} />
               Exportar
+            </button>
+
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}/api/public/catalog-ai`;
+                navigator.clipboard.writeText(url);
+                alert('Link do catálogo para IA copiado! Agora você pode colar na configuração da sua IA do WhatsApp.');
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition-all font-medium text-sm whitespace-nowrap shadow-lg shadow-slate-200"
+              title="Copiar link para a IA estudar seu estoque"
+            >
+              <Share2 size={18} />
+              Link p/ IA
             </button>
           </div>
 
