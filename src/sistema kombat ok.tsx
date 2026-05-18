@@ -756,6 +756,7 @@ export default function App() {
   const [osForm, setOsForm] = useState<{
     customer_id: string;
     motorcycle_id: string;
+    motorcycle_plate: string;
     items: SaleItem[];
     selected_fixed_services: { id: string; name: string; price: number; payout: number; quantity: number }[];
     labor_value: string;
@@ -768,6 +769,7 @@ export default function App() {
   }>({
     customer_id: '',
     motorcycle_id: '',
+    motorcycle_plate: '',
     items: [],
     selected_fixed_services: [],
     labor_value: '0',
@@ -1571,6 +1573,7 @@ export default function App() {
     setOsForm({
       customer_id: os.customer_id?.toString() || '',
       motorcycle_id: motorcycle?.id.toString() || '',
+      motorcycle_plate: plate || '',
       items: os.items || [],
       selected_fixed_services: [],
       labor_value: os.labor_value.toString(),
@@ -1657,6 +1660,10 @@ export default function App() {
     }
 
     const osId = editingOS ? editingOS.id : Math.random().toString(36).substr(2, 9).toUpperCase();
+    const motoDetailsStr = motorcycle 
+      ? `${motorcycle.model} (${osForm.motorcycle_plate || motorcycle.plate}) - KM: ${osForm.km}`
+      : `Placa: ${osForm.motorcycle_plate || 'N/A'} - KM: ${osForm.km || '0'}`;
+
     const newOS: Sale = {
       id: osId,
       customer_id: customer?.id,
@@ -1670,13 +1677,26 @@ export default function App() {
       payment_method: osForm.payment_method,
       type: 'Oficina',
       date: editingOS ? editingOS.date : new Date().toISOString(),
-      moto_details: motorcycle ? `${motorcycle.model} (${motorcycle.plate}) - KM: ${osForm.km}` : `KM: ${osForm.km}`,
+      moto_details: motoDetailsStr,
       payment_status: osForm.payment_method === 'Fiado' ? 'Pendente' : 'Pago',
       due_date: osForm.payment_method === 'Fiado' ? osForm.due_date : undefined,
       paid_date: osForm.payment_method !== 'Fiado' ? new Date().toISOString() : undefined,
       service_description: osForm.service_description,
       status: osForm.status
     };
+
+    // Update motorcycle plate/km if modified
+    if (motorcycle && (motorcycle.plate !== osForm.motorcycle_plate || motorcycle.current_km !== osForm.km)) {
+      try {
+        await localApi.put('motorcycles', motorcycle.id, {
+          ...motorcycle,
+          plate: osForm.motorcycle_plate || motorcycle.plate,
+          current_km: osForm.km || motorcycle.current_km
+        });
+      } catch (err) {
+        console.error('Failed to update motorcycle details', err);
+      }
+    }
 
     try {
       setLoading(true);
@@ -7217,569 +7237,388 @@ export default function App() {
           title={editingOS ? "Editar Ordem de Serviço" : "Nova Ordem de Serviço"}
           maxWidth="max-w-[95%]"
         >
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
-                <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
-                  value={osForm.customer_id}
-                  onChange={e => setOsForm({ ...osForm, customer_id: e.target.value, motorcycle_id: '' })}
-                >
-                  <option value="">Selecione o Cliente</option>
-                  {sortedCustomers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                {osForm.customer_id && (
-                  <div className="mt-2 flex items-center justify-between px-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Crédito Disponível:</span>
-                    <span className={`text-xs font-bold ${getCustomerRemainingCredit(parseInt(osForm.customer_id)) > 0 ? 'text-rose-600' : 'text-rose-600'}`}>
-                      R$ {getCustomerRemainingCredit(parseInt(osForm.customer_id)).toFixed(2)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {osForm.customer_id && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">Selecione a Moto</label>
-                    <div className="border border-slate-400 rounded-xl bg-slate-50 overflow-hidden">
-                      <div className="max-h-48 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-                        {motorcycles.filter(m => m.customer_id === parseInt(osForm.customer_id)).length > 0 ? (
-                          motorcycles.filter(m => m.customer_id === parseInt(osForm.customer_id)).map(m => (
-                            <button
-                              key={m.id}
-                              type="button"
-                              onClick={() => setOsForm({ ...osForm, motorcycle_id: m.id.toString() })}
-                              className={`w-full text-left p-3 rounded-lg transition-all flex items-center justify-between group ${osForm.motorcycle_id === m.id.toString() ? 'bg-rose-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-700 hover:border-rose-300 hover:bg-rose-50'}`}
-                            >
-                              <div>
-                                <p className={`font-black text-sm uppercase ${osForm.motorcycle_id === m.id.toString() ? 'text-white' : 'text-slate-900'}`}>{m.model}</p>
-                                <p className={`text-[10px] font-bold ${osForm.motorcycle_id === m.id.toString() ? 'text-rose-100' : 'text-slate-400'}`}>PLACA: {m.plate}</p>
-                              </div>
-                              <div className={`w-6 h-6 rounded-full flex items-center justify-center ${osForm.motorcycle_id === m.id.toString() ? 'bg-white text-rose-600' : 'bg-slate-100 text-slate-400 group-hover:bg-rose-100 group-hover:text-rose-600'}`}>
-                                <Bike size={14} />
-                              </div>
-                            </button>
-                          ))
-                        ) : (
-                          <div className="py-8 text-center">
-                            <p className="text-xs font-bold text-slate-400 uppercase italic">Nenhuma moto cadastrada</p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingMotorcycle(null);
-                                setMotorcycleForm({ customer_id: osForm.customer_id, plate: '', model: '', current_km: '' });
-                                setIsMotorcycleModalOpen(true);
-                              }}
-                              className="mt-2 text-[10px] font-black text-rose-600 uppercase hover:underline"
-                            >
-                              Cadastrar Moto
-                            </button>
-                          </div>
-                        )}
+          <div className="h-[calc(85vh-85px)] flex flex-col md:flex-row gap-4 overflow-hidden bg-slate-100/50 p-2 rounded-xl">
+            
+            {/* Esquerda: Cliente, Veículo e Listas */}
+            <div className="flex-1 flex flex-col gap-4 overflow-hidden h-full">
+              
+              {/* Cliente e Veículo Card */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shrink-0 shadow-sm">
+                <div className="grid grid-cols-12 gap-4">
+                  <div className="col-span-12 md:col-span-6">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Users size={12}/> Cliente</label>
+                    <select
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+                      value={osForm.customer_id}
+                      onChange={e => {
+                        const cid = e.target.value;
+                        const customerMotos = motorcycles.filter(m => m.customer_id === parseInt(cid));
+                        if (customerMotos.length > 0) {
+                          setOsForm({ ...osForm, customer_id: cid, motorcycle_id: customerMotos[0].id.toString(), motorcycle_plate: customerMotos[0].plate, km: customerMotos[0].current_km || '' });
+                        } else {
+                          setOsForm({ ...osForm, customer_id: cid, motorcycle_id: '', motorcycle_plate: '', km: '' });
+                        }
+                      }}
+                    >
+                      <option value="">Selecione o Cliente...</option>
+                      {sortedCustomers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    {osForm.customer_id && (
+                      <div className="mt-1.5 flex justify-between items-center px-1">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Crédito:</span>
+                        <span className={`text-[11px] font-black ${getCustomerRemainingCredit(parseInt(osForm.customer_id)) > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          R$ {getCustomerRemainingCredit(parseInt(osForm.customer_id)).toFixed(2)}
+                        </span>
                       </div>
-                    </div>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">KM Atual</label>
+                  <div className="col-span-6 md:col-span-3">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Bike size={12}/> Placa (Moto)</label>
+                    <input
+                      type="text"
+                      placeholder="ABC-1234"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-800 uppercase focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+                      value={osForm.motorcycle_plate || ''}
+                      onChange={e => setOsForm({ ...osForm, motorcycle_plate: e.target.value.toUpperCase() })}
+                    />
+                  </div>
+                  <div className="col-span-6 md:col-span-3">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Settings size={12}/> KM Atual</label>
                     <input
                       type="number"
-                      placeholder="000"
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
-                      value={osForm.km}
+                      placeholder="00000"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all no-spinners"
+                      value={osForm.km || ''}
                       onChange={e => setOsForm({ ...osForm, km: e.target.value })}
                     />
                   </div>
                 </div>
-              )}
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Busca Inteligente (Híbrida) */}
+              <div className="relative shrink-0 z-20">
                 <div className="relative">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Adicionar Peça / Produto</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input
-                      type="text"
-                      placeholder="Buscar no estoque..."
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
-                      value={osSearchProduct}
-                      onChange={e => setOsSearchProduct(e.target.value)}
-                    />
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-500 bg-rose-100 p-1.5 rounded-lg">
+                    <Search size={16} strokeWidth={3} />
                   </div>
+                  <input
+                    type="text"
+                    placeholder="Buscar peça/serviço ou digite para adicionar item avulso..."
+                    className="w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+                    value={osSearchProduct}
+                    onChange={e => osSearchProduct(e.target.value)}
+                  />
                   {osSearchProduct && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                      {sortedProducts.filter(p =>
-                        p && (
-                          (p.description || '').toLowerCase().includes(osSearchProduct.toLowerCase()) ||
-                          ((p.brand || '').toLowerCase().includes(osSearchProduct.toLowerCase())) ||
-                          ((p.alt_code || '').toLowerCase().includes(osSearchProduct.toLowerCase())) ||
-                          ((p.sku || '').toLowerCase().includes(osSearchProduct.toLowerCase()))
-                        )
-                      ).map(p => (
-                        <button
-                          key={p.id}
-                          onClick={() => handleAddOsItem(p)}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-400 last:border-none"
-                        >
-                          <div>
-                            <p className="text-sm font-medium text-slate-900">{p.description}</p>
-                            <p className="text-[10px] text-slate-500 flex items-center gap-2">
-                              Estoque: {p.stock} {p.unit}
-                              {p.alt_code && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold font-mono">ALT: {p.alt_code}</span>}
-                              {p.brand && (
-                                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase tracking-tighter">
-                                  {p.brand}
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                          <span className="text-sm font-bold text-rose-600">R$ {(p.sale_price || 0).toFixed(2)}</span>
-                        </button>
-                      ))}
-                    </div>
+                    <button onClick={() => setOsSearchProduct('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full p-1 transition-colors">
+                      <X size={14} strokeWidth={3}/>
+                    </button>
                   )}
                 </div>
-
-                <div className="relative">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Adicionar Serviço Cadastrado</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input
-                      type="text"
-                      placeholder="Buscar serviço..."
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
-                      value={osSearchService}
-                      onChange={e => setOsSearchService(e.target.value)}
-                    />
-                  </div>
-                  {osSearchService && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                      {sortedRegisteredServices.filter(s =>
-                        s && (s.description || '').toLowerCase().includes((d_osSearchService || '').toLowerCase())
-                      ).map(s => (
+                {osSearchProduct && (
+                  <div className="absolute top-[calc(100%+8px)] left-0 w-full bg-white border border-slate-200 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-h-[40vh] overflow-y-auto z-50 divide-y divide-slate-100 flex flex-col">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                      {/* Produtos Encontrados */}
+                      {sortedProducts.filter(p =>
+                        p && ((p.description || '').toLowerCase().includes(osSearchProduct.toLowerCase()) ||
+                          ((p.brand || '').toLowerCase().includes(osSearchProduct.toLowerCase())) ||
+                          ((p.alt_code || '').toLowerCase().includes(osSearchProduct.toLowerCase())))
+                      ).map(p => (
                         <button
-                          key={s.id}
-                          onClick={() => {
-                            const newServiceItem: SaleItem = {
-                              description: s.description,
-                              quantity: 1,
-                              price: s.price,
-                              type: 'Serviço'
-                            };
-                            setOsForm({
-                              ...osForm,
-                              items: [...osForm.items, newServiceItem]
-                            });
-                            setOsSearchService('');
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-400 last:border-none"
+                          key={`prod-${p.id}`}
+                          onClick={() => { handleAddOsItem(p); setOsSearchProduct(''); }}
+                          className="w-full text-left px-5 py-3.5 hover:bg-rose-50 flex justify-between items-center transition-colors group"
                         >
                           <div>
-                            <p className="text-sm font-medium text-slate-900">{s.description}</p>
+                            <p className="text-sm font-bold text-slate-800 group-hover:text-rose-700">{p.description}</p>
+                            <div className="flex gap-2 mt-1.5">
+                              <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Package size={10}/> Estoque: {p.stock}</span>
+                              {p.brand && <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase font-bold">{p.brand}</span>}
+                            </div>
                           </div>
-                          <span className="text-sm font-bold text-blue-600">R$ {(s.price || 0).toFixed(2)}</span>
+                          <span className="text-sm font-black text-rose-600">R$ {(p.sale_price || 0).toFixed(2)}</span>
+                        </button>
+                      ))}
+
+                      {/* Serviços Encontrados */}
+                      {sortedRegisteredServices.filter(s =>
+                        s && (s.description || '').toLowerCase().includes(osSearchProduct.toLowerCase())
+                      ).map(s => (
+                        <button
+                          key={`serv-${s.id}`}
+                          onClick={() => {
+                            setOsForm({ ...osForm, items: [...osForm.items, { description: s.description, quantity: 1, price: s.price, type: 'Serviço' }] });
+                            setOsSearchProduct('');
+                          }}
+                          className="w-full text-left px-5 py-3.5 hover:bg-amber-50 flex justify-between items-center transition-colors group"
+                        >
+                          <div>
+                            <p className="text-sm font-bold text-slate-800 group-hover:text-amber-700">{s.description}</p>
+                            <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold uppercase mt-1.5 inline-flex items-center gap-1"><Wrench size={10}/> Serviço Cadastrado</span>
+                          </div>
+                          <span className="text-sm font-black text-amber-600">R$ {(s.price || 0).toFixed(2)}</span>
                         </button>
                       ))}
                     </div>
-                  )}
+
+                    {/* Adicionar Avulso */}
+                    <div className="p-3 bg-slate-50 sticky bottom-0 border-t border-slate-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+                      <button
+                        onClick={() => {
+                          setOsForm({ ...osForm, items: [...osForm.items, { description: osSearchProduct.toUpperCase(), quantity: 1, price: 0, type: 'Peça' }] });
+                          setOsSearchProduct('');
+                        }}
+                        className="w-full py-3 bg-white border-2 border-rose-200 text-xs font-black text-rose-600 rounded-xl hover:bg-rose-50 hover:border-rose-400 transition-all uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <PlusCircle size={16} /> Adicionar "{osSearchProduct}" como item avulso
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Listas de Peças e Serviços */}
+              <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar pb-4">
+                
+                {/* Tabela Peças */}
+                {osForm.items.filter(i => i.product_id || i.type === 'Peça').length > 0 && (
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Package size={14}/> Peças e Acessórios</span>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {osForm.items.map((item, idx) => (item.product_id || item.type === 'Peça') && (
+                        <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-3 hover:bg-slate-50/80 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-800 truncate" title={item.description}>{item.description}</p>
+                            {!item.product_id && <span className="text-[9px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold uppercase mt-1.5 inline-flex items-center gap-1"><AlertCircle size={10}/> Item Avulso</span>}
+                          </div>
+                          
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                              <button type="button" onClick={() => handleOsItemQuantityChange(idx, Math.max(1, item.quantity - 1))} className="p-1.5 text-slate-400 hover:bg-white hover:text-rose-600 rounded-md transition-all shadow-sm"><Minus size={12} strokeWidth={3}/></button>
+                              <input type="number" min="1" value={item.quantity} onChange={e => handleOsItemQuantityChange(idx, parseInt(e.target.value) || 1)} className="w-8 text-center text-xs font-black text-slate-700 outline-none no-spinners bg-transparent" />
+                              <button type="button" onClick={() => handleOsItemQuantityChange(idx, item.quantity + 1)} className="p-1.5 text-slate-400 hover:bg-white hover:text-rose-600 rounded-md transition-all shadow-sm"><Plus size={12} strokeWidth={3}/></button>
+                            </div>
+                            
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-400 font-bold">R$</span>
+                              <input type="number" step="0.01" value={item.price} onChange={e => handleOsItemPriceChange(idx, parseFloat(e.target.value) || 0)} className={`w-20 px-2 py-1.5 rounded-lg text-xs font-bold outline-none text-right transition-all border ${!item.product_id ? 'border-rose-400 bg-rose-50 text-rose-900 focus:ring-4 focus:ring-rose-500/10' : 'border-slate-200 bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10'}`} />
+                            </div>
+
+                            <div className="w-20 text-right">
+                              <span className="text-sm font-black text-slate-800">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                            </div>
+
+                            <button onClick={() => handleRemoveOsItem(idx)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tabela Serviços */}
+                {(osForm.items.filter(i => !i.product_id && i.type === 'Serviço').length > 0 || (osForm.selected_fixed_services || []).length > 0) && (
+                  <div className="bg-white rounded-2xl border border-amber-200 overflow-hidden shadow-sm">
+                    <div className="bg-amber-50 px-4 py-2.5 border-b border-amber-100 flex items-center justify-between">
+                      <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-1.5"><Wrench size={14}/> Mão de Obra e Serviços</span>
+                    </div>
+                    <div className="divide-y divide-amber-50">
+                      {/* Serviços Adicionados do Search */}
+                      {osForm.items.map((item, idx) => (!item.product_id && item.type === 'Serviço') && (
+                        <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-3 hover:bg-amber-50/40 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-800 truncate" title={item.description}>{item.description}</p>
+                          </div>
+                          
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center bg-amber-50 rounded-lg p-0.5 border border-amber-200">
+                              <button type="button" onClick={() => handleOsItemQuantityChange(idx, Math.max(1, item.quantity - 1))} className="p-1.5 text-amber-600 hover:bg-white hover:text-amber-700 rounded-md transition-all shadow-sm"><Minus size={12} strokeWidth={3}/></button>
+                              <input type="number" min="1" value={item.quantity} onChange={e => handleOsItemQuantityChange(idx, parseInt(e.target.value) || 1)} className="w-8 text-center text-xs font-black text-amber-900 outline-none no-spinners bg-transparent" />
+                              <button type="button" onClick={() => handleOsItemQuantityChange(idx, item.quantity + 1)} className="p-1.5 text-amber-600 hover:bg-white hover:text-amber-700 rounded-md transition-all shadow-sm"><Plus size={12} strokeWidth={3}/></button>
+                            </div>
+                            
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-amber-600/60 font-bold">R$</span>
+                              <input type="number" step="0.01" value={item.price} onChange={e => handleOsItemPriceChange(idx, parseFloat(e.target.value) || 0)} className="w-20 px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-xs font-bold outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-500/10 text-right transition-all" />
+                            </div>
+
+                            <div className="w-20 text-right">
+                              <span className="text-sm font-black text-amber-700">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                            </div>
+
+                            <button onClick={() => handleRemoveOsItem(idx)} className="p-2 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Serviços Fixos Repasse */}
+                      {(osForm.selected_fixed_services || []).map((sfs, idx) => (
+                        <div key={`sfs-${idx}`} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-3 bg-indigo-50/50 hover:bg-indigo-50 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-indigo-900 truncate" title={sfs.name}>{sfs.name}</p>
+                            <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mt-1.5 inline-block">Terceirizado / Repasse</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center bg-white rounded-lg p-0.5 border border-indigo-200">
+                              <button type="button" onClick={() => setOsForm({ ...osForm, selected_fixed_services: osForm.selected_fixed_services.map((it, i) => i === idx ? { ...it, quantity: Math.max(1, it.quantity - 1) } : it) })} className="p-1.5 text-indigo-400 hover:bg-indigo-100 hover:text-indigo-700 rounded-md transition-all shadow-sm"><Minus size={12} strokeWidth={3}/></button>
+                              <span className="w-8 flex items-center justify-center text-xs font-black text-indigo-900">{sfs.quantity}</span>
+                              <button type="button" onClick={() => setOsForm({ ...osForm, selected_fixed_services: osForm.selected_fixed_services.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it) })} className="p-1.5 text-indigo-400 hover:bg-indigo-100 hover:text-indigo-700 rounded-md transition-all shadow-sm"><Plus size={12} strokeWidth={3}/></button>
+                            </div>
+                            
+                            <div className="flex items-center gap-1 w-20 justify-end">
+                              <span className="text-[10px] text-indigo-400/60 font-bold">R$</span>
+                              <span className="text-xs font-bold text-indigo-900">{sfs.price.toFixed(2)}</span>
+                            </div>
+
+                            <div className="w-20 text-right">
+                              <span className="text-sm font-black text-indigo-700">R$ {(sfs.price * sfs.quantity).toFixed(2)}</span>
+                            </div>
+
+                            <button onClick={() => setOsForm({ ...osForm, selected_fixed_services: osForm.selected_fixed_services.filter(item => item.id !== sfs.id) })} className="p-2 text-indigo-300 hover:text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Direita: Info, Totais e Ações */}
+            <div className="w-full md:w-[320px] shrink-0 flex flex-col gap-4 overflow-hidden h-full">
+              
+              {/* Opções OS */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-4 shrink-0 shadow-sm">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Wrench size={12}/> Mecânico Resp.</label>
+                  <select
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+                    value={osForm.mechanic_id}
+                    onChange={e => setOsForm({ ...osForm, mechanic_id: e.target.value })}
+                  >
+                    <option value="">Sem Mecânico / Geral</option>
+                    {sortedMechanics.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select>
+                </div>
+
+                {osForm.mechanic_id && (
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                      <span className="flex items-center gap-1"><ExternalLink size={12}/> Adicionar Repasse</span>
+                    </label>
+                    <select
+                      className="w-full px-3 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold focus:bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                      value=""
+                      onChange={e => {
+                        const selectedService = fixedServices.find(fs => String(fs.id) === String(e.target.value));
+                        if (selectedService) {
+                          const existingService = osForm.selected_fixed_services.find(sfs => sfs.id === selectedService.id);
+                          if (existingService) {
+                            setOsForm({ ...osForm, selected_fixed_services: osForm.selected_fixed_services.map(sfs => sfs.id === selectedService.id ? { ...sfs, quantity: sfs.quantity + 1 } : sfs) });
+                          } else {
+                            setOsForm({ ...osForm, selected_fixed_services: [...osForm.selected_fixed_services, { ...selectedService, quantity: 1 }] });
+                          }
+                        }
+                      }}
+                    >
+                      <option value="">+ Selecione o Serviço Terceirizado</option>
+                      {sortedFixedServices.map(fs => (
+                        <option key={fs.id} value={fs.id}>{fs.name} (Repasse: {formatBRL(fs.payout)})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
+                    <select
+                      className="w-full px-2 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+                      value={osForm.status}
+                      onChange={e => setOsForm({ ...osForm, status: e.target.value as any })}
+                    >
+                      <option value="Aberto">Aberto</option>
+                      <option value="Em Andamento">Em Andamento</option>
+                      <option value="Pronto">Pronto</option>
+                      <option value="Entregue">Entregue</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Pagamento</label>
+                    <select
+                      className="w-full px-2 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+                      value={osForm.payment_method}
+                      onChange={e => setOsForm({ ...osForm, payment_method: e.target.value as any })}
+                    >
+                      <option value="Pix">Pix</option>
+                      <option value="Cartão">Cartão</option>
+                      <option value="Dinheiro">Dinheiro</option>
+                      <option value="Fiado">Fiado</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Descrição do Serviço / Problema</label>
+              {/* Descrição Flex */}
+              <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden min-h-[80px] shadow-sm">
+                <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><FileText size={12}/> Observações / Problema</span>
+                </div>
                 <textarea
-                  placeholder="Descreva o que será feito ou o problema relatado pelo cliente..."
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none min-h-[100px] resize-none"
+                  placeholder="Relato do cliente, observações gerais da moto..."
+                  className="flex-1 w-full p-4 text-xs font-medium text-slate-700 bg-transparent resize-none outline-none focus:bg-slate-50/50 transition-colors"
                   value={osForm.service_description}
                   onChange={e => setOsForm({ ...osForm, service_description: e.target.value })}
                 />
               </div>
 
-              {/* Items List */}
-              <div className="space-y-6">
-                {/* Peças Section */}
-                {osForm.items.filter(i => i.product_id).length > 0 && (
-                  <div className="space-y-2">
-                    <h5 className="text-[10px] font-black text-rose-500 uppercase tracking-widest px-2">Peças e Produtos</h5>
-                    {osForm.items.map((item, idx) => item.product_id && (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-400">
-                        <div className="flex-1">
-                          <p className="text-sm font-bold text-slate-900">{item.description}</p>
-                          <div className="flex items-center gap-3 mt-1">
-                            <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7">
-                              <button
-                                type="button"
-                                onClick={() => handleOsItemQuantityChange(idx, Math.max(1, item.quantity - 1))}
-                                className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
-                              >
-                                <MinusCircle size={14} />
-                              </button>
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={e => handleOsItemQuantityChange(idx, parseInt(e.target.value) || 1)}
-                                className="w-10 h-full text-center text-slate-900 font-bold outline-none border-x border-slate-400 no-spinners"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleOsItemQuantityChange(idx, item.quantity + 1)}
-                                className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
-                              >
-                                <PlusCircle size={14} />
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs text-slate-500">x R$</span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={item.price}
-                                onChange={e => handleOsItemPriceChange(idx, parseFloat(e.target.value) || 0)}
-                                className="w-24 px-2 py-0.5 bg-white border border-slate-400 rounded-md text-slate-900 font-bold text-xs focus:ring-1 focus:ring-rose-500 focus:border-rose-500 outline-none"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="flex flex-col items-end">
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Total do Item</span>
-                            <div className="flex items-center gap-1">
-                              <span className="text-sm font-bold text-slate-900">R$</span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={(item.price * item.quantity).toFixed(2)}
-                                onChange={e => handleOsItemTotalChange(idx, parseFloat(e.target.value) || 0)}
-                                className="w-24 px-2 py-1 bg-white border-2 border-slate-400 rounded-lg text-slate-900 font-black text-sm focus:border-rose-500 outline-none text-right"
-                              />
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveOsItem(idx)}
-                            className="p-1 text-rose-400 hover:text-rose-600"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="flex justify-end pr-4">
-                      <p className="text-xs font-bold text-rose-600">Subtotal Peças: R$ {osForm.items.filter(i => i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0).toFixed(2)}</p>
-                    </div>
+              {/* Totais e Ações */}
+              <div className="bg-slate-900 rounded-2xl p-5 text-white shrink-0 shadow-xl relative overflow-hidden">
+                {/* Decorative blob */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 blur-2xl rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+                
+                <div className="space-y-2 relative z-10">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider">Subtotal Peças</span>
+                    <span className="font-bold text-slate-100">R$ {osForm.items.filter(i => i.product_id || i.type === 'Peça').reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}</span>
                   </div>
-                )}
-
-                {/* Serviços Section */}
-                {osForm.items.filter(i => !i.product_id).length > 0 && (
-                  <div className="space-y-2">
-                    <h5 className="text-[10px] font-black text-amber-500 uppercase tracking-widest px-2">Serviços Descriminados</h5>
-                    {osForm.items.map((item, idx) => !item.product_id && (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-amber-50/30 rounded-xl border border-amber-100">
-                        <div className="flex-1">
-                          <p className="text-sm font-bold text-slate-900">{item.description}</p>
-                          <div className="flex items-center gap-3 mt-1">
-                            <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7">
-                              <button
-                                type="button"
-                                onClick={() => handleOsItemQuantityChange(idx, Math.max(1, item.quantity - 1))}
-                                className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
-                              >
-                                <MinusCircle size={14} />
-                              </button>
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={e => handleOsItemQuantityChange(idx, parseInt(e.target.value) || 1)}
-                                className="w-10 h-full text-center text-slate-900 font-bold outline-none border-x border-slate-400 no-spinners"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleOsItemQuantityChange(idx, item.quantity + 1)}
-                                className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
-                              >
-                                <PlusCircle size={14} />
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs text-slate-500">x R$</span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={item.price}
-                                onChange={e => handleOsItemPriceChange(idx, parseFloat(e.target.value) || 0)}
-                                className="w-24 px-2 py-0.5 bg-white border border-slate-400 rounded-md text-slate-900 font-bold text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="flex flex-col items-end">
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Total do Item</span>
-                            <div className="flex items-center gap-1">
-                              <span className="text-sm font-bold text-slate-900">R$</span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={(item.price * item.quantity).toFixed(2)}
-                                onChange={e => handleOsItemTotalChange(idx, parseFloat(e.target.value) || 0)}
-                                className="w-24 px-2 py-1 bg-white border-2 border-slate-400 rounded-lg text-slate-900 font-black text-sm focus:border-amber-500 outline-none text-right"
-                              />
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveOsItem(idx)}
-                            className="p-1 text-rose-400 hover:text-rose-600"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="flex justify-end pr-4">
-                      <p className="text-xs font-bold text-amber-600">Subtotal Serviços: R$ {(
-                        osForm.items.filter(i => !i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0) +
-                        (osForm.selected_fixed_services || []).reduce((acc, sfs) => acc + (sfs.price * sfs.quantity), 0)
-                      ).toFixed(2)}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Valor da Mão de Obra (R$)</label>
-                <input
-                  type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
-                  value={osForm.labor_value}
-                  onChange={e => setOsForm({ ...osForm, labor_value: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Mecânico Responsável</label>
-                <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
-                  value={osForm.mechanic_id}
-                  onChange={e => setOsForm({ ...osForm, mechanic_id: e.target.value })}
-                >
-                  <option value="">Selecione o Mecânico</option>
-                  {sortedMechanics.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                </select>
-              </div>
-
-              {osForm.mechanic_id && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Adicionar Serviço Fixo (Tabela de Repasses)</label>
-                  <select
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
-                    value=""
-                    onChange={e => {
-                      const selectedService = fixedServices.find(fs => String(fs.id) === String(e.target.value));
-                      if (selectedService) {
-                        const existingService = osForm.selected_fixed_services.find(sfs => sfs.id === selectedService.id);
-                        if (existingService) {
-                          setOsForm({
-                            ...osForm,
-                            selected_fixed_services: osForm.selected_fixed_services.map(sfs =>
-                              sfs.id === selectedService.id ? { ...sfs, quantity: sfs.quantity + 1 } : sfs
-                            )
-                          });
-                        } else {
-                          setOsForm({
-                            ...osForm,
-                            selected_fixed_services: [...osForm.selected_fixed_services, { ...selectedService, quantity: 1 }]
-                          });
-                        }
-                      }
-                    }}
-                  >
-                    <option value="">Selecione um Serviço Fixo</option>
-                    {sortedFixedServices.map(fs => (
-                      <option key={fs.id} value={fs.id}>{fs.name} (Repasse: {formatBRL(fs.payout)})</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {(osForm.selected_fixed_services || []).length > 0 && (
-                <div className="space-y-2">
-                  <p className="block text-sm font-medium text-slate-700 mb-1">Serviços Fixos Selecionados:</p>
-                  {osForm.selected_fixed_services.map((sfs, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-400">
-                      <div className="flex-1">
-                        <p className="text-sm font-bold text-slate-900">{sfs.name}</p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newQty = Math.max(1, sfs.quantity - 1);
-                                setOsForm({
-                                  ...osForm,
-                                  selected_fixed_services: osForm.selected_fixed_services.map((it, i) => i === idx ? { ...it, quantity: newQty } : it)
-                                });
-                              }}
-                              className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
-                            >
-                              <MinusCircle size={14} />
-                            </button>
-                            <span className="px-3 h-full flex items-center justify-center text-xs font-bold text-slate-900 border-x border-slate-400 min-w-[32px]">
-                              {sfs.quantity}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOsForm({
-                                  ...osForm,
-                                  selected_fixed_services: osForm.selected_fixed_services.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it)
-                                });
-                              }}
-                              className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
-                            >
-                              <PlusCircle size={14} />
-                            </button>
-                          </div>
-                          <p className="text-xs text-slate-500">x Repasse: {formatBRL(sfs.payout)}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-slate-900">Total Repasse: {formatBRL(sfs.payout * sfs.quantity)}</span>
-                        <button
-                          onClick={() => setOsForm({
-                            ...osForm,
-                            selected_fixed_services: osForm.selected_fixed_services.filter(item => item.id !== sfs.id)
-                          })}
-                          className="p-1 text-rose-400 hover:text-rose-600"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => setOsForm({ ...osForm, payment_method: method as any, due_date: method === 'Fiado' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : osForm.due_date })}
-                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${osForm.payment_method === method
-                        ? 'bg-amber-600 border-amber-600 text-white shadow-md'
-                        : 'bg-white border-slate-400 text-slate-600 hover:border-amber-200'
-                        }`}
-                    >
-                      {method}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {osForm.payment_method === 'Fiado' && (
-                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-                  <label className="block text-sm font-bold text-amber-700 mb-1">Data de Vencimento</label>
-                  <input
-                    type="date"
-                    className="w-full px-4 py-2 bg-white border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none"
-                    value={osForm.due_date}
-                    onChange={e => setOsForm({ ...osForm, due_date: e.target.value })}
-                  />
-                  <p className="text-[10px] text-amber-600 mt-1 italic">* Multas e juros automáticos após 30 dias de atraso.</p>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Status da O.S.</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {['Aberto', 'Em Andamento', 'Pronto', 'Entregue'].map(statusOption => (
-                    <button
-                      key={statusOption}
-                      type="button"
-                      onClick={() => setOsForm({ ...osForm, status: statusOption as any })}
-                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${osForm.status === statusOption
-                        ? 'bg-amber-600 border-amber-600 text-white shadow-md'
-                        : 'bg-white border-slate-400 text-slate-600 hover:border-amber-200'
-                        }`}
-                    >
-                      {statusOption}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-400">
-                <div className="bg-slate-50 p-4 rounded-2xl mb-4 border border-slate-400 flex flex-col gap-2">
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-slate-500 font-bold uppercase">Total em Peças:</span>
-                    <span className="font-bold text-slate-700">R$ {osForm.items.filter(i => i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-[10px]">
-                    <span className="text-slate-500 font-bold uppercase">Total em Serviços:</span>
-                    <span className="font-bold text-slate-700">R$ {(
-                      osForm.items.filter(i => !i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + 
-                      (osForm.selected_fixed_services || []).reduce((acc, sfs) => acc + (sfs.price * sfs.quantity), 0) +
-                      (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider">Subtotal Serviços</span>
+                    <span className="font-bold text-slate-100">R$ {(
+                      osForm.items.filter(i => !i.product_id && i.type === 'Serviço').reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + 
+                      (osForm.selected_fixed_services || []).reduce((acc, sfs) => acc + (sfs.price * sfs.quantity), 0)
                     ).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-400 mt-1">
-                    <div className="flex flex-col">
-                      <span className="text-slate-900 font-black uppercase text-sm">Valor Total da O.S.</span>
-                      {osForm.payment_method === 'Fiado' && (
-                        <div className="mt-1 flex flex-col">
-                          <span className="text-[10px] text-slate-400 font-bold uppercase">Valor Normal (Até 30 Dias)</span>
-                          <span className="text-[10px] text-rose-500 font-black uppercase tracking-tighter">* Valor após 30 dias: {formatBRL((
-                            osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + 
-                            (osForm.selected_fixed_services || []).reduce((acc, sfs) => acc + (sfs.price * sfs.quantity), 0) +
-                            (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)
-                          ) * 1.15)}</span>
-                        </div>
-                      )}
+                  
+                  {/* Mão de Obra Avulsa Antiga ou para add rapido */}
+                  <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-800">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider">M. Obra Extra</span>
+                    <div className="flex items-center gap-1.5 w-24">
+                      <span className="text-slate-500 font-bold">R$</span>
+                      <input 
+                        type="number" step="0.01" 
+                        value={osForm.labor_value} 
+                        onChange={e => setOsForm({ ...osForm, labor_value: e.target.value })}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-right text-xs font-black focus:border-rose-500 focus:bg-slate-800/80 outline-none transition-all"
+                      />
                     </div>
-                    <span className="text-2xl font-black text-rose-600">
-                      R$ {(
+                  </div>
+                </div>
+
+                <div className="pt-4 mt-4 border-t border-slate-800 relative z-10 flex flex-col gap-3">
+                  <div className="flex justify-between items-end">
+                    <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mb-1">Valor Total</p>
+                    <p className="text-3xl font-black tracking-tight">
+                      <span className="text-lg text-slate-400 mr-1">R$</span>
+                      {(
                         osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + 
                         (osForm.selected_fixed_services || []).reduce((acc, sfs) => acc + (sfs.price * sfs.quantity), 0) +
                         (parseFloat((osForm.labor_value || '0').toString().replace(',', '.')) || 0)
                       ).toFixed(2)}
-                    </span>
+                    </p>
                   </div>
-                </div>
-
-                <div className="mb-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowOsCalculator(!showOsCalculator)}
-                    className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-400"
-                  >
-                    <Calculator size={18} />
-                    {showOsCalculator ? 'Esconder Calculadora de Venda' : 'Abrir Calculadora de Taxas/Prazo'}
-                  </button>
-                </div>
-
-                {showOsCalculator && (
-                  <div className="mb-6 animate-in slide-in-from-top-4 duration-300">
-                    <VendaCalculator
-                      initialCost={osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + parseFloat(osForm.labor_value || '0')}
-                      cardFees={cardFeesSettings}
-                      onApply={(newTotal) => {
-                        const currentTotal = osForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) + parseFloat(osForm.labor_value || '0');
-                        const diff = newTotal - currentTotal;
-                        if (diff > 0) {
-                          const newLabor = parseFloat(osForm.labor_value || '0') + diff;
-                          setOsForm({ ...osForm, labor_value: newLabor.toString() });
-                          alert('Diferença aplicada na Mão de Obra!');
-                        }
-                      }}
-                    />
-                  </div>
-                )}
-
                 <button
                   onClick={handleCompleteOS}
                   className="w-full py-4 bg-amber-600 text-white rounded-2xl font-bold text-lg hover:bg-amber-700 transition-all shadow-lg shadow-amber-100"
@@ -7789,7 +7628,8 @@ export default function App() {
               </div>
             </div>
           </div>
-        </Modal>
+        </div>
+      </Modal>
 
         {/* Mechanic Report Modal */}
         <Modal

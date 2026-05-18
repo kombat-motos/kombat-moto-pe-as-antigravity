@@ -460,8 +460,11 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       totalBruto,
       totalLiquido,
       descontos,
-      acrescimos,
-      const handlePrintClosing = () => {
+      acrescimos
+    });
+  };
+
+  const handlePrintClosing = () => {
     if (!closingResult) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
