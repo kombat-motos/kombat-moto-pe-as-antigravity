@@ -196,8 +196,8 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
     // Adiciona o código do país caso não exista (assumindo 55 para o Brasil se tiver 10 ou 11 dígitos)
     const finalNumber = cleanNumber.length <= 11 ? `55${cleanNumber}` : cleanNumber;
     
-    // Fallback padrão universal para a web e desktop
-    return `https://api.whatsapp.com/send?phone=${finalNumber}&text=${encodedMessage}`;
+    // Voltando para o padrão wa.me exato usado no CRM que é conhecido por funcionar sem bugs de QR Code
+    return `https://wa.me/${finalNumber}?text=${encodedMessage}`;
   };
 
   const generateDigitalReceipt = (sale: Sale, type: 'before' | 'on' | 'after', totalWithCharges: number) => {
