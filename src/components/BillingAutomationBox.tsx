@@ -190,24 +190,30 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
   };
 
   const generateWhatsAppLink = (phoneNumber: string, message: string) => {
-    // Remove tudo que não for número (parênteses, espaços, traços)
     const cleanNumber = phoneNumber.replace(/\D/g, '');
+    
+    // Se não tiver número, não gera link para não bugar o WhatsApp Web com "phone=55"
+    if (!cleanNumber || cleanNumber.length < 10) return '';
+
     const encodedMessage = encodeURIComponent(message);
-    // Adiciona o código do país caso não exista (assumindo 55 para o Brasil se tiver 10 ou 11 dígitos)
     const finalNumber = cleanNumber.length <= 11 ? `55${cleanNumber}` : cleanNumber;
     
-    // Detecta se é dispositivo móvel
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     
     if (isMobile) {
-      // Em celulares, o wa.me funciona melhor e abre o app nativo
       return `https://wa.me/${finalNumber}?text=${encodedMessage}`;
     }
     
-    // No Desktop (Windows/Mac), força o WhatsApp Web direto para evitar:
-    // 1. O app nativo do Windows abrindo com tela branca/cinza
-    // 2. A página do api.whatsapp pedindo QR code mesmo já estando logado
     return `https://web.whatsapp.com/send?phone=${finalNumber}&text=${encodedMessage}`;
+  };
+
+  const handleWhatsAppClick = (e: React.MouseEvent, phone: string, link: string) => {
+    e.preventDefault();
+    if (!link) {
+      alert('⚠️ OPA! Este cliente não possui um número de celular válido cadastrado. Por favor, edite o cadastro do cliente e adicione um WhatsApp (com DDD).');
+      return;
+    }
+    window.open(link, '_blank');
   };
 
   const generateDigitalReceipt = (sale: Sale, type: 'before' | 'on' | 'after', totalWithCharges: number) => {
@@ -370,61 +376,55 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                     <div className="flex items-center gap-1.5 px-4 h-12 border-x border-slate-400 ml-4 group/regua">
                       <div className="flex flex-col items-center">
                         <span className="text-[8px] font-black uppercase text-slate-400 mb-1">Lembrete</span>
-                        <a
-                          href={generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, 'before', totalWithCharges))}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={(e) => handleWhatsAppClick(e, customerWhatsapp, generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, 'before', totalWithCharges)))}
                           className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
                             notificationType === 'before' ? 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-500 ring-offset-1' : 'bg-slate-50 text-slate-300 hover:bg-indigo-50 hover:text-indigo-400'
                           }`}
                           title="Disparar Lembrete (Pré-vencimento)"
                         >
                           <MessageCircle size={14} />
-                        </a>
+                        </button>
                       </div>
 
                       <div className="w-4 h-[1px] bg-slate-100 mt-3"></div>
 
                       <div className="flex flex-col items-center">
                         <span className="text-[8px] font-black uppercase text-slate-400 mb-1">Vencimento</span>
-                        <a
-                          href={generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, 'on', totalWithCharges))}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={(e) => handleWhatsAppClick(e, customerWhatsapp, generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, 'on', totalWithCharges)))}
                           className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
                             notificationType === 'on' ? 'bg-emerald-100 text-emerald-600 ring-2 ring-emerald-500 ring-offset-1' : 'bg-slate-50 text-slate-300 hover:bg-emerald-50 hover:text-emerald-400'
                           }`}
                           title="Disparar Notificação (Hoje)"
                         >
                           <Check size={14} />
-                        </a>
+                        </button>
                       </div>
 
                       <div className="w-4 h-[1px] bg-slate-100 mt-3"></div>
 
                       <div className="flex flex-col items-center">
                         <span className="text-[8px] font-black uppercase text-slate-400 mb-1">Crítica</span>
-                        <a
-                          href={generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, 'after', totalWithCharges))}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={(e) => handleWhatsAppClick(e, customerWhatsapp, generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, 'after', totalWithCharges)))}
                           className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
                             notificationType === 'after' ? 'bg-rose-100 text-rose-600 ring-4 ring-rose-500/20 ring-offset-1' : 'bg-slate-50 text-slate-300 hover:bg-rose-50 hover:text-rose-400'
                           }`}
                           title="Disparar Cobrança (Atraso)"
                         >
                           <Send size={14} />
-                        </a>
+                        </button>
                       </div>
                       <div className="w-4 h-[1px] bg-slate-100 mt-3"></div>
 
                       <div className="flex flex-col items-center">
                         <span className="text-[8px] font-black uppercase text-slate-400 mb-1">Envio PDF</span>
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
                             const thermalMsg = generateDigitalReceipt(sale, notificationType || 'after', totalWithCharges);
                             handlePrintPromissory(sale, totalWithCharges);
-                            window.open(generateWhatsAppLink(customerWhatsapp, thermalMsg), '_blank');
+                            handleWhatsAppClick(e, customerWhatsapp, generateWhatsAppLink(customerWhatsapp, thermalMsg));
                           }}
                           className={`w-8 h-8 rounded-full flex items-center justify-center transition-all bg-slate-800 text-white hover:scale-110 shadow-lg`}
                           title="Gerar PDF e Notinha p/ WhatsApp"
@@ -525,17 +525,15 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                       <Printer size={14} />
                       Nota de Cobrança (PDF)
                     </button>
-                    <a
-                      href={generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, notificationType || 'on', totalWithCharges))}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={(e) => handleWhatsAppClick(e, customerWhatsapp, generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, notificationType || 'on', totalWithCharges)))}
                       className={`flex items-center gap-1 px-3 py-1.5 text-white text-xs rounded-lg transition-colors font-bold ${notificationType === 'after' ? 'bg-rose-500 hover:bg-rose-600' :
                         notificationType === 'on' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-slate-500 hover:bg-slate-600'
                         }`}
                     >
                       <Send size={14} />
                       Cobrar Agora
-                    </a>
+                    </button>
                   </div>
 
                   {payingSaleId === sale.id ? (
