@@ -1631,12 +1631,15 @@ export default function App() {
       }
 
       const currentDebt = sales
-        .filter(s => s.customer_id === customer.id && s.payment_status === 'Pendente')
+        .filter(s => s.customer_id === customer.id && s.payment_status === 'Pendente' && (!editingOS || s.id !== editingOS.id))
         .reduce((acc, s) => acc + s.total, 0);
 
-      if (currentDebt + total > (customer.credit_limit || 0)) {
-        alert(`Limite de crédito excedido! \nLimite: ${formatBRL(customer.credit_limit)} \nDívida Atual: ${formatBRL(currentDebt)} \nEsta O.S.: ${formatBRL(total)}`);
-        return;
+      // Se for edição e o total não aumentou, não precisa bloquear
+      const isEditingAndNotIncreasingDebt = editingOS && total <= editingOS.total;
+
+      if (!isEditingAndNotIncreasingDebt && (currentDebt + total > (customer.credit_limit || 0))) {
+        const proceed = window.confirm(`Limite de crédito excedido!\nLimite: ${formatBRL(customer.credit_limit)}\nDívida Atual: ${formatBRL(currentDebt)}\nEsta O.S.: ${formatBRL(total)}\n\nDeseja salvar a O.S. mesmo assim?`);
+        if (!proceed) return;
       }
     }
 
