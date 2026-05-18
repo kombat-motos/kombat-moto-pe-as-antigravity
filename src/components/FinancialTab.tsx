@@ -461,9 +461,66 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       totalLiquido,
       descontos,
       acrescimos,
-      pecasList,
-      servicosList
-    });
+      const handlePrintClosing = () => {
+    if (!closingResult) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const content = `
+      <div style="font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px;">
+          <h2 style="margin: 0; text-transform: uppercase;">Resumo de Fechamento</h2>
+          <h3 style="margin: 5px 0;">${closingResult.customerName}</h3>
+          <p style="margin: 0; color: #666;">Período: ${closingResult.periodLabel}</p>
+        </div>
+
+        <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+          <div style="flex: 1;">
+            <h4 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">Peças e Acessórios</h4>
+            <ul style="list-style: none; padding: 0; margin: 0; font-size: 14px;">
+              ${closingResult.pecasList.length === 0 ? '<li style="color: #999;">Nenhuma peça no período.</li>' : closingResult.pecasList.map((p: any) => `
+                <li style="display: flex; justify-content: space-between; margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px dashed #eee;">
+                  <span>${p.quantity}x ${p.description} <small style="color:#999">(${new Date(p.date).toLocaleDateString('pt-BR')})</small></span>
+                  <strong>${formatBRL(p.price * p.quantity)}</strong>
+                </li>
+              `).join('')}
+            </ul>
+            <p style="text-align: right; margin-top: 10px;"><strong>Subtotal Peças: ${formatBRL(closingResult.totalPecas)}</strong></p>
+          </div>
+
+          <div style="flex: 1;">
+            <h4 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">Mão de Obra e Serviços</h4>
+            <ul style="list-style: none; padding: 0; margin: 0; font-size: 14px;">
+              ${closingResult.servicosList.length === 0 ? '<li style="color: #999;">Nenhum serviço no período.</li>' : closingResult.servicosList.map((s: any) => `
+                <li style="display: flex; justify-content: space-between; margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px dashed #eee;">
+                  <span>${s.quantity}x ${s.description} <small style="color:#999">(${new Date(s.date).toLocaleDateString('pt-BR')})</small></span>
+                  <strong>${formatBRL(s.price * s.quantity)}</strong>
+                </li>
+              `).join('')}
+            </ul>
+            <p style="text-align: right; margin-top: 10px;"><strong>Subtotal Serviços: ${formatBRL(closingResult.totalServicos)}</strong></p>
+          </div>
+        </div>
+
+        <div style="border: 2px solid #333; padding: 15px; border-radius: 8px; background: #f9f9f9;">
+          <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+            <tr><td style="padding: 4px 0;">Total em Peças:</td><td style="text-align: right; padding: 4px 0;">${formatBRL(closingResult.totalPecas)}</td></tr>
+            <tr><td style="padding: 4px 0;">Total em Serviços:</td><td style="text-align: right; padding: 4px 0;">${formatBRL(closingResult.totalServicos)}</td></tr>
+            ${closingResult.descontos > 0 ? `<tr><td style="color: green; padding: 4px 0;">(-) Descontos Aplicados:</td><td style="text-align: right; color: green; padding: 4px 0;">${formatBRL(closingResult.descontos)}</td></tr>` : ''}
+            ${closingResult.acrescimos > 0 ? `<tr><td style="color: red; padding: 4px 0;">(+) Acréscimos/Taxas:</td><td style="text-align: right; color: red; padding: 4px 0;">${formatBRL(closingResult.acrescimos)}</td></tr>` : ''}
+            <tr><td colspan="2"><hr style="border-top: 1px solid #ccc; margin: 10px 0;" /></td></tr>
+            <tr>
+              <td style="padding: 4px 0;"><strong>VALOR TOTAL GERAL A PAGAR:</strong></td>
+              <td style="text-align: right; font-size: 18px; padding: 4px 0;"><strong>${formatBRL(closingResult.totalLiquido)}</strong></td>
+            </tr>
+          </table>
+        </div>
+        <p style="text-align: center; font-size: 12px; margin-top: 30px; color: #666;">Impresso em: ${new Date().toLocaleString('pt-BR')}</p>
+      </div>
+    `;
+
+    printWindow.document.write(`<html><head><title>Fechamento - ${closingResult.customerName}</title></head><body onload="window.print()">${content}</body></html>`);
+    printWindow.document.close();
   };
 
   return (
@@ -995,7 +1052,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
               </div>
               
               <div className="mt-6 flex justify-end no-print">
-                <button onClick={() => window.print()} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all flex items-center gap-2">
+                <button onClick={handlePrintClosing} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all flex items-center gap-2">
                   <Printer size={18} /> Imprimir Resumo
                 </button>
               </div>
