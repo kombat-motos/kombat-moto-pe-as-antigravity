@@ -196,13 +196,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
     // Adiciona o código do país caso não exista (assumindo 55 para o Brasil se tiver 10 ou 11 dígitos)
     const finalNumber = cleanNumber.length <= 11 ? `55${cleanNumber}` : cleanNumber;
     
-    // Tenta primeiro abrir pelo protocolo específico do aplicativo Desktop se estiver no Windows
-    const isWindows = navigator.platform.indexOf('Win') > -1;
-    if (isWindows) {
-      return `whatsapp://send?phone=${finalNumber}&text=${encodedMessage}`;
-    }
-    
-    // Fallback padrão para a web que funciona em todos os dispositivos
+    // Fallback padrão universal para a web e desktop
     return `https://api.whatsapp.com/send?phone=${finalNumber}&text=${encodedMessage}`;
   };
 
