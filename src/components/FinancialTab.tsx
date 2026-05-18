@@ -70,8 +70,17 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
   fetchData,
   formatBRL
 }) => {
-  // --- Internal State (Migrated from App) ---
-  const [financialTab, setFinancialTab] = React.useState<'caixa' | 'receber' | 'taxas' | 'automacao'>('caixa');
+  const [financialTab, setFinancialTab] = React.useState<'caixa' | 'receber' | 'taxas' | 'automacao' | 'fechamento'>('caixa');
+  
+  // --- Estados do Fechamento de Cliente ---
+  const [closingCustomerId, setClosingCustomerId] = React.useState<string>('');
+  const [closingPeriodType, setClosingPeriodType] = React.useState<'day' | 'month'>('month');
+  const [closingDate, setClosingDate] = React.useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [closingMonthYear, setClosingMonthYear] = React.useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [closingResult, setClosingResult] = React.useState<any>(null);
   
   const [fiadoSettings, setFiadoSettings] = React.useState(() => {
     const saved = localStorage.getItem('fiadoSettings');
@@ -351,6 +360,112 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
   const serviceSales = monthlySales.reduce((acc, s) => acc + (s.labor_value || 0), 0);
   const totalRevenue = productSales + serviceSales;
 
+  // Lógica de cálculo do Fechamento do Cliente
+  // SQL Equivalente (exemplo para base de conhecimento):
+  // SELECT 
+  //   CASE WHEN type = 'Serviço' OR product_id IS NULL THEN 'Serviço' ELSE 'Peça' END as category,
+  //   SUM(price * quantity) as subtotal 
+  // FROM sale_items 
+  // JOIN sales ON sales.id = sale_items.sale_id 
+  // WHERE sales.customer_id = ? AND strftime('%Y-%m', sales.date) = ?
+  // GROUP BY category;
+  const handleCalculateClosing = () => {
+    if (!closingCustomerId) {
+      alert("Selecione um cliente para o fechamento.");
+      return;
+    }
+
+    const customerIdNum = parseInt(closingCustomerId);
+    
+    // Filtro as vendas do cliente
+    let customerSales = sales.filter(s => s.customer_id === customerIdNum);
+
+    // Filtro por período
+    customerSales = customerSales.filter(s => {
+      const saleDate = new Date(s.date);
+      // Ajuste para fuso horário local
+      const saleDateLocal = new Date(saleDate.getTime() - (saleDate.getTimezoneOffset() * 60000));
+      
+      if (closingPeriodType === 'day') {
+        return saleDateLocal.toISOString().split('T')[0] === closingDate;
+      } else {
+        const [year, month] = closingMonthYear.split('-');
+        return saleDateLocal.getFullYear() === parseInt(year) && (saleDateLocal.getMonth() + 1) === parseInt(month);
+      }
+    });
+
+    if (customerSales.length === 0) {
+      alert("Nenhum registro financeiro encontrado para este cliente neste período.");
+      setClosingResult(null);
+      return;
+    }
+
+    let totalPecas = 0;
+    let totalServicos = 0;
+    let totalBruto = 0;
+    let totalLiquido = 0;
+
+    const pecasList: any[] = [];
+    const servicosList: any[] = [];
+
+    customerSales.forEach(sale => {
+      let saleTotalPecas = 0;
+      let saleTotalServicos = 0;
+      let hasLaborInItems = false;
+
+      (sale.items || []).forEach(item => {
+        const itemTotal = item.price * item.quantity;
+        if (item.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS') {
+          hasLaborInItems = true;
+        }
+
+        if (item.type === 'Serviço' || !item.product_id) {
+          totalServicos += itemTotal;
+          saleTotalServicos += itemTotal;
+          servicosList.push({ ...item, date: sale.date, saleId: sale.id });
+        } else {
+          totalPecas += itemTotal;
+          saleTotalPecas += itemTotal;
+          pecasList.push({ ...item, date: sale.date, saleId: sale.id });
+        }
+      });
+
+      // Compatibilidade com O.S. antigas que salvavam Mão de Obra fora do array de items
+      if (sale.type === 'Oficina' && sale.labor_value > 0 && !hasLaborInItems) {
+        totalServicos += sale.labor_value;
+        saleTotalServicos += sale.labor_value;
+        servicosList.push({ 
+          description: 'Mão de Obra (Registro Antigo)', 
+          quantity: 1, 
+          price: sale.labor_value, 
+          date: sale.date, 
+          saleId: sale.id 
+        });
+      }
+
+      totalBruto += (saleTotalPecas + saleTotalServicos);
+      totalLiquido += sale.total;
+    });
+
+    const descontos = totalBruto > totalLiquido ? (totalBruto - totalLiquido) : 0;
+    const acrescimos = totalLiquido > totalBruto ? (totalLiquido - totalBruto) : 0;
+
+    setClosingResult({
+      customerName: customers.find(c => c.id === customerIdNum)?.name,
+      periodLabel: closingPeriodType === 'day' 
+        ? new Date(closingDate + 'T00:00:00').toLocaleDateString('pt-BR') 
+        : closingMonthYear.split('-').reverse().join('/'),
+      totalPecas,
+      totalServicos,
+      totalBruto,
+      totalLiquido,
+      descontos,
+      acrescimos,
+      pecasList,
+      servicosList
+    });
+  };
+
   return (
     <div className="space-y-8">
       {/* Secondary Navigation */}
@@ -358,6 +473,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
         {[
           { id: 'caixa', label: 'Fluxo de Caixa', icon: Wallet },
           { id: 'receber', label: 'Contas a Receber', icon: CreditCard },
+          { id: 'fechamento', label: 'Fechamento de Cliente', icon: FileText },
           { id: 'taxas', label: 'Taxas de Cartão', icon: Calculator },
           { id: 'automacao', label: 'Cobrança & Alertas', icon: Bell }
         ].map(tab => (
@@ -726,6 +842,165 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {financialTab === 'fechamento' && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
+            <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <FileText size={24} className="text-indigo-500" />
+              Calcular Fechamento do Cliente
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-bold text-slate-700 mb-2">Cliente</label>
+                <select
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  value={closingCustomerId}
+                  onChange={e => { setClosingCustomerId(e.target.value); setClosingResult(null); }}
+                >
+                  <option value="">Selecione um cliente...</option>
+                  {[...customers].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Tipo de Período</label>
+                <select
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  value={closingPeriodType}
+                  onChange={e => { setClosingPeriodType(e.target.value as any); setClosingResult(null); }}
+                >
+                  <option value="day">Por Dia</option>
+                  <option value="month">Por Mês</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Data do Período</label>
+                {closingPeriodType === 'day' ? (
+                  <input
+                    type="date"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    value={closingDate}
+                    onChange={e => { setClosingDate(e.target.value); setClosingResult(null); }}
+                  />
+                ) : (
+                  <input
+                    type="month"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    value={closingMonthYear}
+                    onChange={e => { setClosingMonthYear(e.target.value); setClosingResult(null); }}
+                  />
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={handleCalculateClosing}
+              className="mt-6 w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100"
+            >
+              <Calculator size={20} /> Calcular Fechamento do Cliente
+            </button>
+          </div>
+
+          {closingResult && (
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-indigo-200">
+              <div className="text-center mb-8 border-b border-slate-200 pb-6">
+                <h2 className="text-2xl font-black text-slate-900 uppercase">Resumo de Fechamento</h2>
+                <p className="text-slate-500 text-lg">{closingResult.customerName}</p>
+                <p className="text-sm font-bold text-indigo-600 mt-1">Período: {closingResult.periodLabel}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                {/* Bloco Peças */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-b border-slate-200 pb-2">
+                    <Package size={20} className="text-blue-500" /> Peças e Acessórios
+                  </h3>
+                  {closingResult.pecasList.length === 0 ? (
+                    <p className="text-sm text-slate-400 italic">Nenhuma peça no período.</p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {closingResult.pecasList.map((p: any, i: number) => (
+                        <li key={i} className="flex justify-between text-sm bg-slate-50 p-2 rounded-lg">
+                          <span>{p.quantity}x {p.description} <span className="text-[10px] text-slate-400 ml-1">({new Date(p.date).toLocaleDateString('pt-BR')})</span></span>
+                          <span className="font-bold text-slate-700">{formatBRL(p.price * p.quantity)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="text-right pt-2">
+                    <p className="text-xs uppercase font-bold text-slate-400">Subtotal Peças</p>
+                    <p className="text-lg font-black text-blue-600">{formatBRL(closingResult.totalPecas)}</p>
+                  </div>
+                </div>
+
+                {/* Bloco Serviços */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-b border-slate-200 pb-2">
+                    <Bike size={20} className="text-amber-500" /> Mão de Obra e Serviços
+                  </h3>
+                  {closingResult.servicosList.length === 0 ? (
+                    <p className="text-sm text-slate-400 italic">Nenhum serviço no período.</p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {closingResult.servicosList.map((s: any, i: number) => (
+                        <li key={i} className="flex justify-between text-sm bg-slate-50 p-2 rounded-lg">
+                          <span>{s.quantity}x {s.description} <span className="text-[10px] text-slate-400 ml-1">({new Date(s.date).toLocaleDateString('pt-BR')})</span></span>
+                          <span className="font-bold text-slate-700">{formatBRL(s.price * s.quantity)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="text-right pt-2">
+                    <p className="text-xs uppercase font-bold text-slate-400">Subtotal Serviços</p>
+                    <p className="text-lg font-black text-amber-600">{formatBRL(closingResult.totalServicos)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Resumo Final */}
+              <div className="bg-slate-800 text-white p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="space-y-2 w-full md:w-1/2">
+                  <div className="flex justify-between text-sm text-slate-300">
+                    <span>Total em Peças:</span>
+                    <span>{formatBRL(closingResult.totalPecas)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-slate-300">
+                    <span>Total em Serviços:</span>
+                    <span>{formatBRL(closingResult.totalServicos)}</span>
+                  </div>
+                  {closingResult.descontos > 0 && (
+                    <div className="flex justify-between text-sm text-emerald-400 font-bold">
+                      <span>(-) Descontos Aplicados:</span>
+                      <span>{formatBRL(closingResult.descontos)}</span>
+                    </div>
+                  )}
+                  {closingResult.acrescimos > 0 && (
+                    <div className="flex justify-between text-sm text-rose-400 font-bold">
+                      <span>(+) Acréscimos/Taxas:</span>
+                      <span>{formatBRL(closingResult.acrescimos)}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="text-right w-full md:w-1/2 md:border-l border-slate-600 md:pl-6">
+                  <p className="text-xs font-black uppercase tracking-widest text-indigo-300 mb-1">Valor Total Geral a Pagar</p>
+                  <p className="text-4xl font-black text-white">{formatBRL(closingResult.totalLiquido)}</p>
+                </div>
+              </div>
+              
+              <div className="mt-6 flex justify-end no-print">
+                <button onClick={() => window.print()} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all flex items-center gap-2">
+                  <Printer size={18} /> Imprimir Resumo
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
