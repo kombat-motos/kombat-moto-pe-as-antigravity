@@ -195,7 +195,15 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
     const encodedMessage = encodeURIComponent(message);
     // Adiciona o código do país caso não exista (assumindo 55 para o Brasil se tiver 10 ou 11 dígitos)
     const finalNumber = cleanNumber.length <= 11 ? `55${cleanNumber}` : cleanNumber;
-    return `https://wa.me/${finalNumber}?text=${encodedMessage}`;
+    
+    // Tenta primeiro abrir pelo protocolo específico do aplicativo Desktop se estiver no Windows
+    const isWindows = navigator.platform.indexOf('Win') > -1;
+    if (isWindows) {
+      return `whatsapp://send?phone=${finalNumber}&text=${encodedMessage}`;
+    }
+    
+    // Fallback padrão para a web que funciona em todos os dispositivos
+    return `https://api.whatsapp.com/send?phone=${finalNumber}&text=${encodedMessage}`;
   };
 
   const generateDigitalReceipt = (sale: Sale, type: 'before' | 'on' | 'after', totalWithCharges: number) => {
