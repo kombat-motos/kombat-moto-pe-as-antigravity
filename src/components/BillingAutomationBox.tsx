@@ -196,8 +196,18 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
     // Adiciona o código do país caso não exista (assumindo 55 para o Brasil se tiver 10 ou 11 dígitos)
     const finalNumber = cleanNumber.length <= 11 ? `55${cleanNumber}` : cleanNumber;
     
-    // Voltando para o padrão wa.me exato usado no CRM que é conhecido por funcionar sem bugs de QR Code
-    return `https://wa.me/${finalNumber}?text=${encodedMessage}`;
+    // Detecta se é dispositivo móvel
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // Em celulares, o wa.me funciona melhor e abre o app nativo
+      return `https://wa.me/${finalNumber}?text=${encodedMessage}`;
+    }
+    
+    // No Desktop (Windows/Mac), força o WhatsApp Web direto para evitar:
+    // 1. O app nativo do Windows abrindo com tela branca/cinza
+    // 2. A página do api.whatsapp pedindo QR code mesmo já estando logado
+    return `https://web.whatsapp.com/send?phone=${finalNumber}&text=${encodedMessage}`;
   };
 
   const generateDigitalReceipt = (sale: Sale, type: 'before' | 'on' | 'after', totalWithCharges: number) => {
