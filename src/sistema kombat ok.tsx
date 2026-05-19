@@ -1071,16 +1071,16 @@ export default function App() {
   const [companyData, setCompanyData] = useState(() => {
     const saved = localStorage.getItem('companyData');
     return saved ? JSON.parse(saved) : {
-      razaoSocial: '',
+      razaoSocial: 'Kombat comercio de auto peças ltda',
       nomeFantasia: 'Kombat Moto Peças',
-      cnpj: '',
-      telefone: '',
-      email: '',
-      endereco: '',
-      bairro: '',
-      cidade: '',
-      estado: '',
-      cep: ''
+      cnpj: '12.802.931/0001-92',
+      telefone: '433538-4537',
+      email: 'kombatpecas@gmail.com',
+      endereco: 'Rua: Paraná, 342',
+      bairro: 'Centro',
+      cidade: 'Andirá',
+      estado: 'Pr',
+      cep: '86380-000'
     };
   });
 
@@ -3355,6 +3355,40 @@ export default function App() {
     }
 
     try {
+      let finalSku = (productForm.sku || '').trim();
+      
+      if (!finalSku) {
+        // Generate a unique SKU
+        const numericSkus = products
+          .map(p => parseInt(p.sku))
+          .filter(val => !isNaN(val));
+        const maxSku = numericSkus.length > 0 ? Math.max(...numericSkus) : 1000;
+        let candidateSku = String(maxSku + 1);
+        while (products.some(p => p.sku === candidateSku)) {
+          candidateSku = String(parseInt(candidateSku) + 1);
+        }
+        finalSku = candidateSku;
+      } else {
+        // If user typed it, check if it duplicates an existing product
+        const isDuplicate = products.some(p => p.sku === finalSku && (!editingProduct || p.id !== editingProduct.id));
+        if (isDuplicate) {
+          const proceed = window.confirm(`O SKU / Código Interno "${finalSku}" já está cadastrado em outro produto. Deseja que o sistema gere automaticamente o próximo sequencial disponível?`);
+          if (!proceed) {
+            return;
+          }
+          
+          const numericSkus = products
+            .map(p => parseInt(p.sku))
+            .filter(val => !isNaN(val));
+          const maxSku = numericSkus.length > 0 ? Math.max(...numericSkus) : 1000;
+          let candidateSku = String(maxSku + 1);
+          while (products.some(p => p.sku === candidateSku)) {
+            candidateSku = String(parseInt(candidateSku) + 1);
+          }
+          finalSku = candidateSku;
+        }
+      }
+
       let finalImageUrl = productForm.image_url;
       if (finalImageUrl && (finalImageUrl.startsWith('http') || finalImageUrl.startsWith('/images/'))) {
         const urlToShorten = finalImageUrl.startsWith('/') ? window.location.origin + finalImageUrl : finalImageUrl;
@@ -3363,7 +3397,7 @@ export default function App() {
 
       const productData = {
         description: productForm.description,
-        sku: productForm.sku,
+        sku: finalSku,
         barcode: productForm.barcode,
         purchase_price: parseFloat(productForm.purchase_price.toString().replace(',', '.')) || 0,
         sale_price: parseFloat(productForm.sale_price.toString().replace(',', '.')) || 0,
@@ -6411,191 +6445,205 @@ export default function App() {
           title={editingProduct ? "Editar Produto" : "Adicionar Produto ao Estoque"}
           maxWidth="max-w-4xl"
         >
-          <form onSubmit={handleAddProduct} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Descrição do Produto</label>
-                <input
-                  type="text" required placeholder="Ex: Pneu Traseiro 90/90-18"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={productForm.description}
-                  onChange={e => setProductForm({ ...productForm, description: e.target.value })}
-                />
+          <form onSubmit={handleAddProduct} className="grid grid-cols-1 md:grid-cols-5 gap-5">
+            {/* Coluna da Esquerda - Dados do Produto */}
+            <div className="md:col-span-3 space-y-3">
+              {/* Linha 1: Descrição do Produto | Marca */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Descrição do Produto</label>
+                  <input
+                    type="text" required autoFocus tabIndex={1} placeholder="Ex: Pneu Traseiro 90/90-18"
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
+                    value={productForm.description}
+                    onChange={e => setProductForm({ ...productForm, description: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Marca</label>
+                  <input
+                    type="text" tabIndex={2} placeholder="Ex: Honda, Pirelli"
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
+                    value={productForm.brand}
+                    onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
+                  />
+                </div>
               </div>
+
+              {/* Linha 2: Distribuidor | Código Alternativo (Similar) | Localização no Estoque */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Distribuidor</label>
+                  <input
+                    type="text" tabIndex={3} placeholder="Ex: Distribuidora X"
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
+                    value={productForm.distributor}
+                    onChange={e => setProductForm({ ...productForm, distributor: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Cod. Alternativo</label>
+                  <input
+                    type="text" tabIndex={4} placeholder="Ex: Similar X"
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
+                    value={productForm.alt_code}
+                    onChange={e => setProductForm({ ...productForm, alt_code: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Localização</label>
+                  <input
+                    type="text" tabIndex={5} placeholder="Ex: Prateleira A"
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
+                    value={productForm.location}
+                    onChange={e => setProductForm({ ...productForm, location: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Linha 3: SKU / Código Interno | Código de Barras (EAN) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">SKU / Código Interno (Vazio para autogerar)</label>
+                  <input
+                    type="text" tabIndex={6} placeholder="Autogerado se vazio"
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
+                    value={productForm.sku}
+                    onChange={e => setProductForm({ ...productForm, sku: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Código de Barras (EAN)</label>
+                  <input
+                    type="text" tabIndex={7} placeholder="Ex: EAN"
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
+                    value={productForm.barcode}
+                    onChange={e => setProductForm({ ...productForm, barcode: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Linha 4: Unidade de Medida | Estoque Inicial | Preço Compra (R$) | Preço Venda (R$) */}
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Unidade</label>
+                  <select
+                    tabIndex={8}
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
+                    value={productForm.unit}
+                    onChange={e => setProductForm({ ...productForm, unit: e.target.value })}
+                  >
+                    <option value="Unitário">Unitário</option>
+                    <option value="Par">Par</option>
+                    <option value="Kit">Kit</option>
+                    <option value="Litro">Litro</option>
+                    <option value="Conjunto">Conjunto</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Est. Inicial</label>
+                  <input
+                    type="number" required tabIndex={9}
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
+                    value={productForm.stock}
+                    onChange={e => setProductForm({ ...productForm, stock: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Compra (R$)</label>
+                  <input
+                    type="number" step="0.01" required tabIndex={10}
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
+                    value={productForm.purchase_price}
+                    onChange={e => setProductForm({ ...productForm, purchase_price: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Venda (R$)</label>
+                  <input
+                    type="number" step="0.01" required tabIndex={11}
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600 dark:bg-slate-900 dark:border-slate-700"
+                    value={productForm.sale_price}
+                    onChange={e => setProductForm({ ...productForm, sale_price: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Linha 5: Aplicação das Peças */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Marca</label>
-                <input
-                  type="text" placeholder="Ex: Honda, Pirelli, Mobil"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={productForm.brand}
-                  onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Aplicação das Peças</label>
+                <textarea
+                  tabIndex={12}
+                  className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all resize-none h-12 dark:bg-slate-900 dark:border-slate-700"
+                  placeholder="Ex: Honda CG 160 (2016-2023), Fan, Titan..."
+                  value={productForm.application}
+                  onChange={e => setProductForm({ ...productForm, application: e.target.value })}
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Distribuidor</label>
-                <input
-                  type="text" placeholder="Ex: Distribuidora X, Fornecedor Y"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={productForm.distributor}
-                  onChange={e => setProductForm({ ...productForm, distributor: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Código Alternativo (Similar)</label>
-                <input
-                  type="text" placeholder="Ex: 52400-KVS-J01, Similar X"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={productForm.alt_code}
-                  onChange={e => setProductForm({ ...productForm, alt_code: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Localização no Estoque</label>
-                <input
-                  type="text" placeholder="Ex: Prateleira A, Corredor 2"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={productForm.location}
-                  onChange={e => setProductForm({ ...productForm, location: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">SKU / Código Interno</label>
-                <input
-                  type="text" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={productForm.sku}
-                  onChange={e => setProductForm({ ...productForm, sku: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Código de Barras (EAN)</label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={productForm.barcode}
-                  onChange={e => setProductForm({ ...productForm, barcode: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Unidade de Medida</label>
-                <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={productForm.unit}
-                  onChange={e => setProductForm({ ...productForm, unit: e.target.value })}
-                >
-                  <option value="Unitário">Unitário</option>
-                  <option value="Par">Par</option>
-                  <option value="Kit">Kit</option>
-                  <option value="Litro">Litro</option>
-                  <option value="Conjunto">Conjunto</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Estoque Inicial</label>
-                <input
-                  type="number" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={productForm.stock}
-                  onChange={e => setProductForm({ ...productForm, stock: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Preço Compra (R$)</label>
-                <input
-                  type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
-                  value={productForm.purchase_price}
-                  onChange={e => setProductForm({ ...productForm, purchase_price: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Preço Venda (R$)</label>
-                <input
-                  type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600 dark:bg-slate-900 dark:border-slate-700"
-                  value={productForm.sale_price}
-                  onChange={e => setProductForm({ ...productForm, sale_price: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Aplicação das Peças</label>
-              <textarea
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all resize-none h-24 dark:bg-slate-900 dark:border-slate-700"
-                placeholder="Ex: Honda CG 160 (2016-2023), Fan, Titan..."
-                value={productForm.application}
-                onChange={e => setProductForm({ ...productForm, application: e.target.value })}
-              />
-            </div>
-            <div className="space-y-4 pt-4 border-t border-slate-100">
-              <label className="block text-sm font-bold text-slate-800 uppercase tracking-tight dark:text-slate-100">Fotos do Produto (Principal + 3 Adicionais)</label>
-              
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {[
-                  { key: 'image_url', label: 'Capa' },
-                  { key: 'image_url2', label: 'Foto 2' },
-                  { key: 'image_url3', label: 'Foto 3' },
-                  { key: 'image_url4', label: 'Foto 4' }
-                ].map((photo, index) => (
-                  <div key={photo.key} className="space-y-2">
-                    <div className="relative aspect-square bg-slate-100 border-2 border-slate-200 rounded-2xl overflow-hidden group dark:bg-slate-800 dark:border-slate-700">
-                      {(productForm as any)[photo.key] ? (
-                        <img src={(productForm as any)[photo.key]} alt={photo.label} className="w-full h-full object-contain p-2" />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
-                          <ImageIcon size={32} />
-                          <span className="text-[10px] font-bold uppercase mt-1">{photo.label}</span>
-                        </div>
-                      )}
-                      
-                       <label className={`absolute inset-0 bg-black/40 ${!(productForm as any)[photo.key] ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-center justify-center cursor-pointer transition-all`}>
-                        <div className="flex flex-col items-center gap-1">
-                          <Camera size={24} className="text-white" />
-                          <span className="text-[10px] text-white font-bold uppercase">Capturar</span>
-                        </div>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          capture="environment" 
-                          className="hidden" 
-                          onChange={(e) => handleProductFormImageUpload(e, photo.key)}
-                        />
-                      </label>
-                      
-                      {(productForm as any)[photo.key] && (
-                        <button 
-                          type="button"
-                          onClick={() => setProductForm({ ...productForm, [photo.key]: '' })}
-                          className="absolute top-1 right-1 p-1 bg-white/80 text-rose-600 rounded-full hover:bg-white shadow-md transition-all sm:opacity-0 group-hover:opacity-100 dark:bg-slate-800"
-                        >
-                          <X size={12} />
-                        </button>
-                      )}
+            {/* Coluna da Direita - Fotos e Ação */}
+            <div className="md:col-span-2 flex flex-col justify-between space-y-3">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-tight dark:text-slate-100">Fotos do Produto</label>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { key: 'image_url', label: 'Capa' },
+                    { key: 'image_url2', label: 'Foto 2' },
+                    { key: 'image_url3', label: 'Foto 3' },
+                    { key: 'image_url4', label: 'Foto 4' }
+                  ].map((photo) => (
+                    <div key={photo.key} className="space-y-1">
+                      <div className="relative aspect-square bg-slate-100 border border-slate-350 rounded-xl overflow-hidden group dark:bg-slate-800 dark:border-slate-700 flex items-center justify-center">
+                        {(productForm as any)[photo.key] ? (
+                          <img src={(productForm as any)[photo.key]} alt={photo.label} className="w-full h-full object-contain p-1" />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                            <ImageIcon size={20} />
+                            <span className="text-[9px] font-bold uppercase mt-0.5">{photo.label}</span>
+                          </div>
+                        )}
+                        
+                        <label className={`absolute inset-0 bg-black/40 ${!(productForm as any)[photo.key] ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-center justify-center cursor-pointer transition-all`}>
+                          <div className="flex flex-col items-center gap-0.5">
+                            <Camera size={16} className="text-white" />
+                            <span className="text-[8px] text-white font-bold uppercase">Capturar</span>
+                          </div>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            capture="environment" 
+                            className="hidden" 
+                            onChange={(e) => handleProductFormImageUpload(e, photo.key)}
+                          />
+                        </label>
+                        
+                        {(productForm as any)[photo.key] && (
+                          <button 
+                            type="button"
+                            onClick={() => setProductForm({ ...productForm, [photo.key]: '' })}
+                            className="absolute top-1 right-1 p-0.5 bg-white/80 text-rose-600 rounded-full hover:bg-white shadow-sm transition-all dark:bg-slate-800"
+                          >
+                            <X size={10} />
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="URL..."
+                        className="w-full text-[9px] px-1.5 py-0.5 bg-white border border-slate-300 rounded focus:outline-none focus:border-rose-500 dark:bg-slate-800 dark:border-slate-700"
+                        value={(productForm as any)[photo.key]}
+                        onChange={e => setProductForm({ ...productForm, [photo.key]: e.target.value })}
+                      />
                     </div>
-                    <input
-                      type="text"
-                      placeholder="URL..."
-                      className="w-full text-[10px] px-2 py-1 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-rose-500 dark:bg-slate-800 dark:border-slate-700"
-                      value={(productForm as any)[photo.key]}
-                      onChange={e => setProductForm({ ...productForm, [photo.key]: e.target.value })}
-                    />
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
+              <button type="submit" tabIndex={13} className="w-full py-2 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-md shadow-rose-100/50 dark:shadow-none mt-2">
+                {editingProduct ? "Salvar Alterações" : "Cadastrar Produto"}
+              </button>
             </div>
-            <button type="submit" className="w-full py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-100">
-              {editingProduct ? "Salvar Alterações" : "Cadastrar Produto"}
-            </button>
           </form>
         </Modal>
 
