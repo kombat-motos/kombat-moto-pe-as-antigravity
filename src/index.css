@@ -102,3 +102,19 @@ html, body {
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
 }
+
+/* Native select dropdown options fix for both Dark and Light modes */
+select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important; /* Always readable text on white background in light mode */
+}
+
+.dark select {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  color: #f8fafc !important;
+}
+
+.dark select option {
+  background-color: #1e293b !important; /* Slate-800 to give depth to the dropdown list */
+  color: #f8fafc !important; /* High legibility light text in dark mode */
+}
