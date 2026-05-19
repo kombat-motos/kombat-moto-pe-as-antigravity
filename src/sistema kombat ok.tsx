@@ -56,7 +56,10 @@ import {
   Camera,
   RefreshCw,
   ShoppingBag,
-  User
+  User,
+  Minus,
+  AlertCircle,
+  ExternalLink
 } from 'lucide-react';
 import PurchasesTab from './components/PurchasesTab';
 import InventoryTab from './components/InventoryTab';
@@ -264,11 +267,12 @@ interface PurchaseOrder {
 }
 
 // --- Utils ---
-const formatBRL = (value: number) => {
+const formatBRL = (value: any) => {
+  const num = typeof value === 'number' ? value : parseFloat(String(value || 0).replace(',', '.'));
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-  }).format(value || 0);
+  }).format(isNaN(num) ? 0 : num);
 };
 
 const localApi = {
@@ -2586,7 +2590,7 @@ export default function App() {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Valor Repasse</p>
-                    <span className="font-black text-rose-600">R$ {(fs.payout || 0).toFixed(2)}</span>
+                    <span className="font-black text-rose-600">R$ {Number(fs.payout || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -4172,7 +4176,7 @@ export default function App() {
             <div key={fs.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
               <div>
                 <p className="font-bold text-slate-900 dark:text-slate-100">{fs.name || 'Sem Nome'}</p>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter dark:text-slate-400">Repasse p/ Mecânico: <span className="text-rose-600">R$ {(fs.payout || 0).toFixed(2)}</span></p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter dark:text-slate-400">Repasse p/ Mecânico: <span className="text-rose-600">R$ {Number(fs.payout || 0).toFixed(2)}</span></p>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -7254,6 +7258,10 @@ export default function App() {
                       value={osForm.customer_id}
                       onChange={e => {
                         const cid = e.target.value;
+                        if (!cid) {
+                          setOsForm({ ...osForm, customer_id: '', motorcycle_id: '', motorcycle_plate: '', km: '' });
+                          return;
+                        }
                         const customerMotos = motorcycles.filter(m => m.customer_id === parseInt(cid));
                         if (customerMotos.length > 0) {
                           setOsForm({ ...osForm, customer_id: cid, motorcycle_id: customerMotos[0].id.toString(), motorcycle_plate: customerMotos[0].plate, km: customerMotos[0].current_km || '' });
@@ -7275,14 +7283,66 @@ export default function App() {
                     )}
                   </div>
                   <div className="col-span-6 md:col-span-3">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Bike size={12}/> Placa (Moto)</label>
-                    <input
-                      type="text"
-                      placeholder="ABC-1234"
-                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-800 uppercase focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
-                      value={osForm.motorcycle_plate || ''}
-                      onChange={e => setOsForm({ ...osForm, motorcycle_plate: e.target.value.toUpperCase() })}
-                    />
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Bike size={12}/> Moto do Cliente</label>
+                    {(() => {
+                      const customerMotos = osForm.customer_id ? motorcycles.filter(m => m.customer_id === parseInt(osForm.customer_id)) : [];
+                      if (customerMotos.length > 0 && osForm.motorcycle_id !== 'manual') {
+                        return (
+                          <select
+                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-800 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
+                            value={osForm.motorcycle_id}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === 'manual') {
+                                setOsForm({ ...osForm, motorcycle_id: 'manual', motorcycle_plate: '' });
+                              } else {
+                                const moto = customerMotos.find(m => m.id.toString() === val);
+                                if (moto) {
+                                  setOsForm({ ...osForm, motorcycle_id: val, motorcycle_plate: moto.plate, km: moto.current_km || '' });
+                                }
+                              }
+                            }}
+                          >
+                            {customerMotos.map(moto => (
+                              <option key={moto.id} value={moto.id.toString()}>
+                                {moto.model || moto.brand} ({moto.plate})
+                              </option>
+                            ))}
+                            <option value="manual">+ Digitar Placa Manual</option>
+                          </select>
+                        );
+                      } else {
+                        return (
+                          <div className="relative">
+                            <input
+                              type="text"
+                              placeholder="ABC-1234"
+                              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-800 uppercase focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 pr-10"
+                              value={osForm.motorcycle_plate || ''}
+                              onChange={e => setOsForm({ ...osForm, motorcycle_plate: e.target.value.toUpperCase() })}
+                            />
+                            {customerMotos.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (customerMotos.length > 0) {
+                                    setOsForm({
+                                      ...osForm,
+                                      motorcycle_id: customerMotos[0].id.toString(),
+                                      motorcycle_plate: customerMotos[0].plate,
+                                      km: customerMotos[0].current_km || ''
+                                    });
+                                  }
+                                }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-rose-600 hover:text-rose-700"
+                              >
+                                Voltar
+                              </button>
+                            )}
+                          </div>
+                        );
+                      }
+                    })()}
                   </div>
                   <div className="col-span-6 md:col-span-3">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Settings size={12}/> KM Atual</label>
@@ -7308,7 +7368,7 @@ export default function App() {
                     placeholder="Buscar peça/serviço ou digite para adicionar item avulso..."
                     className="w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
                     value={osSearchProduct}
-                    onChange={e => osSearchProduct(e.target.value)}
+                    onChange={e => setOsSearchProduct(e.target.value)}
                   />
                   {osSearchProduct && (
                     <button onClick={() => setOsSearchProduct('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full p-1 transition-colors dark:bg-slate-800">
@@ -7501,7 +7561,7 @@ export default function App() {
                     onChange={e => setOsForm({ ...osForm, mechanic_id: e.target.value })}
                   >
                     <option value="">Sem Mecânico / Geral</option>
-                    {sortedMechanics.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    {sortedMechanics.filter(Boolean).map(m => <option key={m.id} value={m.id}>{m.name || 'Mecânico'}</option>)}
                   </select>
                 </div>
 
@@ -7526,8 +7586,8 @@ export default function App() {
                       }}
                     >
                       <option value="">+ Selecione o Serviço Terceirizado</option>
-                      {sortedFixedServices.map(fs => (
-                        <option key={fs.id} value={fs.id}>{fs.name} (Repasse: {formatBRL(fs.payout)})</option>
+                      {sortedFixedServices.filter(fs => fs && fs.id).map(fs => (
+                        <option key={fs.id} value={fs.id}>{fs.name || 'Serviço'} (Repasse: {formatBRL(fs.payout)})</option>
                       ))}
                     </select>
                   </div>
