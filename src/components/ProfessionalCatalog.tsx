@@ -205,13 +205,13 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
       </header>
 
       {/* Filters & Search - Premium Look */}
-      <div className="bg-white border-b border-slate-200 p-6 space-y-5 shadow-sm relative z-0">
+      <div className="bg-white border-b border-slate-200 p-6 space-y-5 shadow-sm relative z-0 dark:bg-slate-800 dark:border-slate-700">
         <div className="relative group max-w-3xl mx-auto">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-600 transition-colors" size={22} />
           <input 
             type="text" 
             placeholder="O que sua moto precisa hoje?"
-            className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-[2rem] shadow-inner focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all text-slate-800 text-lg font-medium"
+            className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-[2rem] shadow-inner focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all text-slate-800 text-lg font-medium dark:bg-slate-900 dark:text-slate-100"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -229,9 +229,9 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: idx * 0.02 }}
               key={product.id}
-              className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 border border-slate-100 flex flex-col group"
+              className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 border border-slate-100 flex flex-col group dark:bg-slate-800"
             >
-              <div className="aspect-square bg-white relative overflow-hidden p-4 flex items-center justify-center">
+              <div className="aspect-square bg-white relative overflow-hidden p-4 flex items-center justify-center dark:bg-slate-800">
                 {/* Selection Checkbox */}
                 <div 
                   onClick={(e) => {
@@ -281,9 +281,9 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
 
               <div className="p-6 flex-1 flex flex-col justify-between relative">
                 <div>
-                  <h3 className="font-bold text-slate-800 text-base line-clamp-2 leading-snug mb-2 group-hover:text-red-600 transition-colors">{product.description}</h3>
+                  <h3 className="font-bold text-slate-800 text-base line-clamp-2 leading-snug mb-2 group-hover:text-red-600 transition-colors dark:text-slate-100">{product.description}</h3>
                   <div className="flex items-center gap-2 mb-4 flex-wrap">
-                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-tighter bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">SKU: {product.sku}</span>
+                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-tighter bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100 dark:bg-slate-900">SKU: {product.sku}</span>
                     {product.brand && (
                       <span className="text-[10px] text-red-600 font-black uppercase tracking-tighter bg-red-50 px-2 py-0.5 rounded-md border border-red-100">Marca: {product.brand}</span>
                     )}
@@ -294,7 +294,7 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col">
                       <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Preço</span>
-                      <span className="text-slate-900 font-black text-2xl tracking-tighter">{formatBRL(product.sale_price)}</span>
+                      <span className="text-slate-900 font-black text-2xl tracking-tighter dark:text-slate-100">{formatBRL(product.sale_price)}</span>
                     </div>
                   </div>
                   
@@ -308,7 +308,7 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
                     </button>
                     <button 
                       onClick={() => shareProduct(product)}
-                      className="py-4 bg-white border-2 border-green-500 text-green-600 hover:bg-green-50 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 active:scale-95"
+                      className="py-4 bg-white border-2 border-green-500 text-green-600 hover:bg-green-50 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 active:scale-95 dark:bg-slate-800"
                     >
                       <MessageCircle size={14} />
                       Enviar
@@ -322,7 +322,7 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
         
         {filteredProducts.length === 0 && (
           <div className="flex flex-col items-center justify-center py-32 text-slate-300">
-            <div className="bg-slate-100 p-8 rounded-[3rem] mb-6">
+            <div className="bg-slate-100 p-8 rounded-[3rem] mb-6 dark:bg-slate-800">
               <Search size={64} strokeWidth={1} />
             </div>
             <p className="font-black text-2xl text-slate-400 uppercase tracking-tighter">Nenhum resultado</p>
@@ -347,7 +347,7 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
               <div className="bg-red-600 p-2 rounded-xl group-hover:rotate-12 transition-transform">
                 <ShoppingCart size={24} />
               </div>
-              <span className="absolute -top-3 -right-3 bg-white text-red-600 text-[11px] font-black h-6 w-6 rounded-full flex items-center justify-center shadow-lg border-2 border-slate-900">
+              <span className="absolute -top-3 -right-3 bg-white text-red-600 text-[11px] font-black h-6 w-6 rounded-full flex items-center justify-center shadow-lg border-2 border-slate-900 dark:bg-slate-800">
                 {cartCount}
               </span>
             </div>
@@ -375,7 +375,7 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '100%', opacity: 0.5 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative w-full max-w-xl bg-white rounded-t-[3rem] sm:rounded-[3.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col max-h-[92vh] border border-white/20"
+              className="relative w-full max-w-xl bg-white rounded-t-[3rem] sm:rounded-[3.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col max-h-[92vh] border border-white/20 dark:bg-slate-800"
             >
               <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
                 <div className="flex items-center gap-4">
@@ -383,13 +383,13 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
                     <ShoppingCart size={24} className="text-red-600" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Carrinho</h2>
+                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter dark:text-slate-100">Carrinho</h2>
                     <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{cartCount} itens selecionados</p>
                   </div>
                 </div>
                 <button 
                   onClick={() => setIsCartOpen(false)}
-                  className="p-3 bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-900 rounded-2xl transition-all active:scale-90"
+                  className="p-3 bg-white border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-900 rounded-2xl transition-all active:scale-90 dark:bg-slate-800 dark:border-slate-700"
                 >
                   <X size={24} />
                 </button>
@@ -398,7 +398,7 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
               <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar bg-slate-50/50">
                 {cart.length === 0 ? (
                   <div className="text-center py-20 flex flex-col items-center">
-                    <div className="bg-white p-8 rounded-full shadow-inner mb-6">
+                    <div className="bg-white p-8 rounded-full shadow-inner mb-6 dark:bg-slate-800">
                       <ShoppingCart size={48} className="text-slate-200" />
                     </div>
                     <p className="text-slate-400 font-black uppercase tracking-widest text-sm">Seu carrinho está vazio</p>
@@ -414,9 +414,9 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
                     <motion.div 
                       layout
                       key={item.id} 
-                      className="flex gap-5 p-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group"
+                      className="flex gap-5 p-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group dark:bg-slate-800"
                     >
-                      <div className="w-24 h-24 bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 flex-shrink-0 group-hover:scale-105 transition-transform">
+                      <div className="w-24 h-24 bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 flex-shrink-0 group-hover:scale-105 transition-transform dark:bg-slate-900">
                         {item.image_url ? (
                           <img src={item.image_url} alt={item.description} className="w-full h-full object-cover" />
                         ) : (
@@ -428,7 +428,7 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
                       <div className="flex-1 flex flex-col justify-between py-1">
                         <div>
                           <div className="flex justify-between items-start">
-                            <h4 className="font-bold text-slate-800 text-base leading-tight pr-4">{item.description}</h4>
+                            <h4 className="font-bold text-slate-800 text-base leading-tight pr-4 dark:text-slate-100">{item.description}</h4>
                             <button 
                               onClick={() => removeFromCart(item.id)}
                               className="p-1.5 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
@@ -440,17 +440,17 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
                         </div>
                         
                         <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center bg-slate-100 rounded-xl p-1 shadow-inner border border-slate-200">
+                          <div className="flex items-center bg-slate-100 rounded-xl p-1 shadow-inner border border-slate-200 dark:bg-slate-800 dark:border-slate-700">
                             <button 
                               onClick={() => updateQuantity(item.id, -1)}
-                              className="w-8 h-8 flex items-center justify-center bg-white rounded-lg text-slate-600 hover:text-red-600 shadow-sm transition-all"
+                              className="w-8 h-8 flex items-center justify-center bg-white rounded-lg text-slate-600 hover:text-red-600 shadow-sm transition-all dark:bg-slate-800 dark:text-slate-400"
                             >
                               <Minus size={14} />
                             </button>
-                            <span className="w-10 text-center text-sm font-black text-slate-800">{item.quantity}</span>
+                            <span className="w-10 text-center text-sm font-black text-slate-800 dark:text-slate-100">{item.quantity}</span>
                             <button 
                               onClick={() => updateQuantity(item.id, 1)}
-                              className="w-8 h-8 flex items-center justify-center bg-white rounded-lg text-slate-600 hover:text-red-600 shadow-sm transition-all"
+                              className="w-8 h-8 flex items-center justify-center bg-white rounded-lg text-slate-600 hover:text-red-600 shadow-sm transition-all dark:bg-slate-800 dark:text-slate-400"
                             >
                               <Plus size={14} />
                             </button>
@@ -503,7 +503,7 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
               initial={{ scale: 0.8, opacity: 0, y: 50 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.8, opacity: 0, y: 50 }}
-              className="relative w-full max-w-lg bg-white rounded-[3.5rem] shadow-[0_50px_100px_rgba(0,0,0,0.5)] overflow-hidden"
+              className="relative w-full max-w-lg bg-white rounded-[3.5rem] shadow-[0_50px_100px_rgba(0,0,0,0.5)] overflow-hidden dark:bg-slate-800"
             >
               <div className="p-10">
                 <div className="text-center mb-10">
@@ -515,7 +515,7 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
                   >
                     <Smartphone size={40} strokeWidth={1.5} />
                   </motion.div>
-                  <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-2">Quase Pronto!</h2>
+                  <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-2 dark:text-slate-100">Quase Pronto!</h2>
                   <p className="text-slate-400 font-medium text-sm">Só precisamos de mais alguns dados para enviar seu pedido pelo WhatsApp.</p>
                 </div>
 
@@ -527,7 +527,7 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
                     <input 
                       type="text" 
                       placeholder="Seu nome"
-                      className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-800 shadow-inner"
+                      className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-800 shadow-inner dark:bg-slate-900 dark:text-slate-100"
                       value={customerData.name}
                       onChange={(e) => setCustomerData({...customerData, name: e.target.value})}
                     />
@@ -540,7 +540,7 @@ const ProfessionalCatalog: React.FC<ProfessionalCatalogProps> = ({ products, onC
                     <textarea 
                       placeholder="Rua, número, bairro e cidade"
                       rows={2}
-                      className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-800 shadow-inner resize-none"
+                      className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:outline-none focus:ring-4 focus:ring-red-500/10 focus:border-red-500/50 transition-all font-bold text-slate-800 shadow-inner resize-none dark:bg-slate-900 dark:text-slate-100"
                       value={customerData.address}
                       onChange={(e) => setCustomerData({...customerData, address: e.target.value})}
                     />

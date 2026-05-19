@@ -69,6 +69,7 @@ import VirtualCatalogModal from './components/VirtualCatalogModal';
 import ProfessionalCatalog from './components/ProfessionalCatalog';
 import Auth from './components/Auth';
 import Modal from './components/Modal';
+import { ThemeToggle } from './components/ThemeToggle';
 
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -327,10 +328,10 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }: any) => (
 );
 
 const StatCard = ({ title, value, icon: Icon, color, subtitle }: any) => (
-  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 flex items-start justify-between">
+  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 flex items-start justify-between dark:bg-slate-800 dark:border-slate-700">
     <div>
-      <p className="text-sm font-medium text-slate-500 mb-1">{title}</p>
-      <h3 className="text-2xl font-bold text-slate-900">{value}</h3>
+      <p className="text-sm font-medium text-slate-500 mb-1 dark:text-slate-400">{title}</p>
+      <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</h3>
       {subtitle && <p className="text-xs text-slate-400 mt-1">{subtitle}</p>}
     </div>
     <div className={`p-3 rounded-xl ${color}`}>
@@ -483,7 +484,7 @@ const VendaCalculator = ({ initialCost, onApply, cardFees }: { initialCost: numb
         {onApply && (
           <button
             onClick={() => onApply(finalPrice)}
-            className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all mt-4"
+            className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all mt-4 dark:bg-slate-800"
           >
             Aplicar este Preço Final
           </button>
@@ -1780,24 +1781,24 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Sales Summary Card */}
           <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-rose-100 text-rose-600 rounded-lg">
                   <TrendingUp size={20} />
                 </div>
-                <h3 className="font-bold text-slate-900">Vendas de Hoje</h3>
+                <h3 className="font-bold text-slate-900 dark:text-slate-100">Vendas de Hoje</h3>
               </div>
-              <p className="text-3xl font-bold text-slate-900">{formatBRL(totalToday)}</p>
-              <p className="text-sm text-slate-500 mt-1">{todaySales.length} atendimentos realizados</p>
+              <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">{formatBRL(totalToday)}</p>
+              <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">{todaySales.length} atendimentos realizados</p>
 
-              <div className="mt-6 pt-6 border-t border-slate-400 space-y-3">
+              <div className="mt-6 pt-6 border-t border-slate-400 space-y-3 dark:border-slate-700">
                 <p className="text-xs font-bold text-slate-400 uppercase">Por Meio de Pagamento</p>
                 {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => {
                   const amount = todaySales.filter(s => s.payment_method === method).reduce((acc, curr) => acc + curr.total, 0);
                   return (
                     <div key={method} className="flex justify-between text-sm">
-                      <span className="text-slate-500">{method}</span>
-                      <span className="font-bold text-slate-900">{formatBRL(amount)}</span>
+                      <span className="text-slate-500 dark:text-slate-400">{method}</span>
+                      <span className="font-bold text-slate-900 dark:text-slate-100">{formatBRL(amount)}</span>
                     </div>
                   );
                 })}
@@ -1815,15 +1816,15 @@ export default function App() {
 
           {/* Recent Sales List */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
-              <div className="p-6 border-b border-slate-400 flex items-center justify-between">
-                <h3 className="font-bold text-slate-900">Últimas Movimentações</h3>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+              <div className="p-6 border-b border-slate-400 flex items-center justify-between dark:border-slate-700">
+                <h3 className="font-bold text-slate-900 dark:text-slate-100">Últimas Movimentações</h3>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <input
                     type="text"
                     placeholder="Buscar vendas..."
-                    className="pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none text-sm w-48"
+                    className="pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none text-sm w-48 dark:bg-slate-900 dark:border-slate-700"
                     value={salesSearchTerm}
                     onChange={e => setSalesSearchTerm(e.target.value)}
                   />
@@ -1850,11 +1851,11 @@ export default function App() {
                           }`}>
                           {sale.type === 'Oficina' ? 'ORDEM DE SERVIÇO' : 'VENDA BALCÃO'}
                         </span>
-                        <h4 className="font-bold text-slate-900">{sale.customer_name}</h4>
-                        <p className="text-xs text-slate-500">ID: {sale.id} • {new Date(sale.date).toLocaleTimeString()}</p>
+                        <h4 className="font-bold text-slate-900 dark:text-slate-100">{sale.customer_name}</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">ID: {sale.id} • {new Date(sale.date).toLocaleTimeString()}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-slate-900">{formatBRL(sale.total)}</p>
+                        <p className="font-bold text-slate-900 dark:text-slate-100">{formatBRL(sale.total)}</p>
                         <p className="text-xs text-rose-600 font-medium">{sale.payment_method}</p>
                         {sale.payment_method === 'Fiado' && sale.total - (sale.paid_total || 0) > 0 && (
                           <p className="text-[9px] font-black text-amber-500 uppercase mt-0.5">Pend: {formatBRL(sale.total - (sale.paid_total || 0))}</p>
@@ -1882,7 +1883,7 @@ export default function App() {
                     </div>
 
                     {sale.moto_details && (
-                      <p className="text-xs text-slate-600 bg-slate-100 p-2 rounded-lg mt-2">
+                      <p className="text-xs text-slate-600 bg-slate-100 p-2 rounded-lg mt-2 dark:bg-slate-800 dark:text-slate-400">
                         <Bike size={12} className="inline mr-1" /> {sale.moto_details}
                       </p>
                     )}
@@ -1913,7 +1914,7 @@ export default function App() {
                             <div className="flex gap-2 items-center">
                               <input
                                 type="number"
-                                className="w-24 px-2 py-1 bg-white border border-slate-400 rounded text-[10px] font-bold outline-none focus:ring-2 focus:ring-rose-500/20"
+                                className="w-24 px-2 py-1 bg-white border border-slate-400 rounded text-[10px] font-bold outline-none focus:ring-2 focus:ring-rose-500/20 dark:bg-slate-800 dark:border-slate-700"
                                 placeholder="Valor"
                                 value={partialPaymentAmount}
                                 onChange={(e) => setPartialPaymentAmount(e.target.value)}
@@ -1926,7 +1927,7 @@ export default function App() {
                               </button>
                               <button
                                 onClick={() => { setPayingSaleId(null); setPartialPaymentAmount(''); }}
-                                className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold hover:bg-slate-200 transition-all"
+                                className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold hover:bg-slate-200 transition-all dark:bg-slate-800 dark:text-slate-400"
                               >
                                 X
                               </button>
@@ -2027,14 +2028,14 @@ export default function App() {
       <Modal isOpen={isOpen} onClose={onClose} title="Controle de Fiado">
         <div className="space-y-4">
           {pendingFiadoSales.length === 0 ? (
-            <p className="text-slate-500 text-center">Nenhuma venda fiado pendente.</p>
+            <p className="text-slate-500 text-center dark:text-slate-400">Nenhuma venda fiado pendente.</p>
           ) : (
             <div className="space-y-3">
               {pendingFiadoSales.map(sale => (
-                <div key={sale.id} className="bg-slate-50 p-4 rounded-xl border border-slate-400 flex justify-between items-center">
+                <div key={sale.id} className="bg-slate-50 p-4 rounded-xl border border-slate-400 flex justify-between items-center dark:bg-slate-900 dark:border-slate-700">
                   <div>
-                    <p className="font-bold text-slate-800">Venda #{sale.id} - {sale.customer_name}</p>
-                    <p className="text-sm text-slate-500">Total: R$ {sale.total.toFixed(2)}</p>
+                    <p className="font-bold text-slate-800 dark:text-slate-100">Venda #{sale.id} - {sale.customer_name}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Total: R$ {sale.total.toFixed(2)}</p>
                     <p className="text-xs text-rose-500">Vencimento: {sale.due_date ? new Date(sale.due_date).toLocaleDateString('pt-BR') : 'N/A'}</p>
                   </div>
                   <button
@@ -2335,14 +2336,14 @@ export default function App() {
   const renderQuotes = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Orçamentos Profissionais</h2>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Orçamentos Profissionais</h2>
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
               placeholder="Pesquisar orçamento..."
-              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
+              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64 dark:bg-slate-800 dark:border-slate-700"
               value={quoteSearchTerm}
               onChange={e => setQuoteSearchTerm(e.target.value)}
             />
@@ -2376,7 +2377,7 @@ export default function App() {
           (q.customer_name || '').toLowerCase().includes(d_quoteSearchTerm.toLowerCase()) ||
           (q.motorcycle_details || '').toLowerCase().includes(d_quoteSearchTerm.toLowerCase())
         ).map((q) => (
-          <div key={q.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-all group relative overflow-hidden">
+          <div key={q.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-all group relative overflow-hidden dark:bg-slate-800 dark:border-slate-700">
             <div className="absolute top-0 right-0 p-3">
               <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${q.status === 'Aprovado' ? 'bg-emerald-100 text-emerald-700' :
                 q.status === 'Recusado' ? 'bg-rose-100 text-rose-700' :
@@ -2386,16 +2387,16 @@ export default function App() {
               </span>
             </div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
+              <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 dark:bg-slate-800">
                 <FileText size={24} />
               </div>
               <div className="w-[calc(100%-60px)]">
-                <h4 className="font-bold text-slate-900 uppercase text-sm truncate">{q.customer_name || 'Cliente não identificado'}</h4>
-                <p className="text-xs text-slate-500">{new Date(q.created_at).toLocaleDateString('pt-BR')}</p>
+                <h4 className="font-bold text-slate-900 uppercase text-sm truncate dark:text-slate-100">{q.customer_name || 'Cliente não identificado'}</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(q.created_at).toLocaleDateString('pt-BR')}</p>
               </div>
             </div>
             <div className="space-y-2 mb-4">
-              <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded-lg font-medium truncate">
+              <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded-lg font-medium truncate dark:bg-slate-900 dark:text-slate-400">
                 <Bike size={12} className="inline mr-1 text-slate-400" />
                 {q.motorcycle_details || 'Não informada'}
               </p>
@@ -2404,7 +2405,7 @@ export default function App() {
                 <span className="font-black text-rose-600">R$ {q.total_value.toFixed(2)}</span>
               </div>
             </div>
-            <div className="flex gap-2 pt-4 border-t border-slate-400">
+            <div className="flex gap-2 pt-4 border-t border-slate-400 dark:border-slate-700">
               <button
                 onClick={() => setIsPrintingQuote(q)}
                 className="flex-1 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-black transition-colors flex items-center justify-center gap-2"
@@ -2450,7 +2451,7 @@ export default function App() {
           </div>
         ))}
         {quotes.length === 0 && (
-          <div className="col-span-full py-12 text-center bg-white rounded-2xl border border-dashed border-slate-400">
+          <div className="col-span-full py-12 text-center bg-white rounded-2xl border border-dashed border-slate-400 dark:bg-slate-800 dark:border-slate-700">
             <FileText size={48} className="mx-auto text-slate-200 mb-4" />
             <p className="text-slate-400">Nenhum orçamento cadastrado ainda.</p>
           </div>
@@ -2465,8 +2466,8 @@ export default function App() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Gestão de Equipe e Fornecedores</h2>
-          <p className="text-sm text-slate-500">Mecânicos, Fornecedores e Repasses Fixos</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Gestão de Equipe e Fornecedores</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Mecânicos, Fornecedores e Repasses Fixos</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -2475,7 +2476,7 @@ export default function App() {
               setDistributorForm({ name: '', phone: '', contact_person: '' });
               setIsDistributorModalOpen(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-400 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-400 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-medium dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
           >
             <Truck size={18} />
             Novo Distribuidor
@@ -2486,7 +2487,7 @@ export default function App() {
               setFixedServiceForm({ name: '', price: '', payout: '' });
               setIsFixedServiceModalOpen(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-400 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-400 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-medium dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
           >
             <Settings size={18} />
             Tabela de Serviços
@@ -2507,9 +2508,9 @@ export default function App() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Mechanics List */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
-          <div className="p-6 border-b border-slate-400 flex items-center justify-between bg-slate-50">
-            <h3 className="font-bold text-slate-900 flex items-center gap-2">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+          <div className="p-6 border-b border-slate-400 flex items-center justify-between bg-slate-50 dark:bg-slate-900 dark:border-slate-700">
+            <h3 className="font-bold text-slate-900 flex items-center gap-2 dark:text-slate-100">
               <Users size={18} className="text-indigo-600" />
               Mecânicos Cadastrados
             </h3>
@@ -2522,8 +2523,8 @@ export default function App() {
                     {m.name.charAt(0)}
                   </div>
                   <div>
-                    <p className="font-bold text-slate-900">{m.name}</p>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Regra: 50% em serviços variáveis</p>
+                    <p className="font-bold text-slate-900 dark:text-slate-100">{m.name}</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight dark:text-slate-400">Regra: 50% em serviços variáveis</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2532,7 +2533,7 @@ export default function App() {
                       setSelectedMechanicForReport(m);
                       setIsMechanicReportModalOpen(true);
                     }}
-                    className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase hover:bg-slate-200 transition-colors"
+                    className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase hover:bg-slate-200 transition-colors dark:bg-slate-800 dark:text-slate-400"
                   >
                     Relatório
                   </button>
@@ -2568,9 +2569,9 @@ export default function App() {
         </div>
 
         {/* Fixed Services Table */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
-          <div className="p-6 border-b border-slate-400 flex items-center justify-between bg-slate-50">
-            <h3 className="font-bold text-slate-900 flex items-center gap-2">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+          <div className="p-6 border-b border-slate-400 flex items-center justify-between bg-slate-50 dark:bg-slate-900 dark:border-slate-700">
+            <h3 className="font-bold text-slate-900 flex items-center gap-2 dark:text-slate-100">
               <Settings size={18} className="text-amber-500" />
               Tabela de Repasses Fixos
             </h3>
@@ -2579,8 +2580,8 @@ export default function App() {
             {sortedFixedServices.map(fs => (
               <div key={fs.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div>
-                  <p className="font-bold text-slate-900">{fs.name}</p>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase">Repasse Fixo p/ Mecânico</p>
+                  <p className="font-bold text-slate-900 dark:text-slate-100">{fs.name}</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase dark:text-slate-400">Repasse Fixo p/ Mecânico</p>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
@@ -2625,16 +2626,16 @@ export default function App() {
         </div>
 
         {/* Distributors List */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden lg:col-span-2">
-          <div className="p-6 border-b border-slate-400 flex items-center justify-between bg-slate-50">
-            <h3 className="font-bold text-slate-900 flex items-center gap-2">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden lg:col-span-2 dark:bg-slate-800 dark:border-slate-700">
+          <div className="p-6 border-b border-slate-400 flex items-center justify-between bg-slate-50 dark:bg-slate-900 dark:border-slate-700">
+            <h3 className="font-bold text-slate-900 flex items-center gap-2 dark:text-slate-100">
               <Truck size={18} className="text-rose-600" />
               Distribuidoras e Fornecedores
             </h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6 divide-y md:divide-y-0 max-h-[500px] overflow-y-auto">
             {sortedDistributors.map(d => (
-              <div key={d.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-400 hover:border-rose-500 transition-all group relative">
+              <div key={d.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-400 hover:border-rose-500 transition-all group relative dark:bg-slate-900 dark:border-slate-700">
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center font-bold text-xl">
                     {d.name.charAt(0)}
@@ -2646,7 +2647,7 @@ export default function App() {
                         setDistributorForm({ name: d.name, phone: d.phone, contact_person: d.contact_person || '' });
                         setIsDistributorModalOpen(true);
                       }}
-                      className="p-2 bg-white text-indigo-600 rounded-lg shadow-sm hover:shadow-md transition-all border border-slate-200"
+                      className="p-2 bg-white text-indigo-600 rounded-lg shadow-sm hover:shadow-md transition-all border border-slate-200 dark:bg-slate-800 dark:border-slate-700"
                     >
                       <Pencil size={16} />
                     </button>
@@ -2661,15 +2662,15 @@ export default function App() {
                           }
                         }
                       }}
-                      className="p-2 bg-white text-rose-600 rounded-lg shadow-sm hover:shadow-md transition-all border border-slate-200"
+                      className="p-2 bg-white text-rose-600 rounded-lg shadow-sm hover:shadow-md transition-all border border-slate-200 dark:bg-slate-800 dark:border-slate-700"
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <h4 className="font-black text-slate-900 uppercase text-sm truncate">{d.name}</h4>
-                  <div className="flex items-center gap-2 text-slate-500">
+                  <h4 className="font-black text-slate-900 uppercase text-sm truncate dark:text-slate-100">{d.name}</h4>
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                     <MessageCircle size={14} className="text-emerald-500" />
                     <span className="text-xs font-bold tracking-tight">{d.phone}</span>
                   </div>
@@ -2686,7 +2687,7 @@ export default function App() {
               </div>
             ))}
             {distributors.length === 0 && (
-              <div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400 bg-white border-2 border-dashed border-slate-300 rounded-3xl">
+              <div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400 bg-white border-2 border-dashed border-slate-300 rounded-3xl dark:bg-slate-800 dark:border-slate-700">
                 <Truck size={48} className="mb-4 opacity-20" />
                 <p className="font-bold text-sm">Nenhum distribuidor cadastrado</p>
                 <button 
@@ -3679,19 +3680,19 @@ export default function App() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400">
-          <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
+          <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2 dark:text-slate-100">
             <TrendingUp size={20} className="text-rose-500" />
             Top 5 Produtos Mais Vendidos
           </h3>
           <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
             {(stats?.topProducts || []).map((p, i) => (
-              <div key={`prod-${i}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+              <div key={`prod-${i}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl dark:bg-slate-900">
                 <div className="flex items-center gap-3">
-                  <span className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-sm font-bold text-slate-400 border border-slate-400">
+                  <span className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-sm font-bold text-slate-400 border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
                     {i + 1}
                   </span>
-                  <span className="font-medium text-slate-700">{p.description}</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-100">{p.description}</span>
                 </div>
                 <span className="text-sm font-bold text-rose-600">{p.total_sold} vendidos</span>
               </div>
@@ -3702,17 +3703,17 @@ export default function App() {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400">
-          <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
+          <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2 dark:text-slate-100">
             <Bike size={20} className="text-amber-500" />
             Próximas Revisões (CRM)
           </h3>
           <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
             {(motorcycles || []).slice(0, 5).map((m, idx) => (
-              <div key={m.id || `moto-${idx}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+              <div key={m.id || `moto-${idx}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl dark:bg-slate-900">
                 <div>
-                  <p className="font-bold text-slate-800">{m.customer_name || 'Cliente s/ nome'}</p>
-                  <p className="text-xs text-slate-500">{m.model || 'Moto'} • {m.plate || 'S/ Placa'}</p>
+                  <p className="font-bold text-slate-800 dark:text-slate-100">{m.customer_name || 'Cliente s/ nome'}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{m.model || 'Moto'} • {m.plate || 'S/ Placa'}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium px-2 py-1 bg-amber-100 text-amber-700 rounded-lg">
@@ -3752,9 +3753,9 @@ export default function App() {
   const renderCustomers = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Clientes e Motos</h2>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Clientes e Motos</h2>
         <div className="flex items-center gap-4">
-          <div className="flex bg-slate-100 p-1 rounded-xl no-print">
+          <div className="flex bg-slate-100 p-1 rounded-xl no-print dark:bg-slate-800">
             <button
               onClick={() => setCustomerViewMode('list')}
               className={`p-2 rounded-lg transition-all ${customerViewMode === 'list' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400'}`}
@@ -3776,7 +3777,7 @@ export default function App() {
             <input
               type="text"
               placeholder="Pesquisar clientes..."
-              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
+              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64 dark:bg-slate-800 dark:border-slate-700"
               value={customerSearchTerm}
               onChange={e => setCustomerSearchTerm(e.target.value)}
             />
@@ -3825,17 +3826,17 @@ export default function App() {
               (c.city || '').toLowerCase().includes(search)
             );
           }).map(c => (
-            <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-shadow">
+            <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-shadow dark:bg-slate-800 dark:border-slate-700">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
-                  <h4 className="font-bold text-slate-900 text-lg leading-tight">{c.name}</h4>
+                  <h4 className="font-bold text-slate-900 text-lg leading-tight dark:text-slate-100">{c.name}</h4>
                   {c.nickname && <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mb-1">{c.nickname}</p>}
-                  <p className="text-sm text-slate-500">CPF: {c.cpf || 'Não informado'}</p>
-                  <p className="text-sm text-slate-500">Celular: {c.whatsapp || 'Não informado'}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">CPF: {c.cpf || 'Não informado'}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Celular: {c.whatsapp || 'Não informado'}</p>
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Limite Total:</span>
-                      <span className="text-xs font-bold text-slate-600">{formatBRL(c.credit_limit)}</span>
+                      <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{formatBRL(c.credit_limit)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Saldo Disponível:</span>
@@ -3845,7 +3846,7 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                <div className="w-24 h-24 bg-slate-100 border border-slate-400 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center">
+                <div className="w-24 h-24 bg-slate-100 border border-slate-400 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center dark:bg-slate-800 dark:border-slate-700">
                   {c.image_url ? (
                     <img src={c.image_url} alt={c.name} className="w-full h-full object-cover" />
                   ) : (
@@ -3898,13 +3899,13 @@ export default function App() {
                   </button>
                 </div>
               </div>
-              <div className="pt-4 border-t border-slate-400">
+              <div className="pt-4 border-t border-slate-400 dark:border-slate-700">
                 <p className="text-xs font-bold text-slate-400 uppercase mb-3 text-center">Motos Cadastradas</p>
                 <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                   {motorcycles.filter(m => m.customer_id === c.id).map(m => (
-                    <div key={m.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-sm border border-slate-400">
+                    <div key={m.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-sm border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-slate-800 truncate">{m.model}</p>
+                        <p className="font-bold text-slate-800 truncate dark:text-slate-100">{m.model}</p>
                         <p className="text-[10px] text-slate-400 font-mono font-black tracking-widest uppercase">{m.plate}</p>
                       </div>
                       <div className="flex gap-1">
@@ -3934,11 +3935,11 @@ export default function App() {
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-400 overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-400 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/50 border-b border-slate-400">
+                <tr className="bg-slate-50/50 border-b border-slate-400 dark:border-slate-700">
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Cliente</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contato / CPF</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Financeiro</th>
@@ -3957,14 +3958,14 @@ export default function App() {
                     (c.city || '').toLowerCase().includes(search)
                   );
                 }).map(c => (
-                  <tr key={c.id} className="border-b border-slate-400 hover:bg-slate-50/50 transition-colors">
+                  <tr key={c.id} className="border-b border-slate-400 hover:bg-slate-50/50 transition-colors dark:border-slate-700">
                     <td className="px-6 py-4">
-                      <p className="font-bold text-slate-900">{c.name}</p>
+                      <p className="font-bold text-slate-900 dark:text-slate-100">{c.name}</p>
                       {c.nickname && <p className="text-[10px] font-bold text-rose-600 uppercase tracking-tighter">{c.nickname}</p>}
                       <p className="text-[10px] text-slate-400">{motorcycles.filter(m => m.customer_id === c.id).length} moto(s) cadastrada(s)</p>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-sm text-slate-700 font-bold">{c.whatsapp}</p>
+                      <p className="text-sm text-slate-700 font-bold dark:text-slate-100">{c.whatsapp}</p>
                       <p className="text-[10px] text-slate-400 font-mono">CPF: {c.cpf || '---'}</p>
                     </td>
                     <td className="px-6 py-4">
@@ -3973,7 +3974,7 @@ export default function App() {
                           <span>Disponível</span>
                           <span className="text-rose-600">{formatBRL(getCustomerRemainingCredit(c.id))}</span>
                         </div>
-                        <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden dark:bg-slate-800">
                           <div
                             className="h-full bg-rose-600 rounded-full"
                             style={{ width: `${Math.max(0, Math.min(100, (getCustomerRemainingCredit(c.id) / (c.credit_limit || 1)) * 100))}%` }}
@@ -4061,14 +4062,14 @@ export default function App() {
   const renderServices = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Cadastro de Serviços</h2>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Cadastro de Serviços</h2>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
               placeholder="Pesquisar serviços..."
-              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64"
+              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64 dark:bg-slate-800 dark:border-slate-700"
               value={serviceSearchTerm}
               onChange={e => setServiceSearchTerm(e.target.value)}
             />
@@ -4087,10 +4088,10 @@ export default function App() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-bottom border-slate-400">
+            <tr className="bg-slate-50 border-bottom border-slate-400 dark:bg-slate-900 dark:border-slate-700">
               <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Descrição / Serviço</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Categoria</th>
               <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Preço Sugerido</th>
@@ -4102,9 +4103,9 @@ export default function App() {
               (s.description || '').toLowerCase().includes(d_serviceSearchTerm.toLowerCase())
             ).map(s => (
               <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4 font-bold text-slate-900">{s.description || 'Sem Descrição'}</td>
+                <td className="px-6 py-4 font-bold text-slate-900 dark:text-slate-100">{s.description || 'Sem Descrição'}</td>
                 <td className="px-6 py-4">
-                  <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase">
+                  <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold uppercase dark:bg-slate-800 dark:text-slate-400">
                     {s.category || 'Geral'}
                   </span>
                 </td>
@@ -4146,14 +4147,14 @@ export default function App() {
       </div>
 
       {/* Tabela de Repasses Fixos - Unificando na aba de Serviços */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden">
-        <div className="p-6 border-b border-slate-400 flex items-center justify-between bg-slate-50">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+        <div className="p-6 border-b border-slate-400 flex items-center justify-between bg-slate-50 dark:bg-slate-900 dark:border-slate-700">
           <div>
-            <h3 className="font-bold text-slate-900 flex items-center gap-2">
+            <h3 className="font-bold text-slate-900 flex items-center gap-2 dark:text-slate-100">
               <Settings size={18} className="text-amber-500" />
               Tabela de Repasses Fixos (Mecânicos)
             </h3>
-            <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Valores fixos pagos aos mecânicos por serviço</p>
+            <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 dark:text-slate-400">Valores fixos pagos aos mecânicos por serviço</p>
           </div>
           <button
             onClick={() => {
@@ -4170,8 +4171,8 @@ export default function App() {
           {sortedFixedServices.map(fs => (
             <div key={fs.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
               <div>
-                <p className="font-bold text-slate-900">{fs.name || 'Sem Nome'}</p>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Repasse p/ Mecânico: <span className="text-rose-600">R$ {(fs.payout || 0).toFixed(2)}</span></p>
+                <p className="font-bold text-slate-900 dark:text-slate-100">{fs.name || 'Sem Nome'}</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter dark:text-slate-400">Repasse p/ Mecânico: <span className="text-rose-600">R$ {(fs.payout || 0).toFixed(2)}</span></p>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -4220,7 +4221,7 @@ export default function App() {
         <ClipboardCheck className="absolute -right-4 -bottom-4 opacity-10" size={160} />
       </div>
 
-      <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm space-y-6">
+      <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm space-y-6 dark:bg-slate-800 dark:border-slate-700">
         <div className="relative">
           <label className="block text-sm font-black text-slate-400 uppercase tracking-widest mb-2 px-2">Buscar/Bipar Produto</label>
           <div className="relative">
@@ -4229,7 +4230,7 @@ export default function App() {
               type="text"
               autoFocus
               placeholder="Nome, SKU ou Bipe o Código..."
-              className="w-full pl-14 pr-4 py-6 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-emerald-500 outline-none text-xl transition-all font-bold placeholder:text-slate-300"
+              className="w-full pl-14 pr-4 py-6 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-emerald-500 outline-none text-xl transition-all font-bold placeholder:text-slate-300 dark:bg-slate-900 dark:border-slate-700"
               value={quickInventorySearch}
               onChange={e => {
                 setQuickInventorySearch(e.target.value);
@@ -4248,7 +4249,7 @@ export default function App() {
           </div>
 
           {quickInventorySearch && !selectedQuickProduct && (
-            <div className="absolute z-50 w-full mt-2 bg-white border border-slate-300 rounded-2xl shadow-2xl max-h-80 overflow-y-auto">
+            <div className="absolute z-50 w-full mt-2 bg-white border border-slate-300 rounded-2xl shadow-2xl max-h-80 overflow-y-auto dark:bg-slate-800 dark:border-slate-700">
               {products.filter(p => 
                 (p.description || '').toLowerCase().includes(quickInventorySearch.toLowerCase()) ||
                 (p.sku || '').toLowerCase().includes(quickInventorySearch.toLowerCase()) ||
@@ -4264,8 +4265,8 @@ export default function App() {
                   }}
                   className="w-full text-left px-6 py-5 hover:bg-emerald-50 flex flex-col border-b border-slate-100 last:border-none transition-colors"
                 >
-                  <span className="font-black text-slate-900 text-lg uppercase leading-none mb-1">{p.description}</span>
-                  <div className="flex items-center gap-3 text-xs text-slate-500 font-bold uppercase tracking-tighter">
+                  <span className="font-black text-slate-900 text-lg uppercase leading-none mb-1 dark:text-slate-100">{p.description}</span>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 font-bold uppercase tracking-tighter dark:text-slate-400">
                     <span>SKU: {p.sku || '--'}</span>
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                     <span>Loc: {p.location || 'Sem prateleira'}</span>
@@ -4282,10 +4283,10 @@ export default function App() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-emerald-500 shadow-xl shadow-emerald-50"
+            className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-emerald-500 shadow-xl shadow-emerald-50 dark:bg-slate-900"
           >
             <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center mb-10">
-              <div className="w-32 h-32 bg-white border-2 border-slate-200 rounded-[2rem] overflow-hidden shadow-inner flex items-center justify-center relative group shrink-0">
+              <div className="w-32 h-32 bg-white border-2 border-slate-200 rounded-[2rem] overflow-hidden shadow-inner flex items-center justify-center relative group shrink-0 dark:bg-slate-800 dark:border-slate-700">
                 {selectedQuickProduct.image_url ? (
                   <img src={selectedQuickProduct.image_url} alt="Produto" className="w-full h-full object-contain p-2" />
                 ) : (
@@ -4317,11 +4318,11 @@ export default function App() {
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest">Ajustando Estoque</span>
-                  <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest">ID: {selectedQuickProduct.id}</span>
+                  <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest dark:bg-slate-800 dark:text-slate-400">ID: {selectedQuickProduct.id}</span>
                 </div>
-                <h3 className="text-3xl font-black text-slate-900 uppercase leading-none">{selectedQuickProduct.description}</h3>
+                <h3 className="text-3xl font-black text-slate-900 uppercase leading-none dark:text-slate-100">{selectedQuickProduct.description}</h3>
                 <div className="flex items-center gap-2">
-                  <p className="text-slate-500 font-bold text-sm uppercase">{selectedQuickProduct.brand || 'Sem Marca'}</p>
+                  <p className="text-slate-500 font-bold text-sm uppercase dark:text-slate-400">{selectedQuickProduct.brand || 'Sem Marca'}</p>
                   <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
                   <p className="text-slate-400 font-bold text-sm uppercase">{selectedQuickProduct.location || 'Sem prateleira'}</p>
                 </div>
@@ -4329,14 +4330,14 @@ export default function App() {
               
               <button 
                 onClick={() => setSelectedQuickProduct(null)}
-                className="p-4 bg-white border-2 border-slate-200 rounded-[1.5rem] hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all shadow-sm"
+                className="p-4 bg-white border-2 border-slate-200 rounded-[1.5rem] hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all shadow-sm dark:bg-slate-800 dark:border-slate-700"
               >
                 <X size={28} />
               </button>
             </div>
 
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200">
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 dark:bg-slate-800 dark:border-slate-700">
                 <label className="block text-center text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Quantidade Contada</label>
                 <div className="relative flex items-center justify-center">
                   <input
@@ -4374,8 +4375,8 @@ export default function App() {
             </div>
           </motion.div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-20 bg-slate-50 border-4 border-dashed border-slate-100 rounded-[3rem]">
-            <div className="w-24 h-24 bg-white rounded-3xl shadow-sm flex items-center justify-center text-slate-200 mb-6">
+          <div className="flex flex-col items-center justify-center py-20 bg-slate-50 border-4 border-dashed border-slate-100 rounded-[3rem] dark:bg-slate-900">
+            <div className="w-24 h-24 bg-white rounded-3xl shadow-sm flex items-center justify-center text-slate-200 mb-6 dark:bg-slate-800">
               <Scan size={48} />
             </div>
             <p className="text-slate-400 font-bold text-center uppercase tracking-widest text-xs">
@@ -4392,34 +4393,34 @@ export default function App() {
 
   const renderSettings = () => (
     <div className="max-w-4xl space-y-8">
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
         <div className="flex items-center gap-4 mb-8">
           <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
             <Building2 size={24} />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Cadastro da Empresa</h3>
-            <p className="text-sm text-slate-500">Informações oficiais do seu negócio</p>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Cadastro da Empresa</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Informações oficiais do seu negócio</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Razão Social</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Razão Social</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                 placeholder="Ex: Kombat Peças e Serviços Ltda"
                 value={companyData.razaoSocial}
                 onChange={e => setCompanyData({ ...companyData, razaoSocial: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Nome Fantasia</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Nome Fantasia</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                 placeholder="Ex: Kombat Moto Peças"
                 value={companyData.nomeFantasia}
                 onChange={e => setCompanyData({ ...companyData, nomeFantasia: e.target.value })}
@@ -4428,10 +4429,10 @@ export default function App() {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">CNPJ</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">CNPJ</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               placeholder="00.000.000/0000-00"
               value={companyData.cnpj}
               onChange={e => setCompanyData({ ...companyData, cnpj: e.target.value })}
@@ -4439,10 +4440,10 @@ export default function App() {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Telefone / WhatsApp</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Telefone / WhatsApp</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               placeholder="(00) 00000-0000"
               value={companyData.telefone}
               onChange={e => setCompanyData({ ...companyData, telefone: e.target.value })}
@@ -4450,10 +4451,10 @@ export default function App() {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">E-mail de Contato</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">E-mail de Contato</label>
             <input
               type="email"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               placeholder="contato@empresa.com"
               value={companyData.email}
               onChange={e => setCompanyData({ ...companyData, email: e.target.value })}
@@ -4461,10 +4462,10 @@ export default function App() {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">CEP</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">CEP</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               placeholder="00000-000"
               value={companyData.cep}
               onChange={e => setCompanyData({ ...companyData, cep: e.target.value })}
@@ -4472,10 +4473,10 @@ export default function App() {
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-bold text-slate-700 mb-2">Endereço Completo</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Endereço Completo</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               placeholder="Rua, Número, Complemento"
               value={companyData.endereco}
               onChange={e => setCompanyData({ ...companyData, endereco: e.target.value })}
@@ -4483,10 +4484,10 @@ export default function App() {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Bairro</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Bairro</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               value={companyData.bairro}
               onChange={e => setCompanyData({ ...companyData, bairro: e.target.value })}
             />
@@ -4494,19 +4495,19 @@ export default function App() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Cidade</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Cidade</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                 value={companyData.cidade}
                 onChange={e => setCompanyData({ ...companyData, cidade: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Estado</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Estado</label>
               <input
                 type="text"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                 placeholder="UF"
                 value={companyData.estado}
                 onChange={e => setCompanyData({ ...companyData, estado: e.target.value })}
@@ -4521,19 +4522,19 @@ export default function App() {
       </div>
 
 
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
         <div className="flex items-center gap-4 mb-6">
           <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl">
             <ImageIcon size={24} />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Logo da Empresa</h3>
-            <p className="text-sm text-slate-500">Personalize o visual do seu sistema e documentos</p>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Logo da Empresa</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Personalize o visual do seu sistema e documentos</p>
           </div>
         </div>
 
         <div className="flex items-center gap-8">
-          <div className="w-32 h-32 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-400 flex items-center justify-center overflow-hidden">
+          <div className="w-32 h-32 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-400 flex items-center justify-center overflow-hidden dark:bg-slate-900 dark:border-slate-700">
             {companyLogo ? (
               <img src={companyLogo} alt="Logo" className="w-full h-full object-contain" />
             ) : (
@@ -4563,14 +4564,14 @@ export default function App() {
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
         <div className="flex items-center gap-4 mb-6">
           <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl">
             <BarChart3 size={24} />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Central de Relatórios Profissionais</h3>
-            <p className="text-sm text-slate-500">Gere relatórios detalhados para impressão ou análise gerencial</p>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Central de Relatórios Profissionais</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Gere relatórios detalhados para impressão ou análise gerencial</p>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -4587,41 +4588,41 @@ export default function App() {
                 setSelectedReport(rep.id as any);
                 setIsManagementReportModalOpen(true);
               }}
-              className="flex items-center gap-4 p-4 rounded-2xl border border-slate-400 hover:border-rose-200 hover:shadow-md transition-all text-left bg-slate-50/50"
+              className="flex items-center gap-4 p-4 rounded-2xl border border-slate-400 hover:border-rose-200 hover:shadow-md transition-all text-left bg-slate-50/50 dark:border-slate-700"
             >
               <div className={`p-3 rounded-xl ${rep.bg} ${rep.color}`}>
                 <rep.icon size={24} />
               </div>
               <div>
-                <p className="font-bold text-slate-900 text-sm">{rep.label}</p>
-                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Ver Detalhes</p>
+                <p className="font-bold text-slate-900 text-sm dark:text-slate-100">{rep.label}</p>
+                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider dark:text-slate-400">Ver Detalhes</p>
               </div>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
         <div className="flex items-center gap-4 mb-6">
           <div className="p-3 bg-blue-100 text-blue-600 rounded-2xl">
             <Settings size={24} />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Backup e Dados</h3>
-            <p className="text-sm text-slate-500">Gerencie a segurança das suas informações</p>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Backup e Dados</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Gerencie a segurança das suas informações</p>
           </div>
         </div>
         <div className="flex gap-4">
           <button 
             onClick={handleExportBackup}
-            className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm flex items-center gap-2"
+            className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm flex items-center gap-2 dark:bg-slate-800 dark:text-slate-100"
           >
             <Download size={18} />
             Exportar Backup (JSON)
           </button>
           <button 
             onClick={handleClearCache}
-            className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm"
+            className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm dark:bg-slate-800 dark:text-slate-100"
           >
             Limpar Cache do Sistema
           </button>
@@ -4632,7 +4633,7 @@ export default function App() {
   const renderOrders = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Pedidos de Peças</h2>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Pedidos de Peças</h2>
         <div className="flex gap-2">
           <button
             onClick={() => {
@@ -4653,8 +4654,8 @@ export default function App() {
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">Pedidos Recentes</h3>
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
+        <h3 className="text-lg font-bold text-slate-900 mb-4 dark:text-slate-100">Pedidos Recentes</h3>
         <div className="space-y-4">
           {purchaseOrders.length === 0 ? (
             <p className="text-center text-slate-400 py-8 italic">Nenhum pedido de peças registrado ainda.</p>
@@ -4664,10 +4665,10 @@ export default function App() {
                                 order.status === 'Enviado' ? 'bg-blue-100 text-blue-600' : 
                                 'bg-rose-100 text-rose-600';
               return (
-                <div key={order.id} className="p-4 bg-slate-50 rounded-xl border border-slate-400 flex items-center justify-between">
+                <div key={order.id} className="p-4 bg-slate-50 rounded-xl border border-slate-400 flex items-center justify-between dark:bg-slate-900 dark:border-slate-700">
                   <div>
-                    <p className="font-bold text-slate-800">Pedido #{order.id}</p>
-                    <p className="text-sm text-slate-500">Distribuidor: {order.distributor_name}</p>
+                    <p className="font-bold text-slate-800 dark:text-slate-100">Pedido #{order.id}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Distribuidor: {order.distributor_name}</p>
                     <p className="text-xs text-slate-400">Data: {new Date(order.date).toLocaleDateString('pt-BR')}</p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -4718,7 +4719,7 @@ export default function App() {
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
-              <h2 className="text-2xl font-bold text-slate-900">Relatório Geral de Clientes</h2>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Relatório Geral de Clientes</h2>
               <div className="flex gap-2 no-print">
                 <button 
                   onClick={handleExportCustomersExcel}
@@ -4727,7 +4728,7 @@ export default function App() {
                   <FileText size={16} />
                   Exportar Excel
                 </button>
-                <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all text-slate-600">
+                <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                   <Printer size={20} />
                 </button>
               </div>
@@ -4784,19 +4785,19 @@ export default function App() {
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
-              <h2 className="text-2xl font-bold text-slate-900">Relatório de Estoque e Valoração</h2>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Relatório de Estoque e Valoração</h2>
               <div className="flex items-center gap-4">
                 <div className="relative no-print">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <input
                     type="text"
                     placeholder="Filtrar por nome ou SKU..."
-                    className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none w-64"
+                    className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none w-64 dark:bg-slate-900 dark:border-slate-700"
                     value={inventoryReportSearchTerm}
                     onChange={(e) => setInventoryReportSearchTerm(e.target.value)}
                   />
                 </div>
-                <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200"><Printer size={20} /></button>
+                <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200 dark:bg-slate-800"><Printer size={20} /></button>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4 font-sans">
@@ -4841,7 +4842,7 @@ export default function App() {
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
-              <h2 className="text-2xl font-bold text-slate-900">Relatório de Performance de Vendas</h2>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Relatório de Performance de Vendas</h2>
               <div className="flex gap-2 no-print">
                 <button 
                   onClick={handleExportSalesExcel}
@@ -4850,7 +4851,7 @@ export default function App() {
                   <FileText size={16} />
                   Exportar Excel
                 </button>
-                <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all text-slate-600">
+                <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200 transition-all text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                   <Printer size={20} />
                 </button>
               </div>
@@ -4903,8 +4904,8 @@ export default function App() {
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
-              <h2 className="text-2xl font-bold text-slate-900">Relatório Financeiro e Lucratividade</h2>
-              <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200"><Printer size={20} /></button>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Relatório Financeiro e Lucratividade</h2>
+              <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200 dark:bg-slate-800"><Printer size={20} /></button>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
@@ -4930,13 +4931,13 @@ export default function App() {
                 </p>
               </div>
             </div>
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400">
-              <h4 className="font-bold text-slate-800 mb-2">Resumo por Forma de Pagamento</h4>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
+              <h4 className="font-bold text-slate-800 mb-2 dark:text-slate-100">Resumo por Forma de Pagamento</h4>
               <div className="grid grid-cols-4 gap-4">
                 {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => (
-                  <div key={method} className="bg-white p-3 rounded-xl border border-slate-400 shadow-sm">
+                  <div key={method} className="bg-white p-3 rounded-xl border border-slate-400 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                     <p className="text-[10px] font-bold text-slate-400 uppercase">{method}</p>
-                    <p className="text-lg font-black text-slate-800">R$ {sales.filter(s => s.payment_method === method).reduce((acc, s) => acc + s.total, 0).toFixed(2)}</p>
+                    <p className="text-lg font-black text-slate-800 dark:text-slate-100">R$ {sales.filter(s => s.payment_method === method).reduce((acc, s) => acc + s.total, 0).toFixed(2)}</p>
                   </div>
                 ))}
               </div>
@@ -4947,8 +4948,8 @@ export default function App() {
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
-              <h2 className="text-2xl font-bold text-slate-900">Relatório de Compras e Fornecedores</h2>
-              <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200"><Printer size={20} /></button>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Relatório de Compras e Fornecedores</h2>
+              <button onClick={() => window.print()} className="p-2 bg-slate-100 rounded-lg no-print hover:bg-slate-200 dark:bg-slate-800"><Printer size={20} /></button>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
@@ -4995,7 +4996,7 @@ export default function App() {
 
   if (authChecking) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center dark:bg-slate-900">
         <div className="w-8 h-8 border-4 border-rose-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -5003,7 +5004,7 @@ export default function App() {
 
   if (isCatalogPublicView) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-white dark:bg-slate-800">
         <ProfessionalCatalog 
           isOpen={true} 
           onClose={() => {}} 
@@ -5035,7 +5036,7 @@ export default function App() {
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-3">
             {companyLogo ? (
-              <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg shadow-rose-100 border border-slate-400">
+              <div className="w-12 h-12 rounded-xl overflow-hidden shadow-lg shadow-rose-100 border border-slate-400 dark:border-slate-700">
                 <img src={companyLogo} alt="Logo" className="w-full h-full object-cover" />
               </div>
             ) : (
@@ -5043,7 +5044,7 @@ export default function App() {
                 <Bike size={24} />
               </div>
             )}
-            <h1 className="font-bold text-xl text-slate-900 leading-tight">Kombat<br /><span className="text-rose-600">Moto Peças</span></h1>
+            <h1 className="font-bold text-xl text-slate-900 leading-tight dark:text-slate-100">Kombat<br /><span className="text-rose-600">Moto Peças</span></h1>
           </div>
           <button
             onClick={() => setIsSidebarOpen(false)}
@@ -5146,9 +5147,9 @@ export default function App() {
           />
         </nav>
 
-        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400">
+        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
           <p className="text-xs font-bold text-slate-400 uppercase mb-2">Suporte</p>
-          <button className="w-full flex items-center gap-2 text-sm text-slate-600 hover:text-rose-600 transition-colors">
+          <button className="w-full flex items-center gap-2 text-sm text-slate-600 hover:text-rose-600 transition-colors dark:text-slate-400">
             <MessageCircle size={16} />
             Ajuda do Sistema
           </button>
@@ -5172,7 +5173,7 @@ export default function App() {
       <main className="flex-1 p-8 overflow-y-auto ml-0 no-print">
         <header className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-slate-900">
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
               {activeTab === 'dashboard' && 'Bem-vindo de volta!'}
               {activeTab === 'customers' && 'Gestão de Clientes'}
               {activeTab === 'inventory' && 'Controle de Estoque'}
@@ -5188,11 +5189,12 @@ export default function App() {
               {activeTab === 'quotes' && 'Orçamentos Profissionais'}
               {activeTab === 'settings' && 'Configurações do Sistema'}
             </h2>
-            <p className="text-slate-500">
+            <p className="text-slate-500 dark:text-slate-400">
               {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <div className="flex flex-col items-end gap-1">
               <span className="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">SISTEMA ATUALIZADO V2.1</span>
             </div>
@@ -5341,7 +5343,7 @@ export default function App() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setSelectedCustomerForPrint({ customer: selectedCustomerForHistory, type: 'A4' })}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm"
+                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm dark:bg-slate-800 dark:text-slate-100"
                   >
                     <Printer size={16} /> Relatório A4
                   </button>
@@ -5358,44 +5360,44 @@ export default function App() {
                     <p className="text-center text-slate-400 py-8 italic">Nenhuma movimentação encontrada para este cliente.</p>
                   ) : (
                     sales.filter(s => s.customer_id === selectedCustomerForHistory.id).map(sale => (
-                      <div key={sale.id} className="p-4 bg-slate-50 rounded-xl border border-slate-400">
+                      <div key={sale.id} className="p-4 bg-slate-50 rounded-xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block ${sale.type === 'Oficina' ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'
                               }`}>
                               {sale.type === 'Oficina' ? 'ORDEM DE SERVIÇO' : 'VENDA BALCÃO'}
                             </span>
-                            <p className="text-xs text-slate-500">{new Date(sale.date).toLocaleDateString('pt-BR')} • {sale.id}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(sale.date).toLocaleDateString('pt-BR')} • {sale.id}</p>
                           </div>
-                          <p className="font-bold text-slate-900">R$ {sale.total.toFixed(2)}</p>
+                          <p className="font-bold text-slate-900 dark:text-slate-100">R$ {sale.total.toFixed(2)}</p>
                         </div>
                         <div className="space-y-1">
                           {sale.items.filter(i => !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-[11px] text-slate-600">
+                            <div key={idx} className="flex justify-between text-[11px] text-slate-600 dark:text-slate-400">
                               <span>{item.quantity}x {item.description}</span>
                               <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
                             </div>
                           ))}
                           {sale.labor_value > 0 && (
-                            <div className="flex justify-between text-[11px] text-amber-600 font-medium pt-1 border-t border-slate-400">
+                            <div className="flex justify-between text-[11px] text-amber-600 font-medium pt-1 border-t border-slate-400 dark:border-slate-700">
                               <span>Mão de Obra</span>
                               <span>R$ {sale.labor_value.toFixed(2)}</span>
                             </div>
                           )}
                           {sale.service_description && (
-                            <div className="mt-2 p-2 bg-white rounded-lg border border-slate-400 italic text-[10px] text-slate-500">
+                            <div className="mt-2 p-2 bg-white rounded-lg border border-slate-400 italic text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
                               {sale.service_description}
                             </div>
                           )}
 
                           {/* Partial Payment Section */}
-                          <div className="mt-4 p-3 bg-white rounded-xl border border-slate-400 shadow-sm space-y-2">
+                          <div className="mt-4 p-3 bg-white rounded-xl border border-slate-400 shadow-sm space-y-2 dark:bg-slate-800 dark:border-slate-700">
                             <div className="flex justify-between items-center text-[10px] font-black uppercase">
                               <span className="text-slate-400">Total: R$ {sale.total.toFixed(2)}</span>
                               <span className="text-emerald-500">Pago: R$ {(sale.paid_total || 0).toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between items-center py-2 border-t border-slate-400">
-                              <span className="text-xs font-black uppercase text-slate-800">Saldo Restante:</span>
+                            <div className="flex justify-between items-center py-2 border-t border-slate-400 dark:border-slate-700">
+                              <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-100">Saldo Restante:</span>
                               <span className={`text-sm font-black ${sale.total - (sale.paid_total || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                                 R$ {(sale.total - (sale.paid_total || 0)).toFixed(2)}
                               </span>
@@ -5410,7 +5412,7 @@ export default function App() {
                                   <div className="flex gap-2">
                                     <input
                                       type="number"
-                                      className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-400 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500/20"
+                                      className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-400 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500/20 dark:bg-slate-900 dark:border-slate-700"
                                       placeholder="Quanto pago?"
                                       value={partialPaymentAmount}
                                       onChange={(e) => setPartialPaymentAmount(e.target.value)}
@@ -5423,7 +5425,7 @@ export default function App() {
                                     </button>
                                     <button
                                       onClick={() => { setPayingSaleId(null); setPartialPaymentAmount(''); }}
-                                      className="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all"
+                                      className="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all dark:bg-slate-800 dark:text-slate-400"
                                     >
                                       X
                                     </button>
@@ -5460,7 +5462,7 @@ export default function App() {
           maxWidth="max-w-5xl"
         >
           <form onSubmit={handleCreateQuote} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-400">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
               <div className="relative">
                 <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Cliente / Razão Social</label>
                 <div className="relative">
@@ -5468,7 +5470,7 @@ export default function App() {
                   <input
                     type="text"
                     required
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
                     placeholder="Pesquisar ou digitar nome do cliente..."
                     value={quoteForm.customer_name}
                     onChange={e => {
@@ -5481,7 +5483,7 @@ export default function App() {
                   />
                 </div>
                 {quoteCustomerSearchTerm && (
-                  <div className="absolute z-[110] w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                  <div className="absolute z-[110] w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-2xl max-h-48 overflow-y-auto dark:bg-slate-800 dark:border-slate-700">
                     {sortedCustomers.filter(c => 
                       c.name.toLowerCase().includes(d_quoteCustomerSearch.toLowerCase()) ||
                       (c.nickname && c.nickname.toLowerCase().includes(d_quoteCustomerSearch.toLowerCase()))
@@ -5503,8 +5505,8 @@ export default function App() {
                         className="w-full text-left px-4 py-3 hover:bg-rose-50 flex justify-between items-center border-b border-slate-100 last:border-none transition-colors"
                       >
                         <div>
-                          <p className="text-sm font-bold text-slate-900 uppercase">{c.name}</p>
-                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">
+                          <p className="text-sm font-bold text-slate-900 uppercase dark:text-slate-100">{c.name}</p>
+                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter dark:text-slate-400">
                             {c.nickname ? `${c.nickname} | ` : ''}{c.whatsapp}
                           </p>
                         </div>
@@ -5514,7 +5516,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setQuoteCustomerSearchTerm('')}
-                      className="w-full py-2 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase hover:text-slate-600 transition-colors"
+                      className="w-full py-2 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase hover:text-slate-600 transition-colors dark:bg-slate-900"
                     >
                       Manter apenas texto digitado
                     </button>
@@ -5525,7 +5527,7 @@ export default function App() {
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Motocicleta</label>
                 <input
                   type="text"
-                  className="w-full p-2 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all text-sm"
+                  className="w-full p-2 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all text-sm dark:border-slate-700"
                   placeholder="Ex: Honda CG 160 (ABC-1234)"
                   value={quoteForm.motorcycle_details}
                   onChange={e => setQuoteForm({ ...quoteForm, motorcycle_details: e.target.value })}
@@ -5587,9 +5589,9 @@ export default function App() {
               </div>
 
               {activeQuoteManualType && (
-                <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2">
+                <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2 dark:bg-slate-900 dark:border-slate-700">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Novo Item Manual: {activeQuoteManualType}</span>
+                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest dark:text-slate-400">Novo Item Manual: {activeQuoteManualType}</span>
                     <button onClick={() => setActiveQuoteManualType(null)} className="text-slate-400 hover:text-rose-500"><X size={16} /></button>
                   </div>
                   <div className="grid grid-cols-12 gap-2">
@@ -5597,7 +5599,7 @@ export default function App() {
                       <input
                         type="text"
                         placeholder="Nome da Peça/Serviço"
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold focus:border-rose-500 outline-none"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold focus:border-rose-500 outline-none dark:bg-slate-800 dark:border-slate-700"
                         value={manualQuoteItem.description}
                         onChange={e => setManualQuoteItem({...manualQuoteItem, description: e.target.value})}
                         autoFocus
@@ -5608,7 +5610,7 @@ export default function App() {
                         <input
                           type="number"
                           placeholder="Qtd"
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold focus:border-rose-500 outline-none"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold focus:border-rose-500 outline-none dark:bg-slate-800 dark:border-slate-700"
                           value={manualQuoteItem.quantity}
                           onChange={e => setManualQuoteItem({...manualQuoteItem, quantity: e.target.value})}
                         />
@@ -5618,7 +5620,7 @@ export default function App() {
                       <input
                         type="number"
                         placeholder="Preço R$"
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold focus:border-rose-500 outline-none"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold focus:border-rose-500 outline-none dark:bg-slate-800 dark:border-slate-700"
                         value={manualQuoteItem.price}
                         onChange={e => setManualQuoteItem({...manualQuoteItem, price: e.target.value})}
                       />
@@ -5657,9 +5659,9 @@ export default function App() {
                 </div>
               )}
 
-              <div className="border border-slate-400 rounded-2xl overflow-hidden">
+              <div className="border border-slate-400 rounded-2xl overflow-hidden dark:border-slate-700">
                 <table className="w-full text-left">
-                  <thead className="bg-slate-50 border-b border-slate-400">
+                  <thead className="bg-slate-50 border-b border-slate-400 dark:bg-slate-900 dark:border-slate-700">
                     <tr>
                       <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 text-center w-16">Qtd</th>
                       <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400">Descrição</th>
@@ -5669,18 +5671,18 @@ export default function App() {
                       <th className="px-4 py-3 w-12"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-300 bg-white">
+                  <tbody className="divide-y divide-slate-300 bg-white dark:bg-slate-800">
                     {quoteForm.items.map((item, idx) => (
                       <tr key={idx} className="group hover:bg-slate-50/50">
-                        <td className="px-4 py-3 text-center font-bold text-slate-900 text-sm">{item.quantity}</td>
-                        <td className="px-4 py-3 font-bold text-slate-900 text-sm uppercase">{item.description}</td>
+                        <td className="px-4 py-3 text-center font-bold text-slate-900 text-sm dark:text-slate-100">{item.quantity}</td>
+                        <td className="px-4 py-3 font-bold text-slate-900 text-sm uppercase dark:text-slate-100">{item.description}</td>
                         <td className="px-4 py-3">
                           <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tight ${item.type === 'Peça' ? 'bg-black text-white' : 'bg-rose-100 text-rose-600'}`}>
                             {item.type}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right font-bold text-slate-600 text-sm">R$ {item.price.toFixed(2)}</td>
-                        <td className="px-4 py-3 text-right font-black text-slate-900 text-sm">R$ {item.total.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right font-bold text-slate-600 text-sm dark:text-slate-400">R$ {item.price.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-right font-black text-slate-900 text-sm dark:text-slate-100">R$ {item.total.toFixed(2)}</td>
                         <td className="px-4 py-3 text-right">
                           <button
                             type="button"
@@ -5721,7 +5723,7 @@ export default function App() {
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Observações Técnicas</label>
                 <textarea
-                  className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-medium text-slate-700 min-h-[100px]"
+                  className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-medium text-slate-700 min-h-[100px] dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
                   placeholder="Detalhes sobre o estado da moto, recomendações, etc..."
                   value={quoteForm.observations}
                   onChange={e => setQuoteForm({ ...quoteForm, observations: e.target.value })}
@@ -5732,7 +5734,7 @@ export default function App() {
                   <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Validade (Dias)</label>
                   <input
                     type="number"
-                    className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
+                    className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
                     value={quoteForm.validity_days}
                     onChange={e => setQuoteForm({ ...quoteForm, validity_days: Number(e.target.value) })}
                   />
@@ -5741,7 +5743,7 @@ export default function App() {
                   <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Termos de Garantia</label>
                   <input
                     type="text"
-                    className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900"
+                    className="w-full px-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
                     value={quoteForm.warranty_terms}
                     onChange={e => setQuoteForm({ ...quoteForm, warranty_terms: e.target.value })}
                   />
@@ -5749,11 +5751,11 @@ export default function App() {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-400 space-y-4">
+            <div className="pt-6 border-t border-slate-400 space-y-4 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setShowQuoteCalculator(!showQuoteCalculator)}
-                className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-400"
+                className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-400 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
               >
                 <Calculator size={18} />
                 {showQuoteCalculator ? 'Esconder Calculadora de Juros' : 'Abrir Calculadora de Juros/Taxas'}
@@ -5787,7 +5789,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setIsQuoteModalOpen(false)}
-                  className="px-6 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all"
+                  className="px-6 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all dark:text-slate-400"
                 >
                   Cancelar
                 </button>
@@ -5815,15 +5817,15 @@ export default function App() {
               <input
                 type="text"
                 placeholder="Pesquisar no estoque..."
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-medium"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-medium dark:bg-slate-900 dark:border-slate-700"
                 value={stockSearchTerm}
                 onChange={e => setStockSearchTerm(e.target.value)}
                 autoFocus
               />
             </div>
-            <div className="max-h-[50vh] overflow-y-auto border border-slate-400 rounded-2xl">
+            <div className="max-h-[50vh] overflow-y-auto border border-slate-400 rounded-2xl dark:border-slate-700">
               <table className="w-full text-left">
-                <thead className="bg-slate-50 sticky top-0 z-10">
+                <thead className="bg-slate-50 sticky top-0 z-10 dark:bg-slate-900">
                   <tr>
                     <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 tracking-widest">Produto / SKU</th>
                     <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Preço de Venda</th>
@@ -5845,11 +5847,11 @@ export default function App() {
                     .map(product => (
                       <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
                         <td className="px-4 py-3">
-                          <p className="font-bold text-slate-900 text-sm uppercase">{product.description}</p>
-                          <p className="text-[10px] text-slate-500 font-mono">{product.sku}</p>
+                          <p className="font-bold text-slate-900 text-sm uppercase dark:text-slate-100">{product.description}</p>
+                          <p className="text-[10px] text-slate-500 font-mono dark:text-slate-400">{product.sku}</p>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <p className="font-black text-slate-900 text-sm">R$ {product.sale_price.toFixed(2)}</p>
+                          <p className="font-black text-slate-900 text-sm dark:text-slate-100">R$ {product.sale_price.toFixed(2)}</p>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${product.stock > 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
@@ -5911,7 +5913,7 @@ export default function App() {
         >
           <form onSubmit={handleAddCustomer} className="space-y-4">
             <div className="flex flex-col items-center mb-6">
-              <div className="relative w-32 h-32 bg-slate-100 border-2 border-slate-200 rounded-[2rem] overflow-hidden group shadow-inner flex items-center justify-center">
+              <div className="relative w-32 h-32 bg-slate-100 border-2 border-slate-200 rounded-[2rem] overflow-hidden group shadow-inner flex items-center justify-center dark:bg-slate-800 dark:border-slate-700">
                 {customerForm.image_url ? (
                   <img src={customerForm.image_url} alt="Foto do Cliente" className="w-full h-full object-cover" />
                 ) : (
@@ -5934,20 +5936,20 @@ export default function App() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Nome Completo</label>
                 <input
                   type="text" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={customerForm.name}
                   onChange={e => setCustomerForm({ ...customerForm, name: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Apelido (Como é chamado)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Apelido (Como é chamado)</label>
                 <input
                   type="text"
                   placeholder="Ex: Dequinha, João do Pneu"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={customerForm.nickname}
                   onChange={e => setCustomerForm({ ...customerForm, nickname: e.target.value })}
                 />
@@ -5955,19 +5957,19 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">CPF (Opcional)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">CPF (Opcional)</label>
                 <input
                   type="text" placeholder="000.000.000-00"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={customerForm.cpf}
                   onChange={e => setCustomerForm({ ...customerForm, cpf: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">CNPJ (Opcional)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">CNPJ (Opcional)</label>
                 <input
                   type="text" placeholder="00.000.000/0000-00"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={customerForm.cnpj}
                   onChange={e => setCustomerForm({ ...customerForm, cnpj: e.target.value })}
                 />
@@ -5975,28 +5977,28 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Celular (Opcional)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Celular (Opcional)</label>
                 <input
                   type="text" placeholder="5511999999999"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={customerForm.whatsapp}
                   onChange={e => setCustomerForm({ ...customerForm, whatsapp: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Limite de Crédito (R$)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Limite de Crédito (R$)</label>
                 <input
                   type="number" step="0.01"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600 dark:bg-slate-900 dark:border-slate-700"
                   value={customerForm.credit_limit}
                   onChange={e => setCustomerForm({ ...customerForm, credit_limit: parseFloat(e.target.value) || 0 })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">CEP (Opcional)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">CEP (Opcional)</label>
                 <input
                   type="text" placeholder="00000-000"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={customerForm.zip_code}
                   onChange={e => setCustomerForm({ ...customerForm, zip_code: e.target.value })}
                 />
@@ -6004,28 +6006,28 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Cidade (Opcional)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Cidade (Opcional)</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={customerForm.city}
                   onChange={e => setCustomerForm({ ...customerForm, city: e.target.value })}
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Bairro (Opcional)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Bairro (Opcional)</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={customerForm.neighborhood}
                   onChange={e => setCustomerForm({ ...customerForm, neighborhood: e.target.value })}
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Endereço (Opcional)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Endereço (Opcional)</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={customerForm.address}
                   onChange={e => setCustomerForm({ ...customerForm, address: e.target.value })}
                 />
@@ -6033,19 +6035,19 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Multa por Atraso (%)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Multa por Atraso (%)</label>
                 <input
                   type="number" step="0.01"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
                   value={customerForm.fine_rate}
                   onChange={e => setCustomerForm({ ...customerForm, fine_rate: parseFloat(e.target.value) || 0 })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Juros Mensais (%)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Juros Mensais (%)</label>
                 <input
                   type="number" step="0.01"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
                   value={customerForm.interest_rate}
                   onChange={e => setCustomerForm({ ...customerForm, interest_rate: parseFloat(e.target.value) || 0 })}
                 />
@@ -6070,19 +6072,19 @@ export default function App() {
           <form onSubmit={handleAddProduct} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Descrição do Produto</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Descrição do Produto</label>
                 <input
                   type="text" required placeholder="Ex: Pneu Traseiro 90/90-18"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={productForm.description}
                   onChange={e => setProductForm({ ...productForm, description: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Marca</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Marca</label>
                 <input
                   type="text" placeholder="Ex: Honda, Pirelli, Mobil"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={productForm.brand}
                   onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
                 />
@@ -6091,28 +6093,28 @@ export default function App() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Distribuidor</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Distribuidor</label>
                 <input
                   type="text" placeholder="Ex: Distribuidora X, Fornecedor Y"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={productForm.distributor}
                   onChange={e => setProductForm({ ...productForm, distributor: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Código Alternativo (Similar)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Código Alternativo (Similar)</label>
                 <input
                   type="text" placeholder="Ex: 52400-KVS-J01, Similar X"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={productForm.alt_code}
                   onChange={e => setProductForm({ ...productForm, alt_code: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Localização no Estoque</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Localização no Estoque</label>
                 <input
                   type="text" placeholder="Ex: Prateleira A, Corredor 2"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={productForm.location}
                   onChange={e => setProductForm({ ...productForm, location: e.target.value })}
                 />
@@ -6121,19 +6123,19 @@ export default function App() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">SKU / Código Interno</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">SKU / Código Interno</label>
                 <input
                   type="text" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={productForm.sku}
                   onChange={e => setProductForm({ ...productForm, sku: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Código de Barras (EAN)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Código de Barras (EAN)</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={productForm.barcode}
                   onChange={e => setProductForm({ ...productForm, barcode: e.target.value })}
                 />
@@ -6142,9 +6144,9 @@ export default function App() {
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Unidade de Medida</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Unidade de Medida</label>
                 <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={productForm.unit}
                   onChange={e => setProductForm({ ...productForm, unit: e.target.value })}
                 >
@@ -6156,28 +6158,28 @@ export default function App() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Estoque Inicial</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Estoque Inicial</label>
                 <input
                   type="number" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={productForm.stock}
                   onChange={e => setProductForm({ ...productForm, stock: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Preço Compra (R$)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Preço Compra (R$)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
                   value={productForm.purchase_price}
                   onChange={e => setProductForm({ ...productForm, purchase_price: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Preço Venda (R$)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Preço Venda (R$)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600 dark:bg-slate-900 dark:border-slate-700"
                   value={productForm.sale_price}
                   onChange={e => setProductForm({ ...productForm, sale_price: e.target.value })}
                 />
@@ -6185,16 +6187,16 @@ export default function App() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Aplicação das Peças</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Aplicação das Peças</label>
               <textarea
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all resize-none h-24"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all resize-none h-24 dark:bg-slate-900 dark:border-slate-700"
                 placeholder="Ex: Honda CG 160 (2016-2023), Fan, Titan..."
                 value={productForm.application}
                 onChange={e => setProductForm({ ...productForm, application: e.target.value })}
               />
             </div>
             <div className="space-y-4 pt-4 border-t border-slate-100">
-              <label className="block text-sm font-bold text-slate-800 uppercase tracking-tight">Fotos do Produto (Principal + 3 Adicionais)</label>
+              <label className="block text-sm font-bold text-slate-800 uppercase tracking-tight dark:text-slate-100">Fotos do Produto (Principal + 3 Adicionais)</label>
               
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
@@ -6204,7 +6206,7 @@ export default function App() {
                   { key: 'image_url4', label: 'Foto 4' }
                 ].map((photo, index) => (
                   <div key={photo.key} className="space-y-2">
-                    <div className="relative aspect-square bg-slate-100 border-2 border-slate-200 rounded-2xl overflow-hidden group">
+                    <div className="relative aspect-square bg-slate-100 border-2 border-slate-200 rounded-2xl overflow-hidden group dark:bg-slate-800 dark:border-slate-700">
                       {(productForm as any)[photo.key] ? (
                         <img src={(productForm as any)[photo.key]} alt={photo.label} className="w-full h-full object-contain p-2" />
                       ) : (
@@ -6232,7 +6234,7 @@ export default function App() {
                         <button 
                           type="button"
                           onClick={() => setProductForm({ ...productForm, [photo.key]: '' })}
-                          className="absolute top-1 right-1 p-1 bg-white/80 text-rose-600 rounded-full hover:bg-white shadow-md transition-all sm:opacity-0 group-hover:opacity-100"
+                          className="absolute top-1 right-1 p-1 bg-white/80 text-rose-600 rounded-full hover:bg-white shadow-md transition-all sm:opacity-0 group-hover:opacity-100 dark:bg-slate-800"
                         >
                           <X size={12} />
                         </button>
@@ -6241,7 +6243,7 @@ export default function App() {
                     <input
                       type="text"
                       placeholder="URL..."
-                      className="w-full text-[10px] px-2 py-1 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-rose-500"
+                      className="w-full text-[10px] px-2 py-1 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-rose-500 dark:bg-slate-800 dark:border-slate-700"
                       value={(productForm as any)[photo.key]}
                       onChange={e => setProductForm({ ...productForm, [photo.key]: e.target.value })}
                     />
@@ -6262,29 +6264,29 @@ export default function App() {
         >
           <form onSubmit={handleAddMotorcycle} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Modelo da Moto</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Modelo da Moto</label>
               <input
                 type="text" required placeholder="Ex: Honda CG 160"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                 value={motorcycleForm.model}
                 onChange={e => setMotorcycleForm({ ...motorcycleForm, model: e.target.value })}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Placa</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Placa</label>
                 <input
                   type="text" required placeholder="ABC-1234"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={motorcycleForm.plate}
                   onChange={e => setMotorcycleForm({ ...motorcycleForm, plate: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">KM Atual</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">KM Atual</label>
                 <input
                   type="number" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={motorcycleForm.current_km}
                   onChange={e => setMotorcycleForm({ ...motorcycleForm, current_km: e.target.value })}
                 />
@@ -6309,28 +6311,28 @@ export default function App() {
           <form onSubmit={handleAddDistributor} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Distribuidor</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Nome do Distribuidor</label>
                 <input
                   type="text" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold dark:bg-slate-900 dark:border-slate-700"
                   value={distributorForm.name}
                   onChange={e => setDistributorForm({ ...distributorForm, name: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Telefone (WhatsApp)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Telefone (WhatsApp)</label>
                 <input
                   type="text" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold dark:bg-slate-900 dark:border-slate-700"
                   value={distributorForm.phone}
                   onChange={e => setDistributorForm({ ...distributorForm, phone: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Pessoa de Contato (Opcional)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Pessoa de Contato (Opcional)</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold text-slate-700"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold text-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
                   value={distributorForm.contact_person}
                   onChange={e => setDistributorForm({ ...distributorForm, contact_person: e.target.value })}
                 />
@@ -6351,19 +6353,19 @@ export default function App() {
           <form onSubmit={handleAddLead} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Cliente</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Nome do Cliente</label>
                 <input
                   type="text" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={leadForm.name}
                   onChange={e => setLeadForm({ ...leadForm, name: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Empresa / Frota</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Empresa / Frota</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={leadForm.company}
                   onChange={e => setLeadForm({ ...leadForm, company: e.target.value })}
                 />
@@ -6372,27 +6374,27 @@ export default function App() {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">WhatsApp</label>
                 <input
                   type="text" required placeholder="Ex: 11999999999"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={leadForm.phone}
                   onChange={e => setLeadForm({ ...leadForm, phone: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Valor Estimado (R$)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Valor Estimado (R$)</label>
                 <input
                   type="number" step="0.01" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={leadForm.value}
                   onChange={e => setLeadForm({ ...leadForm, value: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Prioridade</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Prioridade</label>
                 <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
                   value={leadForm.priority}
                   onChange={e => setLeadForm({ ...leadForm, priority: e.target.value })}
                 >
@@ -6415,8 +6417,8 @@ export default function App() {
         >
           {selectedLead && (
             <div className="space-y-4">
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400">
-                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
+                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap dark:text-slate-400">
                   {`Olá ${selectedLead.name}, aqui é da Kombat Moto Peças.\n\nEstamos processando sua solicitação para ${selectedLead.company}.\nValor estimado: R$ ${selectedLead.value.toFixed(2)}\nStatus atual: ${selectedLead.status}\n\nPodemos prosseguir com a negociação?`}
                 </p>
               </div>
@@ -6454,9 +6456,9 @@ export default function App() {
           <div className="space-y-6">
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Cliente</label>
                 <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                   value={pdvForm.customer_id}
                   onChange={e => setPdvForm({ ...pdvForm, customer_id: e.target.value })}
                 >
@@ -6478,19 +6480,19 @@ export default function App() {
               </div>
 
               <div className="relative">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Adicionar Peça / Produto</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Adicionar Peça / Produto</label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <input
                     type="text"
                     placeholder="Buscar no estoque..."
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                     value={pdvSearchProduct}
                     onChange={e => setPdvSearchProduct(e.target.value)}
                   />
                 </div>
                 {pdvSearchProduct && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto dark:bg-slate-800 dark:border-slate-700">
                     {sortedProducts.filter(p =>
                       (p.description || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase()) ||
                       (p.brand && (p.brand || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase())) ||
@@ -6500,15 +6502,15 @@ export default function App() {
                       <button
                         key={p.id}
                         onClick={() => handleAddPdvItem(p)}
-                        className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-400 last:border-none"
+                        className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-400 last:border-none dark:border-slate-700"
                       >
                         <div>
-                          <p className="text-sm font-medium text-slate-900">{p.description}</p>
-                          <p className="text-[10px] text-slate-500 flex items-center gap-2">
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{p.description}</p>
+                          <p className="text-[10px] text-slate-500 flex items-center gap-2 dark:text-slate-400">
                             Estoque: {p.stock} {p.unit}
-                            {p.alt_code && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold font-mono">ALT: {p.alt_code}</span>}
+                            {p.alt_code && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold font-mono dark:bg-slate-800 dark:text-slate-400">ALT: {p.alt_code}</span>}
                             {p.brand && (
-                              <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase tracking-tighter">
+                              <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase tracking-tighter dark:bg-slate-800 dark:text-slate-400">
                                 {p.brand}
                               </span>
                             )}
@@ -6524,15 +6526,15 @@ export default function App() {
               {/* Items List */}
               <div className="space-y-2">
                 {pdvForm.items.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-400">
+                  <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
                     <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-900">{item.description}</p>
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7">
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.description}</p>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                        <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7 dark:bg-slate-800 dark:border-slate-700">
                           <button
                             type="button"
                             onClick={() => handlePdvItemQuantityChange(idx, Math.max(1, item.quantity - 1))}
-                            className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                            className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors dark:text-slate-400"
                           >
                             <MinusCircle size={14} />
                           </button>
@@ -6541,12 +6543,12 @@ export default function App() {
                             min="1"
                             value={item.quantity}
                             onChange={e => handlePdvItemQuantityChange(idx, parseInt(e.target.value) || 1)}
-                            className="w-10 h-full text-center text-slate-900 font-bold outline-none border-x border-slate-400"
+                            className="w-10 h-full text-center text-slate-900 font-bold outline-none border-x border-slate-400 dark:text-slate-100 dark:border-slate-700"
                           />
                           <button
                             type="button"
                             onClick={() => handlePdvItemQuantityChange(idx, item.quantity + 1)}
-                            className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors"
+                            className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors dark:text-slate-400"
                           >
                             <PlusCircle size={14} />
                           </button>
@@ -6557,12 +6559,12 @@ export default function App() {
                           step="0.01"
                           value={item.price.toFixed(2)}
                           onChange={e => handlePdvItemPriceChange(idx, parseFloat(e.target.value) || 0)}
-                          className="w-24 px-1 py-0.5 bg-white border border-slate-400 rounded-md text-center text-slate-900"
+                          className="w-24 px-1 py-0.5 bg-white border border-slate-400 rounded-md text-center text-slate-900 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
                         />
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-bold text-slate-900">{formatBRL(item.price * item.quantity)}</span>
+                      <span className="font-bold text-slate-900 dark:text-slate-100">{formatBRL(item.price * item.quantity)}</span>
                       <button
                         onClick={() => handleRemovePdvItem(item.product_id)}
                         className="p-1 text-rose-400 hover:text-rose-600"
@@ -6576,7 +6578,7 @@ export default function App() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Condição de Venda</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Condição de Venda</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
@@ -6602,7 +6604,7 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Forma de Pagamento</label>
                   <div className="grid grid-cols-2 gap-2">
                     {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => (
                       <button
@@ -6647,7 +6649,7 @@ export default function App() {
                   <label className="block text-sm font-bold text-rose-700 mb-1">Data de Vencimento</label>
                   <input
                     type="date"
-                    className="w-full px-4 py-2 bg-white border border-rose-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                    className="w-full px-4 py-2 bg-white border border-rose-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-800"
                     value={pdvForm.due_date}
                     onChange={e => setPdvForm({ ...pdvForm, due_date: e.target.value })}
                   />
@@ -6655,10 +6657,10 @@ export default function App() {
                 </div>
               )}
 
-              <div className="pt-4 border-t border-slate-400 space-y-1">
+              <div className="pt-4 border-t border-slate-400 space-y-1 dark:border-slate-700">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500 font-bold uppercase">Valor da Compra (Base):</span>
-                  <span className="font-bold text-slate-700">{formatBRL(pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0))}</span>
+                  <span className="text-slate-500 font-bold uppercase dark:text-slate-400">Valor da Compra (Base):</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0))}</span>
                 </div>
                 {pdvForm.sale_condition === 'Prazo' && (
                   <div className="flex justify-between items-center text-sm text-rose-500">
@@ -6671,8 +6673,8 @@ export default function App() {
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between items-center py-2 border-t border-slate-400 mt-2">
-                  <span className="text-slate-900 font-black text-lg">TOTAL FINAL</span>
+                <div className="flex justify-between items-center py-2 border-t border-slate-400 mt-2 dark:border-slate-700">
+                  <span className="text-slate-900 font-black text-lg dark:text-slate-100">TOTAL FINAL</span>
                   <span className="text-3xl font-black text-rose-600">
                     {formatBRL(
                       (
@@ -6709,7 +6711,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setShowPdvCalculator(!showPdvCalculator)}
-                  className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-400"
+                  className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-400 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
                 >
                   <Calculator size={18} />
                   {showPdvCalculator ? 'Esconder Calculadora de Juros' : 'Abrir Calculadora de Juros/Taxas'}
@@ -6756,29 +6758,29 @@ export default function App() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Descrição do Serviço</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Descrição do Serviço</label>
               <input
                 type="text"
                 placeholder="Ex: Troca de Óleo, Limpeza de Carburador..."
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                 value={serviceForm.description}
                 onChange={e => setServiceForm({ ...serviceForm, description: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Preço Sugerido (R$)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Preço Sugerido (R$)</label>
               <input
                 type="text"
                 placeholder="0,00"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none font-bold"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none font-bold dark:bg-slate-900 dark:border-slate-700"
                 value={serviceForm.price}
                 onChange={e => setServiceForm({ ...serviceForm, price: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Categoria (Opcional)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Categoria (Opcional)</label>
               <select
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                 value={serviceForm.category}
                 onChange={e => setServiceForm({ ...serviceForm, category: e.target.value })}
               >
@@ -6837,7 +6839,7 @@ export default function App() {
                     </thead>
                     <tbody>
                       {sales.filter(s => s.customer_id === selectedCustomerForPrint.customer.id).map(sale => (
-                        <tr key={sale.id} className="border-b border-slate-400 text-[10px]">
+                        <tr key={sale.id} className="border-b border-slate-400 text-[10px] dark:border-slate-700">
                           <td className="py-2 px-1 whitespace-nowrap">{new Date(sale.date).toLocaleDateString('pt-BR')}</td>
                           <td className="py-2 px-1">
                             <span className={`font-bold ${sale.type === 'Oficina' ? 'text-amber-600' : 'text-indigo-600'}`}>
@@ -6848,7 +6850,7 @@ export default function App() {
                           <td className="py-2 px-1">
                             <div className="flex flex-col gap-1 min-w-[300px]">
                               {sale.items.map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-center text-slate-700 leading-tight">
+                                <div key={idx} className="flex justify-between items-center text-slate-700 leading-tight dark:text-slate-100">
                                   <span className="flex-1">{item.quantity}x {item.description}</span>
                                   <span className="text-[9px] text-slate-400 font-mono text-right ml-4">
                                     R$ {(item.quantity * item.price).toFixed(2)}
@@ -6856,7 +6858,7 @@ export default function App() {
                                 </div>
                               ))}
                               {sale.labor_value > 0 && (
-                                <div className="flex justify-between items-center text-amber-700 font-bold border-t border-slate-200 mt-1 pt-1 leading-tight">
+                                <div className="flex justify-between items-center text-amber-700 font-bold border-t border-slate-200 mt-1 pt-1 leading-tight dark:border-slate-700">
                                   <span className="flex-1">SERVIÇOS / MÃO DE OBRA</span>
                                   <span className="text-[9px] font-mono text-right ml-4">
                                     R$ {sale.labor_value.toFixed(2)}
@@ -6864,7 +6866,7 @@ export default function App() {
                                 </div>
                               )}
                               {sale.service_description && (
-                                <p className="text-[8px] text-slate-500 italic mt-1 bg-slate-50 p-1 rounded-sm">
+                                <p className="text-[8px] text-slate-500 italic mt-1 bg-slate-50 p-1 rounded-sm dark:bg-slate-900 dark:text-slate-400">
                                   Obs: {sale.service_description}
                                 </p>
                               )}
@@ -6892,20 +6894,20 @@ export default function App() {
                         <span>{new Date(sale.date).toLocaleDateString('pt-BR')} - {sale.id.substring(0,8).toUpperCase()}</span>
                         <span>R$ {sale.total.toFixed(2)}</span>
                       </div>
-                      <p className="text-[10px] text-slate-500 uppercase font-black mb-1">
+                      <p className="text-[10px] text-slate-500 uppercase font-black mb-1 dark:text-slate-400">
                         {sale.type === 'Oficina' ? 'Ordem de Serviço' : 'Venda Balcão'}
                       </p>
                       
                       {/* LISTA DE PRODUTOS NO RECIBO TÉRMICO */}
                       <div className="pl-1 space-y-1 mb-1">
                         {sale.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between text-[13px] text-slate-900 font-bold">
+                          <div key={idx} className="flex justify-between text-[13px] text-slate-900 font-bold dark:text-slate-100">
                             <span>{item.quantity}x {item.description.substring(0, 25)}..</span>
                             <span className="font-mono">R$ {(item.quantity * item.price).toFixed(2)}</span>
                           </div>
                         ))}
                         {sale.labor_value > 0 && (
-                          <div className="flex justify-between text-[13px] text-slate-900 font-bold border-t border-slate-400 pt-0.5 mt-1">
+                          <div className="flex justify-between text-[13px] text-slate-900 font-bold border-t border-slate-400 pt-0.5 mt-1 dark:text-slate-100 dark:border-slate-700">
                             <span>MÃO DE OBRA / SERVIÇOS</span>
                             <span className="font-mono">R$ {sale.labor_value.toFixed(2)}</span>
                           </div>
@@ -6913,7 +6915,7 @@ export default function App() {
                       </div>
 
                       {sale.service_description && (
-                        <p className="text-[11px] text-slate-700 italic bg-slate-50 p-1 border-l border-slate-400">
+                        <p className="text-[11px] text-slate-700 italic bg-slate-50 p-1 border-l border-slate-400 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700">
                           OBS: {sale.service_description}
                         </p>
                       )}
@@ -6950,7 +6952,7 @@ export default function App() {
           maxWidth="max-w-lg"
         >
           {selectedSaleForReceipt && (
-            <div id="receipt-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
+            <div id="receipt-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
               <style>{`
                 @media print {
                   @page {
@@ -7243,12 +7245,12 @@ export default function App() {
             <div className="flex-1 flex flex-col gap-4 overflow-hidden h-full">
               
               {/* Cliente e Veículo Card */}
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shrink-0 shadow-sm">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shrink-0 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-12 md:col-span-6">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Users size={12}/> Cliente</label>
                     <select
-                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
                       value={osForm.customer_id}
                       onChange={e => {
                         const cid = e.target.value;
@@ -7277,7 +7279,7 @@ export default function App() {
                     <input
                       type="text"
                       placeholder="ABC-1234"
-                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-800 uppercase focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-800 uppercase focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
                       value={osForm.motorcycle_plate || ''}
                       onChange={e => setOsForm({ ...osForm, motorcycle_plate: e.target.value.toUpperCase() })}
                     />
@@ -7287,7 +7289,7 @@ export default function App() {
                     <input
                       type="number"
                       placeholder="00000"
-                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all no-spinners"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all no-spinners dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
                       value={osForm.km || ''}
                       onChange={e => setOsForm({ ...osForm, km: e.target.value })}
                     />
@@ -7304,18 +7306,18 @@ export default function App() {
                   <input
                     type="text"
                     placeholder="Buscar peça/serviço ou digite para adicionar item avulso..."
-                    className="w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+                    className="w-full pl-14 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
                     value={osSearchProduct}
                     onChange={e => osSearchProduct(e.target.value)}
                   />
                   {osSearchProduct && (
-                    <button onClick={() => setOsSearchProduct('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full p-1 transition-colors">
+                    <button onClick={() => setOsSearchProduct('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full p-1 transition-colors dark:bg-slate-800">
                       <X size={14} strokeWidth={3}/>
                     </button>
                   )}
                 </div>
                 {osSearchProduct && (
-                  <div className="absolute top-[calc(100%+8px)] left-0 w-full bg-white border border-slate-200 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-h-[40vh] overflow-y-auto z-50 divide-y divide-slate-100 flex flex-col">
+                  <div className="absolute top-[calc(100%+8px)] left-0 w-full bg-white border border-slate-200 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-h-[40vh] overflow-y-auto z-50 divide-y divide-slate-100 flex flex-col dark:bg-slate-800 dark:border-slate-700">
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
                       {/* Produtos Encontrados */}
                       {sortedProducts.filter(p =>
@@ -7329,10 +7331,10 @@ export default function App() {
                           className="w-full text-left px-5 py-3.5 hover:bg-rose-50 flex justify-between items-center transition-colors group"
                         >
                           <div>
-                            <p className="text-sm font-bold text-slate-800 group-hover:text-rose-700">{p.description}</p>
+                            <p className="text-sm font-bold text-slate-800 group-hover:text-rose-700 dark:text-slate-100">{p.description}</p>
                             <div className="flex gap-2 mt-1.5">
-                              <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Package size={10}/> Estoque: {p.stock}</span>
-                              {p.brand && <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase font-bold">{p.brand}</span>}
+                              <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1 dark:text-slate-400"><Package size={10}/> Estoque: {p.stock}</span>
+                              {p.brand && <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase font-bold dark:bg-slate-800 dark:text-slate-400">{p.brand}</span>}
                             </div>
                           </div>
                           <span className="text-sm font-black text-rose-600">R$ {(p.sale_price || 0).toFixed(2)}</span>
@@ -7352,7 +7354,7 @@ export default function App() {
                           className="w-full text-left px-5 py-3.5 hover:bg-amber-50 flex justify-between items-center transition-colors group"
                         >
                           <div>
-                            <p className="text-sm font-bold text-slate-800 group-hover:text-amber-700">{s.description}</p>
+                            <p className="text-sm font-bold text-slate-800 group-hover:text-amber-700 dark:text-slate-100">{s.description}</p>
                             <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold uppercase mt-1.5 inline-flex items-center gap-1"><Wrench size={10}/> Serviço Cadastrado</span>
                           </div>
                           <span className="text-sm font-black text-amber-600">R$ {(s.price || 0).toFixed(2)}</span>
@@ -7361,13 +7363,13 @@ export default function App() {
                     </div>
 
                     {/* Adicionar Avulso */}
-                    <div className="p-3 bg-slate-50 sticky bottom-0 border-t border-slate-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+                    <div className="p-3 bg-slate-50 sticky bottom-0 border-t border-slate-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] dark:bg-slate-900 dark:border-slate-700">
                       <button
                         onClick={() => {
                           setOsForm({ ...osForm, items: [...osForm.items, { description: osSearchProduct.toUpperCase(), quantity: 1, price: 0, type: 'Peça' }] });
                           setOsSearchProduct('');
                         }}
-                        className="w-full py-3 bg-white border-2 border-rose-200 text-xs font-black text-rose-600 rounded-xl hover:bg-rose-50 hover:border-rose-400 transition-all uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm"
+                        className="w-full py-3 bg-white border-2 border-rose-200 text-xs font-black text-rose-600 rounded-xl hover:bg-rose-50 hover:border-rose-400 transition-all uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm dark:bg-slate-800"
                       >
                         <PlusCircle size={16} /> Adicionar "{osSearchProduct}" como item avulso
                       </button>
@@ -7381,22 +7383,22 @@ export default function App() {
                 
                 {/* Tabela Peças */}
                 {osForm.items.filter(i => i.product_id || i.type === 'Peça').length > 0 && (
-                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                    <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
-                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Package size={14}/> Peças e Acessórios</span>
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                    <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between dark:bg-slate-900 dark:border-slate-700">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5 dark:text-slate-400"><Package size={14}/> Peças e Acessórios</span>
                     </div>
                     <div className="divide-y divide-slate-100">
                       {osForm.items.map((item, idx) => (item.product_id || item.type === 'Peça') && (
                         <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-3 hover:bg-slate-50/80 transition-colors">
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 truncate" title={item.description}>{item.description}</p>
+                            <p className="text-xs font-bold text-slate-800 truncate dark:text-slate-100" title={item.description}>{item.description}</p>
                             {!item.product_id && <span className="text-[9px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold uppercase mt-1.5 inline-flex items-center gap-1"><AlertCircle size={10}/> Item Avulso</span>}
                           </div>
                           
                           <div className="flex items-center gap-3 shrink-0">
-                            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                            <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200 dark:bg-slate-800 dark:border-slate-700">
                               <button type="button" onClick={() => handleOsItemQuantityChange(idx, Math.max(1, item.quantity - 1))} className="p-1.5 text-slate-400 hover:bg-white hover:text-rose-600 rounded-md transition-all shadow-sm"><Minus size={12} strokeWidth={3}/></button>
-                              <input type="number" min="1" value={item.quantity} onChange={e => handleOsItemQuantityChange(idx, parseInt(e.target.value) || 1)} className="w-8 text-center text-xs font-black text-slate-700 outline-none no-spinners bg-transparent" />
+                              <input type="number" min="1" value={item.quantity} onChange={e => handleOsItemQuantityChange(idx, parseInt(e.target.value) || 1)} className="w-8 text-center text-xs font-black text-slate-700 outline-none no-spinners bg-transparent dark:text-slate-100" />
                               <button type="button" onClick={() => handleOsItemQuantityChange(idx, item.quantity + 1)} className="p-1.5 text-slate-400 hover:bg-white hover:text-rose-600 rounded-md transition-all shadow-sm"><Plus size={12} strokeWidth={3}/></button>
                             </div>
                             
@@ -7406,7 +7408,7 @@ export default function App() {
                             </div>
 
                             <div className="w-20 text-right">
-                              <span className="text-sm font-black text-slate-800">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                              <span className="text-sm font-black text-slate-800 dark:text-slate-100">R$ {(item.price * item.quantity).toFixed(2)}</span>
                             </div>
 
                             <button onClick={() => handleRemoveOsItem(idx)} className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
@@ -7419,7 +7421,7 @@ export default function App() {
 
                 {/* Tabela Serviços */}
                 {(osForm.items.filter(i => !i.product_id && i.type === 'Serviço').length > 0 || (osForm.selected_fixed_services || []).length > 0) && (
-                  <div className="bg-white rounded-2xl border border-amber-200 overflow-hidden shadow-sm">
+                  <div className="bg-white rounded-2xl border border-amber-200 overflow-hidden shadow-sm dark:bg-slate-800">
                     <div className="bg-amber-50 px-4 py-2.5 border-b border-amber-100 flex items-center justify-between">
                       <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-1.5"><Wrench size={14}/> Mão de Obra e Serviços</span>
                     </div>
@@ -7428,7 +7430,7 @@ export default function App() {
                       {osForm.items.map((item, idx) => (!item.product_id && item.type === 'Serviço') && (
                         <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 gap-3 hover:bg-amber-50/40 transition-colors">
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 truncate" title={item.description}>{item.description}</p>
+                            <p className="text-xs font-bold text-slate-800 truncate dark:text-slate-100" title={item.description}>{item.description}</p>
                           </div>
                           
                           <div className="flex items-center gap-3 shrink-0">
@@ -7440,7 +7442,7 @@ export default function App() {
                             
                             <div className="flex items-center gap-1">
                               <span className="text-[10px] text-amber-600/60 font-bold">R$</span>
-                              <input type="number" step="0.01" value={item.price} onChange={e => handleOsItemPriceChange(idx, parseFloat(e.target.value) || 0)} className="w-20 px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-xs font-bold outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-500/10 text-right transition-all" />
+                              <input type="number" step="0.01" value={item.price} onChange={e => handleOsItemPriceChange(idx, parseFloat(e.target.value) || 0)} className="w-20 px-2 py-1.5 bg-white border border-amber-200 rounded-lg text-xs font-bold outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-500/10 text-right transition-all dark:bg-slate-800" />
                             </div>
 
                             <div className="w-20 text-right">
@@ -7461,7 +7463,7 @@ export default function App() {
                           </div>
                           
                           <div className="flex items-center gap-3 shrink-0">
-                            <div className="flex items-center bg-white rounded-lg p-0.5 border border-indigo-200">
+                            <div className="flex items-center bg-white rounded-lg p-0.5 border border-indigo-200 dark:bg-slate-800">
                               <button type="button" onClick={() => setOsForm({ ...osForm, selected_fixed_services: osForm.selected_fixed_services.map((it, i) => i === idx ? { ...it, quantity: Math.max(1, it.quantity - 1) } : it) })} className="p-1.5 text-indigo-400 hover:bg-indigo-100 hover:text-indigo-700 rounded-md transition-all shadow-sm"><Minus size={12} strokeWidth={3}/></button>
                               <span className="w-8 flex items-center justify-center text-xs font-black text-indigo-900">{sfs.quantity}</span>
                               <button type="button" onClick={() => setOsForm({ ...osForm, selected_fixed_services: osForm.selected_fixed_services.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it) })} className="p-1.5 text-indigo-400 hover:bg-indigo-100 hover:text-indigo-700 rounded-md transition-all shadow-sm"><Plus size={12} strokeWidth={3}/></button>
@@ -7490,11 +7492,11 @@ export default function App() {
             <div className="w-full md:w-[320px] shrink-0 flex flex-col gap-4 overflow-hidden h-full">
               
               {/* Opções OS */}
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-4 shrink-0 shadow-sm">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-4 shrink-0 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Wrench size={12}/> Mecânico Resp.</label>
                   <select
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
                     value={osForm.mechanic_id}
                     onChange={e => setOsForm({ ...osForm, mechanic_id: e.target.value })}
                   >
@@ -7535,7 +7537,7 @@ export default function App() {
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
                     <select
-                      className="w-full px-2 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+                      className="w-full px-2 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
                       value={osForm.status}
                       onChange={e => setOsForm({ ...osForm, status: e.target.value as any })}
                     >
@@ -7548,7 +7550,7 @@ export default function App() {
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Pagamento</label>
                     <select
-                      className="w-full px-2 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
+                      className="w-full px-2 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
                       value={osForm.payment_method}
                       onChange={e => setOsForm({ ...osForm, payment_method: e.target.value as any })}
                     >
@@ -7562,13 +7564,13 @@ export default function App() {
               </div>
 
               {/* Descrição Flex */}
-              <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden min-h-[80px] shadow-sm">
-                <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><FileText size={12}/> Observações / Problema</span>
+              <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden min-h-[80px] shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 dark:bg-slate-900 dark:border-slate-700">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5 dark:text-slate-400"><FileText size={12}/> Observações / Problema</span>
                 </div>
                 <textarea
                   placeholder="Relato do cliente, observações gerais da moto..."
-                  className="flex-1 w-full p-4 text-xs font-medium text-slate-700 bg-transparent resize-none outline-none focus:bg-slate-50/50 transition-colors"
+                  className="flex-1 w-full p-4 text-xs font-medium text-slate-700 bg-transparent resize-none outline-none focus:bg-slate-50/50 transition-colors dark:text-slate-100"
                   value={osForm.service_description}
                   onChange={e => setOsForm({ ...osForm, service_description: e.target.value })}
                 />
@@ -7596,7 +7598,7 @@ export default function App() {
                   <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-800">
                     <span className="text-slate-400 font-bold uppercase tracking-wider">M. Obra Extra</span>
                     <div className="flex items-center gap-1.5 w-24">
-                      <span className="text-slate-500 font-bold">R$</span>
+                      <span className="text-slate-500 font-bold dark:text-slate-400">R$</span>
                       <input 
                         type="number" step="0.01" 
                         value={osForm.labor_value} 
@@ -7640,7 +7642,7 @@ export default function App() {
           {selectedMechanicForReport && (
             <div className="space-y-6">
               <div className="flex justify-between items-start">
-                <p className="text-sm text-slate-600">Visão geral dos serviços e comissões de {selectedMechanicForReport.name}.</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Visão geral dos serviços e comissões de {selectedMechanicForReport.name}.</p>
                 <button
                   onClick={handlePrintMechanicReport}
                   className="flex items-center gap-2 px-3 py-1.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-all text-xs font-bold shadow-sm"
@@ -7653,43 +7655,43 @@ export default function App() {
               {/* Time Period Filters (Optional, for future enhancement) */}
               {/* <div className="flex gap-2 text-xs">
                 <button className="px-3 py-1 rounded-full bg-amber-100 text-amber-700">Hoje</button>
-                <button className="px-3 py-1 rounded-full bg-slate-100 text-slate-600">Semana</button>
-                <button className="px-3 py-1 rounded-full bg-slate-100 text-slate-600">Mês</button>
+                <button className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">Semana</button>
+                <button className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">Mês</button>
               </div> */}
 
               {/* Report Details */}
               <div className="grid grid-cols-2 gap-4">
                 {/* Daily, Weekly, Monthly Totals */}
-                <div className="bg-slate-50 p-4 rounded-xl">
+                <div className="bg-slate-50 p-4 rounded-xl dark:bg-slate-900">
                   <p className="text-xs font-bold text-slate-400 uppercase mb-1">Total Hoje</p>
-                  <p className="text-xl font-bold text-slate-900">R$ {calculateMechanicTotal(selectedMechanicForReport.id, 'day').toFixed(2)}</p>
+                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">R$ {calculateMechanicTotal(selectedMechanicForReport.id, 'day').toFixed(2)}</p>
                 </div>
-                <div className="bg-slate-50 p-4 rounded-xl">
+                <div className="bg-slate-50 p-4 rounded-xl dark:bg-slate-900">
                   <p className="text-xs font-bold text-slate-400 uppercase mb-1">Total Semana</p>
-                  <p className="text-xl font-bold text-slate-900">R$ {calculateMechanicTotal(selectedMechanicForReport.id, 'week').toFixed(2)}</p>
+                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">R$ {calculateMechanicTotal(selectedMechanicForReport.id, 'week').toFixed(2)}</p>
                 </div>
-                <div className="bg-slate-50 p-4 rounded-xl">
+                <div className="bg-slate-50 p-4 rounded-xl dark:bg-slate-900">
                   <p className="text-xs font-bold text-slate-400 uppercase mb-1">Total Quinzena</p>
-                  <p className="text-xl font-bold text-slate-900">R$ {calculateMechanicTotal(selectedMechanicForReport.id, 'fortnight').toFixed(2)}</p>
+                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">R$ {calculateMechanicTotal(selectedMechanicForReport.id, 'fortnight').toFixed(2)}</p>
                 </div>
-                <div className="bg-slate-50 p-4 rounded-xl">
+                <div className="bg-slate-50 p-4 rounded-xl dark:bg-slate-900">
                   <p className="text-xs font-bold text-slate-400 uppercase mb-1">Total Mês</p>
-                  <p className="text-xl font-bold text-slate-900">R$ {calculateMechanicTotal(selectedMechanicForReport.id, 'month').toFixed(2)}</p>
+                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">R$ {calculateMechanicTotal(selectedMechanicForReport.id, 'month').toFixed(2)}</p>
                 </div>
               </div>
 
               {/* Detailed Services List */}
-              <div className="mt-6 border-t border-slate-400 pt-6">
-                <h3 className="font-bold text-slate-900 mb-4">Serviços Detalhados</h3>
+              <div className="mt-6 border-t border-slate-400 pt-6 dark:border-slate-700">
+                <h3 className="font-bold text-slate-900 mb-4 dark:text-slate-100">Serviços Detalhados</h3>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {sales.filter(s => s.mechanic_id === selectedMechanicForReport.id && s.type === 'Oficina').map(sale => (
-                    <div key={sale.id} className="p-3 bg-slate-50 rounded-xl border border-slate-400">
+                    <div key={sale.id} className="p-3 bg-slate-50 rounded-xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
                       <div className="flex justify-between items-center mb-1">
-                        <p className="font-bold text-slate-800">O.S. #{sale.id} - {sale.customer_name}</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-100">O.S. #{sale.id} - {sale.customer_name}</p>
                         <span className="text-sm font-bold text-rose-600">{formatBRL(sale.commission)}</span>
                       </div>
-                      <p className="text-xs text-slate-500">{new Date(sale.date).toLocaleString()}</p>
-                      <div className="mt-2 text-xs text-slate-600">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(sale.date).toLocaleString()}</p>
+                      <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
                         {sale.items.length > 0 && (
                           <p>Peças/Produtos: {sale.items.map(item => `${item.description} (${item.quantity}x)`).join(', ')}</p>
                         )}
@@ -7710,7 +7712,7 @@ export default function App() {
 
         {/* Thermal Print Content for Mechanic Report */}
         <div className="hidden">
-          <div id="mechanic-report-thermal-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
+          <div id="mechanic-report-thermal-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
             <style>{`
               @media print {
                 @page {
@@ -7818,10 +7820,10 @@ export default function App() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col"
+                className="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col dark:bg-slate-800"
               >
-                <div className="p-4 bg-slate-100 flex justify-between items-center rounded-t-lg">
-                  <h2 className="text-lg font-bold text-slate-800">Ordem de Serviço A4</h2>
+                <div className="p-4 bg-slate-100 flex justify-between items-center rounded-t-lg dark:bg-slate-800">
+                  <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Ordem de Serviço A4</h2>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handlePrintOS}
@@ -7832,22 +7834,22 @@ export default function App() {
                     </button>
                     <button
                       onClick={() => setSelectedSaleForOS(null)}
-                      className="p-2 text-slate-500 hover:bg-slate-200 rounded-full transition-colors"
+                      className="p-2 text-slate-500 hover:bg-slate-200 rounded-full transition-colors dark:text-slate-400"
                     >
                       <X size={20} />
                     </button>
                   </div>
                 </div>
-                <div id="os-printable-area" className="p-8 overflow-y-auto flex-grow font-sans text-sm text-slate-800">
+                <div id="os-printable-area" className="p-8 overflow-y-auto flex-grow font-sans text-sm text-slate-800 dark:text-slate-100">
                   {/* Header */}
                   <div className="flex justify-between items-start pb-4 border-b-2 border-slate-800">
                     <div>
-                      <h1 className="text-2xl font-bold text-slate-900">KOMBAT MOTO PEÇAS</h1>
+                      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">KOMBAT MOTO PEÇAS</h1>
                       <p className="text-xs">Rua Paraná, 342, Centro | CEP: 86380-000</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs">Andirá-PR | (43) 3538-4537</p>
-                      <h2 className="text-xl font-bold text-slate-900">ORDEM DE SERVIÇO</h2>
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">ORDEM DE SERVIÇO</h2>
                       <p className="font-mono text-xl text-rose-600">Nº {selectedSaleForOS.id}</p>
                     </div>
                   </div>
@@ -7904,10 +7906,10 @@ export default function App() {
 
                   {/* Services and Products */}
                   <div className="my-4">
-                    <h3 className="font-bold mb-2 text-center uppercase text-slate-600 text-xs">Descrição dos Produtos / Serviços</h3>
+                    <h3 className="font-bold mb-2 text-center uppercase text-slate-600 text-xs dark:text-slate-400">Descrição dos Produtos / Serviços</h3>
                     <table className="w-full text-xs border-collapse">
                       <thead>
-                        <tr className="bg-slate-100">
+                        <tr className="bg-slate-100 dark:bg-slate-800">
                           <th className="border p-2 text-left w-16">QTD</th>
                           <th className="border p-2 text-left">DESCRIÇÃO</th>
                           <th className="border p-2 text-right w-32">VALOR UNIT.</th>
@@ -7938,15 +7940,15 @@ export default function App() {
                   {/* Totals */}
                   <div className="flex justify-end my-4">
                     <div className="w-1/3 text-xs">
-                      <div className="flex justify-between p-2 bg-slate-50 rounded-t-md">
+                      <div className="flex justify-between p-2 bg-slate-50 rounded-t-md dark:bg-slate-900">
                         <span className="font-bold">Total Peças:</span>
                         <span>{formatBRL((selectedSaleForOS?.items || []).filter(i => !!i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0))}</span>
                       </div>
-                      <div className="flex justify-between p-2 bg-slate-50">
+                      <div className="flex justify-between p-2 bg-slate-50 dark:bg-slate-900">
                         <span className="font-bold">Total Serviços:</span>
                         <span>{formatBRL((selectedSaleForOS?.total || 0) - (selectedSaleForOS?.items || []).filter(i => !!i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0))}</span>
                       </div>
-                      <div className="flex justify-between p-2 bg-slate-200 text-base rounded-b-md">
+                      <div className="flex justify-between p-2 bg-slate-200 text-base rounded-b-md dark:bg-slate-700">
                         <span className="font-bold">VALOR TOTAL GERAL:</span>
                         <span className="font-bold">{formatBRL(selectedSaleForOS?.total || 0)}</span>
                       </div>
@@ -7954,7 +7956,7 @@ export default function App() {
                   </div>
 
                   {/* Footer */}
-                  <div className="text-center text-[10px] text-slate-500 mt-8 pt-4 border-t">
+                  <div className="text-center text-[10px] text-slate-500 mt-8 pt-4 border-t dark:text-slate-400">
                     <p>Garantia de 90 dias para serviços. Peças conforme fabricante. Não nos responsabilizamos por objetos deixados no veículo.</p>
                     <div className="mt-12">
                       <p>_________________________________________</p>
@@ -7996,19 +7998,19 @@ export default function App() {
       >
         <form onSubmit={handleAddMechanic} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Mecânico</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Nome do Mecânico</label>
             <input
               type="text" required placeholder="Ex: João Silva"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold dark:bg-slate-900 dark:border-slate-700"
               value={mechanicForm.name}
               onChange={e => setMechanicForm({ ...mechanicForm, name: e.target.value })}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Comissão Padrão (%)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Comissão Padrão (%)</label>
             <input
               type="number" required placeholder="50"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold dark:bg-slate-900 dark:border-slate-700"
               value={mechanicForm.commissionRate}
               onChange={e => setMechanicForm({ ...mechanicForm, commissionRate: e.target.value })}
             />
@@ -8031,29 +8033,29 @@ export default function App() {
       >
         <form onSubmit={handleAddFixedService} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Serviço</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Nome do Serviço</label>
             <input
               type="text" required placeholder="Ex: Troca de Óleo"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold dark:bg-slate-900 dark:border-slate-700"
               value={fixedServiceForm.name}
               onChange={e => setFixedServiceForm({ ...fixedServiceForm, name: e.target.value })}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Preço Venda (R$)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Preço Venda (R$)</label>
               <input
                 type="number" step="0.01" required placeholder="0.00"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold text-rose-600"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold text-rose-600 dark:bg-slate-900 dark:border-slate-700"
                 value={fixedServiceForm.price}
                 onChange={e => setFixedServiceForm({ ...fixedServiceForm, price: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Repasse Mecânico (R$)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Repasse Mecânico (R$)</label>
               <input
                 type="number" step="0.01" required placeholder="0.00"
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold text-indigo-600"
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold text-indigo-600 dark:bg-slate-900 dark:border-slate-700"
                 value={fixedServiceForm.payout}
                 onChange={e => setFixedServiceForm({ ...fixedServiceForm, payout: e.target.value })}
               />
@@ -8077,45 +8079,45 @@ export default function App() {
       >
         <form onSubmit={handleAddLead} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Contato</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Nome do Contato</label>
             <input
               type="text" required placeholder="Ex: João da Silva"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               value={leadForm.name}
               onChange={e => setLeadForm({ ...leadForm, name: e.target.value })}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Empresa / Referência</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Empresa / Referência</label>
             <input
               type="text" required placeholder="Ex: Oficina Central"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               value={leadForm.company}
               onChange={e => setLeadForm({ ...leadForm, company: e.target.value })}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Valor Estimado (R$)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Valor Estimado (R$)</label>
             <input
               type="number" step="0.01" required placeholder="0.00"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               value={leadForm.value}
               onChange={e => setLeadForm({ ...leadForm, value: e.target.value })}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Telefone / WhatsApp</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Telefone / WhatsApp</label>
             <input
               type="text" required placeholder="(00) 00000-0000"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               value={leadForm.phone}
               onChange={e => setLeadForm({ ...leadForm, phone: e.target.value })}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Prioridade</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Prioridade</label>
             <select
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               value={leadForm.priority}
               onChange={e => setLeadForm({ ...leadForm, priority: e.target.value as any })}
             >
@@ -8137,7 +8139,7 @@ export default function App() {
         title={selectedLead ? `Mensagem para ${selectedLead.name}` : "Enviar Mensagem"}
       >
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">Escolha um canal para entrar em contato com o lead.</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Escolha um canal para entrar em contato com o lead.</p>
           <div className="grid grid-cols-2 gap-4">
             <button
               onClick={() => {
@@ -8176,28 +8178,28 @@ export default function App() {
       >
         <form onSubmit={handleAddDistributor} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Distribuidor</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Nome do Distribuidor</label>
             <input
               type="text" required
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold dark:bg-slate-900 dark:border-slate-700"
               value={distributorForm.name}
               onChange={e => setDistributorForm({ ...distributorForm, name: e.target.value })}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Telefone (WhatsApp)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Telefone (WhatsApp)</label>
             <input
               type="text" required
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold dark:bg-slate-900 dark:border-slate-700"
               value={distributorForm.phone}
               onChange={e => setDistributorForm({ ...distributorForm, phone: e.target.value })}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Pessoa de Contato (Opcional)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Pessoa de Contato (Opcional)</label>
             <input
               type="text"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none font-bold dark:bg-slate-900 dark:border-slate-700"
               value={distributorForm.contact_person}
               onChange={e => setDistributorForm({ ...distributorForm, contact_person: e.target.value })}
             />
@@ -8221,10 +8223,10 @@ export default function App() {
       >
         <form onSubmit={handleCreateOrder} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Distribuidor</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Distribuidor</label>
             <select
               required
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               value={orderForm.distributor_id}
               onChange={e => setOrderForm({ ...orderForm, distributor_id: e.target.value })}
             >
@@ -8236,19 +8238,19 @@ export default function App() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Buscar Produto</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Buscar Produto</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
                 type="text"
                 placeholder="Buscar por descrição ou SKU..."
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                 value={orderSearchProduct}
                 onChange={e => setOrderSearchProduct(e.target.value)}
               />
             </div>
             {orderSearchProduct && (
-              <div className="absolute z-10 bg-white border border-slate-400 rounded-xl mt-2 w-full max-h-60 overflow-y-auto shadow-lg">
+              <div className="absolute z-10 bg-white border border-slate-400 rounded-xl mt-2 w-full max-h-60 overflow-y-auto shadow-lg dark:bg-slate-800 dark:border-slate-700">
                 {sortedProducts.filter(p =>
                   (p.description || '').toLowerCase().includes(orderSearchProduct.toLowerCase()) ||
                   (p.alt_code || '').toLowerCase().includes(orderSearchProduct.toLowerCase()) ||
@@ -8258,11 +8260,11 @@ export default function App() {
                     type="button"
                     key={product.id}
                     onClick={() => handleAddOrderItem(product)}
-                    className="flex items-center justify-between w-full p-3 hover:bg-slate-50 transition-colors border-b border-slate-400 last:border-b-0"
+                    className="flex items-center justify-between w-full p-3 hover:bg-slate-50 transition-colors border-b border-slate-400 last:border-b-0 dark:border-slate-700"
                   >
                     <div>
-                      <p className="font-medium text-slate-800">{product.description}</p>
-                      <p className="text-xs text-slate-500">SKU: {product.sku} | Estoque: {product.stock}</p>
+                      <p className="font-medium text-slate-800 dark:text-slate-100">{product.description}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">SKU: {product.sku} | Estoque: {product.stock}</p>
                     </div>
                     <PlusCircle size={20} className="text-rose-500" />
                   </button>
@@ -8273,12 +8275,12 @@ export default function App() {
 
           {orderForm.items.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-lg font-bold text-slate-900">Itens do Pedido</h3>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Itens do Pedido</h3>
               {orderForm.items.map((item, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-400">
+                <div key={index} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
                   <div className="flex-1">
-                    <p className="font-medium text-slate-800">{item.description}</p>
-                    <p className="text-sm text-slate-500">Qtd: {item.quantity}</p>
+                    <p className="font-medium text-slate-800 dark:text-slate-100">{item.description}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Qtd: {item.quantity}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -8293,7 +8295,7 @@ export default function App() {
                       min="1"
                       value={item.quantity}
                       onChange={e => handleUpdateOrderItemQuantity(item.description, parseInt(e.target.value) || 1)}
-                      className="w-16 px-2 py-1 bg-white border border-slate-400 rounded-lg text-center text-sm"
+                      className="w-16 px-2 py-1 bg-white border border-slate-400 rounded-lg text-center text-sm dark:bg-slate-800 dark:border-slate-700"
                     />
                     <button
                       type="button"
@@ -8305,8 +8307,8 @@ export default function App() {
                   </div>
                 </div>
               ))}
-              <div className="flex justify-between items-center pt-4 border-t border-slate-400">
-                <p className="text-lg font-bold text-slate-900">Total de Itens:</p>
+              <div className="flex justify-between items-center pt-4 border-t border-slate-400 dark:border-slate-700">
+                <p className="text-lg font-bold text-slate-900 dark:text-slate-100">Total de Itens:</p>
                 <p className="text-lg font-bold text-rose-600">{orderForm.items.reduce((acc, item) => acc + item.quantity, 0)}</p>
               </div>
             </div>
@@ -8328,7 +8330,7 @@ export default function App() {
         title="Visualizar Relatório Gerencial"
         maxWidth="max-w-6xl"
       >
-        <div className="bg-white">
+        <div className="bg-white dark:bg-slate-800">
           {renderManagementReportContent()}
         </div>
       </Modal>
@@ -8342,7 +8344,7 @@ export default function App() {
         {selectedProductDetail && (
           <div className="space-y-6">
             <div className="space-y-4">
-              <div className="aspect-square bg-white rounded-3xl overflow-hidden border-2 border-slate-100 flex items-center justify-center shadow-inner relative group">
+              <div className="aspect-square bg-white rounded-3xl overflow-hidden border-2 border-slate-100 flex items-center justify-center shadow-inner relative group dark:bg-slate-800">
                 <img 
                   src={selectedProductDetail.image_url || 'https://via.placeholder.com/400?text=Sem+Imagem'} 
                   id="main-detail-image"
@@ -8364,7 +8366,7 @@ export default function App() {
                       const mainImg = document.getElementById('main-detail-image') as HTMLImageElement;
                       if (mainImg) mainImg.src = url || '';
                     }}
-                    className="aspect-square bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all shadow-sm"
+                    className="aspect-square bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all shadow-sm dark:bg-slate-800 dark:border-slate-700"
                   >
                     <img src={url} alt={`Preview ${idx + 1}`} className="w-full h-full object-contain" />
                   </button>
@@ -8373,10 +8375,10 @@ export default function App() {
             </div>
             <div className="space-y-4">
               <div>
-                <h4 className="text-xl font-bold text-slate-900 uppercase">{selectedProductDetail.description}</h4>
+                <h4 className="text-xl font-bold text-slate-900 uppercase dark:text-slate-100">{selectedProductDetail.description}</h4>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {selectedProductDetail.brand && (
-                    <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase">
+                    <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase dark:bg-slate-800 dark:text-slate-400">
                       Marca: {selectedProductDetail.brand}
                     </span>
                   )}
@@ -8386,9 +8388,9 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
                 <h5 className="text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">Aplicação das Peças</h5>
-                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap dark:text-slate-100">
                   {selectedProductDetail.application || "Nenhuma especificação de aplicação cadastrada para este item."}
                 </p>
               </div>
@@ -8396,7 +8398,7 @@ export default function App() {
               <div className="flex items-center justify-between pt-4">
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Preço de Venda</p>
-                  <p className="text-3xl font-black text-slate-900">{formatBRL(selectedProductDetail.sale_price)}</p>
+                  <p className="text-3xl font-black text-slate-900 dark:text-slate-100">{formatBRL(selectedProductDetail.sale_price)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Disponibilidade</p>
@@ -8428,7 +8430,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => setSelectedProductDetail(null)}
-                  className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-2 dark:bg-slate-800 dark:text-slate-400"
                 >
                   <X size={20} />
                   Fechar
@@ -8447,8 +8449,8 @@ export default function App() {
       >
         {labelPreviewProduct && (
           <div className="space-y-6">
-            <div className="bg-slate-100 p-8 rounded-2xl flex items-center justify-center">
-              <div className="bg-white" style={{ width: '63.5mm', height: '31mm', padding: '3mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px dashed #cbd5e1' }}>
+            <div className="bg-slate-100 p-8 rounded-2xl flex items-center justify-center dark:bg-slate-800">
+              <div className="bg-white dark:bg-slate-800" style={{ width: '63.5mm', height: '31mm', padding: '3mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px dashed #cbd5e1' }}>
                 <div style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.1, maxHeight: '18px', overflow: 'hidden', color: '#000' }}>
                   {labelPreviewProduct.description}
                 </div>
@@ -8479,12 +8481,12 @@ export default function App() {
               </ul>
             </div>
 
-            <div className="p-4 bg-slate-50 border border-slate-400 rounded-xl">
+            <div className="p-4 bg-slate-50 border border-slate-400 rounded-xl dark:bg-slate-900 dark:border-slate-700">
               <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Quantidade de Etiquetas</label>
               <div className="flex items-center gap-3">
                 <button 
                   onClick={() => setLabelQuantity(Math.max(1, labelQuantity - 1))}
-                  className="w-10 h-10 bg-white border border-slate-400 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold"
+                  className="w-10 h-10 bg-white border border-slate-400 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
                 >
                   -
                 </button>
@@ -8494,11 +8496,11 @@ export default function App() {
                   max="21"
                   value={labelQuantity}
                   onChange={(e) => setLabelQuantity(Math.min(21, Math.max(1, parseInt(e.target.value) || 1)))}
-                  className="flex-1 h-10 bg-white border border-slate-400 rounded-lg text-center font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="flex-1 h-10 bg-white border border-slate-400 rounded-lg text-center font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
                 />
                 <button 
                   onClick={() => setLabelQuantity(Math.min(21, labelQuantity + 1))}
-                  className="w-10 h-10 bg-white border border-slate-400 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold"
+                  className="w-10 h-10 bg-white border border-slate-400 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
                 >
                   +
                 </button>
@@ -8518,7 +8520,7 @@ export default function App() {
               </button>
               <button
                 onClick={() => setLabelPreviewProduct(null)}
-                className="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-all"
+                className="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-all dark:bg-slate-700 dark:text-slate-100"
               >
                 Cancelar
               </button>
@@ -8540,14 +8542,14 @@ export default function App() {
       >
         <div className="space-y-6">
           <div className="relative">
-            <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-tight">Buscar / Bipar Produto</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-tight dark:text-slate-100">Buscar / Bipar Produto</label>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
               <input
                 type="text"
                 autoFocus
                 placeholder="Nome, SKU ou Código de Barras..."
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-300 rounded-2xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-lg transition-all"
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-300 rounded-2xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-lg transition-all dark:bg-slate-900 dark:border-slate-700"
                 value={quickInventorySearch}
                 onChange={e => {
                   setQuickInventorySearch(e.target.value);
@@ -8585,7 +8587,7 @@ export default function App() {
             </div>
             
             {quickInventorySearch && !selectedQuickProduct && (
-              <div className="absolute z-50 w-full mt-2 bg-white border border-slate-300 rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
+              <div className="absolute z-50 w-full mt-2 bg-white border border-slate-300 rounded-2xl shadow-2xl max-h-60 overflow-y-auto dark:bg-slate-800 dark:border-slate-700">
                 {products.filter(p => {
                   const search = quickInventorySearch.trim().toLowerCase();
                   if (!search) return false;
@@ -8604,8 +8606,8 @@ export default function App() {
                     }}
                     className="w-full text-left px-4 py-4 hover:bg-emerald-50 flex flex-col border-b border-slate-100 last:border-none"
                   >
-                    <span className="font-bold text-slate-900">{p.description}</span>
-                    <span className="text-xs text-slate-500 uppercase tracking-tighter">SKU: {p.sku || 'N/A'} | Local: {p.location || 'N/A'}</span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100">{p.description}</span>
+                    <span className="text-xs text-slate-500 uppercase tracking-tighter dark:text-slate-400">SKU: {p.sku || 'N/A'} | Local: {p.location || 'N/A'}</span>
                   </button>
                 ))}
               </div>
@@ -8616,14 +8618,14 @@ export default function App() {
             <div className="bg-emerald-50 p-6 rounded-3xl border-2 border-emerald-200">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h3 className="text-xl font-black text-slate-900 uppercase leading-tight">{selectedQuickProduct.description}</h3>
+                  <h3 className="text-xl font-black text-slate-900 uppercase leading-tight dark:text-slate-100">{selectedQuickProduct.description}</h3>
                   <p className="text-sm text-emerald-700 font-bold uppercase mt-1">
                     {selectedQuickProduct.brand} | {selectedQuickProduct.location || 'Sem prateleira'}
                   </p>
                 </div>
                 <button 
                   onClick={() => setSelectedQuickProduct(null)}
-                  className="p-1 px-3 bg-white border border-emerald-200 rounded-xl text-[10px] font-bold text-emerald-600 uppercase hover:bg-emerald-100"
+                  className="p-1 px-3 bg-white border border-emerald-200 rounded-xl text-[10px] font-bold text-emerald-600 uppercase hover:bg-emerald-100 dark:bg-slate-800"
                 >
                   Mudar Peça
                 </button>
@@ -8640,7 +8642,7 @@ export default function App() {
                     <input
                       type="number"
                       inputMode="numeric"
-                      className="w-full py-8 text-center text-5xl font-black text-emerald-600 bg-white border-2 border-emerald-400 rounded-2xl shadow-xl outline-none no-spinners"
+                      className="w-full py-8 text-center text-5xl font-black text-emerald-600 bg-white border-2 border-emerald-400 rounded-2xl shadow-xl outline-none no-spinners dark:bg-slate-800"
                       value={quickInventoryStock}
                       onChange={e => setQuickInventoryStock(e.target.value)}
                     />
@@ -8672,7 +8674,7 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <div className="py-20 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl">
+            <div className="py-20 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl dark:bg-slate-900 dark:border-slate-700">
               <ClipboardList className="mx-auto text-slate-300 mb-4" size={48} />
               <p className="text-slate-400 font-medium">Use a busca acima ou bipe o <br /> código para começar a contar.</p>
             </div>
@@ -8697,7 +8699,7 @@ export default function App() {
               <select
                 value={massUpdateForm.action}
                 onChange={e => setMassUpdateForm({...massUpdateForm, action: e.target.value as 'increase'|'decrease'})}
-                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 font-bold bg-white"
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 font-bold bg-white dark:bg-slate-800 dark:border-slate-700"
               >
                 <option value="increase">AUMENTAR (Subir preços)</option>
                 <option value="decrease">DIMINUIR (Baixar preços)</option>
@@ -8708,7 +8710,7 @@ export default function App() {
               <select
                 value={massUpdateForm.type}
                 onChange={e => setMassUpdateForm({...massUpdateForm, type: e.target.value as 'percent'|'fixed'})}
-                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 font-bold bg-white"
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-amber-500 font-bold bg-white dark:bg-slate-800 dark:border-slate-700"
               >
                 <option value="percent">Porcentagem (%)</option>
                 <option value="fixed">Valor Fixo (R$)</option>
@@ -8729,7 +8731,7 @@ export default function App() {
                 value={massUpdateForm.value}
                 onChange={e => setMassUpdateForm({...massUpdateForm, value: e.target.value})}
                 placeholder="Exemplo: 10"
-                className="w-full border border-slate-300 rounded-xl pl-12 pr-4 py-4 font-black text-xl focus:ring-2 focus:ring-amber-500"
+                className="w-full border border-slate-300 rounded-xl pl-12 pr-4 py-4 font-black text-xl focus:ring-2 focus:ring-amber-500 dark:border-slate-700"
               />
             </div>
           </div>
@@ -8746,7 +8748,7 @@ export default function App() {
 
       {/* Quote Print View / High Resolution Layout */}
       {isPrintingQuote && (
-        <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:relative print:p-0 print:overflow-visible print:z-0">
+        <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:relative print:p-0 print:overflow-visible print:z-0 dark:bg-slate-800">
           <style>{`
             @media print {
               @page {
@@ -8829,8 +8831,8 @@ export default function App() {
               }
             }
           `}</style>
-          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-400 relative print-modal-container">
-            <div id="quote-capture-area" className="p-10 bg-white print:p-0">
+          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-400 relative print-modal-container dark:bg-slate-800 dark:border-slate-700">
+            <div id="quote-capture-area" className="p-10 bg-white print:p-0 dark:bg-slate-800">
               <div className="flex justify-between items-start border-b-4 border-rose-600 pb-6 mb-6">
                 <div className="flex gap-6 items-center">
                   <div className="w-24 h-24 bg-black rounded-2xl flex items-center justify-center overflow-hidden">
@@ -8842,7 +8844,7 @@ export default function App() {
                   </div>
                   <div>
                     <h1 className="text-3xl font-black text-black tracking-tighter uppercase">{companyData.nomeFantasia || 'Kombat Moto Peças'}</h1>
-                    <p className="text-slate-500 font-bold text-sm">Oficina Mecânica Multimarcas & Acessórios</p>
+                    <p className="text-slate-500 font-bold text-sm dark:text-slate-400">Oficina Mecânica Multimarcas & Acessórios</p>
                     <div className="mt-2 text-xs text-slate-400 font-medium">
                       <p>{companyData.endereco}, {companyData.bairro}</p>
                       <p>Andirá - PR | {companyData.cep}</p>
@@ -8882,10 +8884,10 @@ export default function App() {
                     </thead>
                     <tbody>
                       {isPrintingQuote.items.filter(i => i.type === 'Peça').map((item, idx) => (
-                        <tr key={idx} className="border-b border-slate-400 hover:bg-slate-50">
-                          <td className="py-2 font-bold text-slate-800 text-[11px] align-top">{item.quantity}</td>
-                          <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4">{item.description}</td>
-                          <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top">R$ {item.price.toFixed(2)}</td>
+                        <tr key={idx} className="border-b border-slate-400 hover:bg-slate-50 dark:border-slate-700">
+                          <td className="py-2 font-bold text-slate-800 text-[11px] align-top dark:text-slate-100">{item.quantity}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4 dark:text-slate-100">{item.description}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top dark:text-slate-100">R$ {item.price.toFixed(2)}</td>
                           <td className="py-2 font-black text-black text-[11px] text-right align-top">R$ {item.total.toFixed(2)}</td>
                         </tr>
                       ))}
@@ -8909,10 +8911,10 @@ export default function App() {
                     </thead>
                     <tbody>
                       {isPrintingQuote.items.filter(i => i.type === 'Serviço').map((item, idx) => (
-                        <tr key={idx} className="border-b border-slate-400 hover:bg-slate-50">
-                          <td className="py-2 font-bold text-slate-800 text-[11px] align-top">{item.quantity}</td>
-                          <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4">{item.description}</td>
-                          <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top">R$ {item.price.toFixed(2)}</td>
+                        <tr key={idx} className="border-b border-slate-400 hover:bg-slate-50 dark:border-slate-700">
+                          <td className="py-2 font-bold text-slate-800 text-[11px] align-top dark:text-slate-100">{item.quantity}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4 dark:text-slate-100">{item.description}</td>
+                          <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top dark:text-slate-100">R$ {item.price.toFixed(2)}</td>
                           <td className="py-2 font-black text-rose-600 text-[11px] text-right align-top">R$ {item.total.toFixed(2)}</td>
                         </tr>
                       ))}
@@ -8926,23 +8928,23 @@ export default function App() {
 
               <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 avoid-break">
                 <div className="space-y-4">
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-400">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
                     <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Observações Técnicas</p>
-                    <p className="text-xs text-slate-700 leading-relaxed italic">{isPrintingQuote.observations || 'Nenhuma observação técnica.'}</p>
+                    <p className="text-xs text-slate-700 leading-relaxed italic dark:text-slate-100">{isPrintingQuote.observations || 'Nenhuma observação técnica.'}</p>
                   </div>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-400">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
                     <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Termos de Garantia</p>
-                    <p className="text-[10px] text-slate-600 leading-tight">{isPrintingQuote.warranty_terms}</p>
+                    <p className="text-[10px] text-slate-600 leading-tight dark:text-slate-400">{isPrintingQuote.warranty_terms}</p>
                   </div>
                 </div>
                 <div className="flex flex-col justify-end items-end space-y-4">
                   <div className="text-right">
                     <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total das Peças</p>
-                    <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Peça').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
+                    <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2 dark:text-slate-100 dark:border-slate-700">R$ {isPrintingQuote.items.filter(i => i.type === 'Peça').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total dos Serviços</p>
-                    <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2">R$ {isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
+                    <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2 dark:text-slate-100 dark:border-slate-700">R$ {isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
                   </div>
                   <div className="bg-black text-white p-6 rounded-2xl text-right w-full">
                     <p className="text-xs font-black uppercase tracking-[0.2em] mb-2">Total Geral do Orçamento</p>
@@ -8951,7 +8953,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="mt-12 pt-6 border-t border-slate-400 flex flex-col items-center avoid-break">
+              <div className="mt-12 pt-6 border-t border-slate-400 flex flex-col items-center avoid-break dark:border-slate-700">
                 <div className="w-64 border-b border-slate-900 mb-2"></div>
                 <p className="text-xs font-black uppercase text-black tracking-widest">{isPrintingQuote.customer_name}</p>
                 <p className="text-[10px] text-slate-400 uppercase font-bold text-center">Autorização de Execução / Cliente</p>
@@ -8968,7 +8970,7 @@ export default function App() {
               <button onClick={() => handleShareQuoteWhatsApp(isPrintingQuote!)} className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center gap-2">
                 <MessageCircle size={20} /> Enviar Texto WhatsApp
               </button>
-              <button onClick={() => setIsPrintingQuote(null)} className="px-8 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">
+              <button onClick={() => setIsPrintingQuote(null)} className="px-8 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all dark:bg-slate-800 dark:text-slate-400">
                 Fechar Visualização
               </button>
             </div>

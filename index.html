@@ -13,6 +13,17 @@
           }
         });
       }
+      // Dark mode initialization
+      (function() {
+        try {
+          var localTheme = localStorage.getItem('theme');
+          if (localTheme === 'dark' || !localTheme) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
     </script>
   </head>
   <body>

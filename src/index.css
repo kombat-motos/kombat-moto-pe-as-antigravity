@@ -1,8 +1,27 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Global transitions and scrollbar overrides for a premium feel */
+html, body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.dark .custom-scrollbar {
+  scrollbar-color: #475569 transparent;
 }
 
 @media print {

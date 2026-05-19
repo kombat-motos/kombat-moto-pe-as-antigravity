@@ -64,8 +64,8 @@ const OSTab: React.FC<OSTabProps> = ({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Ordens de Serviço</h2>
-          <p className="text-sm text-slate-500">Gerenciamento de manutenções e reparos</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Ordens de Serviço</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Gerenciamento de manutenções e reparos</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -73,7 +73,7 @@ const OSTab: React.FC<OSTabProps> = ({
             <input
               type="text"
               placeholder="Buscar O.S..."
-              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none w-64"
+              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none w-64 dark:bg-slate-800 dark:border-slate-700"
               value={salesSearchTerm}
               onChange={e => setSalesSearchTerm(e.target.value)}
             />
@@ -114,7 +114,7 @@ const OSTab: React.FC<OSTabProps> = ({
             os.mechanic_name?.toLowerCase().includes(search)
           );
         }).map(os => (
-          <div key={os.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-shadow">
+          <div key={os.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-shadow dark:bg-slate-800 dark:border-slate-700">
             <div className="flex justify-between items-start">
               <div className="flex gap-4">
                 <div className="p-3 bg-amber-100 text-amber-600 rounded-xl h-fit">
@@ -143,35 +143,35 @@ const OSTab: React.FC<OSTabProps> = ({
                       </span>
                     )}
                   </div>
-                  <h4 className="text-lg font-bold text-slate-900">{os.customer_name}</h4>
-                  <p className="text-sm text-slate-500 flex items-center gap-1">
+                  <h4 className="text-lg font-bold text-slate-900 dark:text-slate-100">{os.customer_name}</h4>
+                  <p className="text-sm text-slate-500 flex items-center gap-1 dark:text-slate-400">
                     <Bike size={14} /> {os.moto_details}
                   </p>
                   <div className="flex gap-4 mt-3">
                     <div className="text-xs">
                       <p className="text-slate-400 uppercase font-bold text-[9px]">Mecânico</p>
-                      <p className="font-medium text-slate-700">{os.mechanic_name || 'Não atribuído'}</p>
+                      <p className="font-medium text-slate-700 dark:text-slate-100">{os.mechanic_name || 'Não atribuído'}</p>
                     </div>
                     <div className="text-xs">
                       <p className="text-slate-400 uppercase font-bold text-[9px]">Pagamento</p>
-                      <p className="font-medium text-slate-700">{os.payment_method}</p>
+                      <p className="font-medium text-slate-700 dark:text-slate-100">{os.payment_method}</p>
                     </div>
                   </div>
                 </div>
               </div>
               <div className="text-right">
                 <p className="text-xs text-slate-400 uppercase font-bold mb-1">Total da O.S.</p>
-                <p className="text-2xl font-black text-slate-900">{formatBRL(os.total)}</p>
+                <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{formatBRL(os.total)}</p>
                 <div className="flex gap-2 mt-4 justify-end">
                   <button
                     onClick={() => handleEditOS(os)}
-                    className="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-100 transition-colors flex items-center gap-1 border border-slate-400"
+                    className="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-100 transition-colors flex items-center gap-1 border border-slate-400 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-700"
                   >
                     <Edit size={14} /> Editar O.S.
                   </button>
                   <button
                     onClick={() => setSelectedSaleForOS(os)}
-                    className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors flex items-center gap-1"
+                    className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors flex items-center gap-1 dark:bg-slate-800 dark:text-slate-400"
                   >
                     <Printer size={14} /> Imprimir A4
                   </button>
@@ -191,14 +191,14 @@ const OSTab: React.FC<OSTabProps> = ({
               </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-slate-400 grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-slate-50 p-3 rounded-xl">
+            <div className="mt-6 pt-6 border-t border-slate-400 grid grid-cols-2 md:grid-cols-4 gap-4 dark:border-slate-700">
+              <div className="bg-slate-50 p-3 rounded-xl dark:bg-slate-900">
                 <p className="text-[9px] font-bold text-slate-400 uppercase">Peças</p>
-                <p className="font-bold text-slate-700">R$ {(os.total - os.labor_value).toFixed(2)}</p>
+                <p className="font-bold text-slate-700 dark:text-slate-100">R$ {(os.total - os.labor_value).toFixed(2)}</p>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl">
+              <div className="bg-slate-50 p-3 rounded-xl dark:bg-slate-900">
                 <p className="text-[9px] font-bold text-slate-400 uppercase">Mão de Obra</p>
-                <p className="font-bold text-slate-700">R$ {os.labor_value.toFixed(2)}</p>
+                <p className="font-bold text-slate-700 dark:text-slate-100">R$ {os.labor_value.toFixed(2)}</p>
               </div>
               <div className="bg-amber-50 p-3 rounded-xl">
                 <p className="text-[9px] font-bold text-amber-500 uppercase">Comissão</p>
@@ -212,7 +212,7 @@ const OSTab: React.FC<OSTabProps> = ({
           </div>
         ))}
         {osSales.length === 0 && (
-          <div className="bg-white p-12 rounded-2xl border border-dashed border-slate-400 text-center">
+          <div className="bg-white p-12 rounded-2xl border border-dashed border-slate-400 text-center dark:bg-slate-800 dark:border-slate-700">
             <Bike size={48} className="mx-auto text-slate-200 mb-4" />
             <h3 className="text-lg font-bold text-slate-400">Nenhuma Ordem de Serviço encontrada</h3>
             <p className="text-sm text-slate-400 mt-1">Clique em "Nova O.S." para começar um atendimento na oficina.</p>

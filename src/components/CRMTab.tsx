@@ -56,8 +56,8 @@ const CRMTab: React.FC<CRMTabProps> = ({
     <div className="space-y-6 h-full flex flex-col">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">CRM de Vendas</h2>
-          <p className="text-sm text-slate-500">Gerencie seus leads e negociações</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">CRM de Vendas</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Gerencie seus leads e negociações</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative">
@@ -65,7 +65,7 @@ const CRMTab: React.FC<CRMTabProps> = ({
             <input
               type="text"
               placeholder="Buscar leads..."
-              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none w-64"
+              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none w-64 dark:bg-slate-800 dark:border-slate-700"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
@@ -86,11 +86,11 @@ const CRMTab: React.FC<CRMTabProps> = ({
 
       <div className="flex gap-4 overflow-x-auto pb-4 flex-1 min-h-[600px]">
         {columns.map(column => (
-          <div key={column} className="flex-shrink-0 w-80 bg-slate-50/50 rounded-2xl border border-slate-400 flex flex-col">
-            <div className="p-4 border-b border-slate-400 flex items-center justify-between">
-              <h3 className="font-bold text-slate-700 flex items-center gap-2">
+          <div key={column} className="flex-shrink-0 w-80 bg-slate-50/50 rounded-2xl border border-slate-400 flex flex-col dark:border-slate-700">
+            <div className="p-4 border-b border-slate-400 flex items-center justify-between dark:border-slate-700">
+              <h3 className="font-bold text-slate-700 flex items-center gap-2 dark:text-slate-100">
                 {column}
-                <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">
+                <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full dark:bg-slate-700 dark:text-slate-400">
                   {filteredLeads.filter(l => l.status === column).length}
                 </span>
               </h3>
@@ -101,7 +101,7 @@ const CRMTab: React.FC<CRMTabProps> = ({
                 <motion.div
                   layoutId={lead.id}
                   key={lead.id}
-                  className="bg-white p-4 rounded-xl border border-slate-400 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
+                  className="bg-white p-4 rounded-xl border border-slate-400 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing dark:bg-slate-800 dark:border-slate-700"
                 >
                   <div className="flex justify-between items-start mb-2">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${lead.priority === 'Alta' ? 'bg-rose-100 text-rose-600' :
@@ -137,12 +137,12 @@ const CRMTab: React.FC<CRMTabProps> = ({
                       </button>
                     </div>
                   </div>
-                  <h4 className="font-bold text-slate-900 mb-1">{lead.name}</h4>
-                  <p className="text-xs text-slate-500 mb-3">{lead.company}</p>
-                  <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-400">
-                    <span className="text-sm font-bold text-slate-900">{formatBRL(lead.value)}</span>
+                  <h4 className="font-bold text-slate-900 mb-1 dark:text-slate-100">{lead.name}</h4>
+                  <p className="text-xs text-slate-500 mb-3 dark:text-slate-400">{lead.company}</p>
+                  <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-400 dark:border-slate-700">
+                    <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{formatBRL(lead.value)}</span>
                     <select
-                      className="text-[10px] bg-slate-50 border-none rounded-md p-1 focus:ring-0 cursor-pointer"
+                      className="text-[10px] bg-slate-50 border-none rounded-md p-1 focus:ring-0 cursor-pointer dark:bg-slate-900"
                       value={lead.status}
                       onChange={(e) => moveLead(lead.id, e.target.value as any)}
                     >

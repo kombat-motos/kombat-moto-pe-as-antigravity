@@ -105,7 +105,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   return (
     <div className="space-y-6 notranslate" translate="no">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-slate-900">Estoque de Peças</h2>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Estoque de Peças</h2>
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => fetchData()}
@@ -120,13 +120,13 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
             <input
               type="text"
               placeholder="Pesquisar produtos..."
-              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-full sm:w-64"
+              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-full sm:w-64 dark:bg-slate-800 dark:border-slate-700"
               value={inventorySearchTerm}
               onChange={e => setInventorySearchTerm(e.target.value)}
             />
           </div>
 
-          <div className="flex bg-slate-100 p-1 rounded-xl">
+          <div className="flex bg-slate-100 p-1 rounded-xl dark:bg-slate-800">
             <button
               onClick={() => setInventoryView('list')}
               className={`p-2 rounded-lg transition-all ${inventoryView === 'list' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
@@ -235,15 +235,15 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
       )}
 
       {inventoryView === 'list' ? (
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden text-sm">
+        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden text-sm dark:bg-slate-800 dark:border-slate-700">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-100">
+                <tr className="bg-slate-50 border-b border-slate-100 dark:bg-slate-900">
                   <th className="px-6 py-4 w-10">
                     <input
                       type="checkbox"
-                      className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                      className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 dark:border-slate-700"
                       checked={filtered.length > 0 && selectedProductIds.length === filtered.length}
                       onChange={(e) => {
                         if (e.target.checked) {
@@ -283,7 +283,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                       <td className="px-6 py-4 text-slate-400">
                         <input
                           type="checkbox"
-                          className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                          className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 dark:border-slate-700"
                           checked={selectedProductIds.includes(p.id)}
                           onChange={() => toggleSelectProduct(p.id)}
                         />
@@ -291,7 +291,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div
-                            className="w-10 h-10 bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+                            className="w-10 h-10 bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200 cursor-pointer shadow-sm hover:shadow-md transition-shadow dark:bg-slate-900 dark:border-slate-700"
                             onClick={() => setSelectedProductDetail(p)}
                           >
                             {p.image_url ? (
@@ -301,10 +301,10 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                             )}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900 line-clamp-1">{p.description}</p>
+                            <p className="font-bold text-slate-900 line-clamp-1 dark:text-slate-100">{p.description}</p>
                             <div className="flex items-center gap-2">
                               {p.brand && (
-                                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-black uppercase tracking-tighter">
+                                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-black uppercase tracking-tighter dark:bg-slate-800 dark:text-slate-400">
                                   {p.brand}
                                 </span>
                               )}
@@ -315,7 +315,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center font-mono text-[11px] text-slate-500 leading-tight">
+                      <td className="px-6 py-4 text-center font-mono text-[11px] text-slate-500 leading-tight dark:text-slate-400">
                         <div className="flex flex-col items-center">
                           <span>{p.sku || '-'}</span>
                           <span>{p.barcode || '-'}</span>
@@ -328,7 +328,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                       </td>
                       <td className="px-6 py-4 text-right">
                         <p className="text-[10px] text-slate-300 line-through">{formatBRL(p.purchase_price)}</p>
-                        <p className="font-black text-slate-900">{formatBRL(p.sale_price)}</p>
+                        <p className="font-black text-slate-900 dark:text-slate-100">{formatBRL(p.sale_price)}</p>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-tighter ${p.stock <= 2 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-700'}`}>
@@ -363,7 +363,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {filtered.length === 0 ? (
-            <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400 font-medium">
+            <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400 font-medium dark:bg-slate-800 dark:border-slate-700">
               Nenhum produto encontrado.
             </div>
           ) : (
@@ -375,14 +375,14 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                 <div className="absolute top-4 left-4 z-20">
                   <input
                     type="checkbox"
-                    className="w-5 h-5 rounded-lg border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer shadow-sm"
+                    className="w-5 h-5 rounded-lg border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer shadow-sm dark:border-slate-700"
                     checked={selectedProductIds.includes(p.id)}
                     onChange={() => toggleSelectProduct(p.id)}
                   />
                 </div>
                 
                 <div 
-                  className="h-48 bg-slate-50 relative overflow-hidden flex items-center justify-center cursor-pointer"
+                  className="h-48 bg-slate-50 relative overflow-hidden flex items-center justify-center cursor-pointer dark:bg-slate-900"
                   onClick={() => setSelectedProductDetail(p)}
                 >
                   {p.image_url ? (
@@ -399,7 +399,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                       {p.stock} Un
                     </span>
                     {p.location && (
-                       <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm">
+                       <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm dark:text-slate-400">
                          {p.location}
                        </span>
                     )}
@@ -408,26 +408,26 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
 
                 <div className="p-5">
                   <div className="min-h-[2.5rem] mb-2">
-                    <h3 className="text-sm font-black text-slate-900 line-clamp-2 uppercase leading-tight tracking-tight">{p.description}</h3>
+                    <h3 className="text-sm font-black text-slate-900 line-clamp-2 uppercase leading-tight tracking-tight dark:text-slate-100">{p.description}</h3>
                     {p.brand && <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{p.brand}</p>}
                   </div>
                   
                   <div className="flex items-end justify-between mt-4">
                     <div>
                       <p className="text-[9px] text-slate-300 uppercase font-black tracking-tighter line-through">{formatBRL(p.purchase_price)}</p>
-                      <p className="text-xl font-black text-slate-900 leading-none">{formatBRL(p.sale_price)}</p>
+                      <p className="text-xl font-black text-slate-900 leading-none dark:text-slate-100">{formatBRL(p.sale_price)}</p>
                     </div>
                     <div className="flex gap-1">
                       <button
                         onClick={() => handleEditProduct(p)}
-                        className="p-2.5 bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-slate-100"
+                        className="p-2.5 bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-slate-100 dark:bg-slate-900"
                         title="Editar"
                       >
                         <Pencil size={18} />
                       </button>
                       <button
                         onClick={() => handleDeleteProduct(p.id)}
-                        className="p-2.5 bg-slate-50 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-slate-100"
+                        className="p-2.5 bg-slate-50 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-slate-100 dark:bg-slate-900"
                         title="Remover"
                       >
                         <Trash2 size={18} />

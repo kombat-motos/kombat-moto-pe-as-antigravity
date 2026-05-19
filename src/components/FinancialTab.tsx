@@ -529,7 +529,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
   return (
     <div className="space-y-8">
       {/* Secondary Navigation */}
-      <div className="flex bg-slate-100 p-1.5 rounded-2xl w-fit no-print">
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl w-fit no-print dark:bg-slate-800">
         {[
           { id: 'caixa', label: 'Fluxo de Caixa', icon: Wallet },
           { id: 'receber', label: 'Contas a Receber', icon: CreditCard },
@@ -551,13 +551,13 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       {financialTab === 'caixa' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {/* Cash Control Header */}
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 flex flex-col md:flex-row items-center justify-between gap-6 dark:bg-slate-800 dark:border-slate-700">
             <div className="flex items-center gap-4">
               <div className={`p-4 rounded-2xl ${activeSession ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'}`}>
                 <Wallet size={32} />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-slate-900">Status do Caixa</h3>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Status do Caixa</h3>
                 <p className={`text-sm font-medium ${activeSession ? 'text-rose-600' : 'text-slate-500'}`}>
                   {activeSession ? `ABERTO (Início: ${new Date(activeSession.openedAt).toLocaleTimeString()})` : 'CAIXA FECHADO'}
                 </p>
@@ -576,7 +576,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                 <>
                   <button
                     onClick={() => setIsTransactionModalOpen(true)}
-                    className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all flex items-center gap-2"
+                    className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all flex items-center gap-2 dark:bg-slate-800 dark:text-slate-100"
                   >
                     <ArrowUpCircle size={18} /> Sangria/Suprimento
                   </button>
@@ -592,27 +592,27 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
                   <Package size={20} />
                 </div>
-                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Venda de Produtos</p>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Venda de Produtos</p>
               </div>
-              <h4 className="text-2xl font-black text-slate-900">R$ {productSales.toFixed(2)}</h4>
+              <h4 className="text-2xl font-black text-slate-900 dark:text-slate-100">R$ {productSales.toFixed(2)}</h4>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
                   <Bike size={20} />
                 </div>
-                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Serviços</p>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Serviços</p>
               </div>
-              <h4 className="text-2xl font-black text-slate-900">R$ {serviceSales.toFixed(2)}</h4>
+              <h4 className="text-2xl font-black text-slate-900 dark:text-slate-100">R$ {serviceSales.toFixed(2)}</h4>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 bg-gradient-to-br from-rose-600 to-rose-700 text-white border-none">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 bg-gradient-to-br from-rose-600 to-rose-700 text-white border-none dark:bg-slate-800 dark:border-slate-700">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-white/20 text-white rounded-lg">
                   <TrendingUp size={20} />
@@ -625,39 +625,39 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
 
           {/* Métricas de Lucro em Peças */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-slate-50 text-slate-600 rounded-lg">
+                <div className="p-2 bg-slate-50 text-slate-600 rounded-lg dark:bg-slate-900 dark:text-slate-400">
                   <Truck size={20} />
                 </div>
-                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Custo das Peças</p>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Custo das Peças</p>
               </div>
-              <h4 className="text-2xl font-black text-slate-900">R$ {productCosts.toFixed(2)}</h4>
+              <h4 className="text-2xl font-black text-slate-900 dark:text-slate-100">R$ {productCosts.toFixed(2)}</h4>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
                   <DollarSign size={20} />
                 </div>
-                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Lucro Líquido (Peças)</p>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Lucro Líquido (Peças)</p>
               </div>
               <h4 className="text-2xl font-black text-emerald-600">R$ {productProfit.toFixed(2)}</h4>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                   <Percent size={20} />
                 </div>
-                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Margem de Lucro</p>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Margem de Lucro</p>
               </div>
               <h4 className="text-2xl font-black text-indigo-600">{profitMargin.toFixed(1)}%</h4>
             </div>
           </div>
 
-          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
-            <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
+            <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2 dark:text-slate-100">
               <BarChart3 size={20} className="text-indigo-500" />
               Meios de Recebimento
             </h3>
@@ -668,10 +668,10 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                 return (
                   <div key={method} className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="font-medium text-slate-600">{method}</span>
-                      <span className="font-bold text-slate-900">R$ {total.toFixed(2)}</span>
+                      <span className="font-medium text-slate-600 dark:text-slate-400">{method}</span>
+                      <span className="font-bold text-slate-900 dark:text-slate-100">R$ {total.toFixed(2)}</span>
                     </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden dark:bg-slate-800">
                       <div className={`h-full rounded-full bg-indigo-500`} style={{ width: `${percentage}%` }} />
                     </div>
                   </div>
@@ -701,9 +701,9 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
             ))}
           </div>
 
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-400 overflow-hidden">
-            <div className="p-6 border-b border-slate-400 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <h3 className="font-extrabold text-slate-900 flex items-center gap-2">
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-400 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+            <div className="p-6 border-b border-slate-400 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 dark:border-slate-700">
+              <h3 className="font-extrabold text-slate-900 flex items-center gap-2 dark:text-slate-100">
                 <Gavel size={20} className="text-rose-500" />
                 Listagem de Débitos Ativos
               </h3>
@@ -714,7 +714,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                 <input
                   type="text"
                   placeholder="Buscar devedor..."
-                  className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 transition-all w-full shadow-sm"
+                  className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 transition-all w-full shadow-sm dark:bg-slate-900 dark:border-slate-700"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -723,7 +723,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                  <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest dark:bg-slate-900">
                     <th className="px-6 py-4">Cliente / Score</th>
                     <th className="px-6 py-4">Vencimento</th>
                     <th className="px-6 py-4">Original</th>
@@ -739,7 +739,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                       <tr key={sale.id} className="hover:bg-slate-50 transition-colors group">
                         <td className="px-6 py-4">
                           <div>
-                            <p className="font-bold text-slate-900">{sale.customer_name}</p>
+                            <p className="font-bold text-slate-900 dark:text-slate-100">{sale.customer_name}</p>
                             <div className="flex items-center gap-1 mt-1">
                               <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${score > 7 ? 'bg-emerald-100 text-emerald-600' : score > 4 ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'}`}>
                                 Score: {score}
@@ -752,9 +752,9 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                             {new Date(sale.due_date!).toLocaleDateString('pt-BR')}
                           </p>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-600 font-medium">R$ {sale.total.toFixed(2)}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600 font-medium dark:text-slate-400">R$ {sale.total.toFixed(2)}</td>
                         <td className="px-6 py-4">
-                          <p className="text-sm font-black text-slate-900">R$ {calculateOverdueDebt(sale).toFixed(2)}</p>
+                          <p className="text-sm font-black text-slate-900 dark:text-slate-100">R$ {calculateOverdueDebt(sale).toFixed(2)}</p>
                           {isOverdue && <span className="text-[9px] text-rose-500 font-bold">+ Multa/Juros</span>}
                         </td>
                         <td className="px-6 py-4">
@@ -765,7 +765,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                             <button onClick={() => generateCarne(sale)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100" title="Imprimir Carnê">
                               <Printer size={16} />
                             </button>
-                            <button onClick={() => generatePromissoryNote(sale)} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200" title="Nota Promissória">
+                            <button onClick={() => generatePromissoryNote(sale)} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400" title="Nota Promissória">
                               <FileText size={16} />
                             </button>
                             <button
@@ -806,12 +806,12 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       )}
 
       {financialTab === 'taxas' && (
-        <div className="max-w-2xl bg-white p-8 rounded-3xl shadow-sm border border-slate-400 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+        <div className="max-w-2xl bg-white p-8 rounded-3xl shadow-sm border border-slate-400 animate-in fade-in slide-in-from-bottom-2 duration-500 dark:bg-slate-800 dark:border-slate-700">
+          <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2 dark:text-slate-100">
             <Calculator size={24} className="text-blue-500" />
             Configuração de Repasse de Juros
           </h3>
-          <p className="text-sm text-slate-500 mb-8">Defina as taxas cobradas pela sua operadora de cartão por parcela. Estes valores são usados na calculadora de vendas.</p>
+          <p className="text-sm text-slate-500 mb-8 dark:text-slate-400">Defina as taxas cobradas pela sua operadora de cartão por parcela. Estes valores são usados na calculadora de vendas.</p>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
             {Object.keys(cardFeesSettings).sort((a, b) => Number(a) - Number(b)).map(parcela => (
@@ -826,7 +826,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                       const newFees = { ...cardFeesSettings, [Number(parcela)]: parseFloat(e.target.value) || 0 };
                       setCardFeesSettings(newFees);
                     }}
-                    className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-400 rounded-xl font-bold focus:ring-2 focus:ring-blue-500/20 outline-none text-blue-600 text-lg"
+                    className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-400 rounded-xl font-bold focus:ring-2 focus:ring-blue-500/20 outline-none text-blue-600 text-lg dark:bg-slate-900 dark:border-slate-700"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-300">%</span>
                 </div>
@@ -834,7 +834,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
             ))}
           </div>
 
-          <div className="mt-8 pt-6 border-t border-slate-400">
+          <div className="mt-8 pt-6 border-t border-slate-400 dark:border-slate-700">
             <button
               onClick={() => {
                 localStorage.setItem('cardFeesSettings', JSON.stringify(cardFeesSettings));
@@ -850,8 +850,8 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
 
       {financialTab === 'automacao' && (
         <div className="max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
-            <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
+            <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2 dark:text-slate-100">
               <Bell size={24} className="text-emerald-500" />
               Régua de Cobrança e Automação
             </h3>
@@ -863,12 +863,12 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                 { title: 'Notificação Jurídica', desc: 'Gerar aviso de protesto após 15 dias de inadimplência.', active: false },
                 { title: 'Obrigado pelo Pagamento', desc: 'Enviar agradecimento automático após liquidação do débito.', active: true }
               ].map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-400">
+                <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
                   <div className="flex gap-4">
-                    <div className="p-3 bg-white rounded-xl shadow-sm text-slate-400"><MessageCircle size={20} /></div>
+                    <div className="p-3 bg-white rounded-xl shadow-sm text-slate-400 dark:bg-slate-800"><MessageCircle size={20} /></div>
                     <div>
-                      <p className="font-bold text-slate-800">{item.title}</p>
-                      <p className="text-xs text-slate-500">{item.desc}</p>
+                      <p className="font-bold text-slate-800 dark:text-slate-100">{item.title}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{item.desc}</p>
                     </div>
                   </div>
                   <div className={`w-12 h-6 rounded-full relative transition-all cursor-pointer ${item.active ? 'bg-emerald-500' : 'bg-slate-200'}`}>
@@ -879,25 +879,25 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
             </div>
           </div>
 
-          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400">
-            <h3 className="text-xl font-bold text-slate-900 mb-6">Regras de Encargos</h3>
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
+            <h3 className="text-xl font-bold text-slate-900 mb-6 dark:text-slate-100">Regras de Encargos</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Multa por Atraso (%)</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Multa por Atraso (%)</label>
                 <input
                   type="number"
                   value={fiadoSettings.lateFeeRate}
                   onChange={e => setFiadoSettings({ ...fiadoSettings, lateFeeRate: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Juros de Mora (Mensal %)</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Juros de Mora (Mensal %)</label>
                 <input
                   type="number"
                   value={fiadoSettings.lateInterestRate}
                   onChange={e => setFiadoSettings({ ...fiadoSettings, lateInterestRate: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                 />
               </div>
             </div>
@@ -907,17 +907,17 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
 
       {financialTab === 'fechamento' && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400">
-            <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
+            <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2 dark:text-slate-100">
               <FileText size={24} className="text-indigo-500" />
               Calcular Fechamento do Cliente
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
               <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-slate-700 mb-2">Cliente</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Cliente</label>
                 <select
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                   value={closingCustomerId}
                   onChange={e => { setClosingCustomerId(e.target.value); setClosingResult(null); }}
                 >
@@ -929,9 +929,9 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Tipo de Período</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Tipo de Período</label>
                 <select
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                   value={closingPeriodType}
                   onChange={e => { setClosingPeriodType(e.target.value as any); setClosingResult(null); }}
                 >
@@ -941,18 +941,18 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data do Período</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Data do Período</label>
                 {closingPeriodType === 'day' ? (
                   <input
                     type="date"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                     value={closingDate}
                     onChange={e => { setClosingDate(e.target.value); setClosingResult(null); }}
                   />
                 ) : (
                   <input
                     type="month"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
                     value={closingMonthYear}
                     onChange={e => { setClosingMonthYear(e.target.value); setClosingResult(null); }}
                   />
@@ -969,17 +969,17 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
           </div>
 
           {closingResult && (
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-indigo-200">
-              <div className="text-center mb-8 border-b border-slate-200 pb-6">
-                <h2 className="text-2xl font-black text-slate-900 uppercase">Resumo de Fechamento</h2>
-                <p className="text-slate-500 text-lg">{closingResult.customerName}</p>
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-indigo-200 dark:bg-slate-800">
+              <div className="text-center mb-8 border-b border-slate-200 pb-6 dark:border-slate-700">
+                <h2 className="text-2xl font-black text-slate-900 uppercase dark:text-slate-100">Resumo de Fechamento</h2>
+                <p className="text-slate-500 text-lg dark:text-slate-400">{closingResult.customerName}</p>
                 <p className="text-sm font-bold text-indigo-600 mt-1">Período: {closingResult.periodLabel}</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 {/* Bloco Peças */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-b border-slate-200 pb-2">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-b border-slate-200 pb-2 dark:text-slate-100 dark:border-slate-700">
                     <Package size={20} className="text-blue-500" /> Peças e Acessórios
                   </h3>
                   {closingResult.pecasList.length === 0 ? (
@@ -987,9 +987,9 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                   ) : (
                     <ul className="space-y-3">
                       {closingResult.pecasList.map((p: any, i: number) => (
-                        <li key={i} className="flex justify-between text-sm bg-slate-50 p-2 rounded-lg">
+                        <li key={i} className="flex justify-between text-sm bg-slate-50 p-2 rounded-lg dark:bg-slate-900">
                           <span>{p.quantity}x {p.description} <span className="text-[10px] text-slate-400 ml-1">({new Date(p.date).toLocaleDateString('pt-BR')})</span></span>
-                          <span className="font-bold text-slate-700">{formatBRL(p.price * p.quantity)}</span>
+                          <span className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(p.price * p.quantity)}</span>
                         </li>
                       ))}
                     </ul>
@@ -1002,7 +1002,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
 
                 {/* Bloco Serviços */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-b border-slate-200 pb-2">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-b border-slate-200 pb-2 dark:text-slate-100 dark:border-slate-700">
                     <Bike size={20} className="text-amber-500" /> Mão de Obra e Serviços
                   </h3>
                   {closingResult.servicosList.length === 0 ? (
@@ -1010,9 +1010,9 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                   ) : (
                     <ul className="space-y-3">
                       {closingResult.servicosList.map((s: any, i: number) => (
-                        <li key={i} className="flex justify-between text-sm bg-slate-50 p-2 rounded-lg">
+                        <li key={i} className="flex justify-between text-sm bg-slate-50 p-2 rounded-lg dark:bg-slate-900">
                           <span>{s.quantity}x {s.description} <span className="text-[10px] text-slate-400 ml-1">({new Date(s.date).toLocaleDateString('pt-BR')})</span></span>
-                          <span className="font-bold text-slate-700">{formatBRL(s.price * s.quantity)}</span>
+                          <span className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(s.price * s.quantity)}</span>
                         </li>
                       ))}
                     </ul>
@@ -1055,7 +1055,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
               </div>
               
               <div className="mt-6 flex justify-end no-print">
-                <button onClick={handlePrintClosing} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all flex items-center gap-2">
+                <button onClick={handlePrintClosing} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all flex items-center gap-2 dark:bg-slate-800 dark:text-slate-100">
                   <Printer size={18} /> Imprimir Resumo
                 </button>
               </div>
@@ -1074,18 +1074,18 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       >
         <form onSubmit={handleOpenCash} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Saldo Inicial em Dinheiro (R$)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Saldo Inicial em Dinheiro (R$)</label>
             <input
               type="number" step="0.01" required placeholder="0.00"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               value={cashForm.openingBalance}
               onChange={e => setCashForm({ ...cashForm, openingBalance: e.target.value })}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Observações (Opcional)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Observações (Opcional)</label>
             <textarea
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none min-h-[80px] resize-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none min-h-[80px] resize-none dark:bg-slate-900 dark:border-slate-700"
               value={cashForm.notes}
               onChange={e => setCashForm({ ...cashForm, notes: e.target.value })}
             />
@@ -1119,19 +1119,19 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
             </button>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Valor (R$)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Valor (R$)</label>
             <input
               type="number" step="0.01" required placeholder="0.00"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               value={transactionForm.amount}
               onChange={e => setTransactionForm({ ...transactionForm, amount: e.target.value })}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Descrição / Motivo</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Descrição / Motivo</label>
             <input
               type="text" required placeholder="Ex: Troco inicial, Pagamento fornecedor..."
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
               value={transactionForm.description}
               onChange={e => setTransactionForm({ ...transactionForm, description: e.target.value })}
             />
