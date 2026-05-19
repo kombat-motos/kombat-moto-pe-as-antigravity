@@ -766,6 +766,13 @@ export default function App() {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [checkoutPaymentReceived, setCheckoutPaymentReceived] = useState<string>('');
   const [isPdvHistoryOpen, setIsPdvHistoryOpen] = useState(false);
+  const [historyDate, setHistoryDate] = useState(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
   const [osForm, setOsForm] = useState<{
     customer_id: string;
     motorcycle_id: string;
@@ -1868,6 +1875,15 @@ export default function App() {
     const todaySales = sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString());
     const totalToday = todaySales.reduce((acc, curr) => acc + curr.total, 0);
 
+    const historySales = sales.filter(s => {
+      const d = new Date(s.date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}` === historyDate;
+    });
+    const totalHistorySales = historySales.reduce((acc, curr) => acc + curr.total, 0);
+
     const categories = (() => {
       const list = new Set(products.map(p => p.category).filter(Boolean));
       return ['all', ...Array.from(list)];
@@ -2213,16 +2229,33 @@ export default function App() {
         <Modal
           isOpen={isPdvHistoryOpen}
           onClose={() => setIsPdvHistoryOpen(false)}
-          title="Histórico de Vendas de Hoje"
+          title="Histórico de Vendas"
           maxWidth="max-w-4xl"
         >
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-950/40 p-4 rounded-2xl border border-slate-800">
               <div>
-                <p className="text-xs text-slate-400 font-bold uppercase">Resumo de Faturamento</p>
-                <p className="text-2xl font-black text-emerald-500">{formatBRL(totalToday)}</p>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Resumo de Faturamento</p>
+                <p className="text-2xl font-black text-emerald-500">{formatBRL(totalHistorySales)}</p>
               </div>
-              <p className="text-xs text-slate-400">{todaySales.length} vendas realizadas hoje</p>
+
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-black uppercase text-slate-400 tracking-wider">Filtrar por data:</span>
+                <div className="relative flex items-center">
+                  <Calendar size={14} className="absolute left-3 text-rose-500 pointer-events-none" />
+                  <input
+                    type="date"
+                    value={historyDate}
+                    onChange={(e) => setHistoryDate(e.target.value)}
+                    className="pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all dark:bg-slate-950"
+                  />
+                </div>
+              </div>
+
+              <div className="text-right">
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total de Vendas</p>
+                <p className="text-sm font-black text-slate-200">{historySales.length} {historySales.length === 1 ? 'venda realizada' : 'vendas realizadas'}</p>
+              </div>
             </div>
 
             <div className="overflow-x-auto border border-slate-850 rounded-2xl max-h-[400px] overflow-y-auto">
@@ -2241,7 +2274,7 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-850">
-                  {todaySales.map(sale => (
+                  {historySales.map(sale => (
                     <tr key={sale.id} className="hover:bg-slate-900/40 text-slate-300">
                       <td className="p-3 font-mono font-bold text-slate-100">{sale.id}</td>
                       <td className="p-3 text-slate-400">{new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
@@ -2255,7 +2288,7 @@ export default function App() {
                           ? 'bg-emerald-950 border border-emerald-800 text-emerald-400'
                           : 'bg-red-950 border border-red-800 text-red-400'
                           }`}>
-                          {sale.payment_status}
+                        {sale.payment_status}
                         </span>
                       </td>
                       <td className="p-3">
@@ -2288,10 +2321,10 @@ export default function App() {
                       </td>
                     </tr>
                   ))}
-                  {todaySales.length === 0 && (
+                  {historySales.length === 0 && (
                     <tr>
                       <td colSpan={9} className="p-6 text-center text-slate-500">
-                        Nenhuma venda realizada hoje.
+                        Nenhuma venda realizada nesta data.
                       </td>
                     </tr>
                   )}
