@@ -123,65 +123,76 @@ select option {
    GLOBAL DARK MODE ROBUST CONTRAST OVERRIDES
    Ensures 100% readability across the app
    ========================================== */
-.dark,
-.dark body,
-.dark .main-layout-root {
+html.dark,
+html.dark body,
+html.dark .main-layout-root {
   background-color: #0f172a !important; /* Deep dark slate-900 */
   color: #f8fafc !important;
 }
 
 /* Force dark backgrounds on container divs that lack or override inline dark classes */
-.dark aside,
-.dark main {
+html.dark aside,
+html.dark main {
   background-color: #0f172a !important;
 }
 
 /* Cards, Modals and panel grids */
-.dark .bg-white,
-.dark .bg-slate-50,
-.dark .bg-white\/80,
-.dark .bg-slate-50\/80 {
+html.dark .bg-white,
+html.dark .bg-slate-50,
+html.dark .bg-white\/80,
+html.dark .bg-slate-50\/80 {
   background-color: #1e293b !important; /* slate-800 */
   border-color: #334155 !important; /* slate-700 border */
   color: #f8fafc !important;
 }
 
 /* List headers, table heads and secondary elements */
-.dark .bg-slate-100,
-.dark .bg-slate-200 {
+html.dark .bg-slate-100,
+html.dark .bg-slate-200 {
   background-color: #334155 !important; /* slate-700 */
   color: #f8fafc !important;
 }
 
 /* Ensure all text classes are beautifully visible in dark mode */
-.dark .text-slate-900,
-.dark .text-slate-800,
-.dark .text-slate-700,
-.dark .text-slate-600 {
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-slate-700,
+html.dark .text-slate-600 {
   color: #f8fafc !important;
 }
 
-.dark .text-slate-500,
-.dark .text-slate-400 {
+html.dark .text-slate-500,
+html.dark .text-slate-400 {
   color: #94a3b8 !important; /* slate-400 for subheadings and helpers */
 }
 
 /* Forms: inputs, textareas, selects */
-.dark input,
-.dark textarea,
-.dark select {
+html.dark input,
+html.dark textarea,
+html.dark select,
+html.dark option,
+html.dark select option {
   background-color: #0f172a !important; /* deep slate inputbg */
   border-color: #334155 !important;
-  color: #ffffff !important;
+  color: #ffffff !important; /* Forces input text to be 100% white */
 }
 
-.dark input::placeholder,
-.dark textarea::placeholder {
-  color: #64748b !important;
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #94a3b8 !important; /* Forces placeholder text to be highly visible */
 }
 
-/* Dropdown list items and autocompletes */
-.dark .absolute.bg-white {
+/* Autocomplete list items and dropdown autocompletes */
+html.dark .absolute.bg-white {
   background-color: #1e293b !important;
   border-color: #334155 !important;
+}
+
+/* Hover highlights on tables, select items, and autocomplete list items */
+html.dark .hover\:bg-rose-50:hover,
+html.dark .hover\:bg-slate-100:hover,
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-200:hover {
+  background-color: #334155 !important; /* Slate-700 background */
+  color: #ffffff !important; /* Pure white text on hover */
 }
