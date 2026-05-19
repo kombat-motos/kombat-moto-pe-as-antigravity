@@ -1868,25 +1868,23 @@ export default function App() {
     const todaySales = sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString());
     const totalToday = todaySales.reduce((acc, curr) => acc + curr.total, 0);
 
-    const categories = useMemo(() => {
+    const categories = (() => {
       const list = new Set(products.map(p => p.category).filter(Boolean));
       return ['all', ...Array.from(list)];
-    }, [products]);
+    })();
 
-    const filteredProducts = useMemo(() => {
-      return sortedProducts.filter(p => {
-        const query = pdvSearchProduct.toLowerCase();
-        const matchesSearch = 
-          (p.description || '').toLowerCase().includes(query) ||
-          (p.brand || '').toLowerCase().includes(query) ||
-          (p.sku || '').toLowerCase().includes(query) ||
-          (p.barcode || '').toLowerCase().includes(query) ||
-          (p.alt_code || '').toLowerCase().includes(query);
+    const filteredProducts = sortedProducts.filter(p => {
+      const query = pdvSearchProduct.toLowerCase();
+      const matchesSearch = 
+        (p.description || '').toLowerCase().includes(query) ||
+        (p.brand || '').toLowerCase().includes(query) ||
+        (p.sku || '').toLowerCase().includes(query) ||
+        (p.barcode || '').toLowerCase().includes(query) ||
+        (p.alt_code || '').toLowerCase().includes(query);
 
-        const matchesCategory = selectedPdvCategory === 'all' || p.category === selectedPdvCategory;
-        return matchesSearch && matchesCategory;
-      });
-    }, [sortedProducts, pdvSearchProduct, selectedPdvCategory]);
+      const matchesCategory = selectedPdvCategory === 'all' || p.category === selectedPdvCategory;
+      return matchesSearch && matchesCategory;
+    });
 
     const cartTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
     const cartGrandTotal = Math.max(0, cartTotal - (pdvForm.discount || 0));
