@@ -745,19 +745,27 @@ export default function App() {
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [pdvForm, setPdvForm] = useState<{
     customer_id: string;
+    mechanic_id: string;
     items: SaleItem[];
     payment_method: 'Pix' | 'Cartão' | 'Dinheiro' | 'Fiado';
     due_date: string;
     sale_condition: 'Vista' | 'Prazo';
     installments: number;
+    discount: number;
   }>({
     customer_id: '',
+    mechanic_id: '',
     items: [],
     payment_method: 'Pix' as 'Pix' | 'Cartão' | 'Dinheiro' | 'Fiado',
     due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     sale_condition: 'Vista',
-    installments: 1
+    installments: 1,
+    discount: 0
   });
+  const [selectedPdvCategory, setSelectedPdvCategory] = useState<string>('all');
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [checkoutPaymentReceived, setCheckoutPaymentReceived] = useState<string>('');
+  const [isPdvHistoryOpen, setIsPdvHistoryOpen] = useState(false);
   const [osForm, setOsForm] = useState<{
     customer_id: string;
     motorcycle_id: string;
@@ -938,6 +946,71 @@ export default function App() {
       isFetchingRef.current = false;
     }
   };
+
+  // Barcode quick search direct add (hybrid search/barcode scanner support)
+  useEffect(() => {
+    if (pdvSearchProduct) {
+      const query = pdvSearchProduct.trim();
+      const match = products.find(p => p.barcode === query || p.sku === query);
+      if (match) {
+        handleAddPdvItem(match);
+        setPdvSearchProduct('');
+      }
+    }
+  }, [pdvSearchProduct, products]);
+
+  // Global Keyboard Shortcuts (F2: Pagar, F4: Desconto, ESC: Cancelar cupom)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (activeTab !== 'pdv') return;
+
+      if (e.key === 'F2') {
+        e.preventDefault();
+        if (pdvForm.items.length > 0) {
+          setIsCheckoutModalOpen(true);
+        } else {
+          alert('Adicione itens ao carrinho primeiro!');
+        }
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        const discInput = document.getElementById('pdv-discount-input');
+        if (discInput) {
+          discInput.focus();
+          (discInput as HTMLInputElement).select();
+        }
+      } else if (e.key === 'Escape') {
+        if (isCheckoutModalOpen) {
+          setIsCheckoutModalOpen(false);
+          return;
+        }
+        if (isPdvHistoryOpen) {
+          setIsPdvHistoryOpen(false);
+          return;
+        }
+        
+        e.preventDefault();
+        if (pdvForm.items.length > 0) {
+          const proceed = window.confirm('Deseja realmente cancelar este cupom e esvaziar o carrinho?');
+          if (proceed) {
+            setPdvForm({
+              customer_id: '',
+              mechanic_id: '',
+              items: [],
+              payment_method: 'Pix',
+              due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              sale_condition: 'Vista',
+              installments: 1,
+              discount: 0
+            });
+            setCheckoutPaymentReceived('');
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, pdvForm, isCheckoutModalOpen, isPdvHistoryOpen]);
 
   // Resolução de imagens em background via hook para evitar corridas
   useEffect(() => {
@@ -1475,14 +1548,15 @@ export default function App() {
     }
 
     const itemsBaseTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-    let total = itemsBaseTotal;
+    const subtotalWithDiscount = Math.max(0, itemsBaseTotal - (pdvForm.discount || 0));
+    let total = subtotalWithDiscount;
     let finalItems = [...pdvForm.items];
 
     if (pdvForm.sale_condition === 'Prazo') {
       const fee = cardFeesSettings[pdvForm.installments] || 0;
       const divisor = 1 - (fee / 100);
-      total = divisor > 0 ? (itemsBaseTotal / divisor) : itemsBaseTotal;
-      const diff = total - itemsBaseTotal;
+      total = divisor > 0 ? (subtotalWithDiscount / divisor) : subtotalWithDiscount;
+      const diff = total - subtotalWithDiscount;
       if (diff > 0) {
         finalItems.push({
           description: `TAXA DE PARCELAMENTO (${pdvForm.installments}x)`,
@@ -1493,6 +1567,7 @@ export default function App() {
     }
 
     const customer = pdvForm.customer_id ? customers.find(c => c.id === parseInt(pdvForm.customer_id)) : null;
+    const mechanic = pdvForm.mechanic_id ? mechanics.find(m => String(m.id) === String(pdvForm.mechanic_id)) : null;
 
     if (pdvForm.payment_method === 'Fiado') {
       if (!pdvForm.customer_id) {
@@ -1519,6 +1594,13 @@ export default function App() {
       }
     }
 
+    // Calculate Mechanic Commission for Balcão
+    let commission = 0;
+    if (mechanic) {
+      const rate = (mechanic.commission_rate ?? 5) / 100;
+      commission = total * rate;
+    }
+
     const saleId = Math.random().toString(36).substr(2, 9).toUpperCase();
     const newSale: Sale = {
       id: saleId,
@@ -1526,7 +1608,9 @@ export default function App() {
       customer_name: customer?.name || 'Consumidor Final',
       items: finalItems,
       labor_value: 0,
-      commission: 0,
+      mechanic_id: mechanic?.id,
+      mechanic_name: mechanic?.name,
+      commission,
       total,
       payment_method: pdvForm.payment_method,
       type: 'Balcão',
@@ -1537,23 +1621,27 @@ export default function App() {
     };
 
     try {
-      // Send sale with items to the single transational endpoint
+      setLoading(true);
+      // Send sale with items to the single transactional endpoint
       await localApi.post('sales', {
         ...newSale,
         sale_items: finalItems
       });
 
       setSales([newSale, ...sales]);
-      setIsPdvModalOpen(false);
+      setIsCheckoutModalOpen(false);
       setSelectedSaleForReceipt(newSale);
       setPdvForm({
         customer_id: '',
+        mechanic_id: '',
         items: [],
         payment_method: 'Pix',
         due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         sale_condition: 'Vista',
-        installments: 1
+        installments: 1,
+        discount: 0
       });
+      setCheckoutPaymentReceived('');
       alert(`Venda ${newSale.id} concluída com sucesso!`);
       fetchData(); // Refresh to update all states (stock, cash, etc)
       return;
@@ -1780,190 +1868,440 @@ export default function App() {
     const todaySales = sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString());
     const totalToday = todaySales.reduce((acc, curr) => acc + curr.total, 0);
 
+    const categories = useMemo(() => {
+      const list = new Set(products.map(p => p.category).filter(Boolean));
+      return ['all', ...Array.from(list)];
+    }, [products]);
+
+    const filteredProducts = useMemo(() => {
+      return sortedProducts.filter(p => {
+        const query = pdvSearchProduct.toLowerCase();
+        const matchesSearch = 
+          (p.description || '').toLowerCase().includes(query) ||
+          (p.brand || '').toLowerCase().includes(query) ||
+          (p.sku || '').toLowerCase().includes(query) ||
+          (p.barcode || '').toLowerCase().includes(query) ||
+          (p.alt_code || '').toLowerCase().includes(query);
+
+        const matchesCategory = selectedPdvCategory === 'all' || p.category === selectedPdvCategory;
+        return matchesSearch && matchesCategory;
+      });
+    }, [sortedProducts, pdvSearchProduct, selectedPdvCategory]);
+
+    const cartTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    const cartGrandTotal = Math.max(0, cartTotal - (pdvForm.discount || 0));
+
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Sales Summary Card */}
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-rose-100 text-rose-600 rounded-lg">
-                  <TrendingUp size={20} />
-                </div>
-                <h3 className="font-bold text-slate-900 dark:text-slate-100">Vendas de Hoje</h3>
-              </div>
-              <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">{formatBRL(totalToday)}</p>
-              <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">{todaySales.length} atendimentos realizados</p>
-
-              <div className="mt-6 pt-6 border-t border-slate-400 space-y-3 dark:border-slate-700">
-                <p className="text-xs font-bold text-slate-400 uppercase">Por Meio de Pagamento</p>
-                {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => {
-                  const amount = todaySales.filter(s => s.payment_method === method).reduce((acc, curr) => acc + curr.total, 0);
-                  return (
-                    <div key={method} className="flex justify-between text-sm">
-                      <span className="text-slate-500 dark:text-slate-400">{method}</span>
-                      <span className="font-bold text-slate-900 dark:text-slate-100">{formatBRL(amount)}</span>
-                    </div>
-                  );
-                })}
-              </div>
+      <div className="flex flex-col h-[calc(100vh-140px)] -mt-4 -mx-6 bg-slate-900 text-slate-100 overflow-hidden select-none">
+        {/* PDV Header / Top Bar */}
+        <div className="bg-slate-950 px-6 py-3 border-b border-slate-800 flex justify-between items-center shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-600/10 text-rose-500 rounded-lg">
+              <ShoppingCart size={20} className="animate-pulse" />
             </div>
-
-            <button
-              onClick={() => setIsPdvModalOpen(true)}
-              className="w-full py-4 bg-rose-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all flex items-center justify-center gap-3"
-            >
-              <PlusCircle size={24} />
-              Nova Venda / O.S.
-            </button>
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-wider text-rose-500">Kombat Moto Peças - Frente de Caixa</h2>
+              <p className="text-[10px] text-slate-400 font-bold">Operação ativa • Vendas de Hoje: <span className="text-emerald-500">{formatBRL(totalToday)}</span> ({todaySales.length} atendimentos)</p>
+            </div>
           </div>
 
-          {/* Recent Sales List */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
-              <div className="p-6 border-b border-slate-400 flex items-center justify-between dark:border-slate-700">
-                <h3 className="font-bold text-slate-900 dark:text-slate-100">Últimas Movimentações</h3>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input
-                    type="text"
-                    placeholder="Buscar vendas..."
-                    className="pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none text-sm w-48 dark:bg-slate-900 dark:border-slate-700"
-                    value={salesSearchTerm}
-                    onChange={e => setSalesSearchTerm(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="divide-y divide-slate-300 max-h-[600px] overflow-y-auto">
-                {sales.filter(s => {
-                  const search = (salesSearchTerm + globalSearchTerm).toLowerCase();
-                  return (
-                    (s.customer_name || '').toLowerCase().includes(search) ||
-                    (s.id || '').toLowerCase().includes(search) ||
-                    s.items.some(i => (i.description || '').toLowerCase().includes(search))
-                  );
-                }).map(sale => (
-                  <div key={sale.id} className="p-4 hover:bg-slate-50 transition-colors relative overflow-hidden">
-                    {sale.payment_status === 'Pago' && (
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-4 border-emerald-500/30 text-emerald-500/30 font-black text-4xl uppercase p-2 rounded-xl -rotate-12 pointer-events-none z-0">
-                        PAGO
-                      </div>
-                    )}
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 inline-block ${sale.type === 'Oficina' ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'
-                          }`}>
-                          {sale.type === 'Oficina' ? 'ORDEM DE SERVIÇO' : 'VENDA BALCÃO'}
-                        </span>
-                        <h4 className="font-bold text-slate-900 dark:text-slate-100">{sale.customer_name}</h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">ID: {sale.id} • {new Date(sale.date).toLocaleTimeString()}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-slate-900 dark:text-slate-100">{formatBRL(sale.total)}</p>
-                        <p className="text-xs text-rose-600 font-medium">{sale.payment_method}</p>
-                        {sale.payment_method === 'Fiado' && sale.total - (sale.paid_total || 0) > 0 && (
-                          <p className="text-[9px] font-black text-amber-500 uppercase mt-0.5">Pend: {formatBRL(sale.total - (sale.paid_total || 0))}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <div className="px-2 py-1 bg-slate-900 rounded text-[10px] text-white">
-                        <span className="font-bold">TOTAL GERAL:</span> {formatBRL(sale.total)}
-                      </div>
-                      <div className="px-2 py-1 bg-blue-50 rounded text-[10px] text-blue-700">
-                        <span className="font-bold">TOTAL PEÇAS:</span> {formatBRL(sale.total - (sale.labor_value || 0))}
-                      </div>
-                      <div className="px-2 py-1 bg-amber-50 rounded text-[10px] text-amber-700">
-                        <span className="font-bold">TOTAL SERVIÇOS:</span> {formatBRL(sale.labor_value || 0)}
-                      </div>
-                      {sale.type === 'Oficina' && (
-                        <>
-                          <div className="px-2 py-1 bg-green-50 rounded text-[10px] text-green-700">
-                            <span className="font-bold">Comissão ({sale.mechanic_name}):</span> {formatBRL(sale.commission)}
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {sale.moto_details && (
-                      <p className="text-xs text-slate-600 bg-slate-100 p-2 rounded-lg mt-2 dark:bg-slate-800 dark:text-slate-400">
-                        <Bike size={12} className="inline mr-1" /> {sale.moto_details}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-4 mt-3">
-                      <button
-                        onClick={() => setSelectedSaleForReceipt(sale)}
-                        className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-1"
-                      >
-                        <Printer size={10} /> Ver Recibo Térmico
-                      </button>
-                      <button
-                        onClick={() => handleSendSaleWhatsApp(sale)}
-                        className="text-[10px] font-bold text-emerald-600 hover:underline flex items-center gap-1"
-                      >
-                        <MessageCircle size={10} /> Enviar WhatsApp
-                      </button>
-                      {sale.type === 'Oficina' && (
-                        <button
-                          onClick={() => setSelectedSaleForOS(sale)}
-                          className="text-[10px] font-bold text-rose-600 hover:underline flex items-center gap-1"
-                        >
-                          <Printer size={10} /> Imprimir O.S.
-                        </button>
-                      )}
-                      {sale.payment_method === 'Fiado' && sale.payment_status === 'Pendente' && (
-                        <div className="flex-1 flex justify-center">
-                          {payingSaleId === sale.id ? (
-                            <div className="flex gap-2 items-center">
-                              <input
-                                type="number"
-                                className="w-24 px-2 py-1 bg-white border border-slate-400 rounded text-[10px] font-bold outline-none focus:ring-2 focus:ring-rose-500/20 dark:bg-slate-800 dark:border-slate-700"
-                                placeholder="Valor"
-                                value={partialPaymentAmount}
-                                onChange={(e) => setPartialPaymentAmount(e.target.value)}
-                              />
-                              <button
-                                onClick={() => handlePartialPayment(sale, partialPaymentAmount)}
-                                className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 transition-all uppercase"
-                              >
-                                Baixar
-                              </button>
-                              <button
-                                onClick={() => { setPayingSaleId(null); setPartialPaymentAmount(''); }}
-                                className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold hover:bg-slate-200 transition-all dark:bg-slate-800 dark:text-slate-400"
-                              >
-                                X
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => { setPayingSaleId(sale.id); setPartialPaymentAmount(''); }}
-                              className="px-3 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all flex items-center gap-1 border border-rose-100"
-                            >
-                              <DollarSign size={12} /> Registrar Pagamento
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      <button
-                        onClick={() => handleDeleteSale(sale.id)}
-                        className="text-[10px] font-bold text-rose-300 hover:text-rose-600 hover:underline flex items-center gap-1 ml-auto"
-                      >
-                        <Trash2 size={10} /> Excluir Venda
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {sales.length === 0 && (
-                  <div className="p-12 text-center text-slate-400">
-                    Nenhuma venda registrada ainda.
-                  </div>
-                )}
-              </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsPdvHistoryOpen(true)}
+              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs font-black uppercase hover:bg-slate-700 transition-all flex items-center gap-2 text-slate-200"
+            >
+              <History size={14} />
+              Histórico de Hoje
+            </button>
+            <div className="flex items-center gap-3 bg-slate-800/50 px-3 py-1.5 rounded-xl border border-slate-800 text-[10px] text-slate-400 font-mono">
+              <span className="flex items-center gap-1"><kbd className="bg-slate-700 text-slate-100 px-1 py-0.5 rounded font-sans font-bold">F2</kbd> Pagar</span>
+              <span className="flex items-center gap-1"><kbd className="bg-slate-700 text-slate-100 px-1 py-0.5 rounded font-sans font-bold">F4</kbd> Desconto</span>
+              <span className="flex items-center gap-1"><kbd className="bg-slate-700 text-slate-100 px-1 py-0.5 rounded font-sans font-bold">ESC</kbd> Cancelar</span>
             </div>
           </div>
         </div>
+
+        {/* PDV Body */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 overflow-hidden">
+          {/* LEFT SIDE (~60%): PRODUCT CATALOG */}
+          <div className="lg:col-span-3 flex flex-col border-r border-slate-800 overflow-hidden bg-slate-900/50 p-4 space-y-4">
+            {/* Search and Category filters */}
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Pesquisar produto por nome, código, marca ou bipe o código de barras..."
+                  className="w-full pl-11 pr-12 py-3.5 bg-slate-950 border border-slate-800 rounded-2xl focus:ring-2 focus:ring-rose-500/20 outline-none text-sm text-slate-100 font-bold transition-all placeholder-slate-500"
+                  value={pdvSearchProduct}
+                  onChange={e => setPdvSearchProduct(e.target.value)}
+                  autoFocus
+                />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                  <Barcode className="text-slate-500" size={18} />
+                </div>
+              </div>
+
+              {/* Horizontally scrollable Category selector */}
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                <button
+                  onClick={() => setSelectedPdvCategory('all')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all whitespace-nowrap border ${selectedPdvCategory === 'all'
+                    ? 'bg-rose-600 border-rose-600 text-white shadow-md'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    }`}
+                >
+                  Todas
+                </button>
+                {categories.filter(c => c !== 'all').map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedPdvCategory(cat)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all whitespace-nowrap border ${selectedPdvCategory === cat
+                      ? 'bg-rose-600 border-rose-600 text-white shadow-md'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                      }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Catalog Grid */}
+            <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+              {filteredProducts.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-500 py-12">
+                  <Package size={48} className="text-slate-700 mb-2 stroke-[1.5]" />
+                  <p className="text-sm font-bold">Nenhum produto encontrado</p>
+                  <p className="text-xs text-slate-600 mt-1">Experimente mudar o filtro de categoria ou a busca</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 pb-4">
+                  {filteredProducts.map(product => {
+                    const isLowStock = product.stock <= 2;
+                    const isOutOfStock = product.stock <= 0;
+                    return (
+                      <div
+                        key={product.id}
+                        onClick={() => !isOutOfStock && handleAddPdvItem(product)}
+                        className={`group relative flex flex-col bg-slate-950 border rounded-2xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isOutOfStock
+                          ? 'opacity-40 border-slate-850 cursor-not-allowed'
+                          : 'border-slate-800 hover:border-rose-500/50 hover:shadow-lg hover:shadow-rose-950/20'
+                          }`}
+                      >
+                        {/* Image / Icon Box */}
+                        <div className="aspect-video w-full bg-slate-900 flex items-center justify-center relative overflow-hidden border-b border-slate-900">
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.description}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-950 flex flex-col items-center justify-center text-slate-600 group-hover:text-rose-500/60 transition-colors">
+                              <Package size={28} className="stroke-[1.5]" />
+                            </div>
+                          )}
+
+                          {/* Brand Tag */}
+                          {product.brand && (
+                            <span className="absolute top-2 left-2 px-1.5 py-0.5 bg-slate-950/80 backdrop-blur-sm border border-slate-800 text-[8px] font-black text-rose-400 uppercase rounded">
+                              {product.brand}
+                            </span>
+                          )}
+
+                          {/* Stock Tag */}
+                          <span className={`absolute top-2 right-2 px-2 py-0.5 text-[8px] font-black uppercase rounded shadow-sm ${isOutOfStock
+                            ? 'bg-red-950 border border-red-800 text-red-400'
+                            : isLowStock
+                              ? 'bg-amber-950 border border-amber-800 text-amber-400'
+                              : 'bg-emerald-950 border border-emerald-800 text-emerald-400'
+                            }`}>
+                            Estoque: {product.stock}
+                          </span>
+                        </div>
+
+                        {/* Details */}
+                        <div className="p-3 flex-1 flex flex-col justify-between">
+                          <div className="space-y-1">
+                            <h4 className="font-bold text-xs text-slate-200 line-clamp-2 group-hover:text-white transition-colors">
+                              {product.description}
+                            </h4>
+                            <p className="text-[9px] text-slate-500 font-mono">SKU: {product.sku}</p>
+                          </div>
+
+                          <div className="mt-3 flex items-baseline justify-between">
+                            <span className="text-[8px] font-black text-slate-400 uppercase">Preço</span>
+                            <span className="text-sm font-black text-rose-500 group-hover:text-rose-400 transition-colors">
+                              {formatBRL(product.sale_price)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* RIGHT SIDE (~40%): SHOPPING CART */}
+          <div className="lg:col-span-2 flex flex-col overflow-hidden bg-slate-950">
+            {/* Vínculo Vendedor e Cliente */}
+            <div className="p-4 border-b border-slate-800 space-y-3 bg-slate-950">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[9px] uppercase font-black text-slate-400 mb-1 tracking-wider">Cliente da Venda</label>
+                  <select
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-rose-500/20 text-slate-100"
+                    value={pdvForm.customer_id}
+                    onChange={e => setPdvForm({ ...pdvForm, customer_id: e.target.value })}
+                  >
+                    <option value="">Consumidor Final</option>
+                    {sortedCustomers.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}{c.nickname ? ` (${c.nickname})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] uppercase font-black text-slate-400 mb-1 tracking-wider">Mecânico / Vendedor</label>
+                  <select
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-rose-500/20 text-slate-100"
+                    value={pdvForm.mechanic_id}
+                    onChange={e => setPdvForm({ ...pdvForm, mechanic_id: e.target.value })}
+                  >
+                    <option value="">Nenhum (Sem Comissão)</option>
+                    {mechanics.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {pdvForm.customer_id && (
+                <div className="flex justify-between items-center text-[10px] bg-rose-950/20 border border-rose-900/30 p-2 rounded-lg text-rose-400">
+                  <span className="font-bold uppercase tracking-wider">Crédito Disponível:</span>
+                  <span className="font-black text-xs">
+                    {formatBRL(getCustomerRemainingCredit(parseInt(pdvForm.customer_id)))}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Shopping Cart List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+              {pdvForm.items.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-600">
+                  <ShoppingCart size={40} className="stroke-[1.5] mb-2" />
+                  <p className="text-xs font-bold uppercase tracking-wider">Carrinho Vazio</p>
+                  <p className="text-[10px] text-slate-700 mt-0.5">Selecione produtos no catálogo à esquerda</p>
+                </div>
+              ) : (
+                pdvForm.items.map((item, idx) => (
+                  <div key={idx} className="flex gap-3 items-center justify-between p-3 bg-slate-900 border border-slate-800 rounded-2xl animate-in fade-in duration-200">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-xs text-slate-200 truncate">{item.description}</h4>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {/* Quantity adjusters */}
+                        <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg overflow-hidden h-6.5">
+                          <button
+                            type="button"
+                            onClick={() => handlePdvItemQuantityChange(idx, Math.max(1, item.quantity - 1))}
+                            className="px-2 h-full hover:bg-slate-900 text-slate-400 transition-colors"
+                          >
+                            <Minus size={10} />
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={e => handlePdvItemQuantityChange(idx, parseInt(e.target.value) || 1)}
+                            className="w-8 h-full text-center text-xs font-mono font-bold bg-slate-950 outline-none border-x border-slate-800 text-slate-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handlePdvItemQuantityChange(idx, item.quantity + 1)}
+                            className="px-2 h-full hover:bg-slate-900 text-slate-400 transition-colors"
+                          >
+                            <Plus size={10} />
+                          </button>
+                        </div>
+
+                        <span className="text-[10px] text-slate-500">x</span>
+
+                        {/* Price Input */}
+                        <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg px-2 h-6.5">
+                          <span className="text-[9px] text-slate-500 mr-0.5">R$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.price}
+                            onChange={e => handlePdvItemPriceChange(idx, parseFloat(e.target.value) || 0)}
+                            className="w-14 bg-transparent outline-none text-xs font-mono font-bold text-slate-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-xs font-black text-slate-200">{formatBRL(item.price * item.quantity)}</span>
+                      <button
+                        onClick={() => handleRemovePdvItem(item.product_id)}
+                        className="p-1 text-slate-500 hover:text-rose-500 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* pinned checkout footer */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950 space-y-4 shadow-xl">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs text-slate-400">
+                  <span>Subtotal:</span>
+                  <span className="font-mono font-bold text-slate-200">{formatBRL(cartTotal)}</span>
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400">Desconto (R$):</span>
+                  <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-3 py-1">
+                    <span className="text-[10px] text-slate-500 mr-1 font-mono">R$</span>
+                    <input
+                      id="pdv-discount-input"
+                      type="number"
+                      step="0.01"
+                      placeholder="0,00"
+                      className="w-16 bg-transparent text-right outline-none text-xs font-mono font-black text-emerald-500 placeholder-slate-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      value={pdvForm.discount || ''}
+                      onChange={e => setPdvForm({ ...pdvForm, discount: Math.max(0, parseFloat(e.target.value) || 0) })}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center pt-2 border-t border-slate-850 mt-1">
+                  <span className="text-xs uppercase font-black tracking-wider text-slate-300">Total Geral:</span>
+                  <span className="text-2xl font-black text-rose-500 font-mono">
+                    {formatBRL(cartGrandTotal)}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  if (pdvForm.items.length > 0) {
+                    setIsCheckoutModalOpen(true);
+                  } else {
+                    alert('Adicione itens ao carrinho primeiro!');
+                  }
+                }}
+                className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-rose-700 transition-all shadow-lg hover:shadow-rose-600/10 active:scale-[0.99] flex items-center justify-center gap-2"
+              >
+                Falta Pagar / Fechar Venda (F2)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* PDV Sales History Modal */}
+        <Modal
+          isOpen={isPdvHistoryOpen}
+          onClose={() => setIsPdvHistoryOpen(false)}
+          title="Histórico de Vendas de Hoje"
+          maxWidth="max-w-4xl"
+        >
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-xs text-slate-400 font-bold uppercase">Resumo de Faturamento</p>
+                <p className="text-2xl font-black text-emerald-500">{formatBRL(totalToday)}</p>
+              </div>
+              <p className="text-xs text-slate-400">{todaySales.length} vendas realizadas hoje</p>
+            </div>
+
+            <div className="overflow-x-auto border border-slate-850 rounded-2xl max-h-[400px] overflow-y-auto">
+              <table className="w-full border-collapse text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-900 border-b border-slate-800 text-slate-400 uppercase font-black">
+                    <th className="p-3">ID</th>
+                    <th className="p-3">Hora</th>
+                    <th className="p-3">Cliente</th>
+                    <th className="p-3">Vendedor/Mecânico</th>
+                    <th className="p-3 text-right">Itens</th>
+                    <th className="p-3 text-right">Comissão</th>
+                    <th className="p-3 text-right">Total</th>
+                    <th className="p-3 text-center">Pagamento</th>
+                    <th className="p-3 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-850">
+                  {todaySales.map(sale => (
+                    <tr key={sale.id} className="hover:bg-slate-900/40 text-slate-300">
+                      <td className="p-3 font-mono font-bold text-slate-100">{sale.id}</td>
+                      <td className="p-3 text-slate-400">{new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="p-3 font-bold">{sale.customer_name}</td>
+                      <td className="p-3 text-slate-400">{sale.mechanic_name || 'Balcão / Sem'}</td>
+                      <td className="p-3 text-right font-bold">{sale.items.length}</td>
+                      <td className="p-3 text-right font-mono text-amber-500 font-bold">{formatBRL(sale.commission)}</td>
+                      <td className="p-3 text-right font-mono font-black text-rose-500">{formatBRL(sale.total)}</td>
+                      <td className="p-3 text-center">
+                        <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${sale.payment_status === 'Pago'
+                          ? 'bg-emerald-950 border border-emerald-800 text-emerald-400'
+                          : 'bg-red-950 border border-red-800 text-red-400'
+                          }`}>
+                          {sale.payment_status}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex gap-2 justify-center">
+                          <button
+                            onClick={() => {
+                              setSelectedSaleForReceipt(sale);
+                              setIsPdvHistoryOpen(false);
+                            }}
+                            title="Recibo Térmico"
+                            className="p-1.5 bg-slate-800 border border-slate-700 hover:border-indigo-500 rounded-lg text-indigo-400 hover:text-indigo-300 transition-all"
+                          >
+                            <Printer size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleSendSaleWhatsApp(sale)}
+                            title="Enviar WhatsApp"
+                            className="p-1.5 bg-slate-800 border border-slate-700 hover:border-emerald-500 rounded-lg text-emerald-400 hover:text-emerald-300 transition-all"
+                          >
+                            <MessageCircle size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSale(sale.id)}
+                            title="Excluir"
+                            className="p-1.5 bg-slate-800 border border-slate-700 hover:border-rose-500 rounded-lg text-rose-400 hover:text-rose-300 transition-all"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {todaySales.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="p-6 text-center text-slate-500">
+                        Nenhuma venda realizada hoje.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Modal>
       </div>
     );
   };
@@ -2073,6 +2411,7 @@ export default function App() {
   const handleConvertQuoteToSale = (quote: Quote) => {
     setPdvForm({
       customer_id: quote.customer_id ? String(quote.customer_id) : '',
+      mechanic_id: '',
       items: quote.items.map(item => ({
         ...item,
         total: item.price * item.quantity
@@ -2080,9 +2419,10 @@ export default function App() {
       payment_method: 'Pix',
       due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       sale_condition: 'Vista',
-      installments: 1
+      installments: 1,
+      discount: 0
     });
-    setIsPdvModalOpen(true);
+    setActiveTab('pdv');
   };
 
   const handleConvertQuoteToOS = (quote: Quote) => {
@@ -6452,307 +6792,171 @@ export default function App() {
           )}
         </Modal>
         <Modal
-          isOpen={isPdvModalOpen}
-          onClose={() => setIsPdvModalOpen(false)}
-          title="Frente de Caixa - Nova Venda"
-          maxWidth="max-w-[95%]"
+          isOpen={isCheckoutModalOpen}
+          onClose={() => setIsCheckoutModalOpen(false)}
+          title="Finalizar Recebimento - Caixa PDV"
+          maxWidth="max-w-4xl"
         >
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Cliente</label>
-                <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
-                  value={pdvForm.customer_id}
-                  onChange={e => setPdvForm({ ...pdvForm, customer_id: e.target.value })}
-                >
-                  <option value="">Consumidor Final</option>
-                  {sortedCustomers.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}{c.nickname ? ` (${c.nickname})` : ''}
-                    </option>
-                  ))}
-                </select>
-                {pdvForm.customer_id && (
-                  <div className="mt-2 flex items-center justify-between px-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Crédito Disponível:</span>
-                    <span className={`text-xs font-bold ${getCustomerRemainingCredit(parseInt(pdvForm.customer_id)) > 0 ? 'text-rose-600' : 'text-rose-600'}`}>
-                      {formatBRL(getCustomerRemainingCredit(parseInt(pdvForm.customer_id)))}
-                    </span>
-                  </div>
-                )}
-              </div>
+          {(() => {
+            const itemsBaseTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+            const subtotalWithDiscount = Math.max(0, itemsBaseTotal - (pdvForm.discount || 0));
+            let total = subtotalWithDiscount;
+            
+            if (pdvForm.sale_condition === 'Prazo') {
+              const fee = cardFeesSettings[pdvForm.installments] || 0;
+              const divisor = 1 - (fee / 100);
+              total = divisor > 0 ? (subtotalWithDiscount / divisor) : subtotalWithDiscount;
+            }
 
-              <div className="relative">
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Adicionar Peça / Produto</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input
-                    type="text"
-                    placeholder="Buscar no estoque..."
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
-                    value={pdvSearchProduct}
-                    onChange={e => setPdvSearchProduct(e.target.value)}
-                  />
+            const paymentReceivedNum = parseFloat(checkoutPaymentReceived.replace(',', '.')) || 0;
+            const change = Math.max(0, paymentReceivedNum - total);
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Side: Summary of Venda */}
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <h3 className="text-xs uppercase font-black text-slate-400 tracking-wider">Resumo do Cupom</h3>
+                    <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                      <div className="flex justify-between py-2.5 text-sm">
+                        <span className="text-slate-500">Itens no carrinho:</span>
+                        <span className="font-bold text-slate-950 dark:text-slate-100">{pdvForm.items.length} itens</span>
+                      </div>
+                      <div className="flex justify-between py-2.5 text-sm">
+                        <span className="text-slate-500">Subtotal:</span>
+                        <span className="font-bold text-slate-950 dark:text-slate-100">{formatBRL(itemsBaseTotal)}</span>
+                      </div>
+                      {pdvForm.discount > 0 && (
+                        <div className="flex justify-between py-2.5 text-sm text-emerald-600">
+                          <span>Desconto Aplicado:</span>
+                          <span className="font-bold">-{formatBRL(pdvForm.discount)}</span>
+                        </div>
+                      )}
+                      {pdvForm.sale_condition === 'Prazo' && (
+                        <div className="flex justify-between py-2.5 text-sm text-rose-500">
+                          <span>Taxa de Parcelamento ({pdvForm.installments}x):</span>
+                          <span className="font-bold">
+                            +{formatBRL(total - subtotalWithDiscount)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800 text-center">
+                    <span className="text-xs uppercase font-black text-slate-400 tracking-wider block mb-1">Total a Pagar</span>
+                    <span className="text-4xl font-black text-rose-600 block">{formatBRL(total)}</span>
+                  </div>
                 </div>
-                {pdvSearchProduct && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-xl max-h-48 overflow-y-auto dark:bg-slate-800 dark:border-slate-700">
-                    {sortedProducts.filter(p =>
-                      (p.description || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase()) ||
-                      (p.brand && (p.brand || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase())) ||
-                      (p.alt_code || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase()) ||
-                      (p.sku || '').toLowerCase().includes(d_pdvSearchProduct.toLowerCase())
-                    ).map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => handleAddPdvItem(p)}
-                        className="w-full text-left px-4 py-2 hover:bg-slate-50 flex justify-between items-center border-b border-slate-400 last:border-none dark:border-slate-700"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{p.description}</p>
-                          <p className="text-[10px] text-slate-500 flex items-center gap-2 dark:text-slate-400">
-                            Estoque: {p.stock} {p.unit}
-                            {p.alt_code && <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold font-mono dark:bg-slate-800 dark:text-slate-400">ALT: {p.alt_code}</span>}
-                            {p.brand && (
-                              <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase tracking-tighter dark:bg-slate-800 dark:text-slate-400">
-                                {p.brand}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <span className="text-sm font-bold text-rose-600">R$ {p.sale_price.toFixed(2)}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
 
-              {/* Items List */}
-              <div className="space-y-2">
-                {pdvForm.items.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.description}</p>
-                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                        <div className="flex items-center bg-white border border-slate-400 rounded-lg overflow-hidden h-7 dark:bg-slate-800 dark:border-slate-700">
-                          <button
-                            type="button"
-                            onClick={() => handlePdvItemQuantityChange(idx, Math.max(1, item.quantity - 1))}
-                            className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors dark:text-slate-400"
-                          >
-                            <MinusCircle size={14} />
-                          </button>
+                {/* Right Side: Payment Form */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs uppercase font-black text-slate-400 mb-2 tracking-wider">Forma de Pagamento</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: 'Pix', label: 'PIX / Transferência' },
+                        { id: 'Cartão', label: 'Cartão (Deb/Cred)' },
+                        { id: 'Dinheiro', label: 'Dinheiro' },
+                        { id: 'Fiado', label: 'A Prazo / Fiado' },
+                      ].map(method => (
+                        <button
+                          key={method.id}
+                          type="button"
+                          onClick={() => {
+                            setPdvForm({ 
+                              ...pdvForm, 
+                              payment_method: method.id as any,
+                              due_date: method.id === 'Fiado' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : pdvForm.due_date
+                            });
+                          }}
+                          className={`py-3 px-4 rounded-xl text-xs font-black border transition-all text-center flex items-center justify-center ${pdvForm.payment_method === method.id
+                            ? 'bg-rose-600 border-rose-600 text-white shadow-md'
+                            : 'bg-white border-slate-400 text-slate-700 hover:border-rose-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:border-rose-500'
+                            }`}
+                        >
+                          {method.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Conditional inputs */}
+                  {pdvForm.payment_method === 'Dinheiro' && (
+                    <div className="p-4 bg-emerald-50/50 border border-emerald-200/50 rounded-2xl dark:bg-emerald-950/20 dark:border-emerald-900/30 animate-in fade-in duration-200">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs uppercase font-black text-emerald-700 dark:text-emerald-400 mb-1.5">Valor Recebido</label>
                           <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={e => handlePdvItemQuantityChange(idx, parseInt(e.target.value) || 1)}
-                            className="w-10 h-full text-center text-slate-900 font-bold outline-none border-x border-slate-400 dark:text-slate-100 dark:border-slate-700"
+                            type="text"
+                            placeholder="R$ 0,00"
+                            className="w-full px-4 py-2.5 bg-white border border-emerald-300 rounded-xl font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/20 dark:bg-slate-800 dark:border-emerald-800 dark:text-slate-100"
+                            value={checkoutPaymentReceived}
+                            onChange={e => setCheckoutPaymentReceived(e.target.value)}
+                            autoFocus
                           />
-                          <button
-                            type="button"
-                            onClick={() => handlePdvItemQuantityChange(idx, item.quantity + 1)}
-                            className="px-2 h-full hover:bg-slate-50 text-slate-500 transition-colors dark:text-slate-400"
-                          >
-                            <PlusCircle size={14} />
-                          </button>
                         </div>
-                        x
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={item.price.toFixed(2)}
-                          onChange={e => handlePdvItemPriceChange(idx, parseFloat(e.target.value) || 0)}
-                          className="w-24 px-1 py-0.5 bg-white border border-slate-400 rounded-md text-center text-slate-900 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-                        />
+                        <div>
+                          <label className="block text-xs uppercase font-black text-emerald-700 dark:text-emerald-400 mb-1.5">Troco</label>
+                          <span className="block text-2xl font-black text-emerald-600 mt-1">
+                            {formatBRL(change)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-slate-900 dark:text-slate-100">{formatBRL(item.price * item.quantity)}</span>
-                      <button
-                        onClick={() => handleRemovePdvItem(item.product_id)}
-                        className="p-1 text-rose-400 hover:text-rose-600"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                  )}
+
+                  {pdvForm.payment_method === 'Fiado' && (
+                    <div className="p-4 bg-amber-50/50 border border-amber-200/50 rounded-2xl dark:bg-amber-950/20 dark:border-amber-900/30 animate-in fade-in duration-200">
+                      <label className="block text-xs uppercase font-black text-amber-700 dark:text-amber-400 mb-1.5">Data de Vencimento</label>
+                      <input
+                        type="date"
+                        className="w-full px-4 py-2 bg-white border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none font-bold text-slate-950 dark:bg-slate-800 dark:border-amber-800 dark:text-slate-100"
+                        value={pdvForm.due_date}
+                        onChange={e => setPdvForm({ ...pdvForm, due_date: e.target.value })}
+                      />
                     </div>
-                  </div>
-                ))}
-              </div>
+                  )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Condição de Venda</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPdvForm({ ...pdvForm, sale_condition: 'Vista', installments: 1 })}
-                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${pdvForm.sale_condition === 'Vista'
-                        ? 'bg-rose-600 border-rose-600 text-white shadow-md'
-                        : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'
-                        }`}
-                    >
-                      À Vista
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPdvForm({ ...pdvForm, sale_condition: 'Prazo', payment_method: 'Cartão' })}
-                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${pdvForm.sale_condition === 'Prazo'
-                        ? 'bg-rose-600 border-rose-600 text-white shadow-md'
-                        : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'
-                        }`}
-                    >
-                      A Prazo
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Forma de Pagamento</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {['Pix', 'Cartão', 'Dinheiro', 'Fiado'].map(method => (
-                      <button
-                        key={method}
-                        type="button"
-                        onClick={() => setPdvForm({ ...pdvForm, payment_method: method as any, due_date: method === 'Fiado' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : pdvForm.due_date })}
-                        className={`py-2 rounded-xl text-[10px] font-bold border transition-all ${pdvForm.payment_method === method
-                          ? 'bg-rose-600 border-rose-600 text-white shadow-md'
-                          : 'bg-white border-slate-400 text-slate-600 hover:border-rose-200'
-                          }`}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs uppercase font-black text-slate-400 mb-1.5">Condição</label>
+                      <select
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-400 rounded-xl font-bold outline-none dark:bg-slate-900 dark:border-slate-700 text-slate-950 dark:text-slate-100"
+                        value={pdvForm.sale_condition}
+                        onChange={e => setPdvForm({ ...pdvForm, sale_condition: e.target.value as any })}
                       >
-                        {method}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+                        <option value="Vista">À Vista</option>
+                        <option value="Prazo">A Prazo</option>
+                      </select>
+                    </div>
 
-              {pdvForm.sale_condition === 'Prazo' && (
-                <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 animate-in slide-in-from-top-2 duration-300">
-                  <label className="block text-[10px] uppercase font-black text-slate-400 mb-2 tracking-widest">Número de Parcelas</label>
-                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                    {Object.keys(cardFeesSettings).map(num => (
-                      <button
-                        key={num}
-                        type="button"
-                        onClick={() => setPdvForm({ ...pdvForm, installments: Number(num) })}
-                        className={`py-2 rounded-xl text-xs font-black transition-all border ${pdvForm.installments === Number(num)
-                          ? 'bg-rose-500 border-rose-500 text-white'
-                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
-                          }`}
-                      >
-                        {num}x
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {pdvForm.payment_method === 'Fiado' && (
-                <div className="bg-rose-50 p-4 rounded-xl border border-rose-100">
-                  <label className="block text-sm font-bold text-rose-700 mb-1">Data de Vencimento</label>
-                  <input
-                    type="date"
-                    className="w-full px-4 py-2 bg-white border border-rose-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none dark:bg-slate-800"
-                    value={pdvForm.due_date}
-                    onChange={e => setPdvForm({ ...pdvForm, due_date: e.target.value })}
-                  />
-                  <p className="text-[10px] text-rose-600 mt-1 italic">* Multas e juros automáticos após 30 dias de atraso.</p>
-                </div>
-              )}
-
-              <div className="pt-4 border-t border-slate-400 space-y-1 dark:border-slate-700">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500 font-bold uppercase dark:text-slate-400">Valor da Compra (Base):</span>
-                  <span className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0))}</span>
-                </div>
-                {pdvForm.sale_condition === 'Prazo' && (
-                  <div className="flex justify-between items-center text-sm text-rose-500">
-                    <span className="font-bold uppercase text-[10px]">Taxa de Parcelamento:</span>
-                    <span className="font-bold">
-                      {formatBRL(
-                        (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100))) -
-                        pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
-                      )}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center py-2 border-t border-slate-400 mt-2 dark:border-slate-700">
-                  <span className="text-slate-900 font-black text-lg dark:text-slate-100">TOTAL FINAL</span>
-                  <span className="text-3xl font-black text-rose-600">
-                    {formatBRL(
-                      (
-                        pdvForm.sale_condition === 'Prazo'
-                          ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
-                          : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
-                      )
+                    {pdvForm.sale_condition === 'Prazo' && (
+                      <div>
+                        <label className="block text-xs uppercase font-black text-slate-400 mb-1.5">Parcelas</label>
+                        <select
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-400 rounded-xl font-bold outline-none dark:bg-slate-900 dark:border-slate-700 text-slate-950 dark:text-slate-100"
+                          value={pdvForm.installments}
+                          onChange={e => setPdvForm({ ...pdvForm, installments: parseInt(e.target.value) || 1 })}
+                        >
+                          {Object.keys(cardFeesSettings).map(num => (
+                            <option key={num} value={num}>{num}x</option>
+                          ))}
+                        </select>
+                      </div>
                     )}
-                  </span>
-                </div>
-                {pdvForm.payment_method === 'Fiado' && (
-                  <div className="flex justify-between items-center text-rose-500 mt-1">
-                    <span className="font-black uppercase text-[10px]">Valor após 30 dias de atraso (+15%):</span>
-                    <span className="font-bold">
-                      {formatBRL(
-                        (
-                          pdvForm.sale_condition === 'Prazo'
-                            ? (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100)))
-                            : pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)
-                        ) * 1.15
-                      )}
-                    </span>
                   </div>
-                )}
-                {pdvForm.sale_condition === 'Prazo' && (
-                  <p className="text-right text-[10px] font-black text-slate-400 uppercase">
-                    {pdvForm.installments}x de {formatBRL(
-                      (pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) / (1 - ((cardFeesSettings[pdvForm.installments] || 0) / 100))) / pdvForm.installments
-                    )}
-                  </p>
-                )}
-              </div>
-              <div className="mb-4">
-                <button
-                  type="button"
-                  onClick={() => setShowPdvCalculator(!showPdvCalculator)}
-                  className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-400 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
-                >
-                  <Calculator size={18} />
-                  {showPdvCalculator ? 'Esconder Calculadora de Juros' : 'Abrir Calculadora de Juros/Taxas'}
-                </button>
-              </div>
 
-              {showPdvCalculator && (
-                <div className="mb-6 animate-in slide-in-from-top-4 duration-300">
-                  <VendaCalculator
-                    initialCost={pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0)}
-                    cardFees={cardFeesSettings}
-                    onApply={(newTotal) => {
-                      const currentTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-                      const diff = newTotal - currentTotal;
-                      if (diff > 0) {
-                        setPdvForm({
-                          ...pdvForm,
-                          items: [
-                            ...pdvForm.items,
-                            { description: 'AJUSTE DE TAXA/PRAZO CALCULADO', quantity: 1, price: diff }
-                          ]
-                        });
-                        alert('Diferença de taxa/prazo aplicada com sucesso!');
-                      }
-                    }}
-                  />
+                  <button
+                    onClick={handleCompleteSale}
+                    className="w-full mt-4 py-4 bg-rose-600 text-white rounded-2xl font-black text-lg hover:bg-rose-700 transition-all shadow-lg hover:shadow-rose-600/20 active:scale-[0.99] flex items-center justify-center gap-2 uppercase tracking-wide"
+                  >
+                    Confirmar e Emitir Cupom
+                  </button>
                 </div>
-              )}
-
-              <button
-                onClick={handleCompleteSale}
-                className="w-full py-4 bg-rose-600 text-white rounded-2xl font-bold text-lg hover:bg-rose-700 transition-all shadow-lg shadow-rose-100"
-              >
-                Finalizar Venda
-              </button>
-            </div>
-          </div>
+              </div>
+            );
+          })()}
         </Modal>
 
         <Modal
