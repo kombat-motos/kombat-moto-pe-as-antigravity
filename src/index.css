@@ -34,7 +34,7 @@ html, body {
     backdrop-filter: none !important;
   }
 
-  /* Esconde menus, botões e cabeçalhos do app quando estiver imprimindo o histórico */
+  /* Esconde menus, botões e cabeçalhos do app quando estiver imprimindo */
   aside, 
   header, 
   nav, 
@@ -43,7 +43,7 @@ html, body {
     display: none !important;
   }
 
-  /* Garante que o corpo do site não seja cinza no papel */
+  /* Garante que o corpo do site não seja cinza no papel e force cores de impressão */
   body, .bg-slate-50, .bg-slate-100 {
     background-color: white !important;
     padding: 0 !important;
@@ -72,7 +72,107 @@ html, body {
     margin: 0 !important;
     padding: 0 !important;
   }
+
+  /* =======================================================
+     PREVENT BLANK PRINTING IN DARK MODE (WHITE TEXT BUG)
+     Forces all elements to print as black text on white bg
+     ======================================================= */
+  html, 
+  body, 
+  #root,
+  div,
+  table, 
+  tr, 
+  td, 
+  th, 
+  p, 
+  span, 
+  h1, 
+  h2, 
+  h3, 
+  h4, 
+  h5, 
+  h6,
+  strong,
+  b,
+  i,
+  em,
+  label,
+  li,
+  ul,
+  ol {
+    color: #000000 !important;
+    background-color: transparent !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Explicitly override dark mode Tailwind selectors for print */
+  html.dark,
+  html.dark body,
+  html.dark .main-layout-root,
+  html.dark aside,
+  html.dark main,
+  html.dark .bg-white,
+  html.dark .bg-slate-50,
+  html.dark .bg-white\/80,
+  html.dark .bg-slate-50\/80,
+  html.dark .bg-slate-100,
+  html.dark .bg-slate-200,
+  html.dark #receipt-content,
+  html.dark #os-printable-area,
+  html.dark #mechanic-report-thermal-content,
+  html.dark #customer-history-print-content,
+  html.dark .print-area {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  html.dark .text-slate-900,
+  html.dark .text-slate-800,
+  html.dark .text-slate-700,
+  html.dark .text-slate-600,
+  html.dark .text-slate-500,
+  html.dark .text-slate-400,
+  html.dark .text-black,
+  html.dark .text-white,
+  html.dark div,
+  html.dark table,
+  html.dark tr,
+  html.dark td,
+  html.dark th,
+  html.dark p,
+  html.dark span,
+  html.dark h1,
+  html.dark h2,
+  html.dark h3,
+  html.dark h4,
+  html.dark h5,
+  html.dark h6,
+  html.dark strong,
+  html.dark b,
+  html.dark i,
+  html.dark em,
+  html.dark label,
+  html.dark li,
+  html.dark ul,
+  html.dark ol {
+    color: #000000 !important;
+    background-color: transparent !important;
+  }
+
+  /* Force borders to print in dark gray/black */
+  td, th, tr, table, div, p, span, hr {
+    border-color: #475569 !important; /* slate-600 */
+  }
+
+  /* Make sure images (logos, barcodes) are not modified */
+  img, canvas {
+    background-color: transparent !important;
+  }
 }
+
 
 @page {
   margin: 10mm;
