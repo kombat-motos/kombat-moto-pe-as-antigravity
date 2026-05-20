@@ -7525,8 +7525,9 @@ export default function App() {
           }}
           title={editingOS ? "Editar Ordem de Serviço" : "Nova Ordem de Serviço"}
           maxWidth="max-w-[95%]"
+          bodyClassName="p-4 h-[80vh] overflow-hidden"
         >
-          <div className="h-[calc(85vh-85px)] flex flex-col md:flex-row gap-4 overflow-hidden bg-slate-100/50 p-2 rounded-xl">
+          <div className="h-full flex flex-col md:flex-row gap-4 overflow-hidden bg-slate-100/50 p-2 rounded-xl">
             
             {/* Esquerda: Cliente, Veículo e Listas */}
             <div className="flex-1 flex flex-col gap-4 overflow-hidden h-full">
@@ -7832,7 +7833,7 @@ export default function App() {
             </div>
 
             {/* Direita: Info, Totais e Ações */}
-            <div className="w-full md:w-[320px] shrink-0 flex flex-col gap-4 overflow-hidden h-full">
+            <div className="w-full md:w-[320px] shrink-0 flex flex-col gap-4 overflow-y-auto h-full pr-1 custom-scrollbar pb-2">
               
               {/* Opções OS */}
               <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-4 shrink-0 shadow-sm dark:bg-slate-800 dark:border-slate-700">

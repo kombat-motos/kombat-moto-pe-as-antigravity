@@ -8,9 +8,17 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   maxWidth?: string;
+  bodyClassName?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg" }) => (
+const Modal: React.FC<ModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  title, 
+  children, 
+  maxWidth = "max-w-lg",
+  bodyClassName = "p-6 max-h-[80vh] overflow-y-auto"
+}) => (
   <AnimatePresence>
     {isOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -33,7 +41,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
               <X size={20} className="text-slate-400" />
             </button>
           </div>
-          <div className="p-6 max-h-[80vh] overflow-y-auto">
+          <div className={bodyClassName}>
             {children}
           </div>
         </motion.div>
