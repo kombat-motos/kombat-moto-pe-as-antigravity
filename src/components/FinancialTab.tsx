@@ -460,7 +460,9 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       totalBruto,
       totalLiquido,
       descontos,
-      acrescimos
+      acrescimos,
+      pecasList,
+      servicosList
     });
   };
 
