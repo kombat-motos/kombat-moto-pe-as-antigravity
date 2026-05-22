@@ -224,7 +224,10 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
     const charges = totalWithCharges - (original - paid);
     const dueDate = sale.due_date ? format(new Date(sale.due_date), 'dd/MM/yyyy') : 'N/A';
 
-    const itemsList = (sale?.items || []).map((item: any) => `${item.quantity}x ${(item.description || '').substring(0, 20)}.. R$ ${(item.quantity * item.price).toFixed(2)}`).join('\n');
+    const itemsList = (sale?.items || sale?.sale_items || [])
+      .filter((item: any) => item.type !== 'Adicional Interno')
+      .map((item: any) => `${item.quantity}x ${(item.description || '').substring(0, 20)}.. R$ ${(item.quantity * item.price).toFixed(2)}`)
+      .join('\n');
     const labor = sale.labor_value > 0 ? `SERVIÇOS.. R$ ${sale.labor_value.toFixed(2)}\n` : '';
 
     let headerMsg = '';
@@ -619,7 +622,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
 
             <div style={{ marginTop: '15px', border: '1px solid #eee', padding: '10px', fontSize: '14px' }}>
               <strong style={{ display: 'block', borderBottom: '1px solid #eee', paddingBottom: '5px', marginBottom: '5px' }}>DESCRIÇÃO DOS ITENS E SERVIÇOS</strong>
-              {(selectedPromissory?.items || []).map((item: any, idx: number) => (
+              {(selectedPromissory?.items || selectedPromissory?.sale_items || []).map((item: any, idx: number) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                   <span>{item.quantity}x {item.description}</span>
                   <span>R$ {(item.quantity * item.price).toFixed(2)}</span>

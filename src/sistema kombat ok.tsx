@@ -172,6 +172,7 @@ interface Sale {
   customer_id?: number;
   customer_name: string;
   items: SaleItem[];
+  sale_items?: SaleItem[];
   labor_value: number;
   mechanic_id?: string;
   mechanic_name?: string;
@@ -273,6 +274,50 @@ const formatBRL = (value: any) => {
     style: 'currency',
     currency: 'BRL',
   }).format(isNaN(num) ? 0 : num);
+};
+
+const getSaleFinancials = (sale: Sale) => {
+  const items = sale.items || sale.sale_items || [];
+  
+  const serviceItems = items.filter(i => 
+    i.type === 'Serviço' || 
+    i.type === 'Serviço Principal' || 
+    i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS'
+  );
+  
+  let laborTotal = serviceItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+  if (laborTotal === 0 && (sale.labor_value || 0) > 0) {
+    laborTotal = sale.labor_value;
+  }
+  
+  const internalItems = items.filter(i => i.type === 'Adicional Interno');
+  const internalServicesTotal = internalItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+  
+  const partsItems = items.filter(i => 
+    (i.product_id || i.type === 'Peça' || (!i.type && i.product_id)) && 
+    i.type !== 'Serviço' && 
+    i.type !== 'Serviço Principal' && 
+    i.type !== 'Adicional Interno' &&
+    !i.description.includes('TAXA DE PARCELAMENTO') && 
+    !i.description.includes('AJUSTE DE TAXA/PRAZO') && 
+    !i.description.includes('TAXA DE CREDITO')
+  );
+  
+  let partsTotal = partsItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+  if (items.length === 0) {
+    partsTotal = Math.max(0, sale.total - laborTotal);
+  }
+  
+  const commission = (sale.commission !== undefined && sale.commission !== null && sale.commission > 0)
+    ? sale.commission
+    : (sale.mechanic_id ? (laborTotal * 0.50) : 0);
+  
+  return {
+    laborTotal,
+    partsTotal,
+    internalServicesTotal,
+    commission
+  };
 };
 
 const localApi = {
@@ -848,10 +893,10 @@ export default function App() {
   const isFetchingRef = useRef(false);
   const lastFetchTimeRef = useRef(0);
 
-  async function fetchData() {
+  async function fetchData(force = false) {
     if (isFetchingRef.current) return;
     const now = Date.now();
-    if (now - lastFetchTimeRef.current < 1000) return;
+    if (!force && (now - lastFetchTimeRef.current < 1000)) return;
     
     isFetchingRef.current = true;
     lastFetchTimeRef.current = now;
@@ -1657,7 +1702,7 @@ export default function App() {
       });
       setCheckoutPaymentReceived('');
       alert(`Venda ${newSale.id} concluída com sucesso!`);
-      fetchData(); // Refresh to update all states (stock, cash, etc)
+      fetchData(true); // Refresh to update all states (stock, cash, etc)
       return;
     } catch (error: any) {
       console.error('Error saving sale:', error);
@@ -1795,8 +1840,8 @@ export default function App() {
         commission += sfs.payout * sfs.quantity;
       });
 
-      if (laborValueManual > 0) {
-        commission += laborValueManual * 0.50;
+      if (laborValue > 0) {
+        commission += laborValue * 0.50;
       }
     }
 
@@ -1886,7 +1931,7 @@ export default function App() {
         });
       }
 
-      fetchData();
+      fetchData(true);
       setIsOsModalOpen(false);
       setEditingOS(null);
       setSelectedSaleForOS(newOS);
@@ -2324,7 +2369,7 @@ export default function App() {
                       <td className="p-3 text-slate-400">{new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                       <td className="p-3 font-bold">{sale.customer_name}</td>
                       <td className="p-3 text-slate-400">{sale.mechanic_name || 'Balcão / Sem'}</td>
-                      <td className="p-3 text-right font-bold">{sale.items.length}</td>
+                      <td className="p-3 text-right font-bold">{(sale.items || sale.sale_items || []).length}</td>
                       <td className="p-3 text-right font-mono text-amber-500 font-bold">{formatBRL(sale.commission)}</td>
                       <td className="p-3 text-right font-mono font-black text-rose-500">{formatBRL(sale.total)}</td>
                       <td className="p-3 text-center">
@@ -2921,36 +2966,28 @@ export default function App() {
       
       let principalLaborTotal = 0;
       let internalServicesTotal = 0;
+      let commissionTotal = 0;
       const internalServicesList: string[] = [];
 
       mSales.forEach(sale => {
-        const principalItem = sale.items?.find(i => i.type === 'Serviço Principal');
-        const legacyLaborItem = sale.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
-        let laborPrice = 0;
-        if (principalItem) {
-          laborPrice = principalItem.price * principalItem.quantity;
-        } else if (legacyLaborItem) {
-          laborPrice = legacyLaborItem.price * legacyLaborItem.quantity;
-        } else if (sale.labor_value > 0) {
-          laborPrice = sale.labor_value;
-        }
-        principalLaborTotal += laborPrice;
+        const financials = getSaleFinancials(sale);
+        principalLaborTotal += financials.laborTotal;
+        commissionTotal += financials.commission;
+        internalServicesTotal += financials.internalServicesTotal;
 
-        sale.items?.forEach(item => {
+        (sale.items || sale.sale_items || [])?.forEach(item => {
           if (item.type === 'Adicional Interno') {
             const price = item.price * item.quantity;
-            internalServicesTotal += price;
             internalServicesList.push(`- ${item.description} (Cliente: ${sale.customer_name}): R$ ${price.toFixed(2)}`);
           }
         });
       });
 
-      const commission = principalLaborTotal * 0.50;
-      const totalToPay = commission + internalServicesTotal;
+      const totalToPay = commissionTotal + internalServicesTotal;
 
       text += `*Resumo do ${m.name}:*\n`;
       text += `Total de mão de obra principal realizada: R$ ${principalLaborTotal.toFixed(2)}\n`;
-      text += `Comissão 50%: R$ ${commission.toFixed(2)}\n`;
+      text += `Comissão 50%: R$ ${commissionTotal.toFixed(2)}\n`;
       text += `Total de serviços adicionais internos: R$ ${internalServicesTotal.toFixed(2)}\n`;
       text += `Total a pagar ao ${m.name}: R$ ${totalToPay.toFixed(2)}\n\n`;
 
@@ -2967,33 +3004,13 @@ export default function App() {
     let totalInternalServicesPaid = 0;
 
     salesFiltered.forEach(sale => {
-      const principalItem = sale.items?.find(i => i.type === 'Serviço Principal');
-      const legacyLaborItem = sale.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
-      let laborPrice = 0;
-      if (principalItem) {
-        laborPrice = principalItem.price * principalItem.quantity;
-      } else if (legacyLaborItem) {
-        laborPrice = legacyLaborItem.price * legacyLaborItem.quantity;
-      } else if (sale.labor_value > 0) {
-        laborPrice = sale.labor_value;
-      }
-      totalWorkshopPrincipalLabor += laborPrice;
-
-      let partsTotal = 0;
-      sale.items?.forEach(item => {
-        if (item.type !== 'Serviço Principal' && item.type !== 'Adicional Interno' && item.description !== 'MÃO DE OBRA / SERVIÇOS AVULSOS') {
-          partsTotal += item.price * item.quantity;
-        }
-      });
-      totalWorkshopParts += partsTotal;
+      const financials = getSaleFinancials(sale);
+      totalWorkshopPrincipalLabor += financials.laborTotal;
+      totalWorkshopParts += financials.partsTotal;
 
       if (sale.mechanic_id || sale.mechanic_name) {
-        totalCommissionsPaid += laborPrice * 0.50;
-        sale.items?.forEach(item => {
-          if (item.type === 'Adicional Interno') {
-            totalInternalServicesPaid += item.price * item.quantity;
-          }
-        });
+        totalCommissionsPaid += financials.commission;
+        totalInternalServicesPaid += financials.internalServicesTotal;
       }
     });
 
@@ -3028,37 +3045,29 @@ export default function App() {
       
       let principalLaborTotal = 0;
       let internalServicesTotal = 0;
+      let commissionTotal = 0;
       let internalServicesHTML = '';
 
       mSales.forEach(sale => {
-        const principalItem = sale.items?.find(i => i.type === 'Serviço Principal');
-        const legacyLaborItem = sale.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
-        let laborPrice = 0;
-        if (principalItem) {
-          laborPrice = principalItem.price * principalItem.quantity;
-        } else if (legacyLaborItem) {
-          laborPrice = legacyLaborItem.price * legacyLaborItem.quantity;
-        } else if (sale.labor_value > 0) {
-          laborPrice = sale.labor_value;
-        }
-        principalLaborTotal += laborPrice;
+        const financials = getSaleFinancials(sale);
+        principalLaborTotal += financials.laborTotal;
+        commissionTotal += financials.commission;
+        internalServicesTotal += financials.internalServicesTotal;
 
-        sale.items?.forEach(item => {
+        (sale.items || sale.sale_items || [])?.forEach(item => {
           if (item.type === 'Adicional Interno') {
             const price = item.price * item.quantity;
-            internalServicesTotal += price;
             internalServicesHTML += `<div style="font-size: 10px; padding-left: 10px;">- ${item.description} (${sale.customer_name}): R$ ${price.toFixed(2)}</div>`;
           }
         });
       });
 
-      const commission = principalLaborTotal * 0.50;
-      const totalToPay = commission + internalServicesTotal;
+      const totalToPay = commissionTotal + internalServicesTotal;
 
       mechanicsHTML += `
         <div style="margin-top: 12px; font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 2px;">Resumo do ${m.name}:</div>
         <div style="display: flex; justify-content: space-between;"><span>M. Obra Principal:</span><span>R$ ${principalLaborTotal.toFixed(2)}</span></div>
-        <div style="display: flex; justify-content: space-between;"><span>Comissão 50%:</span><span>R$ ${commission.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between;"><span>Comissão 50%:</span><span>R$ ${commissionTotal.toFixed(2)}</span></div>
         <div style="display: flex; justify-content: space-between;"><span>Serv. Adic. Internos:</span><span>R$ ${internalServicesTotal.toFixed(2)}</span></div>
         <div style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 2px;"><span>TOTAL A PAGAR:</span><span>R$ ${totalToPay.toFixed(2)}</span></div>
       `;
@@ -3078,33 +3087,13 @@ export default function App() {
     let totalInternalServicesPaid = 0;
 
     salesFiltered.forEach(sale => {
-      const principalItem = sale.items?.find(i => i.type === 'Serviço Principal');
-      const legacyLaborItem = sale.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
-      let laborPrice = 0;
-      if (principalItem) {
-        laborPrice = principalItem.price * principalItem.quantity;
-      } else if (legacyLaborItem) {
-        laborPrice = legacyLaborItem.price * legacyLaborItem.quantity;
-      } else if (sale.labor_value > 0) {
-        laborPrice = sale.labor_value;
-      }
-      totalWorkshopPrincipalLabor += laborPrice;
-
-      let partsTotal = 0;
-      sale.items?.forEach(item => {
-        if (item.type !== 'Serviço Principal' && item.type !== 'Adicional Interno' && item.description !== 'MÃO DE OBRA / SERVIÇOS AVULSOS') {
-          partsTotal += item.price * item.quantity;
-        }
-      });
-      totalWorkshopParts += partsTotal;
+      const financials = getSaleFinancials(sale);
+      totalWorkshopPrincipalLabor += financials.laborTotal;
+      totalWorkshopParts += financials.partsTotal;
 
       if (sale.mechanic_id || sale.mechanic_name) {
-        totalCommissionsPaid += laborPrice * 0.50;
-        sale.items?.forEach(item => {
-          if (item.type === 'Adicional Interno') {
-            totalInternalServicesPaid += item.price * item.quantity;
-          }
-        });
+        totalCommissionsPaid += financials.commission;
+        totalInternalServicesPaid += financials.internalServicesTotal;
       }
     });
 
@@ -3423,25 +3412,18 @@ export default function App() {
                   
                   let principalLaborTotal = 0;
                   let internalServicesTotal = 0;
+                  let commissionTotal = 0;
                   const internalServicesList: { description: string; price: number; customer_name: string }[] = [];
 
                   mSales.forEach(sale => {
-                    const principalItem = sale.items?.find(i => i.type === 'Serviço Principal');
-                    const legacyLaborItem = sale.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
-                    let laborPrice = 0;
-                    if (principalItem) {
-                      laborPrice = principalItem.price * principalItem.quantity;
-                    } else if (legacyLaborItem) {
-                      laborPrice = legacyLaborItem.price * legacyLaborItem.quantity;
-                    } else if (sale.labor_value > 0) {
-                      laborPrice = sale.labor_value;
-                    }
-                    principalLaborTotal += laborPrice;
+                    const financials = getSaleFinancials(sale);
+                    principalLaborTotal += financials.laborTotal;
+                    commissionTotal += financials.commission;
+                    internalServicesTotal += financials.internalServicesTotal;
 
-                    sale.items?.forEach(item => {
+                    (sale.items || sale.sale_items || [])?.forEach(item => {
                       if (item.type === 'Adicional Interno') {
                         const price = item.price * item.quantity;
-                        internalServicesTotal += price;
                         internalServicesList.push({
                           description: item.description,
                           price: price,
@@ -3451,8 +3433,7 @@ export default function App() {
                     });
                   });
 
-                  const commission = principalLaborTotal * 0.50;
-                  const totalToPay = commission + internalServicesTotal;
+                  const totalToPay = commissionTotal + internalServicesTotal;
 
                   return (
                     <div key={m.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-300 space-y-3 dark:bg-slate-900 dark:border-slate-700">
@@ -3469,7 +3450,7 @@ export default function App() {
                         </div>
                         <div>
                           <p className="text-slate-400 uppercase text-[9px]">Comissão 50%</p>
-                          <p className="text-slate-700 dark:text-slate-300">{formatBRL(commission)}</p>
+                          <p className="text-slate-700 dark:text-slate-300">{formatBRL(commissionTotal)}</p>
                         </div>
                         <div className="col-span-2 pt-1">
                           <p className="text-slate-400 uppercase text-[9px]">Adicionais Internos</p>
@@ -3508,28 +3489,13 @@ export default function App() {
                   let totalInternals = 0;
 
                   getFilteredSalesForMechanics().forEach(sale => {
-                    const principalItem = sale.items?.find(i => i.type === 'Serviço Principal');
-                    const legacyLaborItem = sale.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
-                    let laborPrice = 0;
-                    if (principalItem) {
-                      laborPrice = principalItem.price * principalItem.quantity;
-                    } else if (legacyLaborItem) {
-                      laborPrice = legacyLaborItem.price * legacyLaborItem.quantity;
-                    } else if (sale.labor_value > 0) {
-                      laborPrice = sale.labor_value;
-                    }
-                    totalLabor += laborPrice;
-
-                    sale.items?.forEach(item => {
-                      if (item.type !== 'Serviço Principal' && item.type !== 'Adicional Interno' && item.description !== 'MÃO DE OBRA / SERVIÇOS AVULSOS') {
-                        totalParts += item.price * item.quantity;
-                      } else if (item.type === 'Adicional Interno' && (sale.mechanic_id || sale.mechanic_name)) {
-                        totalInternals += item.price * item.quantity;
-                      }
-                    });
+                    const financials = getSaleFinancials(sale);
+                    totalLabor += financials.laborTotal;
+                    totalParts += financials.partsTotal;
 
                     if (sale.mechanic_id || sale.mechanic_name) {
-                      totalCommissions += laborPrice * 0.50;
+                      totalCommissions += financials.commission;
+                      totalInternals += financials.internalServicesTotal;
                     }
                   });
 
@@ -3702,13 +3668,11 @@ export default function App() {
     message += `💳 *Pagamento:* ${sale.payment_method}\n\n`;
     
     message += `*ITENS:*\n`;
-    sale.items.forEach(item => {
-      message += `- ${item.quantity}x ${item.description}: ${formatBRL(item.price * item.quantity)}\n`;
-    });
-    
-    if (sale.type === 'Oficina' && (sale.labor_value || 0) > 0) {
-      message += `- Mão de Obra: ${formatBRL(sale.labor_value)}\n`;
-    }
+    (sale.items || sale.sale_items || [])
+      .filter(item => item.type !== 'Adicional Interno')
+      .forEach(item => {
+        message += `- ${item.quantity}x ${item.description}: ${formatBRL(item.price * item.quantity)}\n`;
+      });
 
     message += `\n*Kombat Moto Peças agradece a preferência!* 🏍️💨`;
 
@@ -4571,7 +4535,27 @@ export default function App() {
           <span>Venda PDV</span>
         </button>
         <button
-          onClick={() => setIsOsModalOpen(true)}
+          onClick={() => {
+            setEditingOS(null);
+            setOsForm({
+              customer_id: '',
+              motorcycle_id: '',
+              motorcycle_plate: '',
+              items: [],
+              selected_fixed_services: [],
+              labor_value: '0',
+              principal_service_desc: '',
+              internal_services: [],
+              mechanic_id: '',
+              payment_method: 'Pix',
+              status: 'Aberto',
+              due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              service_description: '',
+              km: ''
+            });
+            setOsSearchProduct('');
+            setIsOsModalOpen(true);
+          }}
           className="flex items-center justify-center gap-3 px-6 py-4 bg-amber-600 text-white rounded-2xl shadow-lg shadow-amber-100 hover:bg-amber-700 hover:scale-[1.02] active:scale-95 transition-all font-black text-[10px] tracking-widest uppercase"
         >
           <Bike size={20} />
@@ -6309,7 +6293,7 @@ export default function App() {
                           <p className="font-bold text-slate-900 dark:text-slate-100">R$ {sale.total.toFixed(2)}</p>
                         </div>
                         <div className="space-y-1">
-                          {sale.items.filter(i => !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
+                          {(sale.items || sale.sale_items || []).filter(i => !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
                             <div key={idx} className="flex justify-between text-[11px] text-slate-600 dark:text-slate-400">
                               <span>{item.quantity}x {item.description}</span>
                               <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
@@ -7664,7 +7648,7 @@ export default function App() {
                           <td className="py-2 px-1 font-mono">{sale.id}</td>
                           <td className="py-2 px-1">
                             <div className="flex flex-col gap-1 min-w-[300px]">
-                              {sale.items.map((item, idx) => (
+                              {(sale.items || sale.sale_items || []).map((item, idx) => (
                                 <div key={idx} className="flex justify-between items-center text-slate-700 leading-tight dark:text-slate-100">
                                   <span className="flex-1">{item.quantity}x {item.description}</span>
                                   <span className="text-[9px] text-slate-400 font-mono text-right ml-4">
@@ -7715,7 +7699,7 @@ export default function App() {
                       
                       {/* LISTA DE PRODUTOS NO RECIBO TÉRMICO */}
                       <div className="pl-1 space-y-1 mb-1">
-                        {sale.items.map((item, idx) => (
+                        {(sale.items || sale.sale_items || []).map((item, idx) => (
                           <div key={idx} className="flex justify-between text-[13px] text-slate-900 font-bold dark:text-slate-100">
                             <span>{item.quantity}x {item.description.substring(0, 25)}..</span>
                             <span className="font-mono">R$ {(item.quantity * item.price).toFixed(2)}</span>
@@ -7869,7 +7853,7 @@ export default function App() {
                 <div className="py-1">
                   {/* Filter items for client (exclude Adicional Interno) */}
                   {(() => {
-                    const clientItems = (selectedSaleForReceipt.items || []).filter(i => i.type !== 'Adicional Interno');
+                    const clientItems = (selectedSaleForReceipt.items || selectedSaleForReceipt.sale_items || []).filter(i => i.type !== 'Adicional Interno');
                     const principalService = clientItems.find(i => i.type === 'Serviço Principal') || {
                       description: 'MÃO DE OBRA / SERVIÇOS AVULSOS',
                       price: selectedSaleForReceipt.labor_value || 0,
@@ -8103,14 +8087,11 @@ export default function App() {
 
                   {/* Calculations & Commission Details */}
                   {(() => {
-                    const principalService = selectedSaleForReceipt.items?.find(i => i.type === 'Serviço Principal') || {
-                      description: 'MÃO DE OBRA / SERVIÇOS AVULSOS',
-                      price: selectedSaleForReceipt.labor_value || 0
-                    };
-                    const internalServices = selectedSaleForReceipt.items?.filter(i => i.type === 'Adicional Interno') || [];
-                    const totalAdicionais = internalServices.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+                    const financials = getSaleFinancials(selectedSaleForReceipt);
+                    const internalServices = (selectedSaleForReceipt.items || selectedSaleForReceipt.sale_items || [])?.filter(i => i.type === 'Adicional Interno') || [];
+                    const totalAdicionais = financials.internalServicesTotal;
                     // Total pay to mechanic: commission + internal services
-                    const totalPagarMecanico = (selectedSaleForReceipt.commission || 0) + totalAdicionais;
+                    const totalPagarMecanico = financials.commission + totalAdicionais;
                     const sobraOficina = selectedSaleForReceipt.total - totalPagarMecanico;
 
                     return (
@@ -8119,11 +8100,11 @@ export default function App() {
                           <tbody>
                             <tr>
                               <td>Mão de obra principal cobrada do cliente:</td>
-                              <td style={{ textAlign: 'right' }}>R$ {principalService.price.toFixed(2)}</td>
+                              <td style={{ textAlign: 'right' }}>R$ {financials.laborTotal.toFixed(2)}</td>
                             </tr>
                             <tr style={{ borderBottom: '1px dotted black' }}>
                               <td style={{ color: '#000', fontWeight: '900' }}>Comissão 50% sobre mão de obra principal:</td>
-                              <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {(selectedSaleForReceipt.commission || 0).toFixed(2)}</td>
+                              <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {financials.commission.toFixed(2)}</td>
                             </tr>
                           </tbody>
                         </table>
@@ -8221,6 +8202,7 @@ export default function App() {
             setOsForm({
               customer_id: '',
               motorcycle_id: '',
+              motorcycle_plate: '',
               items: [],
               selected_fixed_services: [],
               labor_value: '0',
@@ -8603,7 +8585,8 @@ export default function App() {
                         <div className="relative flex-1">
                           <span className="absolute left-2.5 top-1.5 text-xs font-bold text-slate-400">R$</span>
                           <input 
-                            type="number" step="0.01"
+                            type="text"
+                            inputMode="decimal"
                             placeholder="Valor"
                             value={newInternalServicePrice}
                             onChange={e => setNewInternalServicePrice(e.target.value)}
@@ -8617,7 +8600,8 @@ export default function App() {
                               alert("Insira uma descrição para o serviço adicional.");
                               return;
                             }
-                            const val = parseFloat(newInternalServicePrice.replace(',', '.')) || 0;
+                            const priceStr = String(newInternalServicePrice || '').trim();
+                            const val = parseFloat(priceStr.replace(',', '.')) || 0;
                             if (val <= 0) {
                               alert("Insira um valor maior que zero.");
                               return;
@@ -8625,7 +8609,7 @@ export default function App() {
                             setOsForm({
                               ...osForm,
                               internal_services: [
-                                ...osForm.internal_services,
+                                ...(osForm.internal_services || []),
                                 { description: newInternalServiceDesc.trim(), price: val }
                               ]
                             });
@@ -8711,7 +8695,8 @@ export default function App() {
                     <div className="relative">
                       <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">R$</span>
                       <input 
-                        type="number" step="0.01"
+                        type="text"
+                        inputMode="decimal"
                         placeholder="0.00"
                         value={osForm.labor_value}
                         onChange={e => setOsForm({ ...osForm, labor_value: e.target.value })}
@@ -8843,8 +8828,8 @@ export default function App() {
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400">{new Date(sale.date).toLocaleString()}</p>
                       <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-                        {sale.items.length > 0 && (
-                          <p>Peças/Produtos: {sale.items.map(item => `${item.description} (${item.quantity}x)`).join(', ')}</p>
+                        {(sale.items || sale.sale_items || []).length > 0 && (
+                          <p>Peças/Produtos: {(sale.items || sale.sale_items || []).map(item => `${item.description} (${item.quantity}x)`).join(', ')}</p>
                         )}
                         {sale.labor_value > 0 && (
                           <p>Mão de Obra: {formatBRL(sale.labor_value)}</p>
@@ -9068,7 +9053,7 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(selectedSaleForOS?.items || []).map((item, index) => (
+                        {(selectedSaleForOS?.items || selectedSaleForOS?.sale_items || []).filter(item => item.type !== 'Adicional Interno').map((item, index) => (
                           <tr key={`item-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                             <td className="border p-2 text-center">{item.quantity}</td>
                             <td className="border p-2">{item.description}</td>
@@ -9076,8 +9061,8 @@ export default function App() {
                             <td className="border p-2 text-right">{formatBRL(item.quantity * item.price)}</td>
                           </tr>
                         ))}
-                        {(selectedSaleForOS?.labor_value || 0) > 0 && (
-                          <tr className={((selectedSaleForOS?.items?.length || 0)) % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                        {(selectedSaleForOS?.labor_value || 0) > 0 && !(selectedSaleForOS?.items || selectedSaleForOS?.sale_items || []).some(i => i.type === 'Serviço Principal') && (
+                          <tr className={((selectedSaleForOS?.items || selectedSaleForOS?.sale_items || []).length) % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                             <td className="border p-2 text-center">1</td>
                             <td className="border p-2">Mão de Obra / Serviços Gerais</td>
                             <td className="border p-2 text-right">{formatBRL(selectedSaleForOS?.labor_value || 0)}</td>
@@ -9091,14 +9076,21 @@ export default function App() {
                   {/* Totals */}
                   <div className="flex justify-end my-4">
                     <div className="w-1/3 text-xs">
-                      <div className="flex justify-between p-2 bg-slate-50 rounded-t-md dark:bg-slate-900">
-                        <span className="font-bold">Total Peças:</span>
-                        <span>{formatBRL((selectedSaleForOS?.items || []).filter(i => !!i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0))}</span>
-                      </div>
-                      <div className="flex justify-between p-2 bg-slate-50 dark:bg-slate-900">
-                        <span className="font-bold">Total Serviços:</span>
-                        <span>{formatBRL((selectedSaleForOS?.total || 0) - (selectedSaleForOS?.items || []).filter(i => !!i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0))}</span>
-                      </div>
+                      {(() => {
+                        const financials = selectedSaleForOS ? getSaleFinancials(selectedSaleForOS) : { partsTotal: 0, laborTotal: 0 };
+                        return (
+                          <>
+                            <div className="flex justify-between p-2 bg-slate-50 rounded-t-md dark:bg-slate-900">
+                              <span className="font-bold">Total Peças:</span>
+                              <span>{formatBRL(financials.partsTotal)}</span>
+                            </div>
+                            <div className="flex justify-between p-2 bg-slate-50 dark:bg-slate-900">
+                              <span className="font-bold">Total Serviços:</span>
+                              <span>{formatBRL(financials.laborTotal)}</span>
+                            </div>
+                          </>
+                        );
+                      })()}
                       <div className="flex justify-between p-2 bg-slate-200 text-base rounded-b-md dark:bg-slate-700">
                         <span className="font-bold">VALOR TOTAL GERAL:</span>
                         <span className="font-bold">{formatBRL(selectedSaleForOS?.total || 0)}</span>

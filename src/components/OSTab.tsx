@@ -84,9 +84,12 @@ const OSTab: React.FC<OSTabProps> = ({
               setOsForm({
                 customer_id: '',
                 motorcycle_id: '',
+                motorcycle_plate: '',
                 items: [],
                 selected_fixed_services: [],
                 labor_value: '0',
+                principal_service_desc: '',
+                internal_services: [],
                 mechanic_id: '',
                 payment_method: 'Pix',
                 status: 'Aberto',
@@ -192,22 +195,35 @@ const OSTab: React.FC<OSTabProps> = ({
             </div>
 
             <div className="mt-6 pt-6 border-t border-slate-400 grid grid-cols-2 md:grid-cols-4 gap-4 dark:border-slate-700">
-              <div className="bg-slate-50 p-3 rounded-xl dark:bg-slate-900">
-                <p className="text-[9px] font-bold text-slate-400 uppercase">Peças</p>
-                <p className="font-bold text-slate-700 dark:text-slate-100">R$ {(os.total - os.labor_value).toFixed(2)}</p>
-              </div>
-              <div className="bg-slate-50 p-3 rounded-xl dark:bg-slate-900">
-                <p className="text-[9px] font-bold text-slate-400 uppercase">Mão de Obra</p>
-                <p className="font-bold text-slate-700 dark:text-slate-100">R$ {os.labor_value.toFixed(2)}</p>
-              </div>
-              <div className="bg-amber-50 p-3 rounded-xl">
-                <p className="text-[9px] font-bold text-amber-500 uppercase">Comissão</p>
-                <p className="font-bold text-amber-700">R$ {os.commission.toFixed(2)}</p>
-              </div>
-              <div className="bg-rose-50 p-3 rounded-xl">
-                <p className="text-[9px] font-bold text-rose-500 uppercase">Lucro Loja</p>
-                <p className="font-bold text-rose-700">R$ {(os.total - os.commission).toFixed(2)}</p>
-              </div>
+              {(() => {
+                const internalServices = (os.items || os.sale_items || [])?.filter(i => i.type === 'Adicional Interno') || [];
+                const totalAdicionais = internalServices.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+                const laborItems = (os.items || os.sale_items || [])?.filter(i => i.type === 'Serviço' || i.type === 'Serviço Principal' || i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS') || [];
+                const laborTotal = laborItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) || os.labor_value || 0;
+                const partsTotal = os.total - laborTotal;
+                const totalMecanico = os.commission + totalAdicionais;
+                const lucroLoja = os.total - totalMecanico;
+                return (
+                  <>
+                    <div className="bg-slate-50 p-3 rounded-xl dark:bg-slate-900">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Peças</p>
+                      <p className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(partsTotal)}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl dark:bg-slate-900">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Mão de Obra</p>
+                      <p className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(laborTotal)}</p>
+                    </div>
+                    <div className="bg-amber-50 p-3 rounded-xl">
+                      <p className="text-[9px] font-bold text-amber-500 uppercase">Comissão</p>
+                      <p className="font-bold text-amber-700">{formatBRL(os.commission)}</p>
+                    </div>
+                    <div className="bg-rose-50 p-3 rounded-xl">
+                      <p className="text-[9px] font-bold text-rose-500 uppercase">Lucro Loja</p>
+                      <p className="font-bold text-rose-700">{formatBRL(lucroLoja)}</p>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         ))}

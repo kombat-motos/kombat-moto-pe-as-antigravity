@@ -350,14 +350,48 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   });
 
-  const productSales = monthlySales.reduce((acc, s) => acc + s.items.filter(i => i.product_id).reduce((sum, i) => sum + (i.price * i.quantity), 0), 0);
-  const productCosts = monthlySales.reduce((acc, s) => acc + s.items.filter(i => i.product_id).reduce((sum, i) => {
-    const product = products.find(p => p.id === i.product_id);
-    return sum + ((product?.purchase_price || 0) * i.quantity);
-  }, 0), 0);
+  const productSales = monthlySales.reduce((acc, s) => {
+    const items = s.items || s.sale_items || [];
+    const partsItems = items.filter(i => 
+      (i.product_id || i.type === 'Peça' || (!i.type && i.product_id)) && 
+      i.type !== 'Serviço' && i.type !== 'Serviço Principal' && i.type !== 'Adicional Interno'
+    );
+    let partsVal = partsItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+    if (items.length === 0) {
+      partsVal = Math.max(0, s.total - (s.labor_value || 0));
+    }
+    return acc + partsVal;
+  }, 0);
+
+  const productCosts = monthlySales.reduce((acc, s) => {
+    const items = s.items || s.sale_items || [];
+    const partsItems = items.filter(i => 
+      (i.product_id || i.type === 'Peça' || (!i.type && i.product_id)) && 
+      i.type !== 'Serviço' && i.type !== 'Serviço Principal' && i.type !== 'Adicional Interno'
+    );
+    return acc + partsItems.reduce((sum, i) => {
+      const product = products.find(p => p.id === i.product_id);
+      return sum + ((product?.purchase_price || 0) * i.quantity);
+    }, 0);
+  }, 0);
+
   const productProfit = productSales - productCosts;
   const profitMargin = productSales > 0 ? (productProfit / productSales) * 100 : 0;
-  const serviceSales = monthlySales.reduce((acc, s) => acc + (s.labor_value || 0), 0);
+
+  const serviceSales = monthlySales.reduce((acc, s) => {
+    const items = s.items || s.sale_items || [];
+    const serviceItems = items.filter(i => 
+      i.type === 'Serviço' || 
+      i.type === 'Serviço Principal' || 
+      i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS'
+    );
+    let serviceVal = serviceItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+    if (serviceVal === 0 && (s.labor_value || 0) > 0) {
+      serviceVal = s.labor_value;
+    }
+    return acc + serviceVal;
+  }, 0);
+
   const totalRevenue = productSales + serviceSales;
 
   // Lógica de cálculo do Fechamento do Cliente
@@ -413,13 +447,17 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       let saleTotalServicos = 0;
       let hasLaborInItems = false;
 
-      (sale.items || []).forEach(item => {
+      (sale.items || sale.sale_items || []).forEach(item => {
+        if (item.type === 'Adicional Interno') {
+          return;
+        }
+
         const itemTotal = item.price * item.quantity;
-        if (item.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS') {
+        if (item.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS' || item.type === 'Serviço Principal') {
           hasLaborInItems = true;
         }
 
-        if (item.type === 'Serviço' || !item.product_id) {
+        if (item.type === 'Serviço' || item.type === 'Serviço Principal' || !item.product_id) {
           totalServicos += itemTotal;
           saleTotalServicos += itemTotal;
           servicosList.push({ ...item, date: sale.date, saleId: sale.id });
