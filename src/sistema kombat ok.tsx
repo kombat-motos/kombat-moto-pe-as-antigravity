@@ -163,7 +163,7 @@ interface SaleItem {
   description: string;
   quantity: number;
   price: number;
-  type?: 'Peça' | 'Serviço';
+  type?: 'Peça' | 'Serviço' | 'Serviço Principal' | 'Adicional Interno';
 }
 
 interface Sale {
@@ -196,7 +196,7 @@ interface QuoteItem {
   quantity: number;
   price: number;
   total: number;
-  type: 'Peça' | 'Serviço';
+  type: 'Peça' | 'Serviço' | 'Serviço Principal' | 'Adicional Interno';
 }
 
 interface Quote {
@@ -780,6 +780,8 @@ export default function App() {
     items: SaleItem[];
     selected_fixed_services: { id: string; name: string; price: number; payout: number; quantity: number }[];
     labor_value: string;
+    principal_service_desc: string;
+    internal_services: { description: string; price: number }[];
     mechanic_id: string;
     payment_method: 'Pix' | 'Cartão' | 'Dinheiro' | 'Fiado';
     status: 'Aberto' | 'Em Andamento' | 'Pronto' | 'Entregue';
@@ -793,6 +795,8 @@ export default function App() {
     items: [],
     selected_fixed_services: [],
     labor_value: '0',
+    principal_service_desc: '',
+    internal_services: [],
     mechanic_id: '',
     payment_method: 'Pix' as 'Pix' | 'Cartão' | 'Dinheiro' | 'Fiado',
     status: 'Aberto' as 'Aberto' | 'Em Andamento' | 'Pronto' | 'Entregue',
@@ -800,6 +804,9 @@ export default function App() {
     service_description: '',
     km: ''
   });
+  const [newInternalServiceDesc, setNewInternalServiceDesc] = useState('');
+  const [newInternalServicePrice, setNewInternalServicePrice] = useState('');
+  const [mechanicSummaryPeriod, setMechanicSummaryPeriod] = useState<'Hoje' | 'Semana' | 'Mês' | 'Todos'>('Hoje');
   const [pdvSearchProduct, setPdvSearchProduct] = useState('');
   const [osSearchProduct, setOsSearchProduct] = useState('');
   const [osSearchService, setOsSearchService] = useState('');
@@ -1670,13 +1677,36 @@ export default function App() {
     const kmMatch = os.moto_details?.match(/KM: (.*)/);
     const km = kmMatch ? kmMatch[1] : '';
 
+    const principalServiceItem = os.items?.find(i => i.type === 'Serviço Principal');
+    const legacyLaborItem = os.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
+    const internalServiceItems = os.items?.filter(i => i.type === 'Adicional Interno') || [];
+
+    const filteredItems = os.items?.filter(i => 
+      i.type !== 'Serviço Principal' && 
+      i.type !== 'Adicional Interno' && 
+      i.description !== 'MÃO DE OBRA / SERVIÇOS AVULSOS'
+    ) || [];
+
+    let laborVal = '0';
+    if (principalServiceItem) {
+      laborVal = principalServiceItem.price.toString();
+    } else if (legacyLaborItem) {
+      laborVal = legacyLaborItem.price.toString();
+    } else if (os.labor_value > 0) {
+      laborVal = os.labor_value.toString();
+    }
+
+    const principalDesc = principalServiceItem ? principalServiceItem.description : '';
+
     setOsForm({
       customer_id: os.customer_id?.toString() || '',
       motorcycle_id: motorcycle?.id.toString() || '',
       motorcycle_plate: plate || '',
-      items: os.items || [],
+      items: filteredItems,
       selected_fixed_services: [],
-      labor_value: os.labor_value.toString(),
+      labor_value: laborVal,
+      principal_service_desc: principalDesc,
+      internal_services: internalServiceItems.map(it => ({ description: it.description, price: it.price })),
       mechanic_id: os.mechanic_id || '',
       payment_method: os.payment_method as any,
       status: os.status as any || 'Aberto',
@@ -1693,8 +1723,8 @@ export default function App() {
       return;
     }
 
-    const totalItems = osForm.items.filter(i => i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-    const laborValueFromItems = osForm.items.filter(i => !i.product_id).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    const totalItems = osForm.items.filter(i => i.product_id || i.type === 'Peça').reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    const laborValueFromItems = osForm.items.filter(i => !i.product_id && i.type !== 'Peça').reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
     const laborValueManual = parseFloat(osForm.labor_value.toString().replace(',', '.')) || 0;
     const laborValue = laborValueFromItems + laborValueManual;
     const fixedServicesTotal = (osForm.selected_fixed_services || []).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
@@ -1712,12 +1742,24 @@ export default function App() {
     
     if (laborValueManual > 0) {
       finalItems.push({
-        description: 'MÃO DE OBRA / SERVIÇOS AVULSOS',
+        description: osForm.principal_service_desc.trim() || 'MÃO DE OBRA / SERVIÇOS AVULSOS',
         quantity: 1,
         price: laborValueManual,
-        type: 'Serviço'
+        type: 'Serviço Principal'
       });
     }
+
+    if (osForm.mechanic_id && osForm.internal_services && osForm.internal_services.length > 0) {
+      osForm.internal_services.forEach(it => {
+        finalItems.push({
+          description: it.description,
+          quantity: 1,
+          price: it.price,
+          type: 'Adicional Interno'
+        });
+      });
+    }
+
     const customer = osForm.customer_id ? customers.find(c => c.id === parseInt(osForm.customer_id)) : null;
     const motorcycle = osForm.motorcycle_id ? motorcycles.find(m => String(m.id) === String(osForm.motorcycle_id)) : null;
     const mechanic = mechanics.find(m => String(m.id) === String(osForm.mechanic_id));
@@ -1753,9 +1795,8 @@ export default function App() {
         commission += sfs.payout * sfs.quantity;
       });
 
-      if (laborValue > 0) {
-        const rate = (mechanic.commission_rate ?? 50) / 100;
-        commission += laborValue * rate;
+      if (laborValueManual > 0) {
+        commission += laborValueManual * 0.50;
       }
     }
 
@@ -1769,7 +1810,7 @@ export default function App() {
       customer_id: customer?.id,
       customer_name: customer?.name || 'Cliente O.S.',
       items: finalItems,
-      labor_value: 0,
+      labor_value: laborValueManual,
       mechanic_id: mechanic?.id,
       mechanic_name: mechanic?.name,
       commission,
@@ -1852,9 +1893,12 @@ export default function App() {
       setOsForm({
         customer_id: '',
         motorcycle_id: '',
+        motorcycle_plate: '',
         items: [],
         selected_fixed_services: [],
         labor_value: '0',
+        principal_service_desc: '',
+        internal_services: [],
         mechanic_id: '',
         payment_method: 'Pix',
         status: 'Aberto',
@@ -2468,12 +2512,15 @@ export default function App() {
     setOsForm({
       customer_id: quote.customer_id ? String(quote.customer_id) : '',
       motorcycle_id: motorcycle ? String(motorcycle.id) : '',
+      motorcycle_plate: motorcycle?.plate || '',
       items: quote.items.map(item => ({
         ...item,
         total: item.price * item.quantity
       })),
       selected_fixed_services: [],
       labor_value: '0',
+      principal_service_desc: '',
+      internal_services: [],
       mechanic_id: '',
       payment_method: 'Pix',
       status: 'Aberto',
@@ -2837,6 +2884,269 @@ export default function App() {
     </div>
   );
 
+  const getFilteredSalesForMechanics = () => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Start of current week (Monday)
+    const currentDay = now.getDay();
+    const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    const weekStart = new Date(todayStart.getTime() + diffToMonday * 24 * 60 * 60 * 1000);
+    
+    // Start of current month
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    return sales.filter(s => {
+      if (!s.date) return false;
+      const saleDate = new Date(s.date);
+      if (mechanicSummaryPeriod === 'Hoje') {
+        return saleDate >= todayStart;
+      } else if (mechanicSummaryPeriod === 'Semana') {
+        return saleDate >= weekStart;
+      } else if (mechanicSummaryPeriod === 'Mês') {
+        return saleDate >= monthStart;
+      } else {
+        return true;
+      }
+    });
+  };
+
+  const handleCopyReport = () => {
+    const salesFiltered = getFilteredSalesForMechanics();
+    
+    let text = `*RESUMO FINAL (${mechanicSummaryPeriod.toUpperCase()})*\n\n`;
+    
+    mechanics.forEach(m => {
+      const mSales = salesFiltered.filter(s => String(s.mechanic_id) === String(m.id) || s.mechanic_name === m.name);
+      
+      let principalLaborTotal = 0;
+      let internalServicesTotal = 0;
+      const internalServicesList: string[] = [];
+
+      mSales.forEach(sale => {
+        const principalItem = sale.items?.find(i => i.type === 'Serviço Principal');
+        const legacyLaborItem = sale.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
+        let laborPrice = 0;
+        if (principalItem) {
+          laborPrice = principalItem.price * principalItem.quantity;
+        } else if (legacyLaborItem) {
+          laborPrice = legacyLaborItem.price * legacyLaborItem.quantity;
+        } else if (sale.labor_value > 0) {
+          laborPrice = sale.labor_value;
+        }
+        principalLaborTotal += laborPrice;
+
+        sale.items?.forEach(item => {
+          if (item.type === 'Adicional Interno') {
+            const price = item.price * item.quantity;
+            internalServicesTotal += price;
+            internalServicesList.push(`- ${item.description} (Cliente: ${sale.customer_name}): R$ ${price.toFixed(2)}`);
+          }
+        });
+      });
+
+      const commission = principalLaborTotal * 0.50;
+      const totalToPay = commission + internalServicesTotal;
+
+      text += `*Resumo do ${m.name}:*\n`;
+      text += `Total de mão de obra principal realizada: R$ ${principalLaborTotal.toFixed(2)}\n`;
+      text += `Comissão 50%: R$ ${commission.toFixed(2)}\n`;
+      text += `Total de serviços adicionais internos: R$ ${internalServicesTotal.toFixed(2)}\n`;
+      text += `Total a pagar ao ${m.name}: R$ ${totalToPay.toFixed(2)}\n\n`;
+
+      if (internalServicesList.length > 0) {
+        text += `*Lista dos serviços adicionais internos do ${m.name}:*\n`;
+        text += internalServicesList.join('\n') + `\n\n`;
+      }
+    });
+
+    // Workshop totals
+    let totalWorkshopPrincipalLabor = 0;
+    let totalWorkshopParts = 0;
+    let totalCommissionsPaid = 0;
+    let totalInternalServicesPaid = 0;
+
+    salesFiltered.forEach(sale => {
+      const principalItem = sale.items?.find(i => i.type === 'Serviço Principal');
+      const legacyLaborItem = sale.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
+      let laborPrice = 0;
+      if (principalItem) {
+        laborPrice = principalItem.price * principalItem.quantity;
+      } else if (legacyLaborItem) {
+        laborPrice = legacyLaborItem.price * legacyLaborItem.quantity;
+      } else if (sale.labor_value > 0) {
+        laborPrice = sale.labor_value;
+      }
+      totalWorkshopPrincipalLabor += laborPrice;
+
+      let partsTotal = 0;
+      sale.items?.forEach(item => {
+        if (item.type !== 'Serviço Principal' && item.type !== 'Adicional Interno' && item.description !== 'MÃO DE OBRA / SERVIÇOS AVULSOS') {
+          partsTotal += item.price * item.quantity;
+        }
+      });
+      totalWorkshopParts += partsTotal;
+
+      if (sale.mechanic_id || sale.mechanic_name) {
+        totalCommissionsPaid += laborPrice * 0.50;
+        sale.items?.forEach(item => {
+          if (item.type === 'Adicional Interno') {
+            totalInternalServicesPaid += item.price * item.quantity;
+          }
+        });
+      }
+    });
+
+    const totalWorkshopBilling = totalWorkshopPrincipalLabor + totalWorkshopParts;
+    const totalPaidToMechanics = totalCommissionsPaid + totalInternalServicesPaid;
+    const remainingForWorkshop = totalWorkshopBilling - totalPaidToMechanics;
+
+    text += `*Resumo geral da oficina:*\n`;
+    text += `Total de mão de obra principal cobrada dos clientes: R$ ${totalWorkshopPrincipalLabor.toFixed(2)}\n`;
+    text += `Total de peças/produtos cobrados dos clientes: R$ ${totalWorkshopParts.toFixed(2)}\n`;
+    text += `Total cobrado dos clientes: R$ ${totalWorkshopBilling.toFixed(2)}\n\n`;
+
+    text += `Total de comissão 50% paga aos mecânicos: R$ ${totalCommissionsPaid.toFixed(2)}\n`;
+    text += `Total de serviços adicionais internos pagos aos mecânicos: R$ ${totalInternalServicesPaid.toFixed(2)}\n`;
+    text += `Total geral pago aos mecânicos: R$ ${totalPaidToMechanics.toFixed(2)}\n\n`;
+    
+    text += `*Valor restante para oficina:* R$ ${remainingForWorkshop.toFixed(2)}`;
+
+    navigator.clipboard.writeText(text);
+    alert('Relatório copiado para a área de transferência!');
+  };
+
+  const handlePrintReport = () => {
+    const salesFiltered = getFilteredSalesForMechanics();
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    let mechanicsHTML = '';
+    
+    mechanics.forEach(m => {
+      const mSales = salesFiltered.filter(s => String(s.mechanic_id) === String(m.id) || s.mechanic_name === m.name);
+      
+      let principalLaborTotal = 0;
+      let internalServicesTotal = 0;
+      let internalServicesHTML = '';
+
+      mSales.forEach(sale => {
+        const principalItem = sale.items?.find(i => i.type === 'Serviço Principal');
+        const legacyLaborItem = sale.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
+        let laborPrice = 0;
+        if (principalItem) {
+          laborPrice = principalItem.price * principalItem.quantity;
+        } else if (legacyLaborItem) {
+          laborPrice = legacyLaborItem.price * legacyLaborItem.quantity;
+        } else if (sale.labor_value > 0) {
+          laborPrice = sale.labor_value;
+        }
+        principalLaborTotal += laborPrice;
+
+        sale.items?.forEach(item => {
+          if (item.type === 'Adicional Interno') {
+            const price = item.price * item.quantity;
+            internalServicesTotal += price;
+            internalServicesHTML += `<div style="font-size: 10px; padding-left: 10px;">- ${item.description} (${sale.customer_name}): R$ ${price.toFixed(2)}</div>`;
+          }
+        });
+      });
+
+      const commission = principalLaborTotal * 0.50;
+      const totalToPay = commission + internalServicesTotal;
+
+      mechanicsHTML += `
+        <div style="margin-top: 12px; font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 2px;">Resumo do ${m.name}:</div>
+        <div style="display: flex; justify-content: space-between;"><span>M. Obra Principal:</span><span>R$ ${principalLaborTotal.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between;"><span>Comissão 50%:</span><span>R$ ${commission.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between;"><span>Serv. Adic. Internos:</span><span>R$ ${internalServicesTotal.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 2px;"><span>TOTAL A PAGAR:</span><span>R$ ${totalToPay.toFixed(2)}</span></div>
+      `;
+
+      if (internalServicesHTML) {
+        mechanicsHTML += `
+          <div style="margin-top: 4px; font-size: 10px; font-weight: bold; text-decoration: underline;">Lista de adicionais:</div>
+          ${internalServicesHTML}
+        `;
+      }
+    });
+
+    // Workshop totals
+    let totalWorkshopPrincipalLabor = 0;
+    let totalWorkshopParts = 0;
+    let totalCommissionsPaid = 0;
+    let totalInternalServicesPaid = 0;
+
+    salesFiltered.forEach(sale => {
+      const principalItem = sale.items?.find(i => i.type === 'Serviço Principal');
+      const legacyLaborItem = sale.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
+      let laborPrice = 0;
+      if (principalItem) {
+        laborPrice = principalItem.price * principalItem.quantity;
+      } else if (legacyLaborItem) {
+        laborPrice = legacyLaborItem.price * legacyLaborItem.quantity;
+      } else if (sale.labor_value > 0) {
+        laborPrice = sale.labor_value;
+      }
+      totalWorkshopPrincipalLabor += laborPrice;
+
+      let partsTotal = 0;
+      sale.items?.forEach(item => {
+        if (item.type !== 'Serviço Principal' && item.type !== 'Adicional Interno' && item.description !== 'MÃO DE OBRA / SERVIÇOS AVULSOS') {
+          partsTotal += item.price * item.quantity;
+        }
+      });
+      totalWorkshopParts += partsTotal;
+
+      if (sale.mechanic_id || sale.mechanic_name) {
+        totalCommissionsPaid += laborPrice * 0.50;
+        sale.items?.forEach(item => {
+          if (item.type === 'Adicional Interno') {
+            totalInternalServicesPaid += item.price * item.quantity;
+          }
+        });
+      }
+    });
+
+    const totalWorkshopBilling = totalWorkshopPrincipalLabor + totalWorkshopParts;
+    const totalPaidToMechanics = totalCommissionsPaid + totalInternalServicesPaid;
+    const remainingForWorkshop = totalWorkshopBilling - totalPaidToMechanics;
+
+    const content = `
+      <div style="font-family: monospace; width: 300px; font-size: 12px; line-height: 1.4; color: black; padding: 10px;">
+        <div style="text-align: center; font-weight: bold; font-size: 14px;">KOMBAT MOTO PEÇAS</div>
+        <div style="text-align: center; font-weight: bold;">RESUMO DE COMISSÕES</div>
+        <div style="text-align: center; font-size: 10px; margin-bottom: 10px;">PERÍODO: ${mechanicSummaryPeriod.toUpperCase()}</div>
+        <hr style="border-top: 1px dashed black;" />
+        
+        ${mechanicsHTML}
+        
+        <hr style="border-top: 1px dashed black; margin-top: 12px;" />
+        
+        <div style="margin-top: 10px; font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 2px;">RESUMO GERAL DA OFICINA:</div>
+        <div style="display: flex; justify-content: space-between;"><span>M. Obra Clientes:</span><span>R$ ${totalWorkshopPrincipalLabor.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between;"><span>Peças/Prod Clientes:</span><span>R$ ${totalWorkshopParts.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between; font-weight: bold;"><span>TOTAL CLIENTES:</span><span>R$ ${totalWorkshopBilling.toFixed(2)}</span></div>
+        
+        <div style="display: flex; justify-content: space-between; margin-top: 6px;"><span>Total Comissões:</span><span>R$ ${totalCommissionsPaid.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between;"><span>Total Adicionais:</span><span>R$ ${totalInternalServicesPaid.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between; font-weight: bold;"><span>PAGO MECÂNICOS:</span><span>R$ ${totalPaidToMechanics.toFixed(2)}</span></div>
+        
+        <hr style="border-top: 1px dashed black; margin-top: 8px;" />
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; margin-top: 4px;">
+          <span>OFICINA LÍQUIDO:</span>
+          <span>R$ ${remainingForWorkshop.toFixed(2)}</span>
+        </div>
+        
+        <hr style="border-top: 1px dashed black; margin-top: 12px;" />
+        <div style="text-align: center; font-size: 9px; margin-top: 10px;">Impresso em: ${new Date().toLocaleString('pt-BR')}</div>
+      </div>
+    `;
+
+    printWindow.document.write(`<html><head><title>Resumo de Comissões</title></head><body onload="window.print();window.close();">${content}</body></html>`);
+    printWindow.document.close();
+  };
+
   const renderMechanics = () => (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -3073,6 +3383,224 @@ export default function App() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+        
+        {/* Resumo Consolidado de Comissões e Faturamento */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-400 overflow-hidden lg:col-span-2 dark:bg-slate-800 dark:border-slate-700">
+          <div className="p-6 border-b border-slate-400 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 dark:bg-slate-900 dark:border-slate-700">
+            <h3 className="font-bold text-slate-900 flex items-center gap-2 dark:text-slate-100">
+              <Calculator size={18} className="text-indigo-600" />
+              Resumo Consolidado de Comissões e Faturamento
+            </h3>
+            
+            {/* Period Selector Buttons */}
+            <div className="flex bg-slate-200 p-1 rounded-xl gap-1 dark:bg-slate-700">
+              {(['Hoje', 'Semana', 'Mês', 'Todos'] as const).map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setMechanicSummaryPeriod(p)}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                    mechanicSummaryPeriod === p
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-300 dark:text-slate-300 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  {p === 'Hoje' ? 'Hoje' : p === 'Semana' ? 'Esta Semana' : p === 'Mês' ? 'Este Mês' : 'Todos'}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Mechanics details */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Repasse aos Mecânicos</h4>
+                {mechanics.map(m => {
+                  const mSales = getFilteredSalesForMechanics().filter(s => String(s.mechanic_id) === String(m.id) || s.mechanic_name === m.name);
+                  
+                  let principalLaborTotal = 0;
+                  let internalServicesTotal = 0;
+                  const internalServicesList: { description: string; price: number; customer_name: string }[] = [];
+
+                  mSales.forEach(sale => {
+                    const principalItem = sale.items?.find(i => i.type === 'Serviço Principal');
+                    const legacyLaborItem = sale.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
+                    let laborPrice = 0;
+                    if (principalItem) {
+                      laborPrice = principalItem.price * principalItem.quantity;
+                    } else if (legacyLaborItem) {
+                      laborPrice = legacyLaborItem.price * legacyLaborItem.quantity;
+                    } else if (sale.labor_value > 0) {
+                      laborPrice = sale.labor_value;
+                    }
+                    principalLaborTotal += laborPrice;
+
+                    sale.items?.forEach(item => {
+                      if (item.type === 'Adicional Interno') {
+                        const price = item.price * item.quantity;
+                        internalServicesTotal += price;
+                        internalServicesList.push({
+                          description: item.description,
+                          price: price,
+                          customer_name: sale.customer_name
+                        });
+                      }
+                    });
+                  });
+
+                  const commission = principalLaborTotal * 0.50;
+                  const totalToPay = commission + internalServicesTotal;
+
+                  return (
+                    <div key={m.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-300 space-y-3 dark:bg-slate-900 dark:border-slate-700">
+                      <div className="flex justify-between items-center border-b border-slate-200 pb-2 dark:border-slate-800">
+                        <span className="font-black text-sm text-slate-800 dark:text-slate-100 uppercase">{m.name}</span>
+                        <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg dark:bg-slate-800 dark:text-indigo-400">
+                          {formatBRL(totalToPay)}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs font-bold">
+                        <div>
+                          <p className="text-slate-400 uppercase text-[9px]">Mão de Obra Total</p>
+                          <p className="text-slate-700 dark:text-slate-300">{formatBRL(principalLaborTotal)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400 uppercase text-[9px]">Comissão 50%</p>
+                          <p className="text-slate-700 dark:text-slate-300">{formatBRL(commission)}</p>
+                        </div>
+                        <div className="col-span-2 pt-1">
+                          <p className="text-slate-400 uppercase text-[9px]">Adicionais Internos</p>
+                          <p className="text-slate-700 dark:text-slate-300">{formatBRL(internalServicesTotal)}</p>
+                        </div>
+                      </div>
+                      {internalServicesList.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-tight">Detalhamento de Adicionais</p>
+                          <div className="max-h-[100px] overflow-y-auto space-y-1 pr-1">
+                            {internalServicesList.map((item, idx) => (
+                              <div key={idx} className="flex justify-between text-[11px] font-medium bg-white p-1.5 rounded-lg border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
+                                <span className="truncate flex-1 pr-2">{item.description} <span className="text-slate-400">({item.customer_name})</span></span>
+                                <span className="font-mono font-bold shrink-0">{formatBRL(item.price)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {mechanics.length === 0 && (
+                  <p className="text-xs text-slate-500 font-bold">Nenhum mecânico cadastrado para este resumo.</p>
+                )}
+              </div>
+
+              {/* General Workshop summary */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Resumo Geral da Oficina</h4>
+                
+                {(() => {
+                  let totalLabor = 0;
+                  let totalParts = 0;
+                  let totalCommissions = 0;
+                  let totalInternals = 0;
+
+                  getFilteredSalesForMechanics().forEach(sale => {
+                    const principalItem = sale.items?.find(i => i.type === 'Serviço Principal');
+                    const legacyLaborItem = sale.items?.find(i => i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS');
+                    let laborPrice = 0;
+                    if (principalItem) {
+                      laborPrice = principalItem.price * principalItem.quantity;
+                    } else if (legacyLaborItem) {
+                      laborPrice = legacyLaborItem.price * legacyLaborItem.quantity;
+                    } else if (sale.labor_value > 0) {
+                      laborPrice = sale.labor_value;
+                    }
+                    totalLabor += laborPrice;
+
+                    sale.items?.forEach(item => {
+                      if (item.type !== 'Serviço Principal' && item.type !== 'Adicional Interno' && item.description !== 'MÃO DE OBRA / SERVIÇOS AVULSOS') {
+                        totalParts += item.price * item.quantity;
+                      } else if (item.type === 'Adicional Interno' && (sale.mechanic_id || sale.mechanic_name)) {
+                        totalInternals += item.price * item.quantity;
+                      }
+                    });
+
+                    if (sale.mechanic_id || sale.mechanic_name) {
+                      totalCommissions += laborPrice * 0.50;
+                    }
+                  });
+
+                  const totalBilling = totalLabor + totalParts;
+                  const totalPaid = totalCommissions + totalInternals;
+                  const remaining = totalBilling - totalPaid;
+
+                  return (
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-300 space-y-4 dark:bg-slate-900 dark:border-slate-700">
+                      <div className="space-y-2.5">
+                        <div className="flex justify-between items-center text-xs font-bold">
+                          <span className="text-slate-500">Mão de Obra dos Clientes:</span>
+                          <span className="text-slate-800 dark:text-slate-200">{formatBRL(totalLabor)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs font-bold">
+                          <span className="text-slate-500">Peças/Produtos dos Clientes:</span>
+                          <span className="text-slate-800 dark:text-slate-200">{formatBRL(totalParts)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm font-black border-t border-slate-200 pt-2 dark:border-slate-800">
+                          <span className="text-slate-900 dark:text-slate-100 uppercase">Faturamento Total:</span>
+                          <span className="text-slate-900 dark:text-slate-100">{formatBRL(totalBilling)}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2.5 pt-2 border-t border-dashed border-slate-300 dark:border-slate-700">
+                        <div className="flex justify-between items-center text-xs font-bold">
+                          <span className="text-slate-500">Comissões Pagas:</span>
+                          <span className="text-slate-800 dark:text-slate-200">{formatBRL(totalCommissions)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs font-bold">
+                          <span className="text-slate-500">Adicionais Internos Pagos:</span>
+                          <span className="text-slate-800 dark:text-slate-200">{formatBRL(totalInternals)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs font-black border-t border-slate-200 pt-2 dark:border-slate-800 text-rose-600">
+                          <span className="uppercase">Repasse Total Mecânicos:</span>
+                          <span>{formatBRL(totalPaid)}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-slate-300 dark:border-slate-700 flex justify-between items-center bg-emerald-50 -mx-6 -mb-6 p-4 rounded-b-2xl dark:bg-emerald-950/20">
+                        <div>
+                          <span className="block text-[9px] font-black text-emerald-800 dark:text-emerald-400 uppercase tracking-widest">Valor Restante Oficina</span>
+                          <span className="text-lg font-black text-emerald-800 dark:text-emerald-400">{formatBRL(remaining)}</span>
+                        </div>
+                        <CheckCircle size={24} className="text-emerald-500" />
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+            
+            {/* Print and Copy Actions */}
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={handleCopyReport}
+                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-bold text-xs uppercase tracking-wider shadow-sm"
+              >
+                <Copy size={16} />
+                Copiar Relatório
+              </button>
+              <button
+                type="button"
+                onClick={handlePrintReport}
+                className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white border border-slate-700 rounded-xl hover:bg-slate-700 transition-all font-bold text-xs uppercase tracking-wider shadow-sm dark:bg-slate-900"
+              >
+                <Printer size={16} />
+                Imprimir Resumo (Térmico)
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -7269,185 +7797,224 @@ export default function App() {
                 }
               `}</style>
 
-              <div style={{ textAlign: 'center', marginBottom: '4px', fontWeight: 'bold' }}>
-                <h4 style={{ fontWeight: '900', fontSize: '15px', margin: '0' }}>KOMBAT MOTO PECAS</h4>
-                <p style={{ margin: '0', fontSize: '11px' }}>CNPJ: 12.802.931/0001-92</p>
-                <p style={{ margin: '0', fontSize: '11px' }}>R PARANA, 342 - CENTRO, Andirá / PR</p>
-                <p style={{ margin: '0', fontSize: '11px' }}>Tel (43) 3538-4537 | Email: kombatpecas@gmail.com</p>
-              </div>
-
-              <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
-
-              <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
-                <tbody>
-                  <tr>
-                    <td>Venda: {selectedSaleForReceipt.id}</td>
-                    <td style={{ textAlign: 'center' }}>Data: {new Date(selectedSaleForReceipt.date).toLocaleDateString('pt-BR')}</td>
-                    <td style={{ textAlign: 'right' }}>Hora: {new Date(selectedSaleForReceipt.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
-
-              {/* Customer Info */}
-              <div style={{ padding: '2px 0' }}>
-                <p style={{ fontWeight: 'bold' }}>Cliente: {selectedSaleForReceipt.customer_id || '---'} - {(selectedSaleForReceipt.customer_name || 'Consumidor Final').toUpperCase()}</p>
-                {(() => {
-                  const customer = customers.find(c => c.id === selectedSaleForReceipt.customer_id);
-                  if (customer) {
-                    return (
-                      <div style={{ fontSize: '12px', fontWeight: 'bold' }}>
-                        <p>TEL: {customer.whatsapp || '---'} | {customer.cpf ? `CPF: ${customer.cpf}` : (customer.cnpj ? `CNPJ: ${customer.cnpj}` : '')}</p>
-                        <p>End: {customer.address || ''} {customer.neighborhood ? ` - ${customer.neighborhood}` : ''}</p>
-                        <p>Cidade: {customer.city || 'Andirá'} / PR</p>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-              </div>
-              <div className="border-t border-dashed border-black my-1"></div>
-
-              {/* Vehicle Info */}
-              <div style={{ padding: '4px 0', fontSize: '12px', fontWeight: 'bold' }}>
-                {selectedSaleForReceipt.moto_details ? (
-                  <div>
-                    <p style={{ fontWeight: '900' }}>Placa: {selectedSaleForReceipt.moto_details.match(/\((.*?)\)/)?.[1] || '-'}</p>
-                    <p>Veículo: {selectedSaleForReceipt.moto_details.split('(')[0] || '-'}</p>
-                  </div>
-                ) : (
-                  <p>Veículo: Não informado</p>
-                )}
-                <p>KM Atual: {selectedSaleForReceipt.km || selectedSaleForReceipt.moto_details?.split('KM: ')?.[1] || '-'}</p>
-              </div>
-              <div className="border-t border-dashed border-black my-1"></div>
-
-              {/* Observations */}
-              {selectedSaleForReceipt.service_description && (
-                <div style={{ padding: '2px 0' }}>
-                  <p style={{ fontWeight: 'bold' }}>Observações:</p>
-                  <p style={{ fontSize: '10px', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{selectedSaleForReceipt.service_description}</p>
+              {/* ================================================== */}
+              {/* CLIENT RECEIPT */}
+              {/* ================================================== */}
+              <div className="client-receipt">
+                <div style={{ textAlign: 'center', marginBottom: '4px', fontWeight: 'bold' }}>
+                  <h4 style={{ fontWeight: '900', fontSize: '15px', margin: '0' }}>KOMBAT MOTO PECAS</h4>
+                  <p style={{ margin: '0', fontSize: '11px' }}>CNPJ: 12.802.931/0001-92</p>
+                  <p style={{ margin: '0', fontSize: '11px' }}>R PARANA, 342 - CENTRO, Andirá / PR</p>
+                  <p style={{ margin: '0', fontSize: '11px' }}>Tel (43) 3538-4537 | Email: kombatpecas@gmail.com</p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '13px', fontWeight: '900', textDecoration: 'underline' }}>RECIBO DO CLIENTE</p>
                 </div>
-              )}
-              {selectedSaleForReceipt.service_description && <div className="border-t border-dashed border-black my-1"></div>}
 
-              {/* Items Table */}
-              <div className="py-1">
-                {(selectedSaleForReceipt.items || []).filter(i => i.product_id).length > 0 && (
-                  <div style={{ marginBottom: '4px' }}>
-                    <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>PEÇAS E PRODUTOS</p>
-                    <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
-                      <tbody>
-                        {(selectedSaleForReceipt.items || []).filter(i => i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
-                          <React.Fragment key={idx}>
-                            <tr>
-                              <td style={{ paddingTop: '2px', width: '20%' }}>{item.product_id || '---'}</td>
-                              <td style={{ paddingTop: '2px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
-                            </tr>
-                            <tr style={{ borderBottom: '1px dotted black' }}>
-                              <td style={{ textAlign: 'left', paddingLeft: '8px' }}>{item.quantity}</td>
-                              <td style={{ textAlign: 'left' }}>x R$ {(item.price || 0).toFixed(2)} =</td>
-                              <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
-                            </tr>
-                          </React.Fragment>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
 
-                {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).length > 0 && (
-                  <div style={{ marginBottom: '4px' }}>
-                    <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>SERVIÇOS EXECUTADOS</p>
-                    <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
-                      <tbody>
-                        {(selectedSaleForReceipt.items || []).filter(i => !i.product_id && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO')).map((item, idx) => (
-                          <React.Fragment key={idx}>
-                            <tr>
-                              <td style={{ paddingTop: '2px', width: '20%' }}>---</td>
-                              <td style={{ paddingTop: '2px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
-                            </tr>
-                            <tr style={{ borderBottom: '1px dotted black' }}>
-                              <td style={{ textAlign: 'left', paddingLeft: '8px' }}>{item.quantity}</td>
-                              <td style={{ textAlign: 'left' }}>x R$ {(item.price || 0).toFixed(2)} =</td>
-                              <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
-                            </tr>
-                          </React.Fragment>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {(selectedSaleForReceipt.labor_value || 0) > 0 && (
-                  <div style={{ marginTop: '4px', paddingTop: '2px', borderTop: '1px dotted black' }}>
-                    <table style={{ width: '100%', fontSize: '10px', fontWeight: 'bold' }}>
-                      <tbody>
-                        <tr>
-                          <td style={{ textAlign: 'left' }}>MÃO DE OBRA / SERVIÇOS AVULSOS</td>
-                          <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.labor_value || 0).toFixed(2)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-              <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
-
-              {/* Totals Section */}
-              <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
-              <table style={{ width: '100%', fontSize: '11px', fontWeight: 'bold' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ textAlign: 'left' }}>Total Peças:</td>
-                    <td style={{ textAlign: 'right' }}>R$ {((selectedSaleForReceipt.items || []).filter(i => i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0)).toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ textAlign: 'left' }}>Total Serviços:</td>
-                    <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total - (selectedSaleForReceipt.items || []).filter(i => i.product_id).reduce((acc, i) => acc + (i.price * i.quantity), 0)).toFixed(2)}</td>
-                  </tr>
-                  <tr style={{ borderTop: '1px dotted black' }}>
-                    <td style={{ textAlign: 'left', paddingTop: '4px', fontSize: '12px' }}>TOTAL GERAL:</td>
-                    <td style={{ textAlign: 'right', paddingTop: '4px', fontSize: '12px' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ textAlign: 'left' }}>Desconto:</td>
-                    <td style={{ textAlign: 'right' }}>R$ 0,00</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              {/* Payment Info */}
-              <div style={{ marginTop: '6px', paddingTop: '2px', borderTop: '1px dashed black' }}>
-                <table style={{ width: '100%', fontSize: '11px', fontWeight: '900', borderBottom: '1.5px solid black', marginBottom: '4px' }}>
-                  <thead>
+                <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
+                  <tbody>
                     <tr>
-                      <th style={{ textAlign: 'left' }}>Vencimento</th>
-                      <th style={{ textAlign: 'center' }}>Forma Pagto</th>
-                      <th style={{ textAlign: 'right' }}>Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody style={{ fontSize: '12px' }}>
-                    <tr>
-                      <td style={{ textAlign: 'left' }}>{selectedSaleForReceipt.due_date ? new Date(selectedSaleForReceipt.due_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}</td>
-                      <td style={{ textAlign: 'center' }}>{(selectedSaleForReceipt.payment_method === 'Fiado' ? 'CREDITO KOMBAT' : (selectedSaleForReceipt.payment_method || '')).toUpperCase()}</td>
-                      <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                      <td>Venda: {selectedSaleForReceipt.id}</td>
+                      <td style={{ textAlign: 'center' }}>Data: {new Date(selectedSaleForReceipt.date).toLocaleDateString('pt-BR')}</td>
+                      <td style={{ textAlign: 'right' }}>Hora: {new Date(selectedSaleForReceipt.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
                     </tr>
                   </tbody>
                 </table>
-              </div>
 
-              <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
+                <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
 
-              <table style={{ width: '100%' }}>
-                <tbody>
-                  <tr style={{ fontWeight: '900', fontSize: '16px' }}>
-                    <td style={{ textAlign: 'left', textDecoration: 'underline' }}>TOTAL:</td>
-                    <td style={{ textAlign: 'right', textDecoration: 'underline' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
-                  </tr>
-                  {selectedSaleForReceipt.payment_method === 'Fiado' && (
-                    <>
+                {/* Customer Info */}
+                <div style={{ padding: '2px 0' }}>
+                  <p style={{ fontWeight: 'bold' }}>Cliente: {selectedSaleForReceipt.customer_id || '---'} - {(selectedSaleForReceipt.customer_name || 'Consumidor Final').toUpperCase()}</p>
+                  {(() => {
+                    const customer = customers.find(c => c.id === selectedSaleForReceipt.customer_id);
+                    if (customer) {
+                      return (
+                        <div style={{ fontSize: '12px', fontWeight: 'bold' }}>
+                          <p>TEL: {customer.whatsapp || '---'} | {customer.cpf ? `CPF: ${customer.cpf}` : (customer.cnpj ? `CNPJ: ${customer.cnpj}` : '')}</p>
+                          <p>End: {customer.address || ''} {customer.neighborhood ? ` - ${customer.neighborhood}` : ''}</p>
+                          <p>Cidade: {customer.city || 'Andirá'} / PR</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+                <div className="border-t border-dashed border-black my-1"></div>
+
+                {/* Vehicle Info */}
+                <div style={{ padding: '4px 0', fontSize: '12px', fontWeight: 'bold' }}>
+                  {selectedSaleForReceipt.moto_details ? (
+                    <div>
+                      <p style={{ fontWeight: '900' }}>Placa: {selectedSaleForReceipt.moto_details.match(/\((.*?)\)/)?.[1] || '-'}</p>
+                      <p>Veículo: {selectedSaleForReceipt.moto_details.split('(')[0] || '-'}</p>
+                    </div>
+                  ) : (
+                    <p>Veículo: Não informado</p>
+                  )}
+                  <p>KM Atual: {selectedSaleForReceipt.km || selectedSaleForReceipt.moto_details?.split('KM: ')?.[1] || '-'}</p>
+                </div>
+                <div className="border-t border-dashed border-black my-1"></div>
+
+                {/* Observations */}
+                {selectedSaleForReceipt.service_description && (
+                  <div style={{ padding: '2px 0' }}>
+                    <p style={{ fontWeight: 'bold' }}>Observações:</p>
+                    <p style={{ fontSize: '10px', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{selectedSaleForReceipt.service_description}</p>
+                  </div>
+                )}
+                {selectedSaleForReceipt.service_description && <div className="border-t border-dashed border-black my-1"></div>}
+
+                {/* Items Section */}
+                <div className="py-1">
+                  {/* Filter items for client (exclude Adicional Interno) */}
+                  {(() => {
+                    const clientItems = (selectedSaleForReceipt.items || []).filter(i => i.type !== 'Adicional Interno');
+                    const principalService = clientItems.find(i => i.type === 'Serviço Principal') || {
+                      description: 'MÃO DE OBRA / SERVIÇOS AVULSOS',
+                      price: selectedSaleForReceipt.labor_value || 0,
+                      quantity: 1
+                    };
+                    const partsItems = clientItems.filter(i => (i.product_id || i.type === 'Peça') && !i.description.includes('TAXA DE PARCELAMENTO') && !i.description.includes('AJUSTE DE TAXA/PRAZO') && !i.description.includes('TAXA DE CREDITO'));
+                    const otherServices = clientItems.filter(i => !i.product_id && i.type === 'Serviço' && i.type !== 'Serviço Principal');
+                    const feesItems = clientItems.filter(i => i.description.includes('TAXA DE PARCELAMENTO') || i.description.includes('AJUSTE DE TAXA/PRAZO') || i.description.includes('TAXA DE CREDITO'));
+
+                    const totalParts = partsItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+                    const totalLabor = principalService.price + otherServices.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+                    const totalFeesVal = feesItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+
+                    return (
+                      <>
+                        {/* Principal Service */}
+                        {principalService.price > 0 && (
+                          <div style={{ marginBottom: '4px' }}>
+                            <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>SERVIÇO REALIZADO</p>
+                            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
+                              <tbody>
+                                <tr>
+                                  <td style={{ paddingTop: '2px' }}>- Serviço principal: {principalService.description.toUpperCase()}</td>
+                                </tr>
+                                <tr style={{ borderBottom: '1px dotted black' }}>
+                                  <td style={{ textAlign: 'right', fontWeight: '900' }}>
+                                    Valor da mão de obra: R$ {principalService.price.toFixed(2)}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Other Services */}
+                        {otherServices.length > 0 && (
+                          <div style={{ marginBottom: '4px', marginTop: '4px' }}>
+                            <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>OUTROS SERVIÇOS</p>
+                            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
+                              <tbody>
+                                {otherServices.map((item, idx) => (
+                                  <React.Fragment key={idx}>
+                                    <tr>
+                                      <td style={{ paddingTop: '2px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
+                                    </tr>
+                                    <tr style={{ borderBottom: '1px dotted black' }}>
+                                      <td style={{ textAlign: 'left', paddingLeft: '8px' }}>{item.quantity}</td>
+                                      <td style={{ textAlign: 'left' }}>x R$ {(item.price || 0).toFixed(2)} =</td>
+                                      <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
+                                    </tr>
+                                  </React.Fragment>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Parts & Products */}
+                        {partsItems.length > 0 && (
+                          <div style={{ marginBottom: '4px', marginTop: '4px' }}>
+                            <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>PEÇAS E PRODUTOS</p>
+                            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
+                              <tbody>
+                                {partsItems.map((item, idx) => (
+                                  <React.Fragment key={idx}>
+                                    <tr>
+                                      <td style={{ paddingTop: '2px', width: '20%' }}>{item.product_id || '---'}</td>
+                                      <td style={{ paddingTop: '2px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
+                                    </tr>
+                                    <tr style={{ borderBottom: '1px dotted black' }}>
+                                      <td style={{ textAlign: 'left', paddingLeft: '8px' }}>{item.quantity}</td>
+                                      <td style={{ textAlign: 'left' }}>x R$ {(item.price || 0).toFixed(2)} =</td>
+                                      <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
+                                    </tr>
+                                  </React.Fragment>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Fees / Adjustments */}
+                        {feesItems.length > 0 && (
+                          <div style={{ marginBottom: '4px', marginTop: '4px' }}>
+                            <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>TAXAS / AJUSTES</p>
+                            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
+                              <tbody>
+                                {feesItems.map((item, idx) => (
+                                  <tr key={idx} style={{ borderBottom: '1px dotted black' }}>
+                                    <td style={{ paddingTop: '2px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
+                                    <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
+
+                        {/* Totals table */}
+                        <table style={{ width: '100%', fontSize: '11px', fontWeight: 'bold' }}>
+                          <tbody>
+                            <tr>
+                              <td style={{ textAlign: 'left' }}>Total de mão de obra:</td>
+                              <td style={{ textAlign: 'right' }}>R$ {totalLabor.toFixed(2)}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ textAlign: 'left' }}>Total de peças/produtos:</td>
+                              <td style={{ textAlign: 'right' }}>R$ {(totalParts + totalFeesVal).toFixed(2)}</td>
+                            </tr>
+                            <tr style={{ borderTop: '1.5px solid black', fontWeight: '900', fontSize: '16px' }}>
+                              <td style={{ textAlign: 'left', paddingTop: '4px', textDecoration: 'underline' }}>TOTAL A PAGAR:</td>
+                              <td style={{ textAlign: 'right', paddingTop: '4px', textDecoration: 'underline' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Payment Info */}
+                <div style={{ marginTop: '6px', paddingTop: '2px', borderTop: '1px dashed black' }}>
+                  <table style={{ width: '100%', fontSize: '11px', fontWeight: '900', borderBottom: '1.5px solid black', marginBottom: '4px' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left' }}>Vencimento</th>
+                        <th style={{ textAlign: 'center' }}>Forma Pagto</th>
+                        <th style={{ textAlign: 'right' }}>Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody style={{ fontSize: '12px' }}>
+                      <tr>
+                        <td style={{ textAlign: 'left' }}>{selectedSaleForReceipt.due_date ? new Date(selectedSaleForReceipt.due_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}</td>
+                        <td style={{ textAlign: 'center' }}>{(selectedSaleForReceipt.payment_method === 'Fiado' ? 'CREDITO KOMBAT' : (selectedSaleForReceipt.payment_method || '')).toUpperCase()}</td>
+                        <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {selectedSaleForReceipt.payment_method === 'Fiado' && (
+                  <table style={{ width: '100%', marginTop: '4px' }}>
+                    <tbody>
                       <tr style={{ fontSize: '11px', fontWeight: '900' }}>
                         <td colSpan={2} style={{ paddingTop: '4px', borderTop: '1.5px solid black' }}>REGRA DE PAGAMENTO (FIADO):</td>
                       </tr>
@@ -7459,37 +8026,180 @@ export default function App() {
                         <td style={{ textAlign: 'left' }}>VALOR APÓS 30 DIAS (+15%):</td>
                         <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total * 1.15).toFixed(2)}</td>
                       </tr>
-                    </>
-                  )}
-                  <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '1px dashed black' }}>
-                    <td style={{ textAlign: 'left', paddingTop: '2px' }}>TOTAL PAGO:</td>
-                    <td style={{ textAlign: 'right', paddingTop: '2px' }}>R$ {(selectedSaleForReceipt.paid_total || (selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0) : 0)).toFixed(2)}</td>
-                  </tr>
-                  {selectedSaleForReceipt.payment_method === 'Fiado' && (
-                    <tr style={{ fontWeight: '900', fontSize: '14px', color: 'red' }}>
-                      <td style={{ textAlign: 'left', paddingTop: '2px' }}>RESTANTE DEVIDO:</td>
-                      <td style={{ textAlign: 'right', paddingTop: '2px' }}>R$ {(selectedSaleForReceipt.total - (selectedSaleForReceipt.paid_total || 0)).toFixed(2)}</td>
-                    </tr>
-                  )}
-                  {selectedSaleForReceipt.customer_id && (
-                    <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '2.5px solid black' }}>
-                      <td style={{ textAlign: 'left', paddingTop: '4px' }}>SALDO LIMITE:</td>
-                      <td style={{ textAlign: 'right', paddingTop: '4px', color: 'red' }}>R$ {getCustomerRemainingCredit(selectedSaleForReceipt.customer_id).toFixed(2)}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    </tbody>
+                  </table>
+                )}
 
-              <div style={{ textAlign: 'center', marginTop: '20px', paddingBottom: '10px' }}>
-                <div style={{ borderTop: '2px solid black', width: '200px', margin: '0 auto' }}></div>
-                <p style={{ fontSize: '11px', marginTop: '2px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
+                <table style={{ width: '100%', marginTop: '4px' }}>
+                  <tbody>
+                    <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '1px dashed black' }}>
+                      <td style={{ textAlign: 'left', paddingTop: '2px' }}>TOTAL PAGO:</td>
+                      <td style={{ textAlign: 'right', paddingTop: '2px' }}>R$ {(selectedSaleForReceipt.paid_total || (selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0) : 0)).toFixed(2)}</td>
+                    </tr>
+                    {selectedSaleForReceipt.payment_method === 'Fiado' && (
+                      <tr style={{ fontWeight: '900', fontSize: '14px', color: 'red' }}>
+                        <td style={{ textAlign: 'left', paddingTop: '2px' }}>RESTANTE DEVIDO:</td>
+                        <td style={{ textAlign: 'right', paddingTop: '2px' }}>R$ {(selectedSaleForReceipt.total - (selectedSaleForReceipt.paid_total || 0)).toFixed(2)}</td>
+                      </tr>
+                    )}
+                    {selectedSaleForReceipt.customer_id && (
+                      <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '2.5px solid black' }}>
+                        <td style={{ textAlign: 'left', paddingTop: '4px' }}>SALDO LIMITE:</td>
+                        <td style={{ textAlign: 'right', paddingTop: '4px', color: 'red' }}>R$ {getCustomerRemainingCredit(selectedSaleForReceipt.customer_id).toFixed(2)}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                <div style={{ textAlign: 'center', marginTop: '20px', paddingBottom: '10px' }}>
+                  <div style={{ borderTop: '2px solid black', width: '200px', margin: '0 auto' }}></div>
+                  <p style={{ fontSize: '11px', marginTop: '2px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
+                </div>
+
+                <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '8px', borderTop: '1px dashed black' }}>
+                  <p style={{ fontWeight: '900', fontSize: '10px', textTransform: 'uppercase' }}>Esse cupom não é um documento fiscal</p>
+                </div>
+                <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
+                <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: '900' }}>Obrigado pela preferência!<br />Kombat Moto Peças</div>
               </div>
 
-              <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '8px', borderTop: '1px dashed black' }}>
-                <p style={{ fontWeight: '900', fontSize: '10px', textTransform: 'uppercase' }}>Esse cupom não é um documento fiscal</p>
-              </div>
-              <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
-              <div style={{ height: '20px' }}></div> {/* Buffer for thermal cutter */}
+              {/* ================================================== */}
+              {/* DUAL DIVISION & INTERNAL OFFICE RECEIPT */}
+              {/* ================================================== */}
+              {selectedSaleForReceipt.mechanic_id && (
+                <div className="internal-receipt" style={{ marginTop: '30px', borderTop: '3px dashed black', paddingTop: '30px' }}>
+                  {/* print-only divider to separate sheets if printing on continuous roll */}
+                  <div className="text-center font-black text-lg no-print" style={{ margin: '15px 0', borderBottom: '1px dashed #666', borderTop: '1px dashed #666', padding: '5px 0' }}>
+                    ====================================
+                  </div>
+                  
+                  <div style={{ textAlign: 'center', marginBottom: '4px', fontWeight: 'bold' }}>
+                    <h4 style={{ fontWeight: '900', fontSize: '14px', margin: '0' }}>KOMBAT MOTO PEÇAS</h4>
+                    <p style={{ margin: '0', fontSize: '12px', fontWeight: '900', textTransform: 'uppercase' }}>RECIBO INTERNO DA OFICINA</p>
+                    <p style={{ margin: '0', fontSize: '10px', fontWeight: '900' }}>CONTROLE INTERNO DE COMISSÕES</p>
+                  </div>
+
+                  <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
+
+                  <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
+                    <tbody>
+                      <tr>
+                        <td>Venda: {selectedSaleForReceipt.id}</td>
+                        <td style={{ textAlign: 'right' }}>Data: {new Date(selectedSaleForReceipt.date).toLocaleDateString('pt-BR')}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
+
+                  {/* Internal Info */}
+                  <div style={{ fontSize: '12px', padding: '2px 0' }}>
+                    <p>Cliente: {(selectedSaleForReceipt.customer_name || 'Consumidor Final').toUpperCase()}</p>
+                    <p>Moto: {selectedSaleForReceipt.moto_details ? selectedSaleForReceipt.moto_details.split('(')[0] : 'Não informado'}</p>
+                    <p style={{ fontWeight: '900', fontSize: '13px', marginTop: '2px' }}>Mecânico responsável: {selectedSaleForReceipt.mechanic_name?.toUpperCase()}</p>
+                  </div>
+
+                  <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
+
+                  {/* Calculations & Commission Details */}
+                  {(() => {
+                    const principalService = selectedSaleForReceipt.items?.find(i => i.type === 'Serviço Principal') || {
+                      description: 'MÃO DE OBRA / SERVIÇOS AVULSOS',
+                      price: selectedSaleForReceipt.labor_value || 0
+                    };
+                    const internalServices = selectedSaleForReceipt.items?.filter(i => i.type === 'Adicional Interno') || [];
+                    const totalAdicionais = internalServices.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+                    // Total pay to mechanic: commission + internal services
+                    const totalPagarMecanico = (selectedSaleForReceipt.commission || 0) + totalAdicionais;
+                    const sobraOficina = selectedSaleForReceipt.total - totalPagarMecanico;
+
+                    return (
+                      <>
+                        <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
+                          <tbody>
+                            <tr>
+                              <td>Mão de obra principal cobrada do cliente:</td>
+                              <td style={{ textAlign: 'right' }}>R$ {principalService.price.toFixed(2)}</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px dotted black' }}>
+                              <td style={{ color: '#000', fontWeight: '900' }}>Comissão 50% sobre mão de obra principal:</td>
+                              <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {(selectedSaleForReceipt.commission || 0).toFixed(2)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        {/* Internal Services List */}
+                        {internalServices.length > 0 ? (
+                          <div style={{ marginTop: '6px' }}>
+                            <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '2px' }}>SERVIÇOS ADICIONAIS INTERNOS</p>
+                            <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
+                              <tbody>
+                                {internalServices.map((item, idx) => (
+                                  <tr key={idx} style={{ borderBottom: '1px dotted black' }}>
+                                    <td>- {item.description.toUpperCase()}</td>
+                                    <td style={{ textAlign: 'right' }}>R$ {item.price.toFixed(2)}</td>
+                                  </tr>
+                                ))}
+                                <tr style={{ fontWeight: '900' }}>
+                                  <td style={{ paddingTop: '2px' }}>Total de serviços adicionais internos:</td>
+                                  <td style={{ textAlign: 'right', paddingTop: '2px' }}>R$ {totalAdicionais.toFixed(2)}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div style={{ marginTop: '4px', fontSize: '11px', fontStyle: 'italic' }}>
+                            Sem serviços adicionais internos.
+                          </div>
+                        )}
+
+                        <div style={{ borderTop: '1.5px solid black', margin: '6px 0' }}></div>
+
+                        {/* TOTAL TO MECHANIC */}
+                        <div style={{ background: '#f3f4f6', padding: '4px', borderRadius: '4px', border: '1px solid black' }}>
+                          <p style={{ fontSize: '11px', fontWeight: '900', margin: '0' }}>TOTAL A PAGAR AO MECÂNICO:</p>
+                          <p style={{ fontSize: '10px', margin: '0 0 4px 0' }}>Comissão 50% + serviços adicionais internos</p>
+                          <p style={{ fontSize: '18px', fontWeight: '900', margin: '0', textAlign: 'right', textDecoration: 'underline' }}>
+                            R$ {totalPagarMecanico.toFixed(2)}
+                          </p>
+                        </div>
+
+                        <div style={{ borderTop: '1px dashed black', margin: '8px 0' }}></div>
+
+                        {/* FINANCIAL SUMMARY */}
+                        <p style={{ fontSize: '11px', fontWeight: '900', margin: '0 0 2px 0' }}>Resumo financeiro interno:</p>
+                        <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
+                          <tbody>
+                            <tr>
+                              <td>Total cobrado do cliente:</td>
+                              <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                            </tr>
+                            <tr>
+                              <td>Total pago ao mecânico:</td>
+                              <td style={{ textAlign: 'right' }}>R$ {totalPagarMecanico.toFixed(2)}</td>
+                            </tr>
+                            <tr style={{ borderTop: '1.5px solid black', fontWeight: '900', fontSize: '13px' }}>
+                              <td>Valor restante para oficina:</td>
+                              <td style={{ textAlign: 'right' }}>R$ {sobraOficina.toFixed(2)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <div style={{ borderTop: '1px dashed black', margin: '6px 0' }}></div>
+
+                        <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', textAlign: 'center', margin: '0' }}>
+                          Observação interna:<br />
+                          Os serviços adicionais são valores internos para pagamento do mecânico e não foram cobrados do cliente.
+                        </p>
+                      </>
+                    );
+                  })()}
+                  
+                  <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
+                </div>
+              )}
+              
+              <div style={{ height: '30px' }}></div> {/* Buffer for thermal cutter */}
 
               <button
                 onClick={handlePrintReceipt}
@@ -7514,6 +8224,8 @@ export default function App() {
               items: [],
               selected_fixed_services: [],
               labor_value: '0',
+              principal_service_desc: '',
+              internal_services: [],
               mechanic_id: '',
               payment_method: 'Pix',
               status: 'Aberto',
@@ -7850,31 +8562,104 @@ export default function App() {
                 </div>
 
                 {osForm.mechanic_id && (
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
-                      <span className="flex items-center gap-1"><ExternalLink size={12}/> Adicionar Repasse</span>
-                    </label>
-                    <select
-                      className="w-full px-3 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold focus:bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                      value=""
-                      onChange={e => {
-                        const selectedService = fixedServices.find(fs => String(fs.id) === String(e.target.value));
-                        if (selectedService) {
-                          const existingService = osForm.selected_fixed_services.find(sfs => sfs.id === selectedService.id);
-                          if (existingService) {
-                            setOsForm({ ...osForm, selected_fixed_services: osForm.selected_fixed_services.map(sfs => sfs.id === selectedService.id ? { ...sfs, quantity: sfs.quantity + 1 } : sfs) });
-                          } else {
-                            setOsForm({ ...osForm, selected_fixed_services: [...osForm.selected_fixed_services, { ...selectedService, quantity: 1 }] });
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                        <span className="flex items-center gap-1"><ExternalLink size={12}/> Adicionar Repasse</span>
+                      </label>
+                      <select
+                        className="w-full px-3 py-2.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold focus:bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                        value=""
+                        onChange={e => {
+                          const selectedService = fixedServices.find(fs => String(fs.id) === String(e.target.value));
+                          if (selectedService) {
+                            const existingService = osForm.selected_fixed_services.find(sfs => sfs.id === selectedService.id);
+                            if (existingService) {
+                              setOsForm({ ...osForm, selected_fixed_services: osForm.selected_fixed_services.map(sfs => sfs.id === selectedService.id ? { ...sfs, quantity: sfs.quantity + 1 } : sfs) });
+                            } else {
+                              setOsForm({ ...osForm, selected_fixed_services: [...osForm.selected_fixed_services, { ...selectedService, quantity: 1 }] });
+                            }
                           }
-                        }
-                      }}
-                    >
-                      <option value="">+ Selecione o Serviço Terceirizado</option>
-                      {sortedFixedServices.filter(fs => fs && fs.id).map(fs => (
-                        <option key={fs.id} value={fs.id}>{fs.name || 'Serviço'} (Repasse: {formatBRL(fs.payout)})</option>
-                      ))}
-                    </select>
-                  </div>
+                        }}
+                      >
+                        <option value="">+ Selecione o Serviço Terceirizado</option>
+                        {sortedFixedServices.filter(fs => fs && fs.id).map(fs => (
+                          <option key={fs.id} value={fs.id}>{fs.name || 'Serviço'} (Repasse: {formatBRL(fs.payout)})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Serviços Adicionais Internos */}
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700 space-y-2">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1"><PlusCircle size={12}/> Adicionais Internos (Mecânico)</label>
+                      <input 
+                        type="text"
+                        placeholder="Descrição do adicional..."
+                        value={newInternalServiceDesc}
+                        onChange={e => setNewInternalServiceDesc(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:border-rose-400 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
+                      />
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-2.5 top-1.5 text-xs font-bold text-slate-400">R$</span>
+                          <input 
+                            type="number" step="0.01"
+                            placeholder="Valor"
+                            value={newInternalServicePrice}
+                            onChange={e => setNewInternalServicePrice(e.target.value)}
+                            className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-700 focus:bg-white focus:border-rose-400 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newInternalServiceDesc.trim()) {
+                              alert("Insira uma descrição para o serviço adicional.");
+                              return;
+                            }
+                            const val = parseFloat(newInternalServicePrice.replace(',', '.')) || 0;
+                            if (val <= 0) {
+                              alert("Insira um valor maior que zero.");
+                              return;
+                            }
+                            setOsForm({
+                              ...osForm,
+                              internal_services: [
+                                ...osForm.internal_services,
+                                { description: newInternalServiceDesc.trim(), price: val }
+                              ]
+                            });
+                            setNewInternalServiceDesc('');
+                            setNewInternalServicePrice('');
+                          }}
+                          className="px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center"
+                        >
+                          Add
+                        </button>
+                      </div>
+
+                      {osForm.internal_services && osForm.internal_services.length > 0 && (
+                        <div className="mt-2 space-y-1 max-h-[120px] overflow-y-auto pr-1">
+                          {osForm.internal_services.map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-center bg-indigo-50/50 p-2 rounded-lg text-xs font-bold text-indigo-900 dark:bg-slate-900 dark:text-slate-100">
+                              <span className="truncate flex-1 pr-2" title={item.description}>{item.description}</span>
+                              <span className="shrink-0 font-mono mr-2">R$ {item.price.toFixed(2)}</span>
+                              <button
+                                type="button"
+                                onClick={() => setOsForm({
+                                  ...osForm,
+                                  internal_services: osForm.internal_services.filter((_, i) => i !== idx)
+                                })}
+                                className="text-red-500 hover:text-red-700 transition-colors p-1"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
@@ -7903,6 +8688,36 @@ export default function App() {
                       <option value="Dinheiro">Dinheiro</option>
                       <option value="Fiado">Fiado</option>
                     </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Serviço Principal Card */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-3 shrink-0 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block flex items-center gap-1"><Wrench size={12}/> Serviço Principal</span>
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Descrição do Serviço</label>
+                    <input 
+                      type="text"
+                      placeholder="Ex: Conserto de Motor"
+                      value={osForm.principal_service_desc}
+                      onChange={e => setOsForm({ ...osForm, principal_service_desc: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:border-rose-400 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Valor da Mão de Obra</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">R$</span>
+                      <input 
+                        type="number" step="0.01"
+                        placeholder="0.00"
+                        value={osForm.labor_value}
+                        onChange={e => setOsForm({ ...osForm, labor_value: e.target.value })}
+                        className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-700 focus:bg-white focus:border-rose-400 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -7938,18 +8753,10 @@ export default function App() {
                     ).toFixed(2)}</span>
                   </div>
                   
-                  {/* Mão de Obra Avulsa Antiga ou para add rapido */}
+                  {/* Mão de Obra Principal */}
                   <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-800">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">M. Obra Extra</span>
-                    <div className="flex items-center gap-1.5 w-24">
-                      <span className="text-slate-500 font-bold dark:text-slate-400">R$</span>
-                      <input 
-                        type="number" step="0.01" 
-                        value={osForm.labor_value} 
-                        onChange={e => setOsForm({ ...osForm, labor_value: e.target.value })}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-right text-xs font-black focus:border-rose-500 focus:bg-slate-800/80 outline-none transition-all"
-                      />
-                    </div>
+                    <span className="text-slate-400 font-bold uppercase tracking-wider">Mão de Obra Principal</span>
+                    <span className="font-bold text-slate-100">R$ {parseFloat(osForm.labor_value || '0').toFixed(2)}</span>
                   </div>
                 </div>
 
