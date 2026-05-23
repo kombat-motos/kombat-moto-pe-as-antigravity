@@ -68,6 +68,7 @@ interface BillingAutomationBoxProps {
   setPayingSaleId: (id: string | null) => void;
   partialPaymentAmount: string;
   setPartialPaymentAmount: (val: string) => void;
+  onPrintReceipt: (sale: any) => void;
 }
 
 // Função para converter número em extenso (Português)
@@ -131,7 +132,8 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
   payingSaleId,
   setPayingSaleId,
   partialPaymentAmount,
-  setPartialPaymentAmount
+  setPartialPaymentAmount,
+  onPrintReceipt
 }) => {
   const [editingSaleId, setEditingSaleId] = React.useState<string | null>(null);
   const [tempDueDate, setTempDueDate] = React.useState<string>('');
@@ -433,6 +435,24 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                           title="Gerar PDF e Notinha p/ WhatsApp"
                         >
                           <FileText size={14} />
+                        </button>
+                      </div>
+                      
+                      <div className="w-4 h-[1px] bg-slate-100 mt-3"></div>
+
+                      <div className="flex flex-col items-center">
+                        <span className="text-[8px] font-black uppercase text-slate-400 mb-1">Recibo</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onPrintReceipt) {
+                              onPrintReceipt(sale);
+                            }
+                          }}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all bg-sky-100 text-sky-600 hover:bg-sky-200 hover:scale-110 shadow-sm`}
+                          title="Imprimir Recibo Térmico"
+                        >
+                          <Printer size={14} />
                         </button>
                       </div>
                     </div>

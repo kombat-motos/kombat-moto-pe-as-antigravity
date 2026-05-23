@@ -4666,6 +4666,7 @@ export default function App() {
           setPayingSaleId={setPayingSaleId}
           partialPaymentAmount={partialPaymentAmount}
           setPartialPaymentAmount={setPartialPaymentAmount}
+          onPrintReceipt={setSelectedSaleForReceipt}
         />
       </div>
     </div>
