@@ -2384,6 +2384,16 @@ export default function App() {
                         <div className="flex gap-2 justify-center">
                           <button
                             onClick={() => {
+                              handleEditOS(sale);
+                              setIsPdvHistoryOpen(false);
+                            }}
+                            title="Editar Venda"
+                            className="p-1.5 bg-slate-800 border border-slate-700 hover:border-amber-500 rounded-lg text-amber-400 hover:text-amber-300 transition-all"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            onClick={() => {
                               setSelectedSaleForReceipt(sale);
                               setIsPdvHistoryOpen(false);
                             }}
