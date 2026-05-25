@@ -83,15 +83,18 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   formatBRL
 }) => {
 
+  const [brandSearchTerm, setBrandSearchTerm] = React.useState('');
+
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
   }, [products]);
 
   const filtered = useMemo(() => {
     const search = (inventorySearchTerm.trim() || globalSearchTerm.trim()).toLowerCase();
+    const brandSearch = brandSearchTerm.trim().toLowerCase();
+    
     return sortedProducts.filter(p => {
-      if (!search) return true;
-      return (
+      const matchesSearch = !search || (
         (p.description || '').toLowerCase().includes(search) ||
         (p.sku || '').toLowerCase().includes(search) ||
         (p.alt_code || '').toLowerCase().includes(search) ||
@@ -99,17 +102,24 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
         (p.barcode || '').toLowerCase().includes(search) ||
         (p.brand && (p.brand || '').toLowerCase().includes(search))
       );
+
+      const matchesBrand = !brandSearch || (
+        (p.brand || '').toLowerCase().includes(brandSearch)
+      );
+
+      return matchesSearch && matchesBrand;
     });
-  }, [sortedProducts, inventorySearchTerm, globalSearchTerm]);
+  }, [sortedProducts, inventorySearchTerm, globalSearchTerm, brandSearchTerm]);
 
   return (
     <div className="space-y-6 notranslate" translate="no">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Estoque de Peças</h2>
-        <div className="flex flex-wrap items-center gap-2">
+        
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => fetchData()}
-            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+            className="h-10 w-10 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100 shadow-sm bg-white dark:bg-slate-800 dark:border-slate-700"
             title="Sincronizar Estoque"
           >
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
@@ -120,72 +130,82 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
             <input
               type="text"
               placeholder="Pesquisar produtos..."
-              className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-full sm:w-64 dark:bg-slate-800 dark:border-slate-700"
+              className="h-10 pl-10 pr-4 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-full sm:w-56 dark:bg-slate-800 dark:border-slate-700"
               value={inventorySearchTerm}
               onChange={e => setInventorySearchTerm(e.target.value)}
             />
           </div>
 
-          <div className="flex bg-slate-100 p-1 rounded-xl dark:bg-slate-800">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              placeholder="Buscar por marca..."
+              className="h-10 pl-10 pr-4 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-full sm:w-48 dark:bg-slate-800 dark:border-slate-700"
+              value={brandSearchTerm}
+              onChange={e => setBrandSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="flex bg-slate-100 p-1 rounded-xl h-10 items-center dark:bg-slate-800">
             <button
               onClick={() => setInventoryView('list')}
-              className={`p-2 rounded-lg transition-all ${inventoryView === 'list' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`p-1.5 rounded-lg transition-all ${inventoryView === 'list' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               title="Visualização em Lista"
             >
-              <List size={20} />
+              <List size={18} />
             </button>
             <button
               onClick={() => setInventoryView('grid')}
-              className={`p-2 rounded-lg transition-all ${inventoryView === 'grid' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`p-1.5 rounded-lg transition-all ${inventoryView === 'grid' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               title="Visualização em Cards"
             >
-              <LayoutGrid size={20} />
+              <LayoutGrid size={18} />
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium cursor-pointer text-sm whitespace-nowrap">
-              <Package size={18} />
-              Importar
-              <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportProducts} />
-            </label>
-            <button
-              onClick={handleDownloadExcel}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-medium text-sm whitespace-nowrap"
-            >
-              <Printer size={18} />
-              Exportar
-            </button>
+          <label className="h-10 flex items-center justify-center gap-2 px-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium cursor-pointer text-sm whitespace-nowrap shadow-sm">
+            <Package size={18} />
+            Importar
+            <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportProducts} />
+          </label>
 
-            <button
-              onClick={() => {
-                const url = `${window.location.origin}/api/public/catalog-ai`;
-                navigator.clipboard.writeText(url);
-                alert('Link do catálogo para IA copiado! Agora você pode colar na configuração da sua IA do WhatsApp.');
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition-all font-medium text-sm whitespace-nowrap shadow-lg shadow-slate-200"
-              title="Copiar link para a IA estudar seu estoque"
-            >
-              <Link size={18} />
-              Link de Texto p/ IA
-            </button>
+          <button
+            onClick={handleDownloadExcel}
+            className="h-10 flex items-center justify-center gap-2 px-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-medium text-sm whitespace-nowrap shadow-sm"
+          >
+            <Printer size={18} />
+            Exportar
+          </button>
 
-            <button
-              onClick={() => {
-                const url = `${window.location.origin}/api/public/catalog-page`;
-                window.open(url, '_blank');
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium text-sm whitespace-nowrap shadow-lg shadow-rose-200"
-              title="Abrir catálogo visual com fotos para a IA ou para salvar como PDF"
-            >
-              <Eye size={18} />
-              Catálogo com Fotos (p/ IA)
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              const url = `${window.location.origin}/api/public/catalog-ai`;
+              navigator.clipboard.writeText(url);
+              alert('Link do catálogo para IA copiado! Agora você pode colar na configuração da sua IA do WhatsApp.');
+            }}
+            className="h-10 flex items-center justify-center gap-2 px-4 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition-all font-medium text-sm whitespace-nowrap shadow-sm"
+            title="Copiar link para a IA estudar seu estoque"
+          >
+            <Link size={18} />
+            Link de Texto p/ IA
+          </button>
+
+          <button
+            onClick={() => {
+              const url = `${window.location.origin}/api/public/catalog-page`;
+              window.open(url, '_blank');
+            }}
+            className="h-10 flex items-center justify-center gap-2 px-4 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium text-sm whitespace-nowrap shadow-sm"
+            title="Abrir catálogo visual com fotos para a IA ou para salvar como PDF"
+          >
+            <Eye size={18} />
+            Catálogo com Fotos (p/ IA)
+          </button>
 
           <button
             onClick={() => setIsQuickInventoryOpen(true)}
-            className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-black shadow-lg shadow-emerald-100 hover:scale-105 active:scale-95 text-sm whitespace-nowrap"
+            className="h-10 flex items-center justify-center gap-2 px-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-black text-sm whitespace-nowrap shadow-sm hover:scale-105 active:scale-95"
           >
             <ClipboardCheck size={20} />
             CONTAGEM RÁPIDA
@@ -193,7 +213,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
           
           <button
             onClick={() => setIsMassUpdateModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-all font-medium text-sm whitespace-nowrap"
+            className="h-10 flex items-center justify-center gap-2 px-4 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-all font-medium text-sm whitespace-nowrap shadow-sm"
           >
             <TrendingUp size={18} />
             Preços em Massa
@@ -201,7 +221,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
           
           <button
             onClick={onAddProduct}
-            className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium text-sm whitespace-nowrap"
+            className="h-10 flex items-center justify-center gap-2 px-4 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium text-sm whitespace-nowrap shadow-sm"
           >
             <Plus size={18} />
             Produto
