@@ -818,6 +818,7 @@ export default function App() {
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   });
+  const [historyCustomerSearch, setHistoryCustomerSearch] = useState('');
   const [osForm, setOsForm] = useState<{
     customer_id: string;
     motorcycle_id: string;
@@ -1969,7 +1970,10 @@ export default function App() {
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}` === historyDate;
+      const matchesDate = `${year}-${month}-${day}` === historyDate;
+      const matchesSearch = historyCustomerSearch.trim() === '' || 
+        (s.customer_name || '').toLowerCase().includes(historyCustomerSearch.toLowerCase());
+      return matchesDate && matchesSearch;
     });
     const totalHistorySales = historySales.reduce((acc, curr) => acc + curr.total, 0);
 
@@ -2319,31 +2323,44 @@ export default function App() {
           isOpen={isPdvHistoryOpen}
           onClose={() => setIsPdvHistoryOpen(false)}
           title="Histórico de Vendas"
-          maxWidth="max-w-4xl"
+          maxWidth="max-w-6xl"
         >
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-950/40 p-4 rounded-2xl border border-slate-800">
               <div>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Resumo de Faturamento</p>
+                <p className="text-xs text-slate-800 dark:text-slate-400 font-bold uppercase tracking-wider">Resumo de Faturamento</p>
                 <p className="text-2xl font-black text-emerald-500">{formatBRL(totalHistorySales)}</p>
               </div>
 
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-black uppercase text-slate-400 tracking-wider">Filtrar por data:</span>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-400 tracking-wider">Filtrar por data:</span>
+                  <div className="relative flex items-center">
+                    <Calendar size={14} className="absolute left-3 text-rose-500 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={historyDate}
+                      onChange={(e) => setHistoryDate(e.target.value)}
+                      className="pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all dark:bg-slate-950"
+                    />
+                  </div>
+                </div>
+                
                 <div className="relative flex items-center">
-                  <Calendar size={14} className="absolute left-3 text-rose-500 pointer-events-none" />
+                  <Search size={14} className="absolute left-3 text-indigo-500 pointer-events-none" />
                   <input
-                    type="date"
-                    value={historyDate}
-                    onChange={(e) => setHistoryDate(e.target.value)}
-                    className="pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all dark:bg-slate-950"
+                    type="text"
+                    placeholder="Buscar por cliente..."
+                    value={historyCustomerSearch}
+                    onChange={(e) => setHistoryCustomerSearch(e.target.value)}
+                    className="pl-9 pr-4 py-2 w-full sm:w-64 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all dark:bg-slate-950"
                   />
                 </div>
               </div>
 
               <div className="text-right">
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total de Vendas</p>
-                <p className="text-sm font-black text-slate-200">{historySales.length} {historySales.length === 1 ? 'venda realizada' : 'vendas realizadas'}</p>
+                <p className="text-xs text-slate-800 dark:text-slate-400 font-bold uppercase tracking-wider">Total de Vendas</p>
+                <p className="text-sm font-black text-slate-900 dark:text-slate-200">{historySales.length} {historySales.length === 1 ? 'venda realizada' : 'vendas realizadas'}</p>
               </div>
             </div>
 
@@ -2364,14 +2381,14 @@ export default function App() {
                 </thead>
                 <tbody className="divide-y divide-slate-850">
                   {historySales.map(sale => (
-                    <tr key={sale.id} className="hover:bg-slate-900/40 text-slate-300">
-                      <td className="p-3 font-mono font-bold text-slate-100">{sale.id}</td>
-                      <td className="p-3 text-slate-400">{new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                      <td className="p-3 font-bold">{sale.customer_name}</td>
-                      <td className="p-3 text-slate-400">{sale.mechanic_name || 'Balcão / Sem'}</td>
-                      <td className="p-3 text-right font-bold">{(sale.items || sale.sale_items || []).length}</td>
-                      <td className="p-3 text-right font-mono text-amber-500 font-bold">{formatBRL(sale.commission)}</td>
-                      <td className="p-3 text-right font-mono font-black text-rose-500">{formatBRL(sale.total)}</td>
+                    <tr key={sale.id} className="hover:bg-slate-100 dark:hover:bg-slate-900/40 text-slate-800 dark:text-slate-300">
+                      <td className="p-3 font-mono font-bold text-slate-900 dark:text-slate-100">{sale.id}</td>
+                      <td className="p-3 text-slate-700 dark:text-slate-400">{new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="p-3 font-bold text-slate-900 dark:text-slate-200">{sale.customer_name}</td>
+                      <td className="p-3 text-slate-700 dark:text-slate-400">{sale.mechanic_name || 'Balcão / Sem'}</td>
+                      <td className="p-3 text-right font-bold text-slate-900 dark:text-slate-200">{(sale.items || sale.sale_items || []).length}</td>
+                      <td className="p-3 text-right font-mono text-amber-600 dark:text-amber-500 font-bold">{formatBRL(sale.commission)}</td>
+                      <td className="p-3 text-right font-mono font-black text-rose-600 dark:text-rose-500">{formatBRL(sale.total)}</td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${sale.payment_status === 'Pago'
                           ? 'bg-emerald-950 border border-emerald-800 text-emerald-400'
