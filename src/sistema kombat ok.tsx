@@ -1657,8 +1657,14 @@ export default function App() {
     // Calculate Mechanic Commission for Balcão
     let commission = 0;
     if (mechanic) {
-      const rate = (mechanic.commission_rate ?? 5) / 100;
-      commission = total * rate;
+      const rate = (mechanic.commission_rate ?? 50) / 100;
+      const serviceItems = finalItems.filter(i => 
+        i.type === 'Serviço' || 
+        i.type === 'Serviço Principal' || 
+        i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS'
+      );
+      const laborTotal = serviceItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+      commission = laborTotal * rate;
     }
 
     const saleId = Math.random().toString(36).substr(2, 9).toUpperCase();
@@ -1837,12 +1843,23 @@ export default function App() {
     // Calculate Commission
     let commission = 0;
     if (mechanic) {
+      const rate = (mechanic.commission_rate ?? 50) / 100;
+      
       (osForm.selected_fixed_services || []).forEach(sfs => {
         commission += sfs.payout * sfs.quantity;
       });
 
-      if (laborValue > 0) {
-        commission += laborValue * 0.50;
+      const serviceItemsExcludingFixed = osForm.items.filter(i => 
+        i.type === 'Serviço' || 
+        i.type === 'Serviço Principal' || 
+        i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS'
+      );
+      const laborTotalFromItems = serviceItemsExcludingFixed.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+
+      commission += laborTotalFromItems * rate;
+
+      if (laborValueManual > 0) {
+        commission += laborValueManual * rate;
       }
     }
 
