@@ -9936,7 +9936,7 @@ export default function App() {
 
       {/* Quote Print View / High Resolution Layout */}
       {isPrintingQuote && (
-        <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:relative print:p-0 print:overflow-visible print:z-0 dark:bg-slate-800">
+        <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:relative print:p-0 print:overflow-visible print:z-0 dark:bg-slate-800 print-quote-wrapper">
           <style>{`
             @media print {
               @page {
@@ -9956,12 +9956,24 @@ export default function App() {
                 display: none !important;
               }
               
+              /* Reset the inset wrapper properties on print */
+              .print-quote-wrapper {
+                position: static !important;
+                height: auto !important;
+                min-height: 0 !important;
+                width: 100% !important;
+                top: auto !important;
+                bottom: auto !important;
+                left: auto !important;
+                right: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+              }
+
               /* Show ONLY the print modal and its contents */
               .print-modal-container {
                 display: block !important;
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
+                position: static !important;
                 width: 100% !important;
                 height: auto !important;
                 z-index: 9999 !important;
