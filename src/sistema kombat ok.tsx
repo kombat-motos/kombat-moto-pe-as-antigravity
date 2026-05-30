@@ -1657,7 +1657,7 @@ export default function App() {
     // Calculate Mechanic Commission for Balcão
     let commission = 0;
     if (mechanic) {
-      const rate = (mechanic.commission_rate ?? 50) / 100;
+      const rate = (mechanic.commission_rate || 50) / 100;
       const serviceItems = finalItems.filter(i => 
         i.type === 'Serviço' || 
         i.type === 'Serviço Principal' || 
@@ -1843,7 +1843,7 @@ export default function App() {
     // Calculate Commission
     let commission = 0;
     if (mechanic) {
-      const rate = (mechanic.commission_rate ?? 50) / 100;
+      const rate = (mechanic.commission_rate || 50) / 100;
       
       (osForm.selected_fixed_services || []).forEach(sfs => {
         commission += sfs.payout * sfs.quantity;

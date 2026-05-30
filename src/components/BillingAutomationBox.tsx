@@ -9,6 +9,7 @@ interface Sale {
   customer_id?: number;
   customer_name: string;
   items: SaleItem[];
+  sale_items?: SaleItem[];
   labor_value: number;
   mechanic_id?: string;
   mechanic_name?: string;

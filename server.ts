@@ -97,7 +97,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     name TEXT NOT NULL,
-    commission_rate REAL DEFAULT 0,
+    commission_rate REAL DEFAULT 50,
     active BOOLEAN DEFAULT 1,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
@@ -308,7 +308,7 @@ try { db.exec("ALTER TABLE customers ADD COLUMN city TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_limit REAL DEFAULT 0"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN fine_rate REAL DEFAULT 2"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN interest_rate REAL DEFAULT 1"); } catch (e) {}
-try { db.exec("ALTER TABLE mechanics ADD COLUMN commission_rate REAL DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE mechanics ADD COLUMN commission_rate REAL DEFAULT 50"); } catch (e) {}
 
 async function startServer() {
   const app = express();
