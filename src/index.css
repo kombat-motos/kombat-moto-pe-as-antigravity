@@ -171,11 +171,66 @@ html, body {
   img, canvas {
     background-color: transparent !important;
   }
+
+  /* =======================================================
+     ORDEM DE SERVIÇO (O.S. A4) COMPRESSION STYLE
+     Forces layout to fit on a single A4 page
+     ======================================================= */
+  #os-printable-area {
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 10.5px !important;
+    width: 100% !important;
+  }
+  #os-printable-area h1 {
+    font-size: 18px !important;
+  }
+  #os-printable-area h2 {
+    font-size: 14px !important;
+  }
+  #os-printable-area h3 {
+    font-size: 11px !important;
+  }
+  #os-printable-area p {
+    font-size: 10px !important;
+  }
+  #os-printable-area .text-xl {
+    font-size: 14px !important;
+  }
+  #os-printable-area table {
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+  }
+  #os-printable-area th, 
+  #os-printable-area td {
+    padding: 3px !important;
+    font-size: 10.5px !important;
+  }
+  #os-printable-area td.h-8 {
+    height: 18px !important;
+  }
+  #os-printable-area .h-8 {
+    height: 18px !important;
+  }
+  #os-printable-area .my-4 {
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+  }
+  #os-printable-area .mt-8 {
+    margin-top: 8px !important;
+  }
+  #os-printable-area .mt-12 {
+    margin-top: 10px !important;
+  }
+  #os-printable-area .w-1\/3 {
+    width: 40% !important;
+  }
 }
 
 
 @page {
-  margin: 10mm;
+  size: A4;
+  margin: 5mm !important;
 }
 
 /* Custom Scrollbar for a premium look */

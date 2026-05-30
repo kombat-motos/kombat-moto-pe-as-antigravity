@@ -4280,7 +4280,7 @@ export default function App() {
     const printContent = document.getElementById('os-printable-area');
     const originalContents = document.body.innerHTML;
     if (printContent) {
-      document.body.innerHTML = printContent.innerHTML;
+      document.body.innerHTML = printContent.outerHTML;
       window.print();
       document.body.innerHTML = originalContents;
       window.location.reload(); // To re-attach event listeners
@@ -9941,7 +9941,7 @@ export default function App() {
             @media print {
               @page {
                 size: A4;
-                margin: 15mm;
+                margin: 5mm !important;
               }
               body {
                 background: white !important;
@@ -9994,6 +9994,9 @@ export default function App() {
               .print-modal-container .flex {
                 display: flex !important;
               }
+              .print-modal-container .grid {
+                display: grid !important;
+              }
 
               .max-w-4xl {
                 max-width: none !important;
@@ -10016,6 +10019,87 @@ export default function App() {
               }
               .overflow-hidden {
                 overflow: visible !important;
+              }
+
+              /* Compress layout for single A4 page */
+              #quote-capture-area {
+                padding: 0px !important;
+              }
+              #quote-capture-area .border-b-4 {
+                padding-bottom: 8px !important;
+                margin-bottom: 8px !important;
+                border-bottom-width: 2px !important;
+              }
+              #quote-capture-area .w-24.h-24 {
+                width: 48px !important;
+                height: 48px !important;
+              }
+              #quote-capture-area h1.text-3xl {
+                font-size: 16px !important;
+              }
+              #quote-capture-area .text-slate-500.font-bold.text-sm {
+                font-size: 10px !important;
+              }
+              #quote-capture-area .mt-2.text-xs {
+                margin-top: 4px !important;
+                font-size: 9px !important;
+              }
+              #quote-capture-area .bg-slate-900.text-white.p-4 {
+                padding: 6px !important;
+                margin-bottom: 8px !important;
+                border-radius: 6px !important;
+                gap: 8px !important;
+              }
+              #quote-capture-area .bg-slate-900.text-white.p-4 p {
+                font-size: 10px !important;
+              }
+              #quote-capture-area .space-y-6 {
+                margin-top: 4px !important;
+                margin-bottom: 4px !important;
+              }
+              #quote-capture-area .space-y-6 > * + * {
+                margin-top: 6px !important;
+              }
+              #quote-capture-area h3 {
+                margin-bottom: 4px !important;
+                font-size: 10px !important;
+                padding: 2px 6px !important;
+              }
+              #quote-capture-area td,
+              #quote-capture-area th {
+                padding-top: 2px !important;
+                padding-bottom: 2px !important;
+                font-size: 10px !important;
+              }
+              #quote-capture-area .mt-8.grid {
+                margin-top: 8px !important;
+                gap: 8px !important;
+              }
+              #quote-capture-area .space-y-4 > * + * {
+                margin-top: 4px !important;
+              }
+              #quote-capture-area .p-4.rounded-xl {
+                padding: 6px !important;
+                border-radius: 6px !important;
+              }
+              #quote-capture-area .p-4.rounded-xl p {
+                font-size: 9.5px !important;
+                line-height: 1.2 !important;
+              }
+              #quote-capture-area .bg-black.text-white.p-6 {
+                padding: 8px !important;
+                border-radius: 8px !important;
+              }
+              #quote-capture-area p.text-4xl {
+                font-size: 20px !important;
+              }
+              #quote-capture-area .mt-12.pt-6 {
+                margin-top: 10px !important;
+                padding-top: 4px !important;
+              }
+              #quote-capture-area .w-64 {
+                width: 150px !important;
+                margin-bottom: 2px !important;
               }
             }
           `}</style>
