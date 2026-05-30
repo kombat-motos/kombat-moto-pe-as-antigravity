@@ -9971,6 +9971,13 @@ export default function App() {
               .print-modal-container * {
                 visibility: visible !important;
               }
+              .print-modal-container .no-print,
+              .print-modal-container .no-print *,
+              .print-modal-container button,
+              .print-modal-container .no-print button {
+                display: none !important;
+                visibility: hidden !important;
+              }
               /* Specifically show block elements */
               .print-modal-container div, 
               .print-modal-container table, 
