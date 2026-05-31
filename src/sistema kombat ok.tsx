@@ -777,6 +777,7 @@ export default function App() {
   });
   const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '', alt_code: '' });
   const [isAutofilling, setIsAutofilling] = useState(false);
+  const [isLookingUpPlate, setIsLookingUpPlate] = useState(false);
   const [serviceForm, setServiceForm] = useState({ description: '', price: '', category: '' });
   const [motorcycleForm, setMotorcycleForm] = useState({ customer_id: '', plate: '', model: '', current_km: '' });
 
@@ -4005,6 +4006,99 @@ ESTRUTURA DO JSON RETORNADO:
       alert(`Falha ao preencher com IA: ${error.message || 'Verifique a conexão ou a chave de API.'}`);
     } finally {
       setIsAutofilling(false);
+    }
+  };
+
+  const handleLookupPlateWithAI = async () => {
+    const plate = (motorcycleForm.plate || '').trim().toUpperCase();
+    if (!plate) {
+      alert('Por favor, digite a placa primeiro!');
+      return;
+    }
+
+    setIsLookingUpPlate(true);
+    try {
+      let apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        apiKey = localStorage.getItem('GEMINI_API_KEY') || '';
+        if (!apiKey) {
+          const inputKey = window.prompt("GEMINI_API_KEY não encontrada no sistema. Por favor, digite sua chave API do Gemini para usar a busca por placa (ela será salva localmente):");
+          if (inputKey) {
+            localStorage.setItem('GEMINI_API_KEY', inputKey.trim());
+            apiKey = inputKey.trim();
+          } else {
+            setIsLookingUpPlate(false);
+            return;
+          }
+        }
+      }
+
+      const prompt = `Você é um agente automatizado de busca de veículos integrado ao sistema Kombat Moto. Sua função é receber uma placa de moto e descobrir o modelo e o ano.
+
+Instruções de Operação:
+1. Sempre que receber uma string de placa (ex: ABC1D23 ou ABC-1234), use sua ferramenta de navegação web para pesquisar essa placa em sites de consulta pública, prioritariamente no "https://buscaplacas.com.br/" ou fontes similares.
+2. Acesse o resultado da busca daquela placa específica.
+3. Extraia as informações de: MARCA/MODELO e ANO (Ano de fabricação ou modelo).
+4. Formate a resposta estritamente como um objeto JSON limpo para que o sistema capture os dados automaticamente. Não inclua nenhuma saudação, introdução ou bloco de código explicativo.
+
+Formato de Saída Obrigatório:
+{
+  "modelo": "[Marca e Modelo Extraídos]",
+  "ano": "[Ano Extraído]"
+}
+
+Caso a placa não seja encontrada ou ocorra um erro de busca, retorne estritamente:
+{
+  "erro": "Placa não encontrada"
+}
+
+Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e retorne o JSON.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          tools: [{ google_search: {} }]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro na API do Gemini (${response.status})`);
+      }
+
+      const data = await response.json();
+      const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!textResponse) {
+        throw new Error('Nenhuma resposta retornada pelo Gemini.');
+      }
+
+      const jsonMatch = textResponse.match(/\{[\s\S]*?\}/);
+      if (!jsonMatch) {
+        throw new Error('Não foi possível extrair a resposta estruturada da IA. Resposta bruta: ' + textResponse);
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.erro) {
+        alert(`Erro na busca: ${parsed.erro}`);
+        return;
+      }
+
+      const finalModel = parsed.ano ? `${parsed.modelo} (${parsed.ano})` : parsed.modelo;
+
+      setMotorcycleForm(prev => ({
+        ...prev,
+        model: finalModel,
+      }));
+
+      alert('Modelo e ano da moto preenchidos com sucesso!');
+    } catch (error: any) {
+      console.error('Erro na busca de placa por IA:', error);
+      alert(`Falha ao buscar placa: ${error.message || 'Verifique a conexão ou a chave de API.'}`);
+    } finally {
+      setIsLookingUpPlate(false);
     }
   };
 
@@ -7358,12 +7452,23 @@ ESTRUTURA DO JSON RETORNADO:
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Placa</label>
-                <input
-                  type="text" required placeholder="ABC-1234"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={motorcycleForm.plate}
-                  onChange={e => setMotorcycleForm({ ...motorcycleForm, plate: e.target.value })}
-                />
+                <div className="flex items-center">
+                  <input
+                    type="text" required placeholder="ABC-1234"
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-400 border-r-0 rounded-l-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700 uppercase h-[42px]"
+                    value={motorcycleForm.plate}
+                    onChange={e => setMotorcycleForm({ ...motorcycleForm, plate: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleLookupPlateWithAI}
+                    disabled={isLookingUpPlate}
+                    className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-2 rounded-r-xl flex items-center gap-1 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap h-[42px] disabled:opacity-50"
+                  >
+                    <Sparkles size={12} className={isLookingUpPlate ? "animate-spin" : ""} />
+                    {isLookingUpPlate ? "Buscando..." : "Buscar IA"}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">KM Atual</label>
