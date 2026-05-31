@@ -3953,7 +3953,6 @@ REGRAS DE EXTRAÇÃO E INTELIGÊNCIA:
 2. APLICAÇÃO DAS PEÇAS (Item 3 da Imagem): Com base no produto digitado, use seu conhecimento técnico para listar TODAS as aplicações de motos compatíveis de forma detalhada e profissional.
    - Exemplo se o usuário digitar "Filtro de Óleo Titan 150": você deve expandir para "Honda CG 150 Titan (2004-2015), Fan 150 (2009-2015), Mix, Flex".
    - Sempre inclua a marca da moto, o modelo e os anos comuns de compatibilidade.
-3. FOTOS DO PRODUTO (Item 2 da Imagem): Gere uma lista de até 4 URLs de imagens genéricas que correspondam estritamente ao produto informado para preencher os campos de URL da foto. Use links públicos funcionais ou URLs conceituais padronizadas de imagens de peças de moto (pode usar o formato do Unsplash Source focado em motocicletas/peças mecânicas se necessário, ou links de catálogos abertos).
 
 ---
 REGRAS DE FORMATAÇÃO:
@@ -3965,13 +3964,7 @@ ESTRUTURA DO JSON RETORNADO:
 {
   "descricao": "Nome do produto corrigido e padronizado (Ex: Pneu Traseiro 90/90-18)",
   "marca": "Marca identificada ou null",
-  "aplicacao": "Lista detalhada de aplicações gerada por você (Ex: Honda CG 125 Cargo / Fan / Today / Titan (1992 a 2019))",
-  "fotos": [
-    "URL_da_foto_1",
-    "URL_da_foto_2",
-    "URL_da_foto_3",
-    "URL_da_foto_4"
-  ]
+  "aplicacao": "Lista detalhada de aplicações gerada por você (Ex: Honda CG 125 Cargo / Fan / Today / Titan (1992 a 2019))"
 }`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -4004,10 +3997,6 @@ ESTRUTURA DO JSON RETORNADO:
         description: parsed.descricao || prev.description,
         brand: parsed.marca || prev.brand,
         application: parsed.aplicacao || prev.application,
-        image_url: parsed.fotos?.[0] || prev.image_url,
-        image_url2: parsed.fotos?.[1] || prev.image_url2,
-        image_url3: parsed.fotos?.[2] || prev.image_url3,
-        image_url4: parsed.fotos?.[3] || prev.image_url4,
       }));
 
       alert('Dados preenchidos com sucesso via Inteligência Artificial!');
