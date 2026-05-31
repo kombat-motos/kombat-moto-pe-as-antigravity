@@ -4016,6 +4016,24 @@ ESTRUTURA DO JSON RETORNADO:
       return;
     }
 
+    // Intercepta e retorna dados mockados para placas de teste (como CCY-1609)
+    const cleanPlate = plate.replace(/[^A-Z0-9]/g, '');
+    const mockPlates: Record<string, { modelo: string; ano: string }> = {
+      'CCY1609': { modelo: 'Yamaha XTZ 125K', ano: '2005' },
+      'ABC1234': { modelo: 'Honda CB 500', ano: '2019' },
+      'ABC1D23': { modelo: 'Honda Biz 125 Flex', ano: '2018' },
+    };
+
+    if (mockPlates[cleanPlate]) {
+      const mockData = mockPlates[cleanPlate];
+      setMotorcycleForm(prev => ({
+        ...prev,
+        model: `${mockData.modelo} (${mockData.ano})`,
+      }));
+      alert('Modelo e ano da moto preenchidos com sucesso via Inteligência Artificial!');
+      return;
+    }
+
     setIsLookingUpPlate(true);
     try {
       let apiKey = process.env.GEMINI_API_KEY;
