@@ -20,6 +20,7 @@ import {
   Printer,
   Settings,
   Settings2,
+  Sparkles,
   Wrench,
   Wallet,
   LayoutGrid,
@@ -775,6 +776,7 @@ export default function App() {
     fine_rate: 2, interest_rate: 1, image_url: '' 
   });
   const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '', alt_code: '' });
+  const [isAutofilling, setIsAutofilling] = useState(false);
   const [serviceForm, setServiceForm] = useState({ description: '', price: '', category: '' });
   const [motorcycleForm, setMotorcycleForm] = useState({ customer_id: '', plate: '', model: '', current_km: '' });
 
@@ -3916,6 +3918,107 @@ export default function App() {
     printWindow.document.close();
   };
 
+  const handleAutofillWithAI = async () => {
+    const description = (productForm.description || '').trim();
+    if (!description) {
+      alert('Por favor, digite uma descrição básica do produto primeiro! (Ex: Filtro de óleo Titan 150)');
+      return;
+    }
+
+    setIsAutofilling(true);
+    try {
+      let apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        apiKey = localStorage.getItem('GEMINI_API_KEY') || '';
+        if (!apiKey) {
+          const inputKey = window.prompt("GEMINI_API_KEY não encontrada no sistema. Por favor, digite sua chave API do Gemini para usar o preenchimento automático (ela será salva localmente):");
+          if (inputKey) {
+            localStorage.setItem('GEMINI_API_KEY', inputKey.trim());
+            apiKey = inputKey.trim();
+          } else {
+            setIsAutofilling(false);
+            return;
+          }
+        }
+      }
+
+      const prompt = `Você é o assistente inteligente de cadastro de estoque da nossa loja de motopeças. Sua tarefa é receber o texto digitado no campo "Descrição do Produto" e retornar um JSON estruturado para preencher automaticamente os campos da tela.
+
+Texto digitado pelo usuário: "${description}"
+
+---
+REGRAS DE EXTRAÇÃO E INTELIGÊNCIA:
+
+1. DESCRIÇÃO E MARCA: Extraia o nome limpo do produto e a marca (se houver). Se não houver marca no texto, tente deduzir ou deixe null.
+2. APLICAÇÃO DAS PEÇAS (Item 3 da Imagem): Com base no produto digitado, use seu conhecimento técnico para listar TODAS as aplicações de motos compatíveis de forma detalhada e profissional.
+   - Exemplo se o usuário digitar "Filtro de Óleo Titan 150": você deve expandir para "Honda CG 150 Titan (2004-2015), Fan 150 (2009-2015), Mix, Flex".
+   - Sempre inclua a marca da moto, o modelo e os anos comuns de compatibilidade.
+3. FOTOS DO PRODUTO (Item 2 da Imagem): Gere uma lista de até 4 URLs de imagens genéricas que correspondam estritamente ao produto informado para preencher os campos de URL da foto. Use links públicos funcionais ou URLs conceituais padronizadas de imagens de peças de moto (pode usar o formato do Unsplash Source focado em motocicletas/peças mecânicas se necessário, ou links de catálogos abertos).
+
+---
+REGRAS DE FORMATAÇÃO:
+- Retorne APENAS o objeto JSON. Sem explicações, sem blocos de código com "\`\`\`json". A resposta deve começar estritamente com { e terminar com }.
+- Todos os campos de texto não encontrados devem retornar null.
+
+---
+ESTRUTURA DO JSON RETORNADO:
+{
+  "descricao": "Nome do produto corrigido e padronizado (Ex: Pneu Traseiro 90/90-18)",
+  "marca": "Marca identificada ou null",
+  "aplicacao": "Lista detalhada de aplicações gerada por você (Ex: Honda CG 125 Cargo / Fan / Today / Titan (1992 a 2019))",
+  "fotos": [
+    "URL_da_foto_1",
+    "URL_da_foto_2",
+    "URL_da_foto_3",
+    "URL_da_foto_4"
+  ]
+}`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json'
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro na API do Gemini (${response.status})`);
+      }
+
+      const data = await response.json();
+      const textResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!textResponse) {
+        throw new Error('Nenhuma resposta retornada pelo Gemini.');
+      }
+
+      const parsed = JSON.parse(textResponse.trim());
+      
+      setProductForm(prev => ({
+        ...prev,
+        description: parsed.descricao || prev.description,
+        brand: parsed.marca || prev.brand,
+        application: parsed.aplicacao || prev.application,
+        image_url: parsed.fotos?.[0] || prev.image_url,
+        image_url2: parsed.fotos?.[1] || prev.image_url2,
+        image_url3: parsed.fotos?.[2] || prev.image_url3,
+        image_url4: parsed.fotos?.[3] || prev.image_url4,
+      }));
+
+      alert('Dados preenchidos com sucesso via Inteligência Artificial!');
+    } catch (error: any) {
+      console.error('Erro no preenchimento automático com IA:', error);
+      alert(`Falha ao preencher com IA: ${error.message || 'Verifique a conexão ou a chave de API.'}`);
+    } finally {
+      setIsAutofilling(false);
+    }
+  };
+
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -7041,7 +7144,18 @@ export default function App() {
               {/* Linha 1: Descrição do Produto | Marca */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Descrição do Produto</label>
+                  <div className="flex justify-between items-center mb-0.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Descrição do Produto</label>
+                    <button
+                      type="button"
+                      onClick={handleAutofillWithAI}
+                      disabled={isAutofilling}
+                      className="text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-950 dark:hover:bg-rose-900 dark:text-rose-300 font-bold px-2 py-0.5 rounded transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <Sparkles size={10} className={isAutofilling ? "animate-spin" : ""} />
+                      {isAutofilling ? "Preenchendo..." : "IA Preencher"}
+                    </button>
+                  </div>
                   <input
                     type="text" required autoFocus tabIndex={1} placeholder="Ex: Pneu Traseiro 90/90-18"
                     className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
