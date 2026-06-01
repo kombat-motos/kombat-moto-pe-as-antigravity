@@ -1631,60 +1631,75 @@ export default function App() {
   const startScanner = async () => {
     try {
       await loadHtml5Qrcode();
-      if (!html5QrCodeRef.current) {
-        html5QrCodeRef.current = new (window as any).Html5Qrcode("camera-preview-container");
-      }
-      
-      await html5QrCodeRef.current.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: (width: number, height: number) => {
-            return { width: Math.min(width * 0.8, 280), height: Math.min(height * 0.5, 160) };
-          },
-          aspectRatio: 1.0
-        },
-        async (decodedText: string) => {
-          if (isScanningRef.current) return;
-          isScanningRef.current = true;
-          
-          playBeep();
-          
-          try {
-            let found = products.find(p => 
-              p.barcode === decodedText || 
-              p.sku === decodedText || 
-              p.alt_code === decodedText
-            );
-            
-            if (!found) {
-              const res = await fetch(`/api/products/barcode/${encodeURIComponent(decodedText)}`, {
-                headers: localApi.getHeaders()
-              });
-              if (res.ok) {
-                found = await res.json();
-              }
-            }
-            
-            if (found) {
-              addOrIncrementCountedProduct(found);
-            } else {
-              alert(`Produto com código "${decodedText}" não encontrado.`);
-            }
-          } catch (err) {
-            console.error("Erro ao buscar produto por código:", err);
-          } finally {
-            setTimeout(() => {
-              isScanningRef.current = false;
-            }, 1200);
-          }
-        },
-        () => {}
-      );
       setIsCameraActive(true);
+      
+      // Wait for React to render the DOM node in the next tick
+      setTimeout(async () => {
+        try {
+          const container = document.getElementById("camera-preview-container");
+          if (!container) {
+            throw new Error("Container da câmera não encontrado no DOM.");
+          }
+
+          if (!html5QrCodeRef.current) {
+            html5QrCodeRef.current = new (window as any).Html5Qrcode("camera-preview-container");
+          }
+          
+          await html5QrCodeRef.current.start(
+            { facingMode: "environment" },
+            {
+              fps: 10,
+              qrbox: (width: number, height: number) => {
+                return { width: Math.min(width * 0.8, 280), height: Math.min(height * 0.5, 160) };
+              },
+              aspectRatio: 1.0
+            },
+            async (decodedText: string) => {
+              if (isScanningRef.current) return;
+              isScanningRef.current = true;
+              
+              playBeep();
+              
+              try {
+                let found = products.find(p => 
+                  p.barcode === decodedText || 
+                  p.sku === decodedText || 
+                  p.alt_code === decodedText
+                );
+                
+                if (!found) {
+                  const res = await fetch(`/api/products/barcode/${encodeURIComponent(decodedText)}`, {
+                    headers: localApi.getHeaders()
+                  });
+                  if (res.ok) {
+                    found = await res.json();
+                  }
+                }
+                
+                if (found) {
+                  addOrIncrementCountedProduct(found);
+                } else {
+                  alert(`Produto com código "${decodedText}" não encontrado.`);
+                }
+              } catch (err) {
+                console.error("Erro ao buscar produto por código:", err);
+              } finally {
+                setTimeout(() => {
+                  isScanningRef.current = false;
+                }, 1200);
+              }
+            },
+            () => {}
+          );
+        } catch (innerErr: any) {
+          console.error("Erro interno ao iniciar scanner:", innerErr);
+          alert("Não foi possível acessar a câmera. Verifique as permissões de acesso.");
+          setIsCameraActive(false);
+        }
+      }, 150);
     } catch (err: any) {
-      console.error("Erro ao iniciar câmera:", err);
-      alert("Não foi possível acessar a câmera. Verifique as permissões de acesso.");
+      console.error("Erro ao carregar script do scanner:", err);
+      alert("Não foi possível carregar o leitor de código de barras.");
       setIsCameraActive(false);
     }
   };
