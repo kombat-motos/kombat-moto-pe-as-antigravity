@@ -758,11 +758,25 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // Products
   app.get("/api/products", authenticateToken, (req, res) => {
     const products = db.prepare("SELECT * FROM products WHERE user_id = ? ORDER BY description ASC").all(req.user!.id);
     res.json(products);
   });
+
+  app.get("/api/products/barcode/:barcode", authenticateToken, (req, res) => {
+    try {
+      const barcode = req.params.barcode.trim();
+      const product = db.prepare("SELECT * FROM products WHERE user_id = ? AND (barcode = ? OR sku = ? OR alt_code = ?)").get(req.user!.id, barcode, barcode, barcode);
+      if (!product) {
+        return res.status(404).json({ error: "Produto não encontrado" });
+      }
+      res.json(product);
+    } catch (err: any) {
+      console.error('ERRO AO BUSCAR PRODUTO POR CÓDIGO:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
     app.post("/api/products", authenticateToken, (req, res) => {
       try {
         const { description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
@@ -841,6 +855,30 @@ async function startServer() {
       res.status(500).json({ error: "Erro ao gerar template" });
     }
   });
+
+  app.put("/api/products/bulk-stock-update", authenticateToken, (req, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ error: "Parâmetro 'items' deve ser um array." });
+      }
+
+      const updateStmt = db.prepare("UPDATE products SET stock = ? WHERE id = ? AND user_id = ?");
+      
+      const transaction = db.transaction((itemsList) => {
+        for (const item of itemsList) {
+          updateStmt.run(item.stock, item.id, req.user!.id);
+        }
+      });
+
+      transaction(items);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('ERRO AO ATUALIZAR ESTOQUE EM LOTE:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
     app.put("/api/products/:id", authenticateToken, (req, res) => {
       try {
         const { description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;

@@ -321,6 +321,40 @@ const getSaleFinancials = (sale: Sale) => {
   };
 };
 
+const loadHtml5Qrcode = () => {
+  return new Promise<void>((resolve, reject) => {
+    if ((window as any).Html5Qrcode) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Falha ao carregar o leitor de código de barras."));
+    document.body.appendChild(script);
+  });
+};
+
+const playBeep = () => {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.12);
+  } catch (err) {
+    console.error('AudioContext error:', err);
+  }
+};
+
 const localApi = {
   get: async (route: string) => {
     const res = await fetch(`/api/${route}`);
@@ -877,6 +911,11 @@ export default function App() {
   const [quickInventorySearch, setQuickInventorySearch] = useState('');
   const [selectedQuickProduct, setSelectedQuickProduct] = useState<Product | null>(null);
   const [quickInventoryStock, setQuickInventoryStock] = useState<string>('');
+  const [countedItems, setCountedItems] = useState<{ product: Product; quantity: number }[]>([]);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [modalSearchTerm, setModalSearchTerm] = useState('');
+  const html5QrCodeRef = useRef<any>(null);
+  const isScanningRef = useRef(false);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [quoteCustomerSearchTerm, setQuoteCustomerSearchTerm] = useState('');
   
@@ -1566,6 +1605,150 @@ export default function App() {
       fetchData();
       
       // Auto-focus the search input for the next item (done via ref if possible, but alert might steal focus)
+    } catch (error: any) {
+      console.error('Erro ao atualizar estoque:', error);
+      alert('Erro ao atualizar estoque: ' + (error.message || 'Verifique sua conexão.'));
+    }
+  };
+
+  const addOrIncrementCountedProduct = (product: Product) => {
+    setCountedItems(prev => {
+      const existingIdx = prev.findIndex(item => item.product.id === product.id);
+      if (existingIdx > -1) {
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          quantity: updated[existingIdx].quantity + 1
+        };
+        return updated;
+      } else {
+        return [...prev, { product, quantity: 1 }];
+      }
+    });
+    playBeep();
+  };
+
+  const startScanner = async () => {
+    try {
+      await loadHtml5Qrcode();
+      if (!html5QrCodeRef.current) {
+        html5QrCodeRef.current = new (window as any).Html5Qrcode("camera-preview-container");
+      }
+      
+      await html5QrCodeRef.current.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: (width: number, height: number) => {
+            return { width: Math.min(width * 0.8, 280), height: Math.min(height * 0.5, 160) };
+          },
+          aspectRatio: 1.0
+        },
+        async (decodedText: string) => {
+          if (isScanningRef.current) return;
+          isScanningRef.current = true;
+          
+          playBeep();
+          
+          try {
+            let found = products.find(p => 
+              p.barcode === decodedText || 
+              p.sku === decodedText || 
+              p.alt_code === decodedText
+            );
+            
+            if (!found) {
+              const res = await fetch(`/api/products/barcode/${encodeURIComponent(decodedText)}`, {
+                headers: localApi.getHeaders()
+              });
+              if (res.ok) {
+                found = await res.json();
+              }
+            }
+            
+            if (found) {
+              addOrIncrementCountedProduct(found);
+            } else {
+              alert(`Produto com código "${decodedText}" não encontrado.`);
+            }
+          } catch (err) {
+            console.error("Erro ao buscar produto por código:", err);
+          } finally {
+            setTimeout(() => {
+              isScanningRef.current = false;
+            }, 1200);
+          }
+        },
+        () => {}
+      );
+      setIsCameraActive(true);
+    } catch (err: any) {
+      console.error("Erro ao iniciar câmera:", err);
+      alert("Não foi possível acessar a câmera. Verifique as permissões de acesso.");
+      setIsCameraActive(false);
+    }
+  };
+
+  const stopScanner = async () => {
+    if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+      try {
+        await html5QrCodeRef.current.stop();
+      } catch (err) {
+        console.error("Erro ao parar câmera:", err);
+      }
+    }
+    setIsCameraActive(false);
+  };
+
+  const toggleCamera = async () => {
+    if (isCameraActive) {
+      await stopScanner();
+    } else {
+      await startScanner();
+    }
+  };
+
+  useEffect(() => {
+    if (isCameraActive) {
+      const container = document.getElementById("camera-preview-container");
+      if (container) {
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+              if (node.nodeName === 'VIDEO') {
+                const video = node as HTMLVideoElement;
+                video.setAttribute('playsinline', 'true');
+                video.setAttribute('webkit-playsinline', 'true');
+                video.setAttribute('muted', 'true');
+                video.muted = true;
+                video.play().catch(e => console.log("Video auto play failed or already playing:", e));
+              }
+            });
+          });
+        });
+        observer.observe(container, { childList: true, subtree: true });
+        return () => observer.disconnect();
+      }
+    }
+  }, [isCameraActive]);
+
+  const handleSaveBulkInventory = async () => {
+    if (countedItems.length === 0) return;
+    
+    try {
+      const payload = countedItems.map(item => ({
+        id: item.product.id,
+        stock: item.quantity
+      }));
+      
+      await localApi.put('products', 'bulk-stock-update', { items: payload });
+      
+      alert('Estoque atualizado com sucesso!');
+      await stopScanner();
+      setIsQuickInventoryOpen(false);
+      setCountedItems([]);
+      setModalSearchTerm('');
+      fetchData();
     } catch (error: any) {
       console.error('Erro ao atualizar estoque:', error);
       alert('Erro ao atualizar estoque: ' + (error.message || 'Verifique sua conexão.'));
@@ -9947,63 +10130,75 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       <Modal
         isOpen={isQuickInventoryOpen}
         onClose={() => {
+          stopScanner();
           setIsQuickInventoryOpen(false);
-          setSelectedQuickProduct(null);
-          setQuickInventorySearch('');
-          setQuickInventoryStock('');
+          setCountedItems([]);
+          setModalSearchTerm('');
         }}
         title="Contagem de Estoque Express (Manual)"
       >
         <div className="space-y-6">
           <div className="relative">
-            <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-tight dark:text-slate-100">Buscar / Bipar Produto</label>
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-              <input
-                type="text"
-                autoFocus
-                placeholder="Nome, SKU ou Código de Barras..."
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-300 rounded-2xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-lg transition-all dark:bg-slate-900 dark:border-slate-700"
-                value={quickInventorySearch}
-                onChange={e => {
-                  setQuickInventorySearch(e.target.value);
-                  const val = e.target.value.trim();
-                  if (val.length > 3) {
-                    const found = products.find(p => 
-                      (p.barcode === val) || 
-                      (p.alt_code === val) || 
-                      (p.sku === val)
-                    );
-                    if (found) {
-                      setSelectedQuickProduct(found);
-                      setQuickInventoryStock(found.stock.toString());
-                      setQuickInventorySearch('');
+            <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-tight dark:text-slate-100 font-bold">Buscar / Bipar Produto</label>
+            <div className="flex gap-2 items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Nome, SKU ou Código de Barras..."
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-300 rounded-2xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-lg transition-all dark:bg-slate-900 dark:border-slate-700 font-bold placeholder:text-slate-300"
+                  value={modalSearchTerm}
+                  onChange={e => {
+                    setModalSearchTerm(e.target.value);
+                    const val = e.target.value.trim();
+                    if (val.length > 3) {
+                      const found = products.find(p => 
+                        (p.barcode === val) || 
+                        (p.alt_code === val) || 
+                        (p.sku === val)
+                      );
+                      if (found) {
+                        addOrIncrementCountedProduct(found);
+                        setModalSearchTerm('');
+                      }
                     }
-                  }
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    const q = quickInventorySearch.toLowerCase();
-                    const found = products.find(p => 
-                      (p.description || '').toLowerCase().includes(q) ||
-                      (p.sku || '').toLowerCase() === q ||
-                      (p.alt_code || '').toLowerCase() === q ||
-                      (p.barcode || '') === q
-                    );
-                    if (found) {
-                      setSelectedQuickProduct(found);
-                      setQuickInventoryStock(found.stock.toString());
-                      setQuickInventorySearch('');
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const q = modalSearchTerm.trim().toLowerCase();
+                      const found = products.find(p => 
+                        (p.description || '').toLowerCase().includes(q) ||
+                        (p.sku || '').toLowerCase() === q ||
+                        (p.alt_code || '').toLowerCase() === q ||
+                        (p.barcode || '') === q
+                      );
+                      if (found) {
+                        addOrIncrementCountedProduct(found);
+                        setModalSearchTerm('');
+                      }
                     }
-                  }
-                }}
-              />
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={toggleCamera}
+                className={`p-4 rounded-2xl border-2 flex items-center justify-center transition-all ${
+                  isCameraActive 
+                    ? 'bg-rose-50 border-rose-300 text-rose-600 dark:bg-rose-950 dark:border-rose-900 dark:text-rose-400' 
+                    : 'bg-emerald-50 border-emerald-300 text-emerald-600 dark:bg-emerald-950 dark:border-emerald-900 dark:text-emerald-400'
+                } hover:scale-105 active:scale-95 cursor-pointer`}
+                title="Ativar Câmera"
+              >
+                <Camera size={24} />
+              </button>
             </div>
             
-            {quickInventorySearch && !selectedQuickProduct && (
+            {modalSearchTerm && (
               <div className="absolute z-50 w-full mt-2 bg-white border border-slate-300 rounded-2xl shadow-2xl max-h-60 overflow-y-auto dark:bg-slate-800 dark:border-slate-700">
                 {products.filter(p => {
-                  const search = quickInventorySearch.trim().toLowerCase();
+                  const search = modalSearchTerm.trim().toLowerCase();
                   if (!search) return false;
                   return (
                     (p.description || '').toLowerCase().includes(search) ||
@@ -10014,11 +10209,10 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   <button
                     key={p.id}
                     onClick={() => {
-                      setSelectedQuickProduct(p);
-                      setQuickInventoryStock(p.stock.toString());
-                      setQuickInventorySearch('');
+                      addOrIncrementCountedProduct(p);
+                      setModalSearchTerm('');
                     }}
-                    className="w-full text-left px-4 py-4 hover:bg-emerald-50 flex flex-col border-b border-slate-100 last:border-none"
+                    className="w-full text-left px-4 py-4 hover:bg-emerald-50 flex flex-col border-b border-slate-100 last:border-none dark:hover:bg-slate-700"
                   >
                     <span className="font-bold text-slate-900 dark:text-slate-100">{p.description}</span>
                     <span className="text-xs text-slate-500 uppercase tracking-tighter dark:text-slate-400">SKU: {p.sku || 'N/A'} | Local: {p.location || 'N/A'}</span>
@@ -10028,69 +10222,134 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
             )}
           </div>
 
-          {selectedQuickProduct ? (
-            <div className="bg-emerald-50 p-6 rounded-3xl border-2 border-emerald-200">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h3 className="text-xl font-black text-slate-900 uppercase leading-tight dark:text-slate-100">{selectedQuickProduct.description}</h3>
-                  <p className="text-sm text-emerald-700 font-bold uppercase mt-1">
-                    {selectedQuickProduct.brand} | {selectedQuickProduct.location || 'Sem prateleira'}
-                  </p>
-                </div>
-                <button 
-                  onClick={() => setSelectedQuickProduct(null)}
-                  className="p-1 px-3 bg-white border border-emerald-200 rounded-xl text-[10px] font-bold text-emerald-600 uppercase hover:bg-emerald-100 dark:bg-slate-800"
+          {isCameraActive && (
+            <div className="relative overflow-hidden rounded-3xl border-2 border-emerald-400 bg-black">
+              <div id="camera-preview-container" className="w-full aspect-video"></div>
+              <div className="absolute top-2 right-2 z-10">
+                <button
+                  type="button"
+                  onClick={stopScanner}
+                  className="p-2 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition-colors cursor-pointer"
                 >
-                  Mudar Peça
+                  <X size={16} />
                 </button>
               </div>
-
-              <div className="grid grid-cols-1 gap-6">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center text-sm font-bold text-slate-400 uppercase tracking-widest px-2">
-                    <span>Estoque Atual</span>
-                    <span>{selectedQuickProduct.stock} {selectedQuickProduct.unit}</span>
-                  </div>
-                  
-                  <div className="relative">
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      className="w-full py-8 text-center text-5xl font-black text-emerald-600 bg-white border-2 border-emerald-400 rounded-2xl shadow-xl outline-none no-spinners dark:bg-slate-800"
-                      value={quickInventoryStock}
-                      onChange={e => setQuickInventoryStock(e.target.value)}
-                    />
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold uppercase">
-                      Unidades
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-3">
-                    {[-5, -1, 1, 5].map(val => (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setQuickInventoryStock(s => (Math.max(0, (parseInt(s) || 0) + val)).toString())}
-                        className={`py-4 rounded-xl font-black text-lg ${val > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'} hover:scale-105 transition-all`}
-                      >
-                        {val > 0 ? `+${val}` : val}
-                      </button>
-                    ))}
-                  </div>
-
-                  <button
-                    onClick={handleUpdateStockQuick}
-                    className="w-full py-6 mt-4 bg-emerald-600 text-white rounded-2xl font-black text-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all uppercase tracking-widest"
-                  >
-                    Confirmar Contagem
-                  </button>
-                </div>
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-xs text-white">
+                Aponte para o código de barras
               </div>
             </div>
+          )}
+
+          {countedItems.length > 0 ? (
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Itens Contados</h4>
+              {countedItems.map((item, idx) => {
+                const itemTotal = item.product.sale_price * item.quantity;
+                return (
+                  <div 
+                    key={item.product.id} 
+                    className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-2xl dark:bg-slate-900 dark:border-slate-800 dark:border-slate-700 hover:border-emerald-200 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0 pr-4">
+                      <p className="font-bold text-slate-900 truncate dark:text-slate-100 uppercase text-sm">
+                        {item.product.description}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        SKU: {item.product.sku || 'N/A'} | Preço: {formatBRL(item.product.sale_price)}
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 text-right">
+                      <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl p-1 dark:bg-slate-800 dark:border-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCountedItems(prev => {
+                              const updated = [...prev];
+                              if (updated[idx].quantity > 1) {
+                                updated[idx] = { ...updated[idx], quantity: updated[idx].quantity - 1 };
+                                return updated;
+                              } else {
+                                return updated.filter((_, i) => i !== idx);
+                              }
+                            });
+                          }}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors dark:text-slate-400 dark:hover:bg-rose-950 cursor-pointer"
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <span className="w-10 text-center font-black text-slate-800 dark:text-slate-100">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCountedItems(prev => {
+                              const updated = [...prev];
+                              updated[idx] = { ...updated[idx], quantity: updated[idx].quantity + 1 };
+                              return updated;
+                            });
+                          }}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 transition-colors dark:text-slate-400 dark:hover:bg-emerald-950 cursor-pointer"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                      <div className="text-right min-w-[75px]">
+                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-tight">Subtotal</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                          {formatBRL(itemTotal)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCountedItems(prev => prev.filter((_, i) => i !== idx));
+                        }}
+                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                        title="Remover Item"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
-            <div className="py-20 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl dark:bg-slate-900 dark:border-slate-700">
-              <ClipboardList className="mx-auto text-slate-300 mb-4" size={48} />
-              <p className="text-slate-400 font-medium">Use a busca acima ou bipe o <br /> código para começar a contar.</p>
+            !isCameraActive && (
+              <div className="py-20 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl dark:bg-slate-900 dark:border-slate-700">
+                <ClipboardList className="mx-auto text-slate-300 mb-4" size={48} />
+                <p className="text-slate-400 font-medium">Use a busca acima ou bipe o <br /> código para começar a contar.</p>
+              </div>
+            )
+          )}
+
+          {countedItems.length > 0 && (
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-4">
+              <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total de Itens Contados</p>
+                  <p className="text-xl font-black text-slate-900 dark:text-slate-100">
+                    {countedItems.reduce((acc, item) => acc + item.quantity, 0)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Valor Acumulado</p>
+                  <p className="text-xl font-black text-emerald-600">
+                    {formatBRL(countedItems.reduce((acc, item) => acc + (item.product.sale_price * item.quantity), 0))}
+                  </p>
+                </div>
+              </div>
+              
+              <button
+                type="button"
+                onClick={handleSaveBulkInventory}
+                className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-lg shadow-lg shadow-emerald-100 dark:shadow-none hover:bg-emerald-700 active:scale-95 transition-all uppercase tracking-widest flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <ClipboardCheck size={22} />
+                Confirmar e Atualizar Estoque
+              </button>
             </div>
           )}
         </div>
