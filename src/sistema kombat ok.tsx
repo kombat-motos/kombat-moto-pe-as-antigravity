@@ -8076,14 +8076,21 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           maxWidth={selectedCustomerForPrint?.type === 'A4' ? "max-w-6xl" : "max-w-lg"}
         >
           {selectedCustomerForPrint && (
-            <div id="customer-history-print-content" className={`bg-white p-8 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape' : 'font-bold text-[15px] w-[80mm] mx-auto overflow-visible print:p-0'}`} style={selectedCustomerForPrint.type === '80mm' ? { fontFamily: '"Arial Black", Gadget, sans-serif' } : {}}>
+            <div id="customer-history-print-content" className={`bg-white p-8 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape print-a4' : 'print-receipt font-bold text-[15px] w-[80mm] mx-auto overflow-visible print:p-0'}`} style={selectedCustomerForPrint.type === '80mm' ? { fontFamily: '"Arial Black", Gadget, sans-serif' } : {}}>
               <style>{selectedCustomerForPrint.type === '80mm' ? `
                 @media print {
                   @page { margin: 0; size: 80mm auto; }
-                  body { margin: 0; padding: 0; }
+                  body { margin: 0; padding: 0; page: receipt-page !important; }
                   .no-print { display: none !important; }
+                  #customer-history-print-content { page: receipt-page !important; }
                 }
-              ` : ''}</style>
+              ` : `
+                @media print {
+                  @page { size: A4; margin: 5mm; }
+                  body { page: a4-page !important; }
+                  #customer-history-print-content { page: a4-page !important; }
+                }
+              `}</style>
               <div className={`text-center border-b-2 border-slate-900 pb-4 mb-4 ${selectedCustomerForPrint.type === '80mm' ? 'border-dashed' : ''}`}>
                 <h3 className={`${selectedCustomerForPrint.type === 'A4' ? 'text-2xl' : 'text-[18px]'} font-black text-slate-900 uppercase`}>Histórico de Movimentação</h3>
                 <p className={`${selectedCustomerForPrint.type === 'A4' ? 'text-lg' : 'text-[16px]'} font-black text-slate-900`}>KOMBAT MOTO PEÇAS</p>
@@ -8220,7 +8227,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           maxWidth="max-w-lg"
         >
           {selectedSaleForReceipt && (
-            <div id="receipt-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
+            <div id="receipt-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800 print-receipt" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
               <style>{`
                 @media print {
                   @page {
@@ -8228,6 +8235,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     size: 80mm auto;
                   }
                   html, body {
+                    page: receipt-page !important;
                     margin: 0 !important;
                     padding: 0 !important;
                     height: auto !important;
@@ -8239,6 +8247,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   .no-print { display: none !important; }
                   
                   #receipt-content {
+                    page: receipt-page !important;
                     width: 76mm !important;
                     margin: 0 auto !important;
                     padding: 2mm !important;
@@ -9317,7 +9326,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
         {/* Thermal Print Content for Mechanic Report */}
         <div className="hidden">
-          <div id="mechanic-report-thermal-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
+          <div id="mechanic-report-thermal-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800 print-receipt" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
             <style>{`
               @media print {
                 @page {
@@ -9325,6 +9334,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   size: 80mm auto;
                 }
                 html, body {
+                  page: receipt-page !important;
                   margin: 0 !important;
                   padding: 0 !important;
                   height: auto !important;
@@ -9334,6 +9344,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   print-color-adjust: exact !important;
                 }
                 #mechanic-report-thermal-content {
+                  page: receipt-page !important;
                   width: 76mm !important;
                   margin: 0 auto !important;
                   padding: 2mm !important;
@@ -10436,7 +10447,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
       {/* Quote Print View / High Resolution Layout */}
       {isPrintingQuote && (
-        <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:relative print:p-0 print:overflow-visible print:z-0 dark:bg-slate-800 print-quote-wrapper">
+        <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:relative print:p-0 print:overflow-visible print:z-0 dark:bg-slate-800 print-quote-wrapper print-a4">
           <style>{`
             @media print {
               @page {
@@ -10444,6 +10455,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 margin: 5mm !important;
               }
               body {
+                page: a4-page !important;
                 background: white !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
@@ -10458,6 +10470,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               
               /* Reset the inset wrapper properties on print */
               .print-quote-wrapper {
+                page: a4-page !important;
                 position: static !important;
                 height: auto !important;
                 min-height: 0 !important;

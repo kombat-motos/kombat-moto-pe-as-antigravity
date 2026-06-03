@@ -179,6 +179,7 @@ html, body {
      Forces layout to fit on a single A4 page
      ======================================================= */
   #os-printable-area {
+    page: a4-page !important;
     padding: 0 !important;
     margin: 0 !important;
     font-size: 10.5px !important;
@@ -231,8 +232,26 @@ html, body {
 
 
 @page {
+  size: auto;
+  margin: 0;
+}
+
+@page a4-page {
   size: A4;
-  margin: 5mm !important;
+  margin: 5mm;
+}
+
+@page receipt-page {
+  size: 80mm auto;
+  margin: 0;
+}
+
+.print-a4 {
+  page: a4-page !important;
+}
+
+.print-receipt {
+  page: receipt-page !important;
 }
 
 /* Custom Scrollbar for a premium look */
