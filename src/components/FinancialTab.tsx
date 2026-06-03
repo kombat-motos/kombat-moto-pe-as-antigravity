@@ -51,6 +51,7 @@ interface Customer {
 
 interface FinancialTabProps {
   sales: Sale[];
+  allSales: Sale[];
   products: Product[];
   customers: Customer[];
   companyData: any;
@@ -62,6 +63,7 @@ interface FinancialTabProps {
 
 const FinancialTab: React.FC<FinancialTabProps> = ({
   sales,
+  allSales,
   products,
   customers,
   companyData,
@@ -122,7 +124,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
   const [searchTerm, setSearchTerm] = React.useState('');
 
   const filteredSales = React.useMemo(() => {
-    return (sales || [])
+    return (allSales || [])
       .filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pendente')
       .filter(s => {
         if (!searchTerm) return true;
@@ -133,7 +135,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
         );
       })
       .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime());
-  }, [sales, searchTerm]);
+  }, [allSales, searchTerm]);
 
   // --- Data Loading (Financial Specific) ---
   const loadFinancialData = React.useCallback(async () => {
@@ -196,7 +198,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
     const closingBalance = prompt("Informe o saldo final em dinheiro no caixa:");
     if (closingBalance === null) return;
 
-    const sessionSales = sales.filter(s => s.date >= activeSession.openedAt && s.payment_method === 'Dinheiro');
+    const sessionSales = (allSales || []).filter(s => s.date >= activeSession.openedAt && s.payment_method === 'Dinheiro');
     const totalSales = sessionSales.reduce((acc, s) => acc + s.total, 0);
     const sessionTransactions = cashTransactions.filter(t => t.sessionId === activeSession.id);
     const totalTransactions = sessionTransactions.reduce((acc, t) => acc + (t.type === 'Suprimento' ? t.amount : -t.amount), 0);
@@ -242,7 +244,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
   };
 
   const getCustomerScore = (customerId: number) => {
-    const cSales = sales.filter(s => s.customer_id === customerId && s.payment_method === 'Fiado');
+    const cSales = (allSales || []).filter(s => s.customer_id === customerId && s.payment_method === 'Fiado');
     if (cSales.length === 0) return 5.0;
     const onTime = cSales.filter(s => s.payment_status === 'Pago' && (!s.paid_date || !s.due_date || new Date(s.paid_date) <= new Date(s.due_date))).length;
     return parseFloat(((onTime / cSales.length) * 10).toFixed(1));
@@ -345,10 +347,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
 
-  const monthlySales = sales.filter(s => {
-    const d = new Date(s.date);
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-  });
+  const monthlySales = sales || [];
 
   const productSales = monthlySales.reduce((acc, s) => {
     const items = s.items || s.sale_items || [];
@@ -412,7 +411,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
     const customerIdNum = parseInt(closingCustomerId);
     
     // Filtro as vendas do cliente
-    let customerSales = sales.filter(s => s.customer_id === customerIdNum);
+    let customerSales = (allSales || []).filter(s => s.customer_id === customerIdNum);
 
     // Filtro por período
     customerSales = customerSales.filter(s => {
@@ -726,10 +725,10 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
-              { label: 'Vencidos', value: sales.filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pendente' && new Date(s.due_date!) < now).length, color: 'text-rose-600', bg: 'bg-rose-50', icon: AlertTriangle },
-              { label: 'Vence Hoje', value: sales.filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pendente' && new Date(s.due_date!).toLocaleDateString() === now.toLocaleDateString()).length, color: 'text-amber-600', bg: 'bg-amber-50', icon: Bell },
-              { label: 'A Vencer', value: sales.filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pendente' && new Date(s.due_date!) > now).length, color: 'text-blue-600', bg: 'bg-blue-50', icon: Calendar },
-              { label: 'Total Recebido', value: `R$ ${sales.filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pago').reduce((acc, s) => acc + s.total, 0).toFixed(2)}`, color: 'text-emerald-600', bg: 'bg-emerald-50', icon: ShieldCheck }
+              { label: 'Vencidos', value: (allSales || []).filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pendente' && new Date(s.due_date!) < now).length, color: 'text-rose-600', bg: 'bg-rose-50', icon: AlertTriangle },
+              { label: 'Vence Hoje', value: (allSales || []).filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pendente' && new Date(s.due_date!).toLocaleDateString() === now.toLocaleDateString()).length, color: 'text-amber-600', bg: 'bg-amber-50', icon: Bell },
+              { label: 'A Vencer', value: (allSales || []).filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pendente' && new Date(s.due_date!) > now).length, color: 'text-blue-600', bg: 'bg-blue-50', icon: Calendar },
+              { label: 'Total Recebido', value: `R$ ${(allSales || []).filter(s => s.payment_method === 'Fiado' && s.payment_status === 'Pago').reduce((acc, s) => acc + s.total, 0).toFixed(2)}`, color: 'text-emerald-600', bg: 'bg-emerald-50', icon: ShieldCheck }
             ].map(stat => (
               <div key={stat.label} className={`${stat.bg} ${stat.color} p-4 rounded-2xl border border-current/10 flex items-center gap-4`}>
                 <div className="p-3 bg-white/50 rounded-xl"><stat.icon size={24} /></div>

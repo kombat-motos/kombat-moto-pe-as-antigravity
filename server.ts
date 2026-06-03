@@ -953,12 +953,37 @@ async function startServer() {
 
   // Sales & Items
   app.get("/api/sales", authenticateToken, (req, res) => {
-    const sales = db.prepare("SELECT * FROM sales WHERE user_id = ? ORDER BY date DESC LIMIT 200").all(req.user!.id) as any[];
-    const salesWithItems = sales.map(s => {
-      const items = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(s.id);
-      return { ...s, sale_items: items };
-    });
-    res.json(salesWithItems);
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
+    let query = "SELECT * FROM sales WHERE user_id = ?";
+    const params: any[] = [req.user!.id];
+
+    if (startDate) {
+      query += " AND date >= ?";
+      params.push(`${startDate} 00:00:00`);
+    }
+    if (endDate) {
+      query += " AND date <= ?";
+      params.push(`${endDate} 23:59:59`);
+    }
+
+    query += " ORDER BY date DESC";
+
+    if (!startDate && !endDate) {
+      query += " LIMIT 200";
+    }
+
+    try {
+      const sales = db.prepare(query).all(...params) as any[];
+      const salesWithItems = sales.map(s => {
+        const items = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(s.id);
+        return { ...s, sale_items: items };
+      });
+      res.json(salesWithItems);
+    } catch (err: any) {
+      console.error("Erro ao buscar vendas:", err);
+      res.status(500).json({ error: err.message });
+    }
   });
   app.post("/api/sales", authenticateToken, (req, res) => {
     const { id, customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, sale_items, motorcycle_km, motorcycle_id, paid_total } = req.body;

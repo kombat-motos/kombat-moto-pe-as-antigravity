@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useDeferredValue, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useDeferredValue, useMemo, useCallback } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -585,6 +585,23 @@ export default function App() {
   const [inventoryView, setInventoryView] = useState<'list' | 'grid'>('list');
   const [customerViewMode, setCustomerViewMode] = useState<'list' | 'grid'>('grid');
   const [stats, setStats] = useState<Stats | null>(null);
+  const [revenueStartDate, setRevenueStartDate] = useState(() => {
+    const d = new Date();
+    const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
+    const year = firstDay.getFullYear();
+    const month = String(firstDay.getMonth() + 1).padStart(2, '0');
+    const day = String(firstDay.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
+  const [revenueEndDate, setRevenueEndDate] = useState(() => {
+    const d = new Date();
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const year = lastDay.getFullYear();
+    const month = String(lastDay.getMonth() + 1).padStart(2, '0');
+    const day = String(lastDay.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
+  const [financialSales, setFinancialSales] = useState<Sale[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -919,6 +936,69 @@ export default function App() {
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [quoteCustomerSearchTerm, setQuoteCustomerSearchTerm] = useState('');
   
+  const fetchFinancialSales = useCallback(async (currentGeneralSales?: any[]) => {
+    try {
+      const res = await fetch(`/api/sales?startDate=${revenueStartDate}&endDate=${revenueEndDate}`);
+      if (!res.ok) throw new Error('Erro ao buscar faturamento');
+      const salesData = await res.json();
+      if (Array.isArray(salesData)) {
+        const mappedSales = salesData.map((s: any) => ({ ...s, items: s.sale_items || [] }));
+        setFinancialSales(mappedSales);
+        
+        // Stats Robustos
+        const rev = mappedSales.reduce((acc: number, s: any) => acc + (s.total || 0), 0);
+        
+        const productCounts: Record<string, number> = {};
+        mappedSales.forEach((sale: any) => {
+          const items = sale.items || [];
+          items.forEach((item: any) => {
+            if (item.type === 'Peça' || !item.type) {
+              const desc = item.description || 'Produto s/ nome';
+              productCounts[desc] = (productCounts[desc] || 0) + (item.quantity || 0);
+            }
+          });
+        });
+        
+        const topProducts = Object.entries(productCounts)
+          .map(([description, total_sold]) => ({ description, total_sold }))
+          .sort((a, b) => b.total_sold - a.total_sold)
+          .slice(0, 5);
+
+        const counterSales = mappedSales.filter((s: any) => s.type === 'Balcão');
+        const serviceSales = mappedSales.filter((s: any) => s.type === 'Oficina');
+        
+        const avgCounter = counterSales.length > 0 
+          ? counterSales.reduce((acc, s) => acc + (s.total || 0), 0) / counterSales.length 
+          : 0;
+        const avgService = serviceSales.length > 0 
+          ? serviceSales.reduce((acc, s) => acc + (s.total || 0), 0) / serviceSales.length 
+          : 0;
+
+        const generalSales = currentGeneralSales || sales || [];
+        const openServiceOrdersCount = generalSales.filter((s: any) => s.type === 'Oficina' && s.status !== 'Entregue').length;
+
+        setStats({
+          revenue: rev,
+          openServiceOrders: openServiceOrdersCount,
+          topProducts,
+          avgTicketCounter: avgCounter,
+          avgTicketService: avgService
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao buscar vendas do faturamento:', error);
+    }
+  }, [revenueStartDate, revenueEndDate, sales]);
+
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    fetchFinancialSales();
+  }, [revenueStartDate, revenueEndDate]);
+  
   const d_globalSearchTerm = useDeferredValue(globalSearchTerm);
   const d_inventorySearchTerm = useDeferredValue(inventorySearchTerm);
   const d_customerSearchTerm = useDeferredValue(customerSearchTerm);
@@ -996,43 +1076,7 @@ export default function App() {
 
       // Stats Robustos
       if (Array.isArray(salesData)) {
-        const rev = salesData.reduce((acc: number, s: any) => acc + (s.total || 0), 0);
-        
-        // Calcular Produtos Mais Vendidos
-        const productCounts: Record<string, number> = {};
-        salesData.forEach((sale: any) => {
-          const items = sale.sale_items || [];
-          items.forEach((item: any) => {
-            if (item.type === 'Peça' || !item.type) {
-              const desc = item.description || 'Produto s/ nome';
-              productCounts[desc] = (productCounts[desc] || 0) + (item.quantity || 0);
-            }
-          });
-        });
-        
-        const topProducts = Object.entries(productCounts)
-          .map(([description, total_sold]) => ({ description, total_sold }))
-          .sort((a, b) => b.total_sold - a.total_sold)
-          .slice(0, 5);
-
-        // Calcular Ticket Médio
-        const counterSales = salesData.filter((s: any) => s.type === 'Balcão');
-        const serviceSales = salesData.filter((s: any) => s.type === 'Oficina');
-        
-        const avgCounter = counterSales.length > 0 
-          ? counterSales.reduce((acc, s) => acc + (s.total || 0), 0) / counterSales.length 
-          : 0;
-        const avgService = serviceSales.length > 0 
-          ? serviceSales.reduce((acc, s) => acc + (s.total || 0), 0) / serviceSales.length 
-          : 0;
-
-        setStats({
-          revenue: rev,
-          openServiceOrders: salesData.filter((s: any) => s.type === 'Oficina' && s.status !== 'Entregue').length,
-          topProducts,
-          avgTicketCounter: avgCounter,
-          avgTicketService: avgService
-        });
+        fetchFinancialSales(salesData);
       }
 
       // LIBERA A UI AQUI
@@ -5016,13 +5060,40 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         </button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Faturamento Mensal"
-          value={formatBRL(stats?.revenue)}
-          icon={TrendingUp}
-          color="bg-rose-500"
-          subtitle="Vendas concluídas este mês"
-        />
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 flex flex-col justify-between dark:bg-slate-800 dark:border-slate-700">
+          <div className="flex items-start justify-between w-full">
+            <div>
+              <p className="text-sm font-medium text-slate-500 mb-1 dark:text-slate-400">Faturamento no Período</p>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{formatBRL(stats?.revenue)}</h3>
+              <p className="text-xs text-slate-400 mt-1">Período customizado</p>
+            </div>
+            <div className="p-3 rounded-xl bg-rose-500">
+              <TrendingUp size={24} className="text-white" />
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700 flex flex-col gap-2 w-full">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[9px] uppercase font-bold text-slate-400 mb-0.5">Início</label>
+                <input
+                  type="date"
+                  value={revenueStartDate}
+                  onChange={(e) => setRevenueStartDate(e.target.value)}
+                  className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-rose-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] uppercase font-bold text-slate-400 mb-0.5">Fim</label>
+                <input
+                  type="date"
+                  value={revenueEndDate}
+                  onChange={(e) => setRevenueEndDate(e.target.value)}
+                  className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-rose-500"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
         <StatCard
           title="Motos em Aberto"
           value={stats?.openServiceOrders || 0}
@@ -6656,7 +6727,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 )}
                 {activeTab === 'financial' && (
                   <FinancialTab
-                    sales={sales}
+                    sales={financialSales}
+                    allSales={sales}
                     products={products}
                     customers={customers}
                     companyData={companyData}
