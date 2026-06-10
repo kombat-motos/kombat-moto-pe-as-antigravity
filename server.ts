@@ -498,80 +498,212 @@ async function startServer() {
     }
   });
 
-  // Public Visual Catalog for AI/Users
+  // Rota leve de produtos para o catálogo interno (sem base64, apenas URLs externas)
+  // Reduz drasticamente o payload quando as imagens são base64 embutidas
+  app.get("/api/public/products-light", authenticateToken, (req, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const offset = (page - 1) * limit;
+      const search = (req.query.q as string || '').trim();
+
+      let query = "SELECT id, description, sku, barcode, sale_price, stock, unit, category, brand, application FROM products WHERE user_id = ?";
+      const params: any[] = [1]; // catálogo público sempre user_id 1
+
+      if (search) {
+        query += " AND (description LIKE ? OR sku LIKE ? OR brand LIKE ?)";
+        const term = `%${search}%`;
+        params.push(term, term, term);
+      }
+
+      query += " ORDER BY description ASC LIMIT ? OFFSET ?";
+      params.push(limit, offset);
+
+      const countQuery = search
+        ? "SELECT COUNT(*) as total FROM products WHERE user_id = ? AND (description LIKE ? OR sku LIKE ? OR brand LIKE ?)"
+        : "SELECT COUNT(*) as total FROM products WHERE user_id = ?";
+      const countParams = search
+        ? [1, `%${search}%`, `%${search}%`, `%${search}%`]
+        : [1];
+
+      const products = db.prepare(query).all(...params);
+      const { total } = db.prepare(countQuery).get(...countParams) as any;
+
+      // Adiciona a URL da imagem apenas se não for base64 (muito grande para mobile)
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const productsWithImages = (products as any[]).map(p => ({
+        ...p,
+        image_url: `${baseUrl}/api/public/img/${p.id}/1`
+      }));
+
+      res.setHeader('Cache-Control', 'private, max-age=60');
+      res.json({
+        products: productsWithImages,
+        pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Catálogo público HTML — otimizado para mobile com paginação JS nativa e lazy loading
   app.get("/api/public/catalog-page", (req, res) => {
     try {
-      // Show ALL products regardless of stock, as requested (so all photos appear)
-      const products = db.prepare("SELECT * FROM products WHERE user_id = 1 ORDER BY description ASC").all() as any[];
-      let html = `
-        <!DOCTYPE html>
-        <html lang="pt-BR">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Catálogo Kombat Moto</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-            body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 40px 20px; }
-            .container { max-width: 1200px; margin: 0 auto; }
-            .header { text-align: center; margin-bottom: 50px; }
-            .header h1 { font-weight: 900; text-transform: uppercase; letter-spacing: -2px; font-size: 42px; margin: 0; color: #b91c1c; }
-            .header p { color: #64748b; font-weight: 500; }
-            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; }
-            .card { background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid #e2e8f0; transition: transform 0.3s ease; display: flex; flex-col: column; height: 100%; }
-            .card:hover { transform: translateY(-5px); }
-            .img-container { width: 100%; height: 250px; background: white; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 10px; position: relative; }
-            img { max-width: 100%; max-height: 100%; object-fit: contain; }
-            .content { padding: 20px; flex: 1; display: flex; flex-direction: column; }
-            .category { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #ef4444; background: #fef2f2; padding: 4px 12px; border-radius: 100px; display: inline-block; margin-bottom: 10px; }
-            h3 { font-size: 18px; font-weight: 700; margin: 0 0 10px 0; line-height: 1.2; height: 43px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-            .price { font-size: 24px; font-weight: 900; color: #0f172a; margin-bottom: 15px; }
-            .details { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; font-weight: 600; color: #64748b; margin-top: auto; }
-            .details span { background: #f1f5f9; padding: 4px 10px; border-radius: 8px; }
-            .no-image { color: #cbd5e1; font-weight: bold; font-size: 12px; text-transform: uppercase; text-align: center; }
-            .stock-badge { position: absolute; top: 15px; right: 15px; padding: 4px 10px; border-radius: 8px; font-size: 10px; font-weight: 800; }
-            .stock-in { background: #dcfce7; color: #166534; }
-            .stock-out { background: #fee2e2; color: #991b1b; }
-            .print-btn { position: fixed; bottom: 30px; right: 30px; background: #b91c1c; color: white; border: none; padding: 15px 30px; border-radius: 100px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 25px -5px rgba(185, 28, 28, 0.4); text-transform: uppercase; letter-spacing: 1px; z-index: 100; }
-            @media print { .print-btn { display: none; } body { padding: 0; background: white; } .card { box-shadow: none; border: 1px solid #eee; break-inside: avoid; } }
-          </style>
-        </head>
-        <body>
-          <button class="print-btn" onclick="window.print()">Salvar como PDF / Imprimir</button>
-          <div class="container">
-            <div class="header">
-              <h1>Kombat Moto Peças</h1>
-              <p>Catálogo Completo de Inventário | ${products.length} itens encontrados</p>
-            </div>
-            <div class="grid">
-              ${products.map(p => {
-                // Get the first available image
-                const photo = p.image_url || p.image_url2 || p.image_url3 || p.image_url4;
-                return `
-                <div class="card">
-                  <div class="img-container">
-                    <span class="stock-badge ${p.stock > 0 ? 'stock-in' : 'stock-out'}">
-                      ${p.stock > 0 ? 'EM ESTOQUE' : 'ESGOTADO'}
-                    </span>
-                    ${photo ? `<img src="${photo}" alt="${p.description}" loading="lazy">` : `<div class="no-image">Foto não disponível</div>`}
-                  </div>
-                  <div class="content">
-                    <div class="category">${p.category || 'Peças'}</div>
-                    <h3>${p.description}</h3>
-                    <div class="price">R$ ${p.sale_price.toFixed(2)}</div>
-                    <div class="details">
-                      <span>SKU: ${p.sku || 'N/A'}</span>
-                      <span>Marca: ${p.brand || 'N/A'}</span>
-                      <span>Qtd: ${p.stock} ${p.unit || 'un'}</span>
-                    </div>
-                  </div>
-                </div>
-              `}).join('')}
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
+      // Seleciona apenas campos necessários para o catálogo (sem base64 pesado no HTML)
+      const products = db.prepare(
+        "SELECT id, description, sku, brand, sale_price, stock, unit, category FROM products WHERE user_id = 1 ORDER BY description ASC"
+      ).all() as any[];
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+
+      // Serializa os dados como JSON compacto para o script de paginação
+      const productsJson = JSON.stringify(products.map(p => ({
+        id: p.id,
+        d: p.description,
+        s: p.sku || '',
+        b: p.brand || '',
+        p: p.sale_price,
+        q: p.stock,
+        u: p.unit || 'un',
+        c: p.category || 'Peças',
+        img: `${baseUrl}/api/public/img/${p.id}/1`
+      })));
+
+      // Cache de 5 minutos no CDN/proxy — evita rebuscar o catálogo inteiro a cada acesso
+      res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+
+      const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catálogo Kombat Moto Peças</title>
+  <meta name="description" content="Catálogo completo de peças para motos - Kombat Moto Peças, Andirá-PR">
+  <!-- Google Fonts via link (não bloqueia render, ao contrário do @import) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap"></noscript>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',system-ui,sans-serif;background:#f8fafc;color:#1e293b;padding:20px}
+    .container{max-width:1200px;margin:0 auto}
+    .header{text-align:center;margin-bottom:40px;padding-top:20px}
+    .header h1{font-weight:900;text-transform:uppercase;letter-spacing:-2px;font-size:clamp(28px,6vw,42px);color:#b91c1c}
+    .header p{color:#64748b;font-weight:500;margin-top:8px}
+    /* Barra de busca */
+    .search-bar{max-width:500px;margin:20px auto;position:relative}
+    .search-bar input{width:100%;padding:14px 20px;border:1px solid #e2e8f0;border-radius:50px;font-size:16px;outline:none;font-family:inherit}
+    .search-bar input:focus{border-color:#b91c1c;box-shadow:0 0 0 3px rgba(185,28,28,.1)}
+    /* Grid responsivo */
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px}
+    @media(max-width:480px){.grid{grid-template-columns:repeat(2,1fr);gap:12px}}
+    .card{background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);border:1px solid #e2e8f0;display:flex;flex-direction:column}
+    .card:hover{box-shadow:0 8px 24px rgba(0,0,0,.12);transform:translateY(-3px);transition:all .25s ease}
+    .img-wrap{position:relative;width:100%;padding-bottom:100%;background:#fff;overflow:hidden}
+    .img-wrap img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:8px;transition:transform .3s ease}
+    .img-wrap img:hover{transform:scale(1.05)}
+    .img-wrap .placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:11px;font-weight:700;text-transform:uppercase;background:linear-gradient(135deg,#f8fafc,#f1f5f9)}
+    .badge{position:absolute;top:10px;right:10px;padding:3px 8px;border-radius:8px;font-size:9px;font-weight:800;text-transform:uppercase}
+    .in{background:#dcfce7;color:#166534}
+    .out{background:#fee2e2;color:#991b1b}
+    .info{padding:16px;flex:1;display:flex;flex-direction:column}
+    .cat{font-size:9px;font-weight:900;text-transform:uppercase;color:#ef4444;background:#fef2f2;padding:3px 10px;border-radius:100px;display:inline-block;margin-bottom:8px;align-self:flex-start}
+    .name{font-size:14px;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;flex:1;margin-bottom:8px}
+    .price{font-size:20px;font-weight:900;color:#0f172a;margin-bottom:4px}
+    .meta{display:flex;flex-wrap:wrap;gap:6px;font-size:10px;font-weight:600;color:#64748b;margin-top:auto}
+    .meta span{background:#f1f5f9;padding:3px 8px;border-radius:6px}
+    /* Paginação */
+    .pagination{display:flex;align-items:center;justify-content:center;gap:16px;padding:40px 0 80px}
+    .load-more{padding:14px 40px;background:#0f172a;color:#fff;border:none;border-radius:50px;font-family:inherit;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;cursor:pointer;transition:all .2s}
+    .load-more:hover{background:#b91c1c}
+    .counter{font-size:12px;color:#94a3b8;font-weight:600}
+    /* Botão de impressão */
+    .print-btn{position:fixed;bottom:24px;right:24px;background:#b91c1c;color:#fff;border:none;padding:14px 24px;border-radius:50px;font-family:inherit;font-weight:800;cursor:pointer;box-shadow:0 8px 24px rgba(185,28,28,.35);font-size:12px;text-transform:uppercase;letter-spacing:1px;z-index:100}
+    @media print{.print-btn,.pagination,.search-bar{display:none}body{padding:0;background:#fff}.card{box-shadow:none;border:1px solid #eee;break-inside:avoid}}
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">Salvar PDF</button>
+  <div class="container">
+    <div class="header">
+      <h1>Kombat Moto Peças</h1>
+      <p id="subtitle">Carregando catálogo...</p>
+    </div>
+    <div class="search-bar">
+      <input type="search" id="q" placeholder="Buscar por nome, SKU ou marca..." autocomplete="off">
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="pagination" id="paginacao" style="display:none">
+      <button class="load-more" id="load-more-btn" onclick="loadMore()">Carregar Mais</button>
+      <span class="counter" id="counter"></span>
+    </div>
+  </div>
+
+  <script>
+    const ALL = ${productsJson};
+    const PAGE = 20;
+    let filtered = ALL;
+    let shown = 0;
+
+    function fmt(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);}
+
+    function renderCard(p){
+      return '<div class="card">'+
+        '<div class="img-wrap">'+
+          '<img src="'+p.img+'" alt="'+p.d.replace(/"/g,'&quot;')+'" loading="lazy" decoding="async" width="220" height="220" onerror="this.style.display=\'none\';">'+
+          '<span class="badge '+(p.q>0?'in':'out')+'">'+(p.q>0?'Estoque':'Esgotado')+'</span>'+
+        '</div>'+
+        '<div class="info">'+
+          '<span class="cat">'+p.c+'</span>'+
+          '<p class="name">'+p.d+'</p>'+
+          '<p class="price">'+fmt(p.p)+'</p>'+
+          '<div class="meta">'+
+            '<span>SKU: '+(p.s||'N/A')+'</span>'+
+            (p.b?'<span>'+p.b+'</span>':'')+
+            '<span>'+p.q+' '+p.u+'</span>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    }
+
+    function renderPage(){
+      const grid = document.getElementById('grid');
+      const next = filtered.slice(shown, shown + PAGE);
+      grid.insertAdjacentHTML('beforeend', next.map(renderCard).join(''));
+      shown += next.length;
+      const total = filtered.length;
+      document.getElementById('subtitle').textContent = total + ' produtos no catálogo';
+      document.getElementById('counter').textContent = 'Exibindo '+shown+' de '+total;
+      const pag = document.getElementById('paginacao');
+      pag.style.display = shown < total ? 'flex' : 'none';
+      const btn = document.getElementById('load-more-btn');
+      if(btn) btn.textContent = 'Carregar Mais ('+(total-shown)+' restantes)';
+    }
+
+    function loadMore(){ renderPage(); }
+
+    function applyFilter(){
+      const q = document.getElementById('q').value.toLowerCase().trim();
+      filtered = q ? ALL.filter(p => p.d.toLowerCase().includes(q) || p.s.toLowerCase().includes(q) || p.b.toLowerCase().includes(q)) : ALL;
+      shown = 0;
+      document.getElementById('grid').innerHTML = '';
+      renderPage();
+    }
+
+    let timer;
+    document.getElementById('q').addEventListener('input', function(){
+      clearTimeout(timer);
+      timer = setTimeout(applyFilter, 250);
+    });
+
+    // Carga inicial
+    renderPage();
+  </script>
+</body>
+</html>`;
+
       res.send(html);
     } catch (err: any) {
       res.status(500).send("Erro ao gerar página: " + err.message);

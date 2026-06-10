@@ -1033,21 +1033,40 @@ export default function App() {
         return res.json();
       };
 
-      // Fetch each table independently to avoid one failing route blocking everything
-      const productsData = await fetchTable('products').catch(() => []);
-      const customersData = await fetchTable('customers').catch(() => []);
-      const motorcyclesData = await fetchTable('motorcycles').catch(() => []);
-      const salesData = await fetchTable('sales').catch(() => []);
-      const leadsData = await fetchTable('leads').catch(() => []);
-      const mechanicsData = await fetchTable('mechanics').catch(() => []);
-      const fixedServicesData = await fetchTable('fixed_services').catch(() => []);
-      const distributorsData = await fetchTable('distributors').catch(() => []);
-      const ordersData = await fetchTable('purchase_orders').catch(() => []);
-      const cashSessionsData = await fetchTable('cash_sessions').catch(() => []);
-      const cashTransactionsData = await fetchTable('cash_transactions').catch(() => []);
-      const quotesData = await fetchTable('quotes').catch(() => []);
-      const servicesData = await fetchTable('registered_services').catch(() => []);
-      const workshopPurchasesData = await fetchTable('workshop_purchases').catch(() => []);
+      // ── Todas as requisições em PARALELO (Promise.all) ────────────────────
+      // Antes: sequencial (~14 round-trips encadeados)
+      // Agora: simultâneo (tempo = a requisição mais lenta, não a soma delas)
+      const [
+        productsData,
+        customersData,
+        motorcyclesData,
+        salesData,
+        leadsData,
+        mechanicsData,
+        fixedServicesData,
+        distributorsData,
+        ordersData,
+        cashSessionsData,
+        cashTransactionsData,
+        quotesData,
+        servicesData,
+        workshopPurchasesData,
+      ] = await Promise.all([
+        fetchTable('products').catch(() => []),
+        fetchTable('customers').catch(() => []),
+        fetchTable('motorcycles').catch(() => []),
+        fetchTable('sales').catch(() => []),
+        fetchTable('leads').catch(() => []),
+        fetchTable('mechanics').catch(() => []),
+        fetchTable('fixed_services').catch(() => []),
+        fetchTable('distributors').catch(() => []),
+        fetchTable('purchase_orders').catch(() => []),
+        fetchTable('cash_sessions').catch(() => []),
+        fetchTable('cash_transactions').catch(() => []),
+        fetchTable('quotes').catch(() => []),
+        fetchTable('registered_services').catch(() => []),
+        fetchTable('workshop_purchases').catch(() => []),
+      ]);
 
       if (productsData) setProducts(productsData);
       if (customersData) setCustomers(customersData);
@@ -1092,6 +1111,7 @@ export default function App() {
       isFetchingRef.current = false;
     }
   };
+
 
   // Barcode quick search direct add (hybrid search/barcode scanner support)
   useEffect(() => {
