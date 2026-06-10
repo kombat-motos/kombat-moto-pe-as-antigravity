@@ -12,10 +12,8 @@ import {
   TrendingUp, 
   RefreshCw,
   Image as ImageIcon,
-  Link,
   Share2,
-  FileText,
-  Eye
+  FileText
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -178,30 +176,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
             Exportar
           </button>
 
-          <button
-            onClick={() => {
-              const url = `${window.location.origin}/api/public/catalog-ai`;
-              navigator.clipboard.writeText(url);
-              alert('Link do catálogo para IA copiado! Agora você pode colar na configuração da sua IA do WhatsApp.');
-            }}
-            className="h-10 flex items-center justify-center gap-2 px-4 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition-all font-medium text-sm whitespace-nowrap shadow-sm"
-            title="Copiar link para a IA estudar seu estoque"
-          >
-            <Link size={18} />
-            Link de Texto p/ IA
-          </button>
 
-          <button
-            onClick={() => {
-              const url = `${window.location.origin}/api/public/catalog-page`;
-              window.open(url, '_blank');
-            }}
-            className="h-10 flex items-center justify-center gap-2 px-4 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium text-sm whitespace-nowrap shadow-sm"
-            title="Abrir catálogo visual com fotos para a IA ou para salvar como PDF"
-          >
-            <Eye size={18} />
-            Catálogo com Fotos (p/ IA)
-          </button>
 
           <button
             onClick={() => setIsQuickInventoryOpen(true)}
