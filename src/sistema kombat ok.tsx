@@ -5117,61 +5117,6 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
-          <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2 dark:text-slate-100">
-            <TrendingUp size={20} className="text-rose-500" />
-            Top 5 Produtos Mais Vendidos
-          </h3>
-          <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-            {(stats?.topProducts || []).map((p, i) => (
-              <div key={`prod-${i}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl dark:bg-slate-900">
-                <div className="flex items-center gap-3">
-                  <span className="w-8 h-8 flex items-center justify-center bg-white rounded-full text-sm font-bold text-slate-400 border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
-                    {i + 1}
-                  </span>
-                  <span className="font-medium text-slate-700 dark:text-slate-100">{p.description}</span>
-                </div>
-                <span className="text-sm font-bold text-rose-600">{p.total_sold} vendidos</span>
-              </div>
-            ))}
-            {(!stats?.topProducts || stats.topProducts.length === 0) && (
-              <p className="text-center text-slate-400 py-8">Nenhuma venda registrada ainda.</p>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
-          <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2 dark:text-slate-100">
-            <Bike size={20} className="text-amber-500" />
-            Próximas Revisões (CRM)
-          </h3>
-          <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-            {(motorcycles || []).slice(0, 5).map((m, idx) => (
-              <div key={m.id || `moto-${idx}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl dark:bg-slate-900">
-                <div>
-                  <p className="font-bold text-slate-800 dark:text-slate-100">{m.customer_name || 'Cliente s/ nome'}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{m.model || 'Moto'} • {m.plate || 'S/ Placa'}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium px-2 py-1 bg-amber-100 text-amber-700 rounded-lg">
-                    {m.current_km || 0} km
-                  </span>
-                  <button
-                    onClick={() => handleWhatsApp(m)}
-                    className="p-2 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition-colors"
-                  >
-                    <MessageCircle size={18} />
-                  </button>
-                </div>
-              </div>
-            ))}
-            {(!motorcycles || motorcycles.length === 0) && (
-              <p className="text-center text-slate-400 py-8">Nenhuma revisão pendente.</p>
-            )}
-          </div>
-        </div>
-      </div>
       <div className="grid grid-cols-1 gap-8">
         <BillingAutomationBox
           pendingSales={sales.filter(s => s.payment_status === 'Pendente')}
