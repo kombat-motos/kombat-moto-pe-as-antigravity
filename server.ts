@@ -12,6 +12,9 @@ import fs from "fs";
 import * as XLSX from "xlsx";
 import cors from 'cors';
 import compression from 'compression';
+import { GoogleGenAI } from "@google/genai";
+import { Jimp } from "jimp";
+import jsQR from "jsqr";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -243,6 +246,20 @@ db.exec(`
     status TEXT DEFAULT 'Aberto',
     FOREIGN KEY (user_id) REFERENCES users (id),
     FOREIGN KEY (customer_id) REFERENCES customers (id)
+  );
+
+  CREATE TABLE IF NOT EXISTS accounts_payable (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    fornecedor TEXT NOT NULL,
+    valor REAL NOT NULL,
+    due_date TEXT NOT NULL,
+    linha_digitavel TEXT,
+    codigo_pix TEXT,
+    status TEXT DEFAULT 'Pendente',
+    paid_date TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id)
   );
 
   CREATE TABLE IF NOT EXISTS short_links (
@@ -1471,6 +1488,175 @@ async function startServer() {
     } catch (err) {
       console.error('SERVER ERROR (DELETE):', err);
       res.status(500).json({ error: "Erro ao excluir compra" });
+    }
+  });
+
+  // Accounts Payable (Contas a Pagar)
+  app.get("/api/accounts_payable", authenticateToken, (req, res) => {
+    try {
+      const data = db.prepare("SELECT * FROM accounts_payable WHERE user_id = ? ORDER BY due_date ASC").all(req.user!.id);
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ error: "Erro ao carregar contas a pagar: " + err.message });
+    }
+  });
+
+  app.post("/api/accounts_payable", authenticateToken, (req, res) => {
+    try {
+      const { fornecedor, valor, due_date, linha_digitavel, codigo_pix, status } = req.body;
+      const info = db.prepare(`
+        INSERT INTO accounts_payable (user_id, fornecedor, valor, due_date, linha_digitavel, codigo_pix, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(req.user!.id, fornecedor, valor, due_date, linha_digitavel, codigo_pix, status || 'Pendente');
+      res.json({ id: parseInt(info.lastInsertRowid.toString()) });
+    } catch (err: any) {
+      res.status(500).json({ error: "Erro ao cadastrar conta a pagar: " + err.message });
+    }
+  });
+
+  app.put("/api/accounts_payable/:id", authenticateToken, (req, res) => {
+    try {
+      const { fornecedor, valor, due_date, linha_digitavel, codigo_pix, status, paid_date } = req.body;
+      db.prepare(`
+        UPDATE accounts_payable 
+        SET fornecedor = ?, valor = ?, due_date = ?, linha_digitavel = ?, codigo_pix = ?, status = ?, paid_date = ?
+        WHERE id = ? AND user_id = ?
+      `).run(fornecedor, valor, due_date, linha_digitavel, codigo_pix, status, paid_date, req.params.id, req.user!.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: "Erro ao atualizar conta a pagar: " + err.message });
+    }
+  });
+
+  app.delete("/api/accounts_payable/:id", authenticateToken, (req, res) => {
+    try {
+      db.prepare("DELETE FROM accounts_payable WHERE id = ? AND user_id = ?").run(req.params.id, req.user!.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: "Erro ao excluir conta a pagar: " + err.message });
+    }
+  });
+
+  app.post("/api/public/parse-boleto", authenticateToken, async (req, res) => {
+    const { fileContent } = req.body;
+    if (!fileContent) {
+      return res.status(400).json({ error: "Nenhum arquivo enviado" });
+    }
+
+    try {
+      const buffer = Buffer.from(fileContent, 'base64');
+      const extractedData: any = {
+        fornecedor: null,
+        valor: null,
+        data_vencimento: null,
+        linha_digitavel: null,
+        codigo_pix: null
+      };
+
+      // 1. Try decoding QR Code (Pix) locally using jimp and jsqr
+      try {
+        const image = await Jimp.read(buffer);
+        let qr = jsQR(new Uint8ClampedArray(image.bitmap.data), image.bitmap.width, image.bitmap.height);
+        if (!qr) {
+          const rotated = image.clone().rotate(90);
+          qr = jsQR(new Uint8ClampedArray(rotated.bitmap.data), rotated.bitmap.width, rotated.bitmap.height);
+        }
+        if (!qr) {
+          const rotated = image.clone().rotate(270);
+          qr = jsQR(new Uint8ClampedArray(rotated.bitmap.data), rotated.bitmap.width, rotated.bitmap.height);
+        }
+        
+        if (qr && qr.data) {
+          extractedData.codigo_pix = qr.data;
+          
+          try {
+            let i = 0;
+            const tags: Record<string, string> = {};
+            const pix = qr.data;
+            while (i < pix.length - 4) {
+              const tag = pix.substring(i, i + 2);
+              const lenStr = pix.substring(i + 2, i + 4);
+              const len = parseInt(lenStr, 10);
+              if (isNaN(len)) break;
+              const val = pix.substring(i + 4, i + 4 + len);
+              tags[tag] = val;
+              i += 4 + len;
+            }
+            if (tags["59"]) {
+              extractedData.fornecedor = tags["59"];
+            }
+          } catch (e) {
+            console.error("Error parsing Pix EMV tags:", e);
+          }
+        }
+      } catch (err) {
+        console.error("Local QR Code scan failed:", err);
+      }
+
+      // 2. Try calling Gemini API as backup to extract full data
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+          const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [
+              'Extraia as seguintes informações do boleto bancário (fornecedor/beneficiário, valor, data de vencimento formatada como AAAA-MM-DD, linha digitável, e código pix copia e cola se houver). Forneça o resultado estritamente no formato JSON: {"fornecedor": string|null, "valor": number|null, "data_vencimento": string|null, "linha_digitavel": string|null, "codigo_pix": string|null}',
+              {
+                inlineData: {
+                  mimeType: 'image/jpeg',
+                  data: fileContent
+                }
+              }
+            ],
+            config: {
+              responseMimeType: 'application/json',
+            }
+          });
+
+          if (response.text) {
+            const parsed = JSON.parse(response.text.trim());
+            if (parsed.fornecedor) extractedData.fornecedor = parsed.fornecedor;
+            if (parsed.valor) extractedData.valor = parsed.valor;
+            if (parsed.data_vencimento) extractedData.data_vencimento = parsed.data_vencimento;
+            if (parsed.linha_digitavel) extractedData.linha_digitavel = parsed.linha_digitavel;
+            if (parsed.codigo_pix) extractedData.codigo_pix = parsed.codigo_pix;
+          }
+        } catch (geminiErr) {
+          console.error("Gemini API call failed:", geminiErr);
+        }
+      }
+
+      // 3. Fallback: Parse Linha Digitável if present to extract value and due date
+      if (extractedData.linha_digitavel && (!extractedData.valor || !extractedData.data_vencimento)) {
+        try {
+          const clean = extractedData.linha_digitavel.replace(/\D/g, "");
+          if (clean.length === 47) {
+            const factor = parseInt(clean.substring(33, 37), 10);
+            const valCents = parseInt(clean.substring(37, 47), 10);
+            
+            if (!extractedData.valor && !isNaN(valCents)) {
+              extractedData.valor = valCents / 100;
+            }
+            
+            if (!extractedData.data_vencimento && !isNaN(factor) && factor > 0) {
+              let baseDate = new Date(1997, 9, 7);
+              let days = factor;
+              if (factor >= 1000 && factor < 5000) {
+                days += 9000;
+              }
+              baseDate.setDate(baseDate.getDate() + days);
+              extractedData.data_vencimento = baseDate.toISOString().split('T')[0];
+            }
+          }
+        } catch (err) {
+          console.error("Error parsing clean linha digitável:", err);
+        }
+      }
+
+      res.json(extractedData);
+    } catch (err: any) {
+      console.error("Boleto parsing error:", err);
+      res.status(500).json({ error: "Erro ao processar boleto: " + err.message });
     }
   });
 

@@ -3,7 +3,8 @@ import { motion } from 'motion/react';
 import { 
   Wallet, CreditCard, Calculator, Bell, Plus, ArrowUpCircle, X, 
   Package, Bike, TrendingUp, Truck, DollarSign, Percent, BarChart3,
-  AlertTriangle, Calendar, ShieldCheck, Gavel, MessageCircle, Printer, FileText, CheckCircle, Search
+  AlertTriangle, Calendar, ShieldCheck, Gavel, MessageCircle, Printer, FileText, CheckCircle, Search,
+  ArrowDownCircle, Trash2, Copy, Upload
 } from 'lucide-react';
 import Modal from './Modal';
 
@@ -72,8 +73,163 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
   fetchData,
   formatBRL
 }) => {
-  const [financialTab, setFinancialTab] = React.useState<'caixa' | 'receber' | 'taxas' | 'automacao' | 'fechamento'>('caixa');
-  
+  const [financialTab, setFinancialTab] = React.useState<'caixa' | 'receber' | 'pagar' | 'fechamento' | 'taxas' | 'automacao'>('caixa');
+
+  // --- Estados de Contas a Pagar ---
+  const [accountsPayable, setAccountsPayable] = React.useState<any[]>([]);
+  const [isPayableModalOpen, setIsPayableModalOpen] = React.useState(false);
+  const [isParsingBoleto, setIsParsingBoleto] = React.useState(false);
+  const [payableForm, setPayableForm] = React.useState({
+    fornecedor: '',
+    valor: '',
+    due_date: new Date().toISOString().split('T')[0],
+    linha_digitavel: '',
+    codigo_pix: ''
+  });
+  const [payableSearchTerm, setPayableSearchTerm] = React.useState('');
+  const [payableStatusFilter, setPayableStatusFilter] = React.useState<'todos' | 'pendentes' | 'pagos' | 'vencidos'>('todos');
+
+  const todayStr = React.useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  const statsPayable = React.useMemo(() => {
+    const overdue = accountsPayable.filter(a => a.status !== 'Pago' && a.due_date < todayStr);
+    const dueToday = accountsPayable.filter(a => a.status !== 'Pago' && a.due_date === todayStr);
+    const upcoming = accountsPayable.filter(a => a.status !== 'Pago' && a.due_date > todayStr);
+    const paid = accountsPayable.filter(a => a.status === 'Pago');
+
+    return {
+      overdueCount: overdue.length,
+      overdueTotal: overdue.reduce((sum, item) => sum + (item.valor || 0), 0),
+      dueTodayCount: dueToday.length,
+      dueTodayTotal: dueToday.reduce((sum, item) => sum + (item.valor || 0), 0),
+      upcomingCount: upcoming.length,
+      upcomingTotal: upcoming.reduce((sum, item) => sum + (item.valor || 0), 0),
+      paidCount: paid.length,
+      paidTotal: paid.reduce((sum, item) => sum + (item.valor || 0), 0),
+    };
+  }, [accountsPayable, todayStr]);
+
+  const filteredAccountsPayable = React.useMemo(() => {
+    return (accountsPayable || [])
+      .filter(item => {
+        if (!payableSearchTerm) return true;
+        const term = payableSearchTerm.toLowerCase();
+        return (
+          (item.fornecedor || '').toLowerCase().includes(term) ||
+          (item.linha_digitavel || '').toLowerCase().includes(term)
+        );
+      })
+      .filter(item => {
+        if (payableStatusFilter === 'pendentes') return item.status !== 'Pago';
+        if (payableStatusFilter === 'pagos') return item.status === 'Pago';
+        if (payableStatusFilter === 'vencidos') return item.status !== 'Pago' && item.due_date < todayStr;
+        return true;
+      })
+      .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+  }, [accountsPayable, payableSearchTerm, payableStatusFilter, todayStr]);
+
+  const loadAccountsPayable = React.useCallback(async () => {
+    try {
+      const data = await localApi.get('accounts_payable');
+      if (Array.isArray(data)) {
+        setAccountsPayable(data);
+      }
+    } catch (err) {
+      console.error('Error loading accounts payable:', err);
+    }
+  }, [localApi]);
+
+  React.useEffect(() => {
+    loadAccountsPayable();
+  }, [loadAccountsPayable]);
+
+  const handleUploadBoleto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsParsingBoleto(true);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        try {
+          const base64 = (reader.result as string).split(',')[1];
+          const parsedData = await localApi.post('public/parse-boleto', { fileContent: base64 });
+          
+          setPayableForm(prev => ({
+            ...prev,
+            fornecedor: parsedData.fornecedor || prev.fornecedor,
+            valor: parsedData.valor ? parsedData.valor.toString() : prev.valor,
+            due_date: parsedData.data_vencimento || prev.due_date,
+            linha_digitavel: parsedData.linha_digitavel || prev.linha_digitavel,
+            codigo_pix: parsedData.codigo_pix || prev.codigo_pix
+          }));
+          
+          alert("Boleto lido com sucesso! Verifique os dados preenchidos.");
+        } catch (err: any) {
+          console.error("Error calling parse endpoint:", err);
+          alert("Não foi possível ler o boleto automaticamente: " + err.message);
+        } finally {
+          setIsParsingBoleto(false);
+        }
+      };
+    } catch (err: any) {
+      console.error("File upload error:", err);
+      alert("Erro ao ler arquivo: " + err.message);
+      setIsParsingBoleto(false);
+    }
+  };
+
+  const handleAddPayable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await localApi.post('accounts_payable', {
+        ...payableForm,
+        valor: parseFloat(payableForm.valor.replace(',', '.')) || 0
+      });
+      setIsPayableModalOpen(false);
+      setPayableForm({
+        fornecedor: '',
+        valor: '',
+        due_date: new Date().toISOString().split('T')[0],
+        linha_digitavel: '',
+        codigo_pix: ''
+      });
+      loadAccountsPayable();
+      alert('Conta a pagar cadastrada com sucesso!');
+    } catch (err: any) {
+      alert('Erro ao cadastrar conta: ' + err.message);
+    }
+  };
+
+  const handleLiquidatePayable = async (id: number) => {
+    if (!confirm('Confirmar pagamento desta conta?')) return;
+    try {
+      const bill = accountsPayable.find(a => a.id === id);
+      if (!bill) return;
+      await localApi.put('accounts_payable', id, {
+        ...bill,
+        status: 'Pago',
+        paid_date: new Date().toISOString().split('T')[0]
+      });
+      loadAccountsPayable();
+      alert('Conta liquidada com sucesso!');
+    } catch (err: any) {
+      alert('Erro ao liquidar conta: ' + err.message);
+    }
+  };
+
+  const handleDeletePayable = async (id: number) => {
+    if (!confirm('Confirmar exclusão desta conta?')) return;
+    try {
+      await localApi.delete('accounts_payable', id);
+      loadAccountsPayable();
+      alert('Conta excluída com sucesso!');
+    } catch (err: any) {
+      alert('Erro ao excluir conta: ' + err.message);
+    }
+  };
+
   // --- Estados do Fechamento de Cliente ---
   const [closingCustomerId, setClosingCustomerId] = React.useState<string>('');
   const [closingPeriodType, setClosingPeriodType] = React.useState<'day' | 'month'>('month');
@@ -572,6 +728,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
         {[
           { id: 'caixa', label: 'Fluxo de Caixa', icon: Wallet },
           { id: 'receber', label: 'Contas a Receber', icon: CreditCard },
+          { id: 'pagar', label: 'Contas a Pagar', icon: ArrowDownCircle },
           { id: 'fechamento', label: 'Fechamento de Cliente', icon: FileText },
           { id: 'taxas', label: 'Taxas de Cartão', icon: Calculator },
           { id: 'automacao', label: 'Cobrança & Alertas', icon: Bell }
@@ -837,6 +994,199 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
               {filteredSales.length === 0 && (
                 <div className="p-12 text-center text-slate-400 italic font-medium">
                   {searchTerm ? `Nenhum débito encontrado para "${searchTerm}"` : "Nenhum fiado pendente. 🎉"}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {financialTab === 'pagar' && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Vencidos', value: `${statsPayable.overdueCount} (${formatBRL(statsPayable.overdueTotal)})`, color: 'text-rose-600', bg: 'bg-rose-50', icon: AlertTriangle },
+              { label: 'Vence Hoje', value: `${statsPayable.dueTodayCount} (${formatBRL(statsPayable.dueTodayTotal)})`, color: 'text-amber-600', bg: 'bg-amber-50', icon: Bell },
+              { label: 'A Vencer', value: `${statsPayable.upcomingCount} (${formatBRL(statsPayable.upcomingTotal)})`, color: 'text-blue-600', bg: 'bg-blue-50', icon: Calendar },
+              { label: 'Total Pago', value: formatBRL(statsPayable.paidTotal), color: 'text-emerald-600', bg: 'bg-emerald-50', icon: ShieldCheck }
+            ].map(stat => (
+              <div key={stat.label} className={`${stat.bg} ${stat.color} p-4 rounded-2xl border border-current/10 flex items-center gap-4`}>
+                <div className="p-3 bg-white/50 rounded-xl"><stat.icon size={24} /></div>
+                <div>
+                  <p className="text-[10px] font-black uppercase opacity-70">{stat.label}</p>
+                  <p className="text-xl font-black">{stat.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-400 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+            <div className="p-6 border-b border-slate-400 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 dark:border-slate-700">
+              <div className="flex flex-col md:flex-row md:items-center gap-4 w-full justify-between">
+                <h3 className="font-extrabold text-slate-900 flex items-center gap-2 dark:text-slate-100">
+                  <ArrowDownCircle size={20} className="text-rose-500" />
+                  Listagem de Contas a Pagar
+                </h3>
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                  {/* Status Filters */}
+                  <div className="flex bg-slate-100 p-1 rounded-xl dark:bg-slate-900">
+                    {[
+                      { id: 'todos', label: 'Todas' },
+                      { id: 'pendentes', label: 'Pendentes' },
+                      { id: 'vencidos', label: 'Vencidas' },
+                      { id: 'pagos', label: 'Pagas' }
+                    ].map(f => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setPayableStatusFilter(f.id as any)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${payableStatusFilter === f.id ? 'bg-white text-rose-600 shadow-sm dark:bg-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Search Input */}
+                  <div className="relative group w-full md:w-48">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-rose-500 transition-colors">
+                      <Search size={14} />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Buscar fornecedor..."
+                      className="pl-8 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 transition-all w-full shadow-sm dark:bg-slate-900 dark:border-slate-700"
+                      value={payableSearchTerm}
+                      onChange={(e) => setPayableSearchTerm(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Add Button */}
+                  <button
+                    onClick={() => setIsPayableModalOpen(true)}
+                    className="px-4 py-2 bg-rose-600 text-white rounded-xl font-bold text-xs hover:bg-rose-700 transition-all shadow-sm flex items-center gap-1.5 ml-auto md:ml-0"
+                  >
+                    <Plus size={14} /> Nova Conta
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest dark:bg-slate-900">
+                    <th className="px-6 py-4">Fornecedor</th>
+                    <th className="px-6 py-4">Vencimento</th>
+                    <th className="px-6 py-4">Valor</th>
+                    <th className="px-6 py-4">Pagamento / Copiar</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                  {filteredAccountsPayable.map(item => {
+                    const isOverdue = item.status !== 'Pago' && item.due_date < todayStr;
+                    const isToday = item.status !== 'Pago' && item.due_date === todayStr;
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50 transition-colors group dark:hover:bg-slate-900/50">
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-slate-900 dark:text-slate-100">{item.fornecedor}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className={`text-sm font-medium ${isOverdue ? 'text-rose-600 font-bold' : isToday ? 'text-amber-600 font-bold' : 'text-slate-600 dark:text-slate-400'}`}>
+                            {new Date(item.due_date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-black text-slate-900 dark:text-slate-100">{formatBRL(item.valor)}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1.5">
+                            {item.linha_digitavel && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-medium font-mono max-w-[150px] truncate dark:bg-slate-950 dark:text-slate-400">
+                                  Boleto: {item.linha_digitavel}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(item.linha_digitavel);
+                                    alert('Linha digitável copiada!');
+                                  }}
+                                  className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors dark:hover:bg-slate-800"
+                                  title="Copiar Linha Digitável"
+                                >
+                                  <Copy size={12} />
+                                </button>
+                              </div>
+                            )}
+                            {item.codigo_pix && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded text-emerald-600 font-medium font-mono max-w-[150px] truncate dark:bg-emerald-950/30">
+                                  PIX: {item.codigo_pix}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(item.codigo_pix);
+                                    alert('Chave/Código PIX copiado!');
+                                  }}
+                                  className="p-1 hover:bg-emerald-50 rounded text-emerald-500 hover:text-emerald-700 transition-colors dark:hover:bg-emerald-950/50"
+                                  title="Copiar Código PIX"
+                                >
+                                  <Copy size={12} />
+                                </button>
+                              </div>
+                            )}
+                            {!item.linha_digitavel && !item.codigo_pix && (
+                              <span className="text-[10px] text-slate-400 italic">Nenhum código cadastrado</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                            item.status === 'Pago' 
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400' 
+                              : isOverdue 
+                                ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400'
+                                : isToday
+                                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400'
+                                  : 'bg-slate-100 text-slate-700 dark:bg-slate-950/50 dark:text-slate-400'
+                          }`}>
+                            {item.status === 'Pago' ? 'Pago' : isOverdue ? 'Vencido' : isToday ? 'Vence Hoje' : 'Pendente'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                            {item.status !== 'Pago' && (
+                              <button
+                                type="button"
+                                onClick={() => handleLiquidatePayable(item.id)}
+                                className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors dark:bg-emerald-950/30 dark:text-emerald-400"
+                                title="Marcar como Pago"
+                              >
+                                <CheckCircle size={14} />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePayable(item.id)}
+                              className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors dark:bg-rose-950/30 dark:text-rose-400"
+                              title="Excluir Conta"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {filteredAccountsPayable.length === 0 && (
+                <div className="p-12 text-center text-slate-400 italic font-medium">
+                  Nenhuma conta a pagar encontrada.
                 </div>
               )}
             </div>
@@ -1180,8 +1530,109 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
           </button>
         </form>
       </Modal>
-    </div>
 
+      <Modal
+        isOpen={isPayableModalOpen}
+        onClose={() => setIsPayableModalOpen(false)}
+        title="Cadastrar Conta a Pagar"
+      >
+        <div className="space-y-6">
+          <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-rose-400 transition-colors bg-slate-50 dark:bg-slate-900 dark:border-slate-700 relative">
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={handleUploadBoleto}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              disabled={isParsingBoleto}
+            />
+            <div className="flex flex-col items-center justify-center space-y-2">
+              <div className="p-3 bg-rose-50 rounded-full text-rose-600 dark:bg-rose-950/30 font-bold">
+                <Upload size={24} className={isParsingBoleto ? "animate-bounce" : ""} />
+              </div>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-100">
+                {isParsingBoleto ? "Analisando boleto..." : "Enviar Foto do Boleto / Pix"}
+              </p>
+              <p className="text-xs text-slate-400">
+                Formatos aceitos: JPG, PNG, PDF. Leitura automática por IA.
+              </p>
+            </div>
+          </div>
+
+          <div className="relative flex py-2 items-center">
+            <div className="flex-grow border-t border-slate-300"></div>
+            <span className="flex-shrink mx-4 text-slate-400 text-xs font-black uppercase tracking-wider">Ou Preencher Manualmente</span>
+            <div className="flex-grow border-t border-slate-300"></div>
+          </div>
+
+          <form onSubmit={handleAddPayable} className="space-y-4">
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase mb-1">Fornecedor / Beneficiário *</label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: Distribuidora de Peças Ltda"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 outline-none text-slate-800 font-medium dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                value={payableForm.fornecedor}
+                onChange={e => setPayableForm({ ...payableForm, fornecedor: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase mb-1">Valor (R$) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="0,00"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 outline-none text-slate-800 font-bold dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                  value={payableForm.valor}
+                  onChange={e => setPayableForm({ ...payableForm, valor: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase mb-1">Vencimento *</label>
+                <input
+                  type="date"
+                  required
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 outline-none text-slate-800 font-medium dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                  value={payableForm.due_date}
+                  onChange={e => setPayableForm({ ...payableForm, due_date: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase mb-1">Linha Digitável (Código de Barras)</label>
+              <input
+                type="text"
+                placeholder="Ex: 34191.79001 01043.513184..."
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 outline-none text-slate-800 font-mono text-xs dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                value={payableForm.linha_digitavel}
+                onChange={e => setPayableForm({ ...payableForm, linha_digitavel: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase mb-1">PIX Copia e Cola / Chave</label>
+              <input
+                type="text"
+                placeholder="Código PIX EMV ou Chave de pagamento"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400 outline-none text-slate-800 font-mono text-xs dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                value={payableForm.codigo_pix}
+                onChange={e => setPayableForm({ ...payableForm, codigo_pix: e.target.value })}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-md mt-2"
+            >
+              Cadastrar Conta
+            </button>
+          </form>
+        </div>
+      </Modal>
+    </div>
   );
 };
 
