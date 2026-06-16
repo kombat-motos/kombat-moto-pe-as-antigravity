@@ -156,16 +156,26 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
           const base64 = (reader.result as string).split(',')[1];
           const parsedData = await localApi.post('public/parse-boleto', { fileContent: base64 });
           
-          setPayableForm(prev => ({
-            ...prev,
-            fornecedor: parsedData.fornecedor || prev.fornecedor,
-            valor: parsedData.valor ? parsedData.valor.toString() : prev.valor,
-            due_date: parsedData.data_vencimento || prev.due_date,
-            linha_digitavel: parsedData.linha_digitavel || prev.linha_digitavel,
-            codigo_pix: parsedData.codigo_pix || prev.codigo_pix
-          }));
+          const hasData = parsedData && (parsedData.fornecedor || parsedData.valor || parsedData.linha_digitavel || parsedData.codigo_pix);
           
-          alert("Boleto lido com sucesso! Verifique os dados preenchidos.");
+          if (hasData) {
+            const valorStr = parsedData.valor ? parsedData.valor.toString() : '0';
+            const payload = {
+              fornecedor: parsedData.fornecedor || 'Boleto Importado',
+              valor: parseFloat(valorStr.replace(',', '.')) || 0,
+              due_date: parsedData.data_vencimento || new Date().toISOString().split('T')[0],
+              linha_digitavel: parsedData.linha_digitavel || '',
+              codigo_pix: parsedData.codigo_pix || '',
+              status: 'Pendente'
+            };
+            
+            await localApi.post('accounts_payable', payload);
+            loadAccountsPayable();
+            setIsPayableModalOpen(false);
+            alert(`Boleto de ${payload.fornecedor} no valor de ${formatBRL(payload.valor)} cadastrado automaticamente!`);
+          } else {
+            alert("Não foi possível extrair dados do boleto automaticamente. Por favor, insira os dados manualmente.");
+          }
         } catch (err: any) {
           console.error("Error calling parse endpoint:", err);
           alert("Não foi possível ler o boleto automaticamente: " + err.message);
