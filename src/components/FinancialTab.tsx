@@ -88,6 +88,9 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
   });
   const [payableSearchTerm, setPayableSearchTerm] = React.useState('');
   const [payableStatusFilter, setPayableStatusFilter] = React.useState<'todos' | 'pendentes' | 'pagos' | 'vencidos'>('todos');
+  const [geminiApiKey, setGeminiApiKey] = React.useState(() => {
+    return localStorage.getItem('gemini_api_key') || '';
+  });
 
   const todayStr = React.useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -154,7 +157,8 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       reader.onload = async () => {
         try {
           const base64 = (reader.result as string).split(',')[1];
-          const parsedData = await localApi.post('public/parse-boleto', { fileContent: base64 });
+          const key = localStorage.getItem('gemini_api_key') || '';
+          const parsedData = await localApi.post('public/parse-boleto', { fileContent: base64, apiKey: key });
           
           const hasData = parsedData && (parsedData.fornecedor || parsedData.valor || parsedData.linha_digitavel || parsedData.codigo_pix);
           
@@ -1566,6 +1570,26 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                 Formatos aceitos: JPG, PNG, PDF. Leitura automática por IA.
               </p>
             </div>
+          </div>
+
+          {/* Configuração de Chave API */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+            <label className="block text-xs font-black text-slate-400 uppercase mb-1">
+              Chave API do Gemini (Opcional)
+            </label>
+            <input
+              type="password"
+              placeholder="Cole sua chave API do Google AI Studio aqui..."
+              value={geminiApiKey}
+              onChange={e => {
+                setGeminiApiKey(e.target.value);
+                localStorage.setItem('gemini_api_key', e.target.value);
+              }}
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-1 focus:ring-rose-500/50 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 font-mono"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Caso a chave padrão do servidor esteja esgotada, insira sua chave para habilitar a leitura por IA. Salvo localmente de forma segura.
+            </p>
           </div>
 
           <div className="relative flex py-2 items-center">

@@ -1599,7 +1599,7 @@ async function startServer() {
   }
 
   app.post("/api/public/parse-boleto", authenticateToken, async (req, res) => {
-    const { fileContent } = req.body;
+    const { fileContent, apiKey } = req.body;
     if (!fileContent) {
       return res.status(400).json({ error: "Nenhum arquivo enviado" });
     }
@@ -1687,9 +1687,10 @@ async function startServer() {
       }
 
       // 2. Try calling Gemini API as backup to extract full data
-      if (process.env.GEMINI_API_KEY && (!extractedData.fornecedor || !extractedData.valor || !extractedData.data_vencimento)) {
+      const geminiKey = apiKey || process.env.GEMINI_API_KEY;
+      if (geminiKey && (!extractedData.fornecedor || !extractedData.valor || !extractedData.data_vencimento)) {
         try {
-          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+          const ai = new GoogleGenAI({ apiKey: geminiKey });
           const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
             contents: [
