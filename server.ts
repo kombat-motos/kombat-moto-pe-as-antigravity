@@ -15,6 +15,7 @@ import compression from 'compression';
 import { GoogleGenAI } from "@google/genai";
 import { Jimp } from "jimp";
 import jsQR from "jsqr";
+import { readBarcodesFromImageFile } from "zxing-wasm";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1537,6 +1538,66 @@ async function startServer() {
     }
   });
 
+  // Helper to calculate module 10 checksum
+  function modulo10(block: string) {
+    let sum = 0;
+    let weight = 2;
+    for (let i = block.length - 1; i >= 0; i--) {
+      let mul = parseInt(block[i], 10) * weight;
+      if (mul >= 10) {
+        mul = Math.floor(mul / 10) + (mul % 10);
+      }
+      sum += mul;
+      weight = weight === 2 ? 1 : 2;
+    }
+    const rem = sum % 10;
+    const dv = rem === 0 ? 0 : 10 - rem;
+    return dv.toString();
+  }
+
+  // Helper to convert 44-digit ITF barcode to standard formatted 47/48-digit line
+  function barcodeToLinhaDigitavel(barcode: string) {
+    const clean = barcode.replace(/\D/g, "");
+    if (clean.length !== 44) return barcode;
+    
+    if (clean[0] === '8') {
+      // Utility bill 44 to 48 digits conversion
+      let l1 = clean.substring(0, 11);
+      let l2 = clean.substring(11, 22);
+      let l3 = clean.substring(22, 33);
+      let l4 = clean.substring(33, 44);
+      
+      let dv1 = modulo10(l1);
+      let dv2 = modulo10(l2);
+      let dv3 = modulo10(l3);
+      let dv4 = modulo10(l4);
+      
+      return `${l1}${dv1}${l2}${dv2}${l3}${dv3}${l4}${dv4}`;
+    }
+    
+    // Bank boleto
+    const bank = clean.substring(0, 3);
+    const currency = clean.substring(3, 4);
+    const dv = clean.substring(4, 5);
+    const factor = clean.substring(5, 9);
+    const val = clean.substring(9, 19);
+    const campLivre = clean.substring(19, 44);
+    
+    const b1 = bank + currency + campLivre.substring(0, 5);
+    const dv1 = modulo10(b1);
+    
+    const b2 = campLivre.substring(5, 15);
+    const dv2 = modulo10(b2);
+    
+    const b3 = campLivre.substring(15, 25);
+    const dv3 = modulo10(b3);
+    
+    const b4 = dv;
+    const b5 = factor + val;
+    
+    return `${b1}${dv1}${b2}${dv2}${b3}${dv3}${b4}${b5}`;
+  }
+
   app.post("/api/public/parse-boleto", authenticateToken, async (req, res) => {
     const { fileContent } = req.body;
     if (!fileContent) {
@@ -1553,48 +1614,80 @@ async function startServer() {
         codigo_pix: null
       };
 
-      // 1. Try decoding QR Code (Pix) locally using jimp and jsqr
+      // 1. Try decoding QR Code and ITF (1D Barcode) locally using zxing-wasm
       try {
-        const image = await Jimp.read(buffer);
-        let qr = jsQR(new Uint8ClampedArray(image.bitmap.data), image.bitmap.width, image.bitmap.height);
-        if (!qr) {
-          const rotated = image.clone().rotate(90);
-          qr = jsQR(new Uint8ClampedArray(rotated.bitmap.data), rotated.bitmap.width, rotated.bitmap.height);
-        }
-        if (!qr) {
-          const rotated = image.clone().rotate(270);
-          qr = jsQR(new Uint8ClampedArray(rotated.bitmap.data), rotated.bitmap.width, rotated.bitmap.height);
-        }
-        
-        if (qr && qr.data) {
-          extractedData.codigo_pix = qr.data;
-          
-          try {
-            let i = 0;
-            const tags: Record<string, string> = {};
-            const pix = qr.data;
-            while (i < pix.length - 4) {
-              const tag = pix.substring(i, i + 2);
-              const lenStr = pix.substring(i + 2, i + 4);
-              const len = parseInt(lenStr, 10);
-              if (isNaN(len)) break;
-              const val = pix.substring(i + 4, i + 4 + len);
-              tags[tag] = val;
-              i += 4 + len;
+        const results = await readBarcodesFromImageFile(buffer, {
+          tryHarder: true,
+          formats: ['ITF', 'QRCode']
+        });
+
+        if (results && results.length > 0) {
+          for (const result of results) {
+            if (result.format === 'QRCode' && result.text) {
+              extractedData.codigo_pix = result.text;
+              
+              // Parse Pix EMV tags
+              try {
+                let i = 0;
+                const tags: Record<string, string> = {};
+                const pix = result.text;
+                while (i < pix.length - 4) {
+                  const tag = pix.substring(i, i + 2);
+                  const lenStr = pix.substring(i + 2, i + 4);
+                  const len = parseInt(lenStr, 10);
+                  if (isNaN(len)) break;
+                  const val = pix.substring(i + 4, i + 4 + len);
+                  tags[tag] = val;
+                  i += 4 + len;
+                }
+                if (tags["59"]) {
+                  extractedData.fornecedor = tags["59"];
+                }
+                if (tags["54"] && !extractedData.valor) {
+                  extractedData.valor = parseFloat(tags["54"]);
+                }
+              } catch (e) {
+                console.error("Error parsing Pix tags:", e);
+              }
+            } else if (result.format === 'ITF' && result.text) {
+              const clean = result.text.replace(/\D/g, "");
+              if (clean.length === 44) {
+                extractedData.linha_digitavel = barcodeToLinhaDigitavel(clean);
+                
+                // Extract due date and value from 44-digit ITF
+                try {
+                  if (clean[0] === '8') {
+                    const valCents = parseInt(clean.substring(4, 15), 10);
+                    if (!isNaN(valCents)) {
+                      extractedData.valor = valCents / 100;
+                    }
+                  } else {
+                    const factor = parseInt(clean.substring(5, 9), 10);
+                    const valCents = parseInt(clean.substring(9, 19), 10);
+                    
+                    if (!isNaN(valCents) && !extractedData.valor) {
+                      extractedData.valor = valCents / 100;
+                    }
+                    
+                    if (!isNaN(factor) && factor > 0 && !extractedData.data_vencimento) {
+                      let baseDate = new Date(1997, 9, 7);
+                      baseDate.setDate(baseDate.getDate() + factor);
+                      extractedData.data_vencimento = baseDate.toISOString().split('T')[0];
+                    }
+                  }
+                } catch (err) {
+                  console.error("Error parsing ITF fields:", err);
+                }
+              }
             }
-            if (tags["59"]) {
-              extractedData.fornecedor = tags["59"];
-            }
-          } catch (e) {
-            console.error("Error parsing Pix EMV tags:", e);
           }
         }
       } catch (err) {
-        console.error("Local QR Code scan failed:", err);
+        console.error("Local ZXing barcode scan failed:", err);
       }
 
       // 2. Try calling Gemini API as backup to extract full data
-      if (process.env.GEMINI_API_KEY) {
+      if (process.env.GEMINI_API_KEY && (!extractedData.fornecedor || !extractedData.valor || !extractedData.data_vencimento)) {
         try {
           const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
           const response = await ai.models.generateContent({
@@ -1615,11 +1708,11 @@ async function startServer() {
 
           if (response.text) {
             const parsed = JSON.parse(response.text.trim());
-            if (parsed.fornecedor) extractedData.fornecedor = parsed.fornecedor;
-            if (parsed.valor) extractedData.valor = parsed.valor;
-            if (parsed.data_vencimento) extractedData.data_vencimento = parsed.data_vencimento;
-            if (parsed.linha_digitavel) extractedData.linha_digitavel = parsed.linha_digitavel;
-            if (parsed.codigo_pix) extractedData.codigo_pix = parsed.codigo_pix;
+            if (parsed.fornecedor && !extractedData.fornecedor) extractedData.fornecedor = parsed.fornecedor;
+            if (parsed.valor && !extractedData.valor) extractedData.valor = parsed.valor;
+            if (parsed.data_vencimento && !extractedData.data_vencimento) extractedData.data_vencimento = parsed.data_vencimento;
+            if (parsed.linha_digitavel && !extractedData.linha_digitavel) extractedData.linha_digitavel = parsed.linha_digitavel;
+            if (parsed.codigo_pix && !extractedData.codigo_pix) extractedData.codigo_pix = parsed.codigo_pix;
           }
         } catch (geminiErr) {
           console.error("Gemini API call failed:", geminiErr);
