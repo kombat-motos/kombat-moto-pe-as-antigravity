@@ -6677,6 +6677,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 {activeTab === 'os' && (
                   <OSTab
                     sales={sales}
+                    products={products}
                     salesSearchTerm={salesSearchTerm}
                     globalSearchTerm={globalSearchTerm}
                     setSalesSearchTerm={setSalesSearchTerm}

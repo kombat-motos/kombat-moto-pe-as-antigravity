@@ -29,8 +29,17 @@ interface Sale {
   type: string;
 }
 
+interface Product {
+  id: number;
+  description: string;
+  purchase_price: number;
+  sale_price: number;
+  stock: number;
+}
+
 interface OSTabProps {
   sales: Sale[];
+  products: Product[];
   salesSearchTerm: string;
   globalSearchTerm: string;
   setSalesSearchTerm: (s: string) => void;
@@ -46,6 +55,7 @@ interface OSTabProps {
 
 const OSTab: React.FC<OSTabProps> = ({
   sales,
+  products,
   salesSearchTerm,
   globalSearchTerm,
   setSalesSearchTerm,
@@ -194,13 +204,27 @@ const OSTab: React.FC<OSTabProps> = ({
               </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-slate-400 grid grid-cols-2 md:grid-cols-4 gap-4 dark:border-slate-700">
+            <div className="mt-6 pt-6 border-t border-slate-400 grid grid-cols-2 md:grid-cols-6 gap-4 dark:border-slate-700">
               {(() => {
                 const internalServices = (os.items || os.sale_items || [])?.filter(i => i.type === 'Adicional Interno') || [];
                 const totalAdicionais = internalServices.reduce((acc, i) => acc + (i.price * i.quantity), 0);
                 const laborItems = (os.items || os.sale_items || [])?.filter(i => i.type === 'Serviço' || i.type === 'Serviço Principal' || i.description === 'MÃO DE OBRA / SERVIÇOS AVULSOS') || [];
                 const laborTotal = laborItems.reduce((acc, i) => acc + (i.price * i.quantity), 0) || os.labor_value || 0;
                 const partsTotal = os.total - laborTotal;
+                
+                const partsItems = (os.items || os.sale_items || [])?.filter(i => 
+                  (i.product_id || i.type === 'Peça' || (!i.type && i.product_id)) && 
+                  i.type !== 'Serviço' && i.type !== 'Serviço Principal' && i.type !== 'Adicional Interno'
+                ) || [];
+                
+                const partsCost = partsItems.reduce((acc, item) => {
+                  const product = products.find(p => p.id === item.product_id);
+                  const purchasePrice = product ? product.purchase_price : 0;
+                  return acc + (purchasePrice * item.quantity);
+                }, 0);
+
+                const partsProfit = partsTotal - partsCost;
+
                 const totalMecanico = os.commission + totalAdicionais;
                 const lucroLoja = os.total - totalMecanico;
                 return (
@@ -208,6 +232,14 @@ const OSTab: React.FC<OSTabProps> = ({
                     <div className="bg-slate-50 p-3 rounded-xl dark:bg-slate-900">
                       <p className="text-[9px] font-bold text-slate-400 uppercase">Peças</p>
                       <p className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(partsTotal)}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl dark:bg-slate-900">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Custo Peças</p>
+                      <p className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(partsCost)}</p>
+                    </div>
+                    <div className="bg-emerald-50 p-3 rounded-xl dark:bg-emerald-950/20">
+                      <p className="text-[9px] font-bold text-emerald-500 uppercase">Lucro Peças</p>
+                      <p className="font-bold text-emerald-700 dark:text-emerald-400">{formatBRL(partsProfit)}</p>
                     </div>
                     <div className="bg-slate-50 p-3 rounded-xl dark:bg-slate-900">
                       <p className="text-[9px] font-bold text-slate-400 uppercase">Mão de Obra</p>
