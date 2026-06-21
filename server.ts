@@ -38,7 +38,7 @@ const db = new Database(dbPath);
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: number; username: string };
+      user?: { id: number; username: string; role?: string };
     }
   }
 }
@@ -328,6 +328,286 @@ try { db.exec("ALTER TABLE customers ADD COLUMN fine_rate REAL DEFAULT 2"); } ca
 try { db.exec("ALTER TABLE customers ADD COLUMN interest_rate REAL DEFAULT 1"); } catch (e) {}
 try { db.exec("ALTER TABLE mechanics ADD COLUMN commission_rate REAL DEFAULT 50"); } catch (e) {}
 
+  // --- CRM Table Initializations ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS clientes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      nome TEXT NOT NULL,
+      telefone TEXT NOT NULL,
+      cpf_cnpj TEXT,
+      cidade TEXT,
+      endereco TEXT,
+      modelo_moto TEXT,
+      ano_moto TEXT,
+      placa_moto TEXT,
+      observacoes TEXT,
+      status TEXT DEFAULT 'Novo',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    );
+
+    CREATE TABLE IF NOT EXISTS atendimentos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      cliente_id INTEGER NOT NULL,
+      status TEXT DEFAULT 'Novo',
+      atendente_name TEXT,
+      observacoes TEXT,
+      last_contact TEXT DEFAULT CURRENT_TIMESTAMP,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id),
+      FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS conversas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      atendimento_id INTEGER NOT NULL,
+      sender TEXT NOT NULL,
+      message TEXT NOT NULL,
+      observacoes TEXT,
+      status TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id),
+      FOREIGN KEY (atendimento_id) REFERENCES atendimentos (id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS orcamentos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      cliente_id INTEGER,
+      customer_name TEXT NOT NULL,
+      whatsapp TEXT NOT NULL,
+      motorcycle_details TEXT,
+      motorcycle_year TEXT,
+      service_description TEXT,
+      labor_value REAL DEFAULT 0,
+      discount REAL DEFAULT 0,
+      total_value REAL NOT NULL,
+      payment_method TEXT,
+      observacoes TEXT,
+      status TEXT DEFAULT 'Pendente',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id),
+      FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS orcamento_itens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      orcamento_id INTEGER NOT NULL,
+      description TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      unit_value REAL NOT NULL,
+      total_value REAL NOT NULL,
+      observacoes TEXT,
+      status TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (orcamento_id) REFERENCES orcamentos (id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS servicos_oficina (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      cliente_id INTEGER,
+      customer_name TEXT NOT NULL,
+      whatsapp TEXT NOT NULL,
+      motorcycle_details TEXT,
+      motorcycle_year TEXT,
+      motorcycle_plate TEXT,
+      service_requested TEXT NOT NULL,
+      mechanic_id INTEGER,
+      mechanic_name TEXT,
+      status TEXT DEFAULT 'Aguardando avaliação',
+      entry_date TEXT DEFAULT CURRENT_TIMESTAMP,
+      delivery_forecast TEXT,
+      labor_value REAL DEFAULT 0,
+      parts_value REAL DEFAULT 0,
+      total_value REAL DEFAULT 0,
+      observacoes TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id),
+      FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE SET NULL,
+      FOREIGN KEY (mechanic_id) REFERENCES mechanics (id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS servico_pecas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      servico_id INTEGER NOT NULL,
+      product_id INTEGER,
+      description TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      price REAL NOT NULL,
+      observacoes TEXT,
+      status TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (servico_id) REFERENCES servicos_oficina (id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS mensagens_prontas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      category TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      observacoes TEXT,
+      status TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    );
+
+    CREATE TABLE IF NOT EXISTS tags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL UNIQUE,
+      color TEXT,
+      observacoes TEXT,
+      status TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    );
+
+    CREATE TABLE IF NOT EXISTS cliente_tags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cliente_id INTEGER NOT NULL,
+      tag_id INTEGER NOT NULL,
+      observacoes TEXT,
+      status TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE,
+      FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS relatorios (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      type TEXT,
+      content TEXT,
+      observacoes TEXT,
+      status TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    );
+
+    CREATE TABLE IF NOT EXISTS followups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      cliente_id INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      observacoes TEXT,
+      status TEXT DEFAULT 'Pendente',
+      due_date TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id),
+      FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE
+    );
+  `);
+
+  // CRM Migrations
+  try { db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'Administrador'"); } catch (e) {}
+
+  // Seed default tags
+  try {
+    const count = db.prepare("SELECT COUNT(*) as cnt FROM tags").get() as any;
+    if (count.cnt === 0) {
+      const insertTag = db.prepare("INSERT INTO tags (user_id, name, color) VALUES (1, ?, ?)");
+      const defaultTags = [
+        ['Cliente novo', 'bg-blue-100 text-blue-800 border-blue-200'],
+        ['Cliente fiel', 'bg-emerald-100 text-emerald-800 border-emerald-200'],
+        ['Procura peça', 'bg-purple-100 text-purple-800 border-purple-200'],
+        ['Procura serviço', 'bg-indigo-100 text-indigo-800 border-indigo-200'],
+        ['Orçamento quente', 'bg-rose-100 text-rose-800 border-rose-200'],
+        ['Orçamento frio', 'bg-slate-100 text-slate-800 border-slate-200'],
+        ['Aguardando pagamento', 'bg-amber-100 text-amber-800 border-amber-200'],
+        ['Moto na oficina', 'bg-cyan-100 text-cyan-800 border-cyan-200'],
+        ['Comprar depois', 'bg-teal-100 text-teal-800 border-teal-200'],
+        ['Cliente de pneus', 'bg-orange-100 text-orange-800 border-orange-200'],
+        ['Cliente de óleo', 'bg-lime-100 text-lime-800 border-lime-200'],
+        ['Cliente de bateria', 'bg-yellow-100 text-yellow-800 border-yellow-200'],
+        ['Cliente de motor', 'bg-violet-100 text-violet-800 border-violet-200'],
+        ['Cliente inadimplente', 'bg-red-100 text-red-800 border-red-200']
+      ];
+      defaultTags.forEach(([name, color]) => {
+        try { insertTag.run(name, color); } catch (e) {}
+      });
+      console.log("[DB] Default tags seeded successfully");
+    }
+  } catch (e) {
+    console.error("Error seeding default tags:", e);
+  }
+
+  // Seed default quick messages
+  try {
+    const count = db.prepare("SELECT COUNT(*) as cnt FROM mensagens_prontas").get() as any;
+    if (count.cnt === 0) {
+      const insertMsg = db.prepare("INSERT INTO mensagens_prontas (user_id, category, title, content) VALUES (1, ?, ?, ?)");
+      const defaultMsgs = [
+        ['Saudação inicial', 'Saudação Geral', 'Olá! Seja bem-vindo à Kombat Moto Peças 🏍️\nMe diga o modelo e ano da sua moto e qual peça ou serviço você precisa.'],
+        ['Pedido de dados', 'Solicitação de Cadastro', 'Para agilizar seu atendimento, me envie por favor:\nNome:\nModelo da moto:\nAno:\nPeça ou serviço que precisa:'],
+        ['Orçamento enviado', 'Orçamentos', 'Olá, [NOME]! Tudo certo?\nSegue seu orçamento da Kombat Moto Peças:\n\nMoto: [MOTO]\nPeça/Serviço: [DESCRIÇÃO]\nValor das peças: R$ [VALOR]\nMão de obra: R$ [VALOR]\nTotal: R$ [TOTAL]\n\nForma de pagamento: Pix, dinheiro ou cartão.\nCartão em até 3x sem juros. Até 12x com acréscimo.\n\nKombat Moto Peças\nRua Paraná, 342, Centro, Andirá – PR\nWhatsApp: 43 3538-4537'],
+        ['Cobrança de retorno', 'Acompanhamento', 'Olá! Passando para saber se conseguiu analisar o orçamento que te enviei. Ficamos no aguardo!'],
+        ['Serviço aprovado', 'Serviço Oficina', 'Olá, [NOME]! Seu serviço foi aprovado e já iniciamos a manutenção da sua moto. Te avisamos assim que estiver pronta!'],
+        ['Moto pronta', 'Serviço Oficina', 'Olá, [NOME]! Sua moto já está pronta para retirada. 🏍️\n\nKombat Moto Peças\nRua Paraná, 342, Centro, Andirá – PR\nWhatsApp: 43 3538-4537'],
+        ['Pós-venda', 'Acompanhamento', 'Olá, [NOME]! Passando para saber se ficou tudo certo com sua moto. Qualquer coisa, estamos à disposição. 🏍️'],
+        ['Promoções', 'Marketing', 'Olá! Temos promoções especiais de peças e serviços esta semana na Kombat Moto Peças! Venha conferir!'],
+        ['Cliente fiel', 'Marketing', 'Olá, [NOME]! Como você é um cliente especial, preparamos um desconto exclusivo para sua próxima revisão!'],
+        ['Aviso de pagamento', 'Financeiro', 'Olá! Passando para lembrar sobre o pagamento pendente. Qualquer dúvida sobre a forma de pagamento, estamos à disposição.'],
+        ['Aviso de não vendemos fiado', 'Financeiro', 'Prezado cliente, informamos que para manter nossos preços baixos e a qualidade no atendimento, não realizamos vendas no fiado. Agradecemos a compreensão!']
+      ];
+      defaultMsgs.forEach(([title, category, content]) => {
+        insertMsg.run(category, title, content);
+      });
+      console.log("[DB] Default quick messages seeded successfully");
+    }
+  } catch (e) {
+    console.error("Error seeding quick messages:", e);
+  }
+
+  // Migrate legacy customers and motorcycles to flat 'clientes' table
+  try {
+    const countClientes = db.prepare("SELECT COUNT(*) as cnt FROM clientes").get() as any;
+    if (countClientes.cnt === 0) {
+      db.exec(`
+        INSERT INTO clientes (id, user_id, nome, telefone, cpf_cnpj, cidade, endereco, modelo_moto, placa_moto, status, created_at)
+        SELECT 
+          c.id, 
+          c.user_id, 
+          c.name, 
+          c.whatsapp, 
+          COALESCE(c.cpf, c.cnpj) as cpf_cnpj, 
+          c.city, 
+          c.address, 
+          m.model as modelo_moto, 
+          m.plate as placa_moto, 
+          'Cliente ativo' as status,
+          c.created_at
+        FROM customers c
+        LEFT JOIN (
+          SELECT customer_id, model, plate, MIN(id) 
+          FROM motorcycles 
+          GROUP BY customer_id
+        ) m ON c.id = m.customer_id;
+      `);
+      console.log("[DB] Legacy customers migrated to 'clientes' successfully");
+    }
+  } catch (e) {
+    console.error("Error migrating legacy customers to clientes:", e);
+  }
+
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
@@ -373,22 +653,43 @@ async function startServer() {
     return { ...item, total_updated: item.original_value, fine: 0, interest: 0, days_late: 0 };
   };
 
-  // Authentication Middleware - Bypass for local standalone mode
+  // Authentication Middleware - Bypass for local standalone mode, but supports JWT decoding
   const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
-    // For local standalone mode, we automatically assign a default user
-    // We check if user 1 exists, if not we create it (fallback)
+    // For local standalone mode, we automatically ensure a default user
     try {
-      const user = db.prepare("SELECT id FROM users WHERE id = 1").get();
-      if (!user) {
+      const defaultAdmin = db.prepare("SELECT id FROM users WHERE id = 1").get() as any;
+      if (!defaultAdmin) {
         const hashedPassword = bcrypt.hashSync("admin123", 10);
-        db.prepare("INSERT INTO users (id, username, password) VALUES (1, 'admin', ?)").run(hashedPassword);
+        db.prepare("INSERT INTO users (id, username, password, role) VALUES (1, 'admin', ?, 'Administrador')").run(hashedPassword);
         console.log("[AUTH] Default admin user created (ID 1)");
       }
     } catch (e) {
       console.error("[AUTH] Error ensuring default user:", e);
     }
     
-    req.user = { id: 1, username: 'admin' };
+    // Try to get token from header or cookie
+    const authHeader = req.headers['authorization'];
+    const token = (authHeader && authHeader.split(' ')[1]) || req.cookies?.auth_token;
+
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        const user = db.prepare("SELECT id, username, role FROM users WHERE id = ?").get(decoded.id) as any;
+        if (user) {
+          req.user = { id: user.id, username: user.username, role: user.role || 'Administrador' };
+          return next();
+        }
+      } catch (err) {
+        console.warn("[AUTH] Invalid token, falling back to default admin:", err);
+      }
+    }
+
+    try {
+      const defaultUser = db.prepare("SELECT id, username, role FROM users WHERE id = 1").get() as any;
+      req.user = { id: 1, username: 'admin', role: (defaultUser && defaultUser.role) || 'Administrador' };
+    } catch (e) {
+      req.user = { id: 1, username: 'admin', role: 'Administrador' };
+    }
     next();
   };
 
@@ -399,7 +700,7 @@ async function startServer() {
 
     try {
       const hashedPassword = await bcrypt.hash(password, 10);
-      const info = db.prepare("INSERT INTO users (username, password) VALUES (?, ?)").run(username, hashedPassword);
+      const info = db.prepare("INSERT INTO users (username, password, role) VALUES (?, ?, 'Administrador')").run(username, hashedPassword);
       res.json({ id: info.lastInsertRowid });
     } catch (err: any) {
       if (err.code === 'SQLITE_CONSTRAINT') {
@@ -424,7 +725,7 @@ async function startServer() {
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
-    res.json({ id: user.id, username: user.username });
+    res.json({ id: user.id, username: user.username, role: user.role || 'Administrador', token });
   });
 
   app.post("/api/auth/logout", (req, res) => {
@@ -1317,6 +1618,656 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // ==========================================
+  // CRM API ROUTES
+  // ==========================================
+
+  // Clientes CRM (Syncs with customers and motorcycles)
+  app.get("/api/clientes", authenticateToken, (req, res) => {
+    try {
+      const data = db.prepare(`SELECT * FROM clientes WHERE user_id = ? ORDER BY nome ASC`).all(req.user!.id);
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/clientes", authenticateToken, (req, res) => {
+    const { nome, telefone, cpf_cnpj, cidade, endereco, modelo_moto, ano_moto, placa_moto, observacoes, status } = req.body;
+    const userId = req.user!.id;
+    try {
+      const run = db.transaction(() => {
+        // 1. Write to customers
+        const custInfo = db.prepare("INSERT INTO customers (user_id, name, whatsapp, address, city, cpf) VALUES (?, ?, ?, ?, ?, ?)")
+          .run(userId, nome, telefone, endereco, cidade, cpf_cnpj);
+        const customerId = custInfo.lastInsertRowid;
+
+        // 2. Write to motorcycles
+        if (modelo_moto || placa_moto) {
+          db.prepare("INSERT INTO motorcycles (user_id, customer_id, model, plate) VALUES (?, ?, ?, ?)")
+            .run(userId, customerId, modelo_moto || 'N/A', placa_moto || 'N/A');
+        }
+
+        // 3. Write to clientes
+        db.prepare(`
+          INSERT INTO clientes (id, user_id, nome, telefone, cpf_cnpj, cidade, endereco, modelo_moto, ano_moto, placa_moto, observacoes, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(customerId, userId, nome, telefone, cpf_cnpj, cidade, endereco, modelo_moto, ano_moto, placa_moto, observacoes, status || 'Novo');
+
+        return customerId;
+      });
+
+      const id = run();
+      res.json({ id, nome, telefone, status: status || 'Novo' });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.put("/api/clientes/:id", authenticateToken, (req, res) => {
+    const { nome, telefone, cpf_cnpj, cidade, endereco, modelo_moto, ano_moto, placa_moto, observacoes, status } = req.body;
+    const userId = req.user!.id;
+    const clienteId = req.params.id;
+    try {
+      const run = db.transaction(() => {
+        db.prepare("UPDATE customers SET name = ?, whatsapp = ?, address = ?, city = ?, cpf = ? WHERE id = ? AND user_id = ?")
+          .run(nome, telefone, endereco, cidade, cpf_cnpj, clienteId, userId);
+
+        const existingMoto = db.prepare("SELECT id FROM motorcycles WHERE customer_id = ?").get(clienteId);
+        if (existingMoto) {
+          db.prepare("UPDATE motorcycles SET model = ?, plate = ? WHERE customer_id = ?")
+            .run(modelo_moto || 'N/A', placa_moto || 'N/A', clienteId);
+        } else if (modelo_moto || placa_moto) {
+          db.prepare("INSERT INTO motorcycles (user_id, customer_id, model, plate) VALUES (?, ?, ?, ?)")
+            .run(userId, clienteId, modelo_moto || 'N/A', placa_moto || 'N/A');
+        }
+
+        db.prepare(`
+          UPDATE clientes 
+          SET nome = ?, telefone = ?, cpf_cnpj = ?, cidade = ?, endereco = ?, modelo_moto = ?, ano_moto = ?, placa_moto = ?, observacoes = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ? AND user_id = ?
+        `).run(nome, telefone, cpf_cnpj, cidade, endereco, modelo_moto, ano_moto, placa_moto, observacoes, status, clienteId, userId);
+      });
+
+      run();
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/clientes/:id", authenticateToken, (req, res) => {
+    const userId = req.user!.id;
+    const clienteId = req.params.id;
+    try {
+      const run = db.transaction(() => {
+        db.prepare("DELETE FROM customers WHERE id = ? AND user_id = ?").run(clienteId, userId);
+        db.prepare("DELETE FROM motorcycles WHERE customer_id = ?").run(clienteId);
+        db.prepare("DELETE FROM clientes WHERE id = ? AND user_id = ?").run(clienteId, userId);
+        db.prepare("DELETE FROM atendimentos WHERE cliente_id = ?").run(clienteId);
+      });
+      run();
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Atendimentos e Conversas
+  app.get("/api/atendimentos", authenticateToken, (req, res) => {
+    try {
+      const data = db.prepare(`
+        SELECT a.*, c.nome as cliente_nome, c.telefone as cliente_telefone, c.modelo_moto as cliente_moto, c.status as cliente_status
+        FROM atendimentos a
+        JOIN clientes c ON a.cliente_id = c.id
+        WHERE a.user_id = ?
+        ORDER BY a.last_contact DESC
+      `).all(req.user!.id);
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/atendimentos", authenticateToken, (req, res) => {
+    const { cliente_id, status, atendente_name, observacoes } = req.body;
+    const userId = req.user!.id;
+    try {
+      // Check if open chat already exists
+      const existing = db.prepare("SELECT id FROM atendimentos WHERE cliente_id = ? AND user_id = ? AND status != 'Finalizado'").get(cliente_id) as any;
+      if (existing) {
+        return res.json({ id: existing.id, is_existing: true });
+      }
+
+      const info = db.prepare("INSERT INTO atendimentos (user_id, cliente_id, status, atendente_name, observacoes) VALUES (?, ?, ?, ?, ?)")
+        .run(userId, cliente_id, status || 'Novo', atendente_name, observacoes);
+      res.json({ id: info.lastInsertRowid });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Update last contact timestamp / status
+  app.put("/api/atendimentos/:id", authenticateToken, (req, res) => {
+    const { status, atendente_name, observacoes } = req.body;
+    const userId = req.user!.id;
+    try {
+      db.prepare("UPDATE atendimentos SET status = ?, atendente_name = ?, observacoes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?")
+        .run(status, atendente_name, observacoes, req.params.id, userId);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/conversas/:atendimentoId", authenticateToken, (req, res) => {
+    try {
+      const data = db.prepare("SELECT * FROM conversas WHERE atendimento_id = ? AND user_id = ? ORDER BY created_at ASC").all(req.params.atendimentoId, req.user!.id);
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/conversas", authenticateToken, (req, res) => {
+    const { atendimento_id, sender, message } = req.body;
+    const userId = req.user!.id;
+    try {
+      const run = db.transaction(() => {
+        const info = db.prepare("INSERT INTO conversas (user_id, atendimento_id, sender, message) VALUES (?, ?, ?, ?)")
+          .run(userId, atendimento_id, sender, message);
+        
+        // Update last contact timestamp in atendimento
+        db.prepare("UPDATE atendimentos SET last_contact = CURRENT_TIMESTAMP, status = ? WHERE id = ?")
+          .run(sender === 'atendente' ? 'Aguardando cliente' : 'Em atendimento', atendimento_id);
+        
+        return info.lastInsertRowid;
+      });
+
+      const id = run();
+      res.json({ id });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Orçamentos
+  app.get("/api/orcamentos", authenticateToken, (req, res) => {
+    try {
+      const quotes = db.prepare("SELECT * FROM orcamentos WHERE user_id = ? ORDER BY created_at DESC").all(req.user!.id) as any[];
+      const fullQuotes = quotes.map(q => {
+        const items = db.prepare("SELECT * FROM orcamento_itens WHERE orcamento_id = ?").all(q.id);
+        return { ...q, items };
+      });
+      res.json(fullQuotes);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/orcamentos", authenticateToken, (req, res) => {
+    const { cliente_id, customer_name, whatsapp, motorcycle_details, motorcycle_year, service_description, labor_value, discount, total_value, payment_method, observacoes, status, items } = req.body;
+    const userId = req.user!.id;
+    try {
+      const run = db.transaction(() => {
+        // 1. Insert into quotes (old compatibility)
+        const quoteInfo = db.prepare(`
+          INSERT INTO quotes (user_id, customer_id, customer_name, motorcycle_details, total_value, observations, status, items)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(userId, cliente_id, customer_name, motorcycle_details, total_value, observacoes, status || 'Pendente', JSON.stringify(items || []));
+        const quoteId = quoteInfo.lastInsertRowid;
+
+        // 2. Insert into orcamentos (new CRM table)
+        db.prepare(`
+          INSERT INTO orcamentos (id, user_id, cliente_id, customer_name, whatsapp, motorcycle_details, motorcycle_year, service_description, labor_value, discount, total_value, payment_method, observacoes, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(quoteId, userId, cliente_id, customer_name, whatsapp, motorcycle_details, motorcycle_year, service_description, labor_value || 0, discount || 0, total_value, payment_method, observacoes, status || 'Pendente');
+
+        // 3. Insert items
+        const insertItem = db.prepare(`
+          INSERT INTO orcamento_itens (orcamento_id, description, quantity, unit_value, total_value)
+          VALUES (?, ?, ?, ?, ?)
+        `);
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            insertItem.run(quoteId, item.description, item.quantity, item.price || item.unit_value, (item.price || item.unit_value) * item.quantity);
+          }
+        }
+        return quoteId;
+      });
+
+      const id = run();
+      res.json({ id });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.put("/api/orcamentos/:id", authenticateToken, (req, res) => {
+    const { cliente_id, customer_name, whatsapp, motorcycle_details, motorcycle_year, service_description, labor_value, discount, total_value, payment_method, observacoes, status, items } = req.body;
+    const userId = req.user!.id;
+    const quoteId = req.params.id;
+    try {
+      const run = db.transaction(() => {
+        // 1. Update quotes
+        db.prepare(`
+          UPDATE quotes 
+          SET customer_id = ?, customer_name = ?, motorcycle_details = ?, total_value = ?, observations = ?, status = ?, items = ?
+          WHERE id = ? AND user_id = ?
+        `).run(cliente_id, customer_name, motorcycle_details, total_value, observacoes, status, JSON.stringify(items || []), quoteId, userId);
+
+        // 2. Update orcamentos
+        db.prepare(`
+          UPDATE orcamentos 
+          SET cliente_id = ?, customer_name = ?, whatsapp = ?, motorcycle_details = ?, motorcycle_year = ?, service_description = ?, labor_value = ?, discount = ?, total_value = ?, payment_method = ?, observacoes = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ? AND user_id = ?
+        `).run(cliente_id, customer_name, whatsapp, motorcycle_details, motorcycle_year, service_description, labor_value || 0, discount || 0, total_value, payment_method, observacoes, status, quoteId, userId);
+
+        // 3. Re-create items
+        db.prepare("DELETE FROM orcamento_itens WHERE orcamento_id = ?").run(quoteId);
+        const insertItem = db.prepare(`
+          INSERT INTO orcamento_itens (orcamento_id, description, quantity, unit_value, total_value)
+          VALUES (?, ?, ?, ?, ?)
+        `);
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            insertItem.run(quoteId, item.description, item.quantity, item.price || item.unit_value, (item.price || item.unit_value) * item.quantity);
+          }
+        }
+      });
+
+      run();
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/orcamentos/:id", authenticateToken, (req, res) => {
+    const userId = req.user!.id;
+    const quoteId = req.params.id;
+    try {
+      const run = db.transaction(() => {
+        db.prepare("DELETE FROM quotes WHERE id = ? AND user_id = ?").run(quoteId, userId);
+        db.prepare("DELETE FROM orcamentos WHERE id = ? AND user_id = ?").run(quoteId, userId);
+        db.prepare("DELETE FROM orcamento_itens WHERE orcamento_id = ?").run(quoteId);
+      });
+      run();
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Serviços da Oficina (Syncs with sales and sale_items)
+  app.get("/api/servicos_oficina", authenticateToken, (req, res) => {
+    try {
+      const data = db.prepare("SELECT * FROM servicos_oficina WHERE user_id = ? ORDER BY entry_date DESC").all(req.user!.id) as any[];
+      const fullServices = data.map(sv => {
+        const items = db.prepare("SELECT * FROM servico_pecas WHERE servico_id = ?").all(sv.id);
+        return { ...sv, items };
+      });
+      res.json(fullServices);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/servicos_oficina", authenticateToken, (req, res) => {
+    const { cliente_id, customer_name, whatsapp, motorcycle_details, motorcycle_year, motorcycle_plate, service_requested, mechanic_id, mechanic_name, status, entry_date, delivery_forecast, labor_value, parts_value, total_value, observacoes, items } = req.body;
+    const userId = req.user!.id;
+    try {
+      const run = db.transaction(() => {
+        // 1. Generate unique OS ID for sales table
+        const osId = `OS-${Date.now()}`;
+
+        // 2. Insert into sales table
+        db.prepare(`
+          INSERT INTO sales (id, user_id, customer_id, customer_name, labor_value, mechanic_id, mechanic_name, total, payment_method, payment_status, type, date, moto_details, service_description, status, whatsapp, motorcycle_km)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(osId, userId, cliente_id, customer_name, labor_value || 0, mechanic_id, mechanic_name, total_value, 'Pix', 'Pendente', 'Oficina', entry_date || new Date().toISOString(), `${motorcycle_details} (${motorcycle_year || ''}) - Placa: ${motorcycle_plate || ''}`, service_requested, 'Aberto', whatsapp, 0);
+
+        // 3. Insert sale_items and update stock
+        const insertSaleItem = db.prepare("INSERT INTO sale_items (sale_id, product_id, description, quantity, price, type) VALUES (?, ?, ?, ?, ?, ?)");
+        const updateStock = db.prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            insertSaleItem.run(osId, item.product_id, item.description, item.quantity, item.price || item.unit_value, 'Peça');
+            if (item.product_id) {
+              updateStock.run(item.quantity, item.product_id);
+            }
+          }
+        }
+
+        // 4. Insert into servicos_oficina (CRM table)
+        const svInfo = db.prepare(`
+          INSERT INTO servicos_oficina (user_id, cliente_id, customer_name, whatsapp, motorcycle_details, motorcycle_year, motorcycle_plate, service_requested, mechanic_id, mechanic_name, status, entry_date, delivery_forecast, labor_value, parts_value, total_value, observacoes)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(userId, cliente_id, customer_name, whatsapp, motorcycle_details, motorcycle_year, motorcycle_plate, service_requested, mechanic_id, mechanic_name, status || 'Aguardando avaliação', entry_date, delivery_forecast, labor_value || 0, parts_value || 0, total_value, observacoes);
+        const servicoId = svInfo.lastInsertRowid;
+
+        // 5. Insert into servico_pecas
+        const insertPeca = db.prepare(`
+          INSERT INTO servico_pecas (servico_id, product_id, description, quantity, price)
+          VALUES (?, ?, ?, ?, ?)
+        `);
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            insertPeca.run(servicoId, item.product_id, item.description, item.quantity, item.price || item.unit_value);
+          }
+        }
+        return servicoId;
+      });
+
+      const id = run();
+      res.json({ id });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.put("/api/servicos_oficina/:id", authenticateToken, (req, res) => {
+    const { cliente_id, customer_name, whatsapp, motorcycle_details, motorcycle_year, motorcycle_plate, service_requested, mechanic_id, mechanic_name, status, entry_date, delivery_forecast, labor_value, parts_value, total_value, observacoes, items } = req.body;
+    const userId = req.user!.id;
+    const servicoId = req.params.id;
+    try {
+      const run = db.transaction(() => {
+        // Update servicos_oficina
+        db.prepare(`
+          UPDATE servicos_oficina 
+          SET cliente_id = ?, customer_name = ?, whatsapp = ?, motorcycle_details = ?, motorcycle_year = ?, motorcycle_plate = ?, service_requested = ?, mechanic_id = ?, mechanic_name = ?, status = ?, entry_date = ?, delivery_forecast = ?, labor_value = ?, parts_value = ?, total_value = ?, observacoes = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ? AND user_id = ?
+        `).run(cliente_id, customer_name, whatsapp, motorcycle_details, motorcycle_year, motorcycle_plate, service_requested, mechanic_id, mechanic_name, status, entry_date, delivery_forecast, labor_value || 0, parts_value || 0, total_value, observacoes, servicoId, userId);
+
+        // Re-create parts
+        db.prepare("DELETE FROM servico_pecas WHERE servico_id = ?").run(servicoId);
+        const insertPeca = db.prepare(`
+          INSERT INTO servico_pecas (servico_id, product_id, description, quantity, price)
+          VALUES (?, ?, ?, ?, ?)
+        `);
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            insertPeca.run(servicoId, item.product_id, item.description, item.quantity, item.price || item.unit_value);
+          }
+        }
+      });
+
+      run();
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/servicos_oficina/:id", authenticateToken, (req, res) => {
+    const userId = req.user!.id;
+    const servicoId = req.params.id;
+    try {
+      const run = db.transaction(() => {
+        db.prepare("DELETE FROM servicos_oficina WHERE id = ? AND user_id = ?").run(servicoId, userId);
+        db.prepare("DELETE FROM servico_pecas WHERE servico_id = ?").run(servicoId);
+      });
+      run();
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Mensagens Prontas
+  app.get("/api/mensagens_prontas", authenticateToken, (req, res) => {
+    try {
+      const data = db.prepare("SELECT * FROM mensagens_prontas WHERE user_id = ? ORDER BY category ASC, title ASC").all(req.user!.id);
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/mensagens_prontas", authenticateToken, (req, res) => {
+    const { category, title, content } = req.body;
+    const userId = req.user!.id;
+    try {
+      const info = db.prepare("INSERT INTO mensagens_prontas (user_id, category, title, content) VALUES (?, ?, ?, ?)")
+        .run(userId, category, title, content);
+      res.json({ id: info.lastInsertRowid, category, title, content });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.put("/api/mensagens_prontas/:id", authenticateToken, (req, res) => {
+    const { category, title, content } = req.body;
+    const userId = req.user!.id;
+    try {
+      db.prepare("UPDATE mensagens_prontas SET category = ?, title = ?, content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?")
+        .run(category, title, content, req.params.id, userId);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/mensagens_prontas/:id", authenticateToken, (req, res) => {
+    const userId = req.user!.id;
+    try {
+      db.prepare("DELETE FROM mensagens_prontas WHERE id = ? AND user_id = ?").run(req.params.id, userId);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Tags e Cliente_Tags
+  app.get("/api/tags", authenticateToken, (req, res) => {
+    try {
+      const data = db.prepare("SELECT * FROM tags WHERE user_id = ? ORDER BY name ASC").all(req.user!.id);
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/tags", authenticateToken, (req, res) => {
+    const { name, color } = req.body;
+    const userId = req.user!.id;
+    try {
+      const info = db.prepare("INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?)")
+        .run(userId, name, color || 'bg-slate-100 text-slate-800');
+      res.json({ id: info.lastInsertRowid, name, color });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/tags/:id", authenticateToken, (req, res) => {
+    const userId = req.user!.id;
+    try {
+      db.prepare("DELETE FROM tags WHERE id = ? AND user_id = ?").run(req.params.id, userId);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/cliente_tags", authenticateToken, (req, res) => {
+    try {
+      const data = db.prepare(`
+        SELECT ct.*, t.name as tag_name, t.color as tag_color 
+        FROM cliente_tags ct
+        JOIN tags t ON ct.tag_id = t.id
+        WHERE t.user_id = ?
+      `).all(req.user!.id);
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/cliente_tags", authenticateToken, (req, res) => {
+    const { cliente_id, tag_id } = req.body;
+    try {
+      const existing = db.prepare("SELECT id FROM cliente_tags WHERE cliente_id = ? AND tag_id = ?").get(cliente_id, tag_id);
+      if (existing) return res.json({ success: true });
+
+      const info = db.prepare("INSERT INTO cliente_tags (cliente_id, tag_id) VALUES (?, ?)").run(cliente_id, tag_id);
+      res.json({ id: info.lastInsertRowid });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/cliente_tags/:cliente_id/:tag_id", authenticateToken, (req, res) => {
+    try {
+      db.prepare("DELETE FROM cliente_tags WHERE cliente_id = ? AND tag_id = ?").run(req.params.cliente_id, req.params.tag_id);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Followups automáticos
+  app.get("/api/followups/reminders", authenticateToken, (req, res) => {
+    const userId = req.user!.id;
+    try {
+      const reminders: any[] = [];
+
+      // 1. Cliente sem resposta há 1 dia (Atendimento aberto, última mensagem do cliente > 24h atrás)
+      const semResposta = db.prepare(`
+        SELECT a.*, c.nome, c.telefone, c.modelo_moto
+        FROM atendimentos a
+        JOIN clientes c ON a.cliente_id = c.id
+        WHERE a.user_id = ? AND a.status != 'Finalizado' AND datetime(a.last_contact) < datetime('now', '-1 day')
+      `).all(userId) as any[];
+      semResposta.forEach(item => {
+        reminders.push({
+          type: 'sem_resposta_1d',
+          title: 'Cliente sem resposta há mais de 1 dia',
+          description: `${item.nome} (${item.cliente_moto || item.modelo_moto || 'Moto'}) aguarda retorno.`,
+          whatsapp: item.telefone,
+          name: item.nome,
+          detail: item
+        });
+      });
+
+      // 2. Orçamento enviado há 2 dias sem retorno
+      const orcamentosPendentes = db.prepare(`
+        SELECT o.*
+        FROM orcamentos o
+        WHERE o.user_id = ? AND o.status = 'Enviado' AND datetime(o.created_at) < datetime('now', '-2 days')
+      `).all(userId) as any[];
+      orcamentosPendentes.forEach(item => {
+        reminders.push({
+          type: 'orcamento_no_return_2d',
+          title: 'Orçamento pendente de retorno (2 dias)',
+          description: `Orçamento de R$ ${item.total_value.toFixed(2)} para ${item.customer_name}.`,
+          whatsapp: item.whatsapp,
+          name: item.customer_name,
+          detail: item
+        });
+      });
+
+      // 3. Cliente que comprou óleo há mais de 30 dias (baseado nas vendas da Kombat)
+      const oleoClientes = db.prepare(`
+        SELECT s.customer_name, s.whatsapp, MAX(s.date) as last_oil_date
+        FROM sales s
+        JOIN sale_items si ON s.id = si.sale_id
+        WHERE s.user_id = ? AND (si.description LIKE '%óleo%' OR si.description LIKE '%oleo%') AND s.whatsapp IS NOT NULL
+        GROUP BY s.customer_name, s.whatsapp
+        HAVING datetime(last_oil_date) < datetime('now', '-30 days')
+      `).all(userId) as any[];
+      oleoClientes.forEach(item => {
+        reminders.push({
+          type: 'oleo_30d',
+          title: 'Troca de Óleo - Mais de 30 dias',
+          description: `${item.customer_name} comprou óleo pela última vez em ${new Date(item.last_oil_date).toLocaleDateString('pt-BR')}.`,
+          whatsapp: item.whatsapp,
+          name: item.customer_name,
+          detail: item
+        });
+      });
+
+      // 4. Cliente que fez serviço há mais de 7 dias (agradecimento / pós-venda)
+      const servicoRecente = db.prepare(`
+        SELECT sv.*
+        FROM servicos_oficina sv
+        WHERE sv.user_id = ? AND sv.status IN ('Finalizado', 'Entregue') AND datetime(sv.updated_at) < datetime('now', '-7 days')
+      `).all(userId) as any[];
+      servicoRecente.forEach(item => {
+        reminders.push({
+          type: 'servico_7d',
+          title: 'Acompanhamento Pós-Serviço (7 dias)',
+          description: `Revisão de ${item.service_requested} realizada para ${item.customer_name}. Enviar pós-venda.`,
+          whatsapp: item.whatsapp,
+          name: item.customer_name,
+          detail: item
+        });
+      });
+
+      // 5. Cliente que pediu peça e não comprou (leads de interesse em peças parados)
+      const pecaNaoComprada = db.prepare(`
+        SELECT l.*
+        FROM leads l
+        WHERE l.user_id = ? AND (l.interest LIKE '%peça%' OR l.interest LIKE '%peca%') AND l.status IN ('Novo', 'Em atendimento', 'Aguardando cliente', 'Negociação') AND datetime(l.created_at) < datetime('now', '-5 days')
+      `).all(userId) as any[];
+      pecaNaoComprada.forEach(item => {
+        reminders.push({
+          type: 'peca_nao_comprada',
+          title: 'Peça pedida sem compra finalizada',
+          description: `${item.name} procurou peças há mais de 5 dias. Checar se ainda precisa da peça.`,
+          whatsapp: item.phone,
+          name: item.name,
+          detail: item
+        });
+      });
+
+      res.json(reminders);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Gestão de Usuários
+  app.get("/api/usuarios", authenticateToken, (req, res) => {
+    try {
+      const user = db.prepare("SELECT role FROM users WHERE id = ?").get(req.user!.id) as any;
+      if (!user || user.role !== 'Administrador') {
+        return res.status(403).json({ error: "Apenas Administradores podem acessar a gestão de usuários." });
+      }
+      const allUsers = db.prepare("SELECT id, username, role, created_at FROM users").all();
+      res.json(allUsers);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.put("/api/usuarios/:id/role", authenticateToken, (req, res) => {
+    try {
+      const user = db.prepare("SELECT role FROM users WHERE id = ?").get(req.user!.id) as any;
+      if (!user || user.role !== 'Administrador') {
+        return res.status(403).json({ error: "Apenas Administradores podem alterar permissões." });
+      }
+      const { role } = req.body;
+      db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, req.params.id);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/usuarios/:id", authenticateToken, (req, res) => {
+    try {
+      const user = db.prepare("SELECT role FROM users WHERE id = ?").get(req.user!.id) as any;
+      if (!user || user.role !== 'Administrador') {
+        return res.status(403).json({ error: "Apenas Administradores podem excluir usuários." });
+      }
+      db.prepare("DELETE FROM users WHERE id = ?").run(req.params.id);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Distributors
   app.get("/api/distributors", authenticateToken, (req, res) => {
     const data = db.prepare(`SELECT id, name, whatsapp as phone, contact as contact_person, created_at FROM distributors WHERE user_id = ?`).all(req.user!.id);
@@ -1616,7 +2567,7 @@ async function startServer() {
 
       // 1. Try decoding QR Code and ITF (1D Barcode) locally using zxing-wasm
       try {
-        const results = await readBarcodesFromImageFile(buffer, {
+        const results = await readBarcodesFromImageFile(new Blob([buffer]), {
           tryHarder: true,
           formats: ['ITF', 'QRCode']
         });

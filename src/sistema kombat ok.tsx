@@ -582,6 +582,25 @@ export default function App() {
   const [user, setUser] = useState<any>({ id: 'local-user', email: 'admin@sistema.local' });
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
+
+  const userRole = user?.role || 'Administrador';
+
+  const hasAccess = (allowedRoles: string[]) => {
+    return allowedRoles.includes(userRole);
+  };
+
+  // Enforce role-based access control (RBAC) on activeTab
+  React.useEffect(() => {
+    if (!user) return;
+    if (userRole === 'Atendente' && !['customers', 'quotes', 'crm'].includes(activeTab)) {
+      setActiveTab('crm');
+    } else if (userRole === 'Mecânico' && !['dashboard', 'os'].includes(activeTab)) {
+      setActiveTab('os');
+    } else if (userRole === 'Financeiro' && !['dashboard', 'financial'].includes(activeTab)) {
+      setActiveTab('financial');
+    }
+  }, [userRole, activeTab, user]);
+
   const [inventoryView, setInventoryView] = useState<'list' | 'grid'>('list');
   const [customerViewMode, setCustomerViewMode] = useState<'list' | 'grid'>('grid');
   const [stats, setStats] = useState<Stats | null>(null);
@@ -1493,8 +1512,31 @@ export default function App() {
       }
     };
     handleRedirect();
-    fetchData();
-    setAuthChecking(false);
+
+    // Check user authentication status on mount
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const res = await fetch('/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const userData = await res.json();
+            setUser(userData);
+          } else {
+            localStorage.removeItem('token');
+            setUser(null);
+          }
+        } catch (e) {
+          console.error("Error fetching user profile:", e);
+        }
+      }
+      fetchData();
+      setAuthChecking(false);
+    };
+
+    checkAuth();
   }, []);
 
   const handleLogout = async () => {
@@ -6459,96 +6501,126 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         </div>
 
         <nav className="flex-1 space-y-2 overflow-y-auto pr-2 custom-scrollbar">
-          <SidebarItem
-            icon={LayoutDashboard}
-            label="Dashboard"
-            active={activeTab === 'dashboard'}
-            onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={Users}
-            label="Clientes"
-            active={activeTab === 'customers'}
-            onClick={() => { setActiveTab('customers'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={Package}
-            label="Estoque"
-            active={activeTab === 'inventory'}
-            onClick={() => { setActiveTab('inventory'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={ClipboardCheck}
-            label="CONTAGEM RÁPIDA"
-            active={activeTab === 'manual_inventory'}
-            onClick={() => { setActiveTab('manual_inventory'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={Wrench}
-            label="Serviços"
-            active={activeTab === 'services'}
-            onClick={() => { setActiveTab('services'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={Truck}
-            label="Pedidos de Peças"
-            active={activeTab === 'orders'}
-            onClick={() => { setActiveTab('orders'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={ShoppingCart}
-            label="Entrada de Compras"
-            active={activeTab === 'purchases'}
-            onClick={() => { setActiveTab('purchases'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={FileText}
-            label="Orçamentos"
-            active={activeTab === 'quotes'}
-            onClick={() => { setActiveTab('quotes'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={Target}
-            label="CRM / Vendas"
-            active={activeTab === 'crm'}
-            onClick={() => { setActiveTab('crm'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={ShoppingCart}
-            label="PDV / Caixa"
-            active={activeTab === 'pdv'}
-            onClick={() => { setActiveTab('pdv'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={Bike}
-            label="Ordens de Serviço"
-            active={activeTab === 'os'}
-            onClick={() => { setActiveTab('os'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={DollarSign}
-            label="Financeiro"
-            active={activeTab === 'financial'}
-            onClick={() => { setActiveTab('financial'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={Users}
-            label="Mecânicos"
-            active={activeTab === 'mechanics'}
-            onClick={() => { setActiveTab('mechanics'); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={MessageCircle}
-            label="Catálogo Komat"
-            active={isCatalogModalOpen}
-            onClick={() => { setIsCatalogModalOpen(true); setIsSidebarOpen(false); }}
-          />
-          <SidebarItem
-            icon={Settings}
-            label="Configurações"
-            active={activeTab === 'settings'}
-            onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
-          />
+          {hasAccess(['Administrador', 'Mecânico', 'Financeiro']) && (
+            <SidebarItem
+              icon={LayoutDashboard}
+              label="Dashboard"
+              active={activeTab === 'dashboard'}
+              onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador', 'Atendente']) && (
+            <SidebarItem
+              icon={Users}
+              label="Clientes"
+              active={activeTab === 'customers'}
+              onClick={() => { setActiveTab('customers'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador']) && (
+            <SidebarItem
+              icon={Package}
+              label="Estoque"
+              active={activeTab === 'inventory'}
+              onClick={() => { setActiveTab('inventory'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador']) && (
+            <SidebarItem
+              icon={ClipboardCheck}
+              label="CONTAGEM RÁPIDA"
+              active={activeTab === 'manual_inventory'}
+              onClick={() => { setActiveTab('manual_inventory'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador']) && (
+            <SidebarItem
+              icon={Wrench}
+              label="Serviços"
+              active={activeTab === 'services'}
+              onClick={() => { setActiveTab('services'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador']) && (
+            <SidebarItem
+              icon={Truck}
+              label="Pedidos de Peças"
+              active={activeTab === 'orders'}
+              onClick={() => { setActiveTab('orders'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador']) && (
+            <SidebarItem
+              icon={ShoppingCart}
+              label="Entrada de Compras"
+              active={activeTab === 'purchases'}
+              onClick={() => { setActiveTab('purchases'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador', 'Atendente']) && (
+            <SidebarItem
+              icon={FileText}
+              label="Orçamentos"
+              active={activeTab === 'quotes'}
+              onClick={() => { setActiveTab('quotes'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador', 'Atendente']) && (
+            <SidebarItem
+              icon={Target}
+              label="CRM / Vendas"
+              active={activeTab === 'crm'}
+              onClick={() => { setActiveTab('crm'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador']) && (
+            <SidebarItem
+              icon={ShoppingCart}
+              label="PDV / Caixa"
+              active={activeTab === 'pdv'}
+              onClick={() => { setActiveTab('pdv'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador', 'Mecânico']) && (
+            <SidebarItem
+              icon={Bike}
+              label="Ordens de Serviço"
+              active={activeTab === 'os'}
+              onClick={() => { setActiveTab('os'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador', 'Financeiro']) && (
+            <SidebarItem
+              icon={DollarSign}
+              label="Financeiro"
+              active={activeTab === 'financial'}
+              onClick={() => { setActiveTab('financial'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador']) && (
+            <SidebarItem
+              icon={Users}
+              label="Mecânicos"
+              active={activeTab === 'mechanics'}
+              onClick={() => { setActiveTab('mechanics'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador', 'Atendente']) && (
+            <SidebarItem
+              icon={MessageCircle}
+              label="Catálogo Komat"
+              active={isCatalogModalOpen}
+              onClick={() => { setIsCatalogModalOpen(true); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador']) && (
+            <SidebarItem
+              icon={Settings}
+              label="Configurações"
+              active={activeTab === 'settings'}
+              onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
+            />
+          )}
         </nav>
 
         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
@@ -6658,19 +6730,12 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 {activeTab === 'services' && renderServices()}
                 {activeTab === 'crm' && (
                   <CRMTab
-                    leads={leads}
-                    searchTerm={searchTerm}
-                    globalSearchTerm={globalSearchTerm}
-                    setSearchTerm={setSearchTerm}
-                    setEditingLead={setEditingLead}
-                    setLeadForm={setLeadForm}
-                    setIsLeadModalOpen={setIsLeadModalOpen}
-                    handleEditLead={handleEditLead}
-                    handleDeleteLead={handleDeleteLead}
-                    setSelectedLead={setSelectedLead}
-                    setIsMessageModalOpen={setIsMessageModalOpen}
+                    currentUser={user}
                     formatBRL={formatBRL}
-                    moveLead={moveLead}
+                    products={products}
+                    mechanics={mechanics}
+                    onTriggerPDV={handleConvertQuoteToSale}
+                    onTriggerOS={handleConvertQuoteToOS}
                   />
                 )}
                 {activeTab === 'pdv' && renderPDV()}
