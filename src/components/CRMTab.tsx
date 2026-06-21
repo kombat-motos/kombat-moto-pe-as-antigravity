@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, LayoutDashboard, MessageCircle, Target, FileText, 
-  Wrench, BookOpen, Tag, Clock, Users, ShieldAlert 
+  Wrench, BookOpen, Tag, Clock, Users, ShieldAlert, Brain 
 } from 'lucide-react';
 
 // Subcomponents
@@ -15,6 +15,7 @@ import CRMTags from './crm/CRMTags';
 import CRMRelatorios from './crm/CRMRelatorios';
 import CRMUsuarios from './crm/CRMUsuarios';
 import CRMFollowups from './crm/CRMFollowups';
+import CentroInteligencia from './crm/CentroInteligencia';
 
 interface Lead {
   id: string;
@@ -47,9 +48,10 @@ interface CRMTabProps {
   mechanics: Mechanic[];
   onTriggerPDV: (quote: any) => void;
   onTriggerOS: (quote: any) => void;
+  onOpenCliente360: (id: number) => void;
 }
 
-type SubTab = 'dashboard' | 'conversas' | 'funil' | 'orcamentos' | 'oficina' | 'mensagens' | 'tags' | 'relatorios' | 'usuarios' | 'followups';
+type SubTab = 'dashboard' | 'conversas' | 'funil' | 'orcamentos' | 'oficina' | 'mensagens' | 'tags' | 'relatorios' | 'usuarios' | 'followups' | 'centro_inteligencia';
 
 export default function CRMTab({
   currentUser,
@@ -57,7 +59,8 @@ export default function CRMTab({
   products,
   mechanics,
   onTriggerPDV,
-  onTriggerOS
+  onTriggerOS,
+  onOpenCliente360
 }: CRMTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('dashboard');
 
@@ -368,6 +371,7 @@ export default function CRMTab({
   // Submenu configuration
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'centro_inteligencia', label: 'Centro IA', icon: Brain },
     { id: 'conversas', label: 'Conversas WA', icon: MessageCircle },
     { id: 'funil', label: 'Funil Vendas', icon: Target },
     { id: 'orcamentos', label: 'Orçamentos', icon: FileText },
@@ -498,6 +502,12 @@ export default function CRMTab({
         {activeSubTab === 'usuarios' && (
           <CRMUsuarios
             currentUser={currentUser}
+          />
+        )}
+        {activeSubTab === 'centro_inteligencia' && (
+          <CentroInteligencia
+            formatBRL={formatBRL}
+            onOpenCliente360={onOpenCliente360}
           />
         )}
       </div>

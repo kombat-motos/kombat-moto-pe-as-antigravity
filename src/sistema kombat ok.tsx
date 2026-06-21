@@ -74,6 +74,7 @@ import ProfessionalCatalog from './components/ProfessionalCatalog';
 import Auth from './components/Auth';
 import Modal from './components/Modal';
 import { ThemeToggle } from './components/ThemeToggle';
+import Cliente360Modal from './components/crm/Cliente360Modal';
 
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -816,6 +817,9 @@ export default function App() {
   const [showOsCalculator, setShowOsCalculator] = useState(false);
   const [labelQuantity, setLabelQuantity] = useState(1);
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
+
+  // Client 360 State
+  const [activeCliente360Id, setActiveCliente360Id] = useState<number | null>(null);
 
   // Quotes States
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -2939,6 +2943,56 @@ export default function App() {
       validity_days: quote.validity_days || 7,
       status: quote.status || 'Pendente',
       items: quote.items || []
+    });
+    setIsQuoteModalOpen(true);
+  };
+
+  const handleOpenPDVForCliente360 = (cliente: any) => {
+    setPdvForm({
+      customer_id: cliente.id ? String(cliente.id) : '',
+      mechanic_id: '',
+      items: [],
+      payment_method: 'Pix',
+      due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      sale_condition: 'Vista',
+      installments: 1,
+      discount: 0
+    });
+    setActiveTab('pdv');
+  };
+
+  const handleOpenOSForCliente360 = (cliente: any, moto: any) => {
+    setOsForm({
+      customer_id: cliente.id ? String(cliente.id) : '',
+      motorcycle_id: moto ? String(moto.id) : '',
+      motorcycle_plate: moto?.plate || '',
+      items: [],
+      selected_fixed_services: [],
+      labor_value: '0',
+      principal_service_desc: '',
+      internal_services: [],
+      mechanic_id: '',
+      payment_method: 'Pix',
+      status: 'Aberto',
+      due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      service_description: '',
+      km: moto?.current_km ? String(moto.current_km) : '',
+    });
+    setIsOsModalOpen(true);
+  };
+
+  const handleOpenQuoteForCliente360 = (cliente: any) => {
+    setEditingQuote(null);
+    setQuoteForm({
+      customer_name: cliente.nome || cliente.name || '',
+      customer_id: cliente.id,
+      motorcycle_details: cliente.modelo_moto ? `${cliente.modelo_moto} (${cliente.placa_moto || ''})` : '',
+      total_value: 0,
+      observations: '',
+      warranty_terms: 'Garantia de 90 dias conforme CDC sobre os itens relacionados.',
+      validity_days: 7,
+      status: 'Pendente',
+      items: []
     });
     setIsQuoteModalOpen(true);
   };
@@ -5337,7 +5391,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     <Pencil size={20} />
                   </button>
                   <button
-                    onClick={() => setSelectedCustomerForHistory(c)}
+                    onClick={() => setActiveCliente360Id(c.id)}
                     className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                     title="Histórico de Vendas"
                   >
@@ -5465,8 +5519,9 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                           <Pencil size={18} />
                         </button>
                         <button
-                          onClick={() => setSelectedCustomerForHistory(c)}
+                          onClick={() => setActiveCliente360Id(c.id)}
                           className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"
+                          title="Histórico Cliente 360°"
                         >
                           <List size={18} />
                         </button>
@@ -6736,6 +6791,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     mechanics={mechanics}
                     onTriggerPDV={handleConvertQuoteToSale}
                     onTriggerOS={handleConvertQuoteToOS}
+                    onOpenCliente360={(id) => setActiveCliente360Id(id)}
                   />
                 )}
                 {activeTab === 'pdv' && renderPDV()}
@@ -6788,6 +6844,17 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         </AnimatePresence>
 
         {/* Modals */}
+        {activeCliente360Id !== null && (
+          <Cliente360Modal
+            clienteId={activeCliente360Id}
+            onClose={() => setActiveCliente360Id(null)}
+            formatBRL={formatBRL}
+            onTriggerPDV={handleOpenPDVForCliente360}
+            onTriggerOS={handleOpenOSForCliente360}
+            onTriggerQuote={handleOpenQuoteForCliente360}
+          />
+        )}
+
         <Modal
           isOpen={!!selectedCustomerForHistory}
           onClose={() => setSelectedCustomerForHistory(null)}

@@ -515,6 +515,17 @@ try { db.exec("ALTER TABLE mechanics ADD COLUMN commission_rate REAL DEFAULT 50"
       FOREIGN KEY (user_id) REFERENCES users (id),
       FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS ai_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      user_id INTEGER NOT NULL,
+      cliente_id INTEGER,
+      acao TEXT NOT NULL,
+      origem TEXT NOT NULL,
+      resumo TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    );
   `);
 
   // CRM Migrations
@@ -2264,6 +2275,562 @@ async function startServer() {
       db.prepare("DELETE FROM users WHERE id = ?").run(req.params.id);
       res.json({ success: true });
     } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ==========================================
+  // IA KOMBAT & CLIENTE 360° ROUTES
+  // ==========================================
+
+  // Helper to log AI requests
+  const logAiRequest = (userId: number, clienteId: number | null, acao: string, origem: string, resumo: string) => {
+    try {
+      db.prepare(`
+        INSERT INTO ai_logs (user_id, cliente_id, acao, origem, resumo)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(userId, clienteId, acao, origem, resumo.substring(0, 1000));
+    } catch (e) {
+      console.error("[IA] Error logging AI request:", e);
+    }
+  };
+
+  // Helper to mask sensitive customer data for privacy before sending to AI
+  const maskSensitiveData = (c360: any) => {
+    const cloned = JSON.parse(JSON.stringify(c360));
+    if (cloned.cliente) {
+      if (cloned.cliente.cpf_cnpj) {
+        cloned.cliente.cpf_cnpj = cloned.cliente.cpf_cnpj.replace(/^(\d{3}).*(\d{2})$/, "$1.***.***-$2");
+      }
+      if (cloned.cliente.telefone) {
+        cloned.cliente.telefone = cloned.cliente.telefone.replace(/^(\d{2})(\d{1})?(\d{4})(\d{4})$/, "($1) $2****-$4");
+      }
+      if (cloned.cliente.whatsapp) {
+        cloned.cliente.whatsapp = cloned.cliente.whatsapp.replace(/^(\d{2})(\d{1})?(\d{4})(\d{4})$/, "($1) $2****-$4");
+      }
+      cloned.cliente.endereco = "Mascarado para Privacidade";
+      cloned.cliente.cidade = "Mascarada para Privacidade";
+    }
+    return cloned;
+  };
+
+  // General helper to call Gemini
+  const callGemini = async (promptText: string, contextJson: string): Promise<{ text: string; success: boolean }> => {
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) {
+      return { text: "", success: false };
+    }
+
+    try {
+      const aiInstance = new GoogleGenAI({ apiKey: geminiKey });
+      const response = await aiInstance.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [
+          `Você é a IA Kombat, assistente comercial da Kombat Moto Peças.
+Seu objetivo é ajudar no atendimento, vendas, oficina, pós-venda e organização do histórico do cliente.
+Responda sempre em português do Brasil, com linguagem simples, objetiva e comercial.
+Nunca invente valores, peças, estoques ou histórico.
+Use apenas os dados fornecidos pelo sistema.
+Quando faltar informação, diga que precisa confirmar no estoque ou com o cliente.
+Não execute ações sozinho. Apenas sugira próximos passos.
+
+Abaixo está o contexto do cliente em formato JSON:
+${contextJson}
+
+Instrução específica da solicitação:
+${promptText}`,
+        ],
+      });
+
+      if (response.text) {
+        return { text: response.text.trim(), success: true };
+      }
+      return { text: "", success: false };
+    } catch (e: any) {
+      console.error("[IA] Gemini call failed:", e);
+      return { text: "", success: false };
+    }
+  };
+
+  // Local heuristics for AI fallback
+  const getLocalFallbackAnalysis = (acao: string, c360: any, extraParam?: string) => {
+    const cliente = c360.cliente;
+    const name = cliente?.nome || "Cliente";
+    const motos = c360.motos || [];
+    const motoModel = motos.length > 0 ? motos[0].model : "Moto";
+    const sales = c360.sales || [];
+    const quotes = c360.quotes || [];
+    const summary = c360.financialSummary || {};
+
+    if (acao === 'resumo') {
+      const motoList = motos.map((m: any) => `${m.brand || ''} ${m.model || ''} (${m.plate || ''})`).join(', ') || 'Nenhuma moto registrada';
+      return `### 📄 Resumo do Cliente (Modo Local)
+**Cliente:** ${name}
+**Motos:** ${motoList}
+**Faturamento Total:** ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(summary.totalSpent || 0)} (Balcão: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((summary.totalSpent || 0) - (summary.totalOficina || 0))} | Oficina: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(summary.totalOficina || 0)})
+**Frequência:** ${summary.buyCount || 0} compras realizadas com Ticket Médio de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(summary.ticketMedio || 0)}.
+**Última Visita:** ${summary.ultimaVisitaDate ? new Date(summary.ultimaVisitaDate).toLocaleDateString('pt-BR') : 'Sem registro'}.
+**Status de Crédito:** Limite de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cliente.credit_limit || 0)} com débito de em aberto de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(summary.valorEmAberto || 0)}.`;
+    }
+
+    if (acao === 'oportunidades') {
+      const suggestions: string[] = [];
+      
+      // Heuristic 1: Oil change check
+      const oilChanges = sales.filter((s: any) => 
+        (s.sale_items || s.items || []).some((i: any) => (i.description || '').toLowerCase().includes('óleo') || (i.description || '').toLowerCase().includes('oleo'))
+      );
+      if (oilChanges.length > 0) {
+        const lastOil = new Date(oilChanges[0].date);
+        const days = (Date.now() - lastOil.getTime()) / (1000 * 60 * 60 * 24);
+        if (days > 30) {
+          suggestions.push(`🚨 **Troca de Óleo Preventiva:** Faz mais de ${Math.round(days)} dias desde a última troca de óleo registrada (${lastOil.toLocaleDateString('pt-BR')}). Sugira o agendamento da troca para evitar desgaste do motor.`);
+        }
+      } else {
+        suggestions.push(`跑 **Troca de Óleo:** Não encontramos registro de troca de óleo para este cliente. Ofereça óleo de motor recomendado para a ${motoModel}.`);
+      }
+
+      // Heuristic 2: Pneu check
+      const boughtFrontPneu = sales.some((s: any) => 
+        (s.sale_items || s.items || []).some((i: any) => (i.description || '').toLowerCase().includes('pneu dianteiro') || (i.description || '').toLowerCase().includes('diant'))
+      );
+      const boughtBackPneu = sales.some((s: any) => 
+        (s.sale_items || s.items || []).some((i: any) => (i.description || '').toLowerCase().includes('pneu traseiro') || (i.description || '').toLowerCase().includes('tras'))
+      );
+      if (boughtFrontPneu && !boughtBackPneu) {
+        suggestions.push(`🛒 **Venda Casada (Pneu Traseiro):** Cliente comprou pneu dianteiro recentemente. Ofereça o pneu traseiro equivalente da mesma marca (Pirelli/Rinaldi) com desconto especial.`);
+      }
+
+      // Heuristic 3: Relation Kit
+      const boughtRelation = sales.some((s: any) => 
+        (s.sale_items || s.items || []).some((i: any) => (i.description || '').toLowerCase().includes('relação') || (i.description || '').toLowerCase().includes('relacao') || (i.description || '').toLowerCase().includes('kit corr'))
+      );
+      if (boughtRelation) {
+        suggestions.push(`✨ **Manutenção da Relação:** Cliente adquiriu kit de relação recentemente. Recomende lubrificante de corrente profissional (Motul C3 / Mobil Chain Lube) para prolongar a vida útil.`);
+      }
+
+      if (suggestions.length === 0) {
+        suggestions.push(`💡 **Revisão Preventiva Geral:** Sugira uma revisão geral preventiva para a moto ${motoModel} cobrindo freios, suspensão e parte elétrica.`);
+      }
+
+      return `### 📈 Oportunidades de Venda (Modo Local)\n\n` + suggestions.join('\n\n');
+    }
+
+    if (acao === 'diagnostico') {
+      const items: string[] = [];
+      const now = Date.now();
+      
+      // Inactivity check
+      if (summary.ultimaVisitaDate) {
+        const lastVisit = new Date(summary.ultimaVisitaDate).getTime();
+        const days = (now - lastVisit) / (1000 * 60 * 60 * 24);
+        if (days > 90) {
+          items.push(`⚠️ **Cliente Inativo (Chamar WhatsApp):** Cliente sem visitas ou compras na Kombat há mais de 90 dias (última visita em ${new Date(summary.ultimaVisitaDate).toLocaleDateString('pt-BR')}).`);
+        }
+      }
+
+      // Pending Quotes
+      const pendingQuotes = quotes.filter((q: any) => q.status === 'Pendente' || q.status === 'Enviado');
+      if (pendingQuotes.length > 0) {
+        items.push(`📋 **Orçamentos Pendentes:** Constam ${pendingQuotes.length} orçamentos enviados e pendentes de retorno comercial.`);
+      }
+
+      // Workshop delay
+      const lastService = sales.filter((s: any) => s.type === 'Oficina');
+      if (lastService.length > 0) {
+        const lastOS = new Date(lastService[0].date).getTime();
+        const months = (now - lastOS) / (1000 * 60 * 60 * 24 * 30);
+        if (months > 8) {
+          items.push(`🔧 **Ausência de Oficina:** Moto ${motoModel} não realiza revisões ou serviços há mais de 8 meses (último serviço em ${new Date(lastService[0].date).toLocaleDateString('pt-BR')}).`);
+        }
+      }
+
+      if (items.length === 0) {
+        items.push(`✅ **Cliente Engajado:** O cliente tem comparecido com frequência ideal e não possui pendências registradas.`);
+      }
+
+      return `### 🔧 Diagnóstico Comercial (Modo Local)\n\n` + items.join('\n\n');
+    }
+
+    if (acao === 'whatsapp') {
+      const type = extraParam || 'pos_venda';
+      const storeAddress = "Rua Paraná, 342, Centro, Andirá – PR";
+      const storePhone = "43 3538-4537";
+
+      if (type === 'orcamento') {
+        const pending = quotes.length > 0 ? quotes[0] : null;
+        const totalStr = pending ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pending.total_value) : "R$ 0,00";
+        return `Olá, ${name}! Tudo certo?\n\nPassando para te enviar o orçamento da Kombat Moto Peças para a sua moto ${motoModel}:\n• Total do Orçamento: ${totalStr}\n\nPodemos fechar e agendar o serviço ou separar as peças para você? Ficamos no seu aguardo! 🏍️`;
+      }
+      if (type === 'pos_venda') {
+        return `Olá, ${name}!\n\nPassando para saber se ficou tudo certo com a sua moto ${motoModel} após o último serviço que realizamos aqui na Kombat Moto Peças. Qualquer coisa, estamos à inteira disposição!`;
+      }
+      if (type === 'cobranca') {
+        const openVal = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(summary.valorEmAberto || 0);
+        return `Olá, ${name}!\n\nPassando para lembrar que consta um saldo pendente na Kombat Moto Peças no valor de ${openVal}. Caso precise de dados para Pix ou queira vir acertar no balcão, fique à vontade. Agradecemos a parceria!`;
+      }
+      if (type === 'moto_pronta') {
+        return `Olá, ${name}! Ótimas notícias! 🏍️\n\nA sua moto ${motoModel} já está pronta e com a manutenção concluída. Pode vir retirar aqui na Kombat Moto Peças quando desejar.\n\nEndereço: ${storeAddress}\nTelefone: ${storePhone}`;
+      }
+      if (type === 'promocao') {
+        return `Olá, ${name}! Tudo bem?\n\nPreparamos ofertas especiais de pastilhas, filtros e pneus esta semana na Kombat Moto Peças perfeitos para a sua ${motoModel}! Dê uma passada aqui no balcão ou peça pelo WhatsApp!`;
+      }
+      if (type === 'retorno') {
+        return `Olá, ${name}! Sentimos sua falta aqui na Kombat Moto Peças 🏍️\n\nFaz um tempinho que a sua ${motoModel} não passa por uma revisão. Que tal agendarmos uma checagem preventiva rápida para rodar com segurança?`;
+      }
+      return `Olá, ${name}! Passando para agradecer pela preferência e desejar um ótimo dia! Kombat Moto Peças.`;
+    }
+
+    if (acao === 'recomendacoes') {
+      const isHondaCG = motoModel.toLowerCase().includes('cg') || motoModel.toLowerCase().includes('titan') || motoModel.toLowerCase().includes('fan') || motoModel.toLowerCase().includes('cargo');
+      const isHondaBiz = motoModel.toLowerCase().includes('biz') || motoModel.toLowerCase().includes('pop');
+      
+      let recs = "";
+      if (isHondaCG) {
+        recs = `### 📦 Produtos Recomendados para ${motoModel} (CG/Titan)\n\n1. **Óleo Mobil 20W50 Mineral (ou 10W30 Semi-sintético):** Recomendado a troca regular de 1.000km.\n2. **Pneu Traseiro 90/90-18 Pirelli Mandrake (ou Rinaldi/Vipal):** Excelente tração e durabilidade.\n3. **Kit Relação CG 150/160 DID (Corrente/Coroa/Pinhão):** Alta resistência para o uso diário.\n4. **Pastilha de Freio Dianteiro Cobreq:** Segurança garantida no balcão da Kombat.`;
+      } else if (isHondaBiz) {
+        recs = `### 📦 Produtos Recomendados para ${motoModel} (Biz/Pop)\n\n1. **Pneu Traseiro 80/100-14 Pirelli Mandrake:** O pneu traseiro clássico da Biz.\n2. **Kit Relação Biz 125 Vini (com retentor):** Longa durabilidade sem ruídos.\n3. **Óleo de Motor Honda 10W30 Semi-sintético:** O lubrificante original da fabricante.\n4. **Lâmpada do Farol Biz 12V 35/35W Osram:** Alta luminosidade para rodar com segurança à noite.`;
+      } else {
+        recs = `### 📦 Recomendações Gerais Kombat Moto Peças\n\n1. **Óleo de Motor Mobil Super Moto (20W50 ou 10W30):** O lubrificante essencial do balcão.\n2. **Cabo de Embreagem/Freio Vini:** Cabos reforçados para reposição rápida.\n3. **Pastilhas de Freio Cobreq Racing:** Alta performance de frenagem para qualquer modelo de moto.\n4. **Spray Lubrificante de Corrente Mobil:** Protege a relação contra poeira e oxidação.`;
+      }
+      return recs;
+    }
+
+    return `Análise não suportada no modo local.`;
+  };
+
+  // Clientes 360° Consolidation API
+  app.get("/api/clientes/:id/360", authenticateToken, (req, res) => {
+    const clienteId = req.params.id;
+    const userId = req.user!.id;
+    try {
+      // 1. Cliente
+      const cliente = db.prepare("SELECT * FROM clientes WHERE id = ? AND user_id = ?").get(clienteId, userId) as any;
+      if (!cliente) {
+        return res.status(404).json({ error: "Cliente não encontrado" });
+      }
+
+      // 2. Motos
+      const motos = db.prepare("SELECT * FROM motorcycles WHERE customer_id = ? AND user_id = ?").all(clienteId, userId);
+
+      // 3. Quotes
+      const quotes = db.prepare("SELECT * FROM orcamentos WHERE cliente_id = ? AND user_id = ? ORDER BY created_at DESC").all(clienteId, userId) as any[];
+      const quotesWithItems = quotes.map(q => {
+        const items = db.prepare("SELECT * FROM orcamento_itens WHERE orcamento_id = ?").all(q.id);
+        return { ...q, items };
+      });
+
+      // 4. Sales
+      const sales = db.prepare("SELECT * FROM sales WHERE customer_id = ? AND user_id = ? ORDER BY date DESC").all(clienteId, userId) as any[];
+      const salesWithItems = sales.map(s => {
+        const items = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(s.id);
+        return { ...s, sale_items: items, items }; // support both items and sale_items
+      });
+
+      // 5. Credits
+      const credits = db.prepare("SELECT * FROM credit WHERE customer_id = ? AND user_id = ? ORDER BY due_date DESC").all(clienteId, userId);
+
+      // 6. Atendimentos
+      const atendimentos = db.prepare("SELECT * FROM atendimentos WHERE cliente_id = ? AND user_id = ? ORDER BY last_contact DESC").all(clienteId, userId) as any[];
+      const atendimentosWithConversas = atendimentos.map(a => {
+        const conversas = db.prepare("SELECT * FROM conversas WHERE atendimento_id = ? AND user_id = ? ORDER BY created_at ASC").all(a.id, userId);
+        return { ...a, conversas };
+      });
+
+      // 7. Finance summary
+      const totalSpent = sales.reduce((sum, s) => sum + (s.total || 0), 0);
+      const totalOficina = sales.filter(s => s.type === 'Oficina').reduce((sum, s) => sum + (s.total || 0), 0);
+      const totalPecas = sales.reduce((sum, s) => {
+        const itemsSum = (s.sale_items || s.items || []).filter((i: any) => i.type === 'Peça' || !i.type).reduce((acc: number, curr: any) => acc + (curr.price * curr.quantity), 0);
+        return sum + itemsSum;
+      }, 0);
+      const buyCount = sales.length;
+      const ticketMedio = buyCount > 0 ? totalSpent / buyCount : 0;
+      const valorEmAberto = credits.filter((c: any) => c.status === 'Atrasado' || c.status === 'Aberto').reduce((sum, c) => sum + (c.original_value || 0), 0);
+      const limiteUtilizado = valorEmAberto;
+      const ultimaCompraDate = sales.length > 0 ? sales[0].date : null;
+      const ultimaVisitaDate = sales.length > 0 ? sales[0].date : (atendimentos.length > 0 ? atendimentos[0].last_contact : null);
+
+      const financialSummary = {
+        totalSpent,
+        totalOficina,
+        totalPecas,
+        buyCount,
+        ticketMedio,
+        limiteUtilizado,
+        valorEmAberto,
+        ultimaCompraDate,
+        ultimaVisitaDate
+      };
+
+      res.json({
+        cliente,
+        motos,
+        quotes: quotesWithItems,
+        sales: salesWithItems,
+        credits,
+        atendimentos: atendimentosWithConversas,
+        financialSummary
+      });
+    } catch (e: any) {
+      console.error("[360] Error fetching 360 data:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // AI Ask/Query endpoint
+  app.post("/api/ai/perguntar", authenticateToken, async (req, res) => {
+    const { cliente_id, pergunta } = req.body;
+    const userId = req.user!.id;
+    if (!cliente_id || !pergunta) {
+      return res.status(400).json({ error: "Parâmetros cliente_id e pergunta são obrigatórios." });
+    }
+
+    try {
+      const dbUser = userId;
+      // Get c360 context manually
+      const cliente = db.prepare("SELECT * FROM clientes WHERE id = ? AND user_id = ?").get(cliente_id, dbUser) as any;
+      if (!cliente) return res.status(404).json({ error: "Cliente não encontrado" });
+
+      const motos = db.prepare("SELECT * FROM motorcycles WHERE customer_id = ? AND user_id = ?").all(cliente_id, dbUser);
+      const quotes = db.prepare("SELECT * FROM orcamentos WHERE cliente_id = ? AND user_id = ? ORDER BY created_at DESC").all(cliente_id, dbUser) as any[];
+      const quotesWithItems = quotes.map(q => ({
+        ...q,
+        items: db.prepare("SELECT * FROM orcamento_itens WHERE orcamento_id = ?").all(q.id)
+      }));
+      const sales = db.prepare("SELECT * FROM sales WHERE customer_id = ? AND user_id = ? ORDER BY date DESC").all(cliente_id, dbUser) as any[];
+      const salesWithItems = sales.map(s => ({
+        ...s,
+        items: db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(s.id)
+      }));
+      const credits = db.prepare("SELECT * FROM credit WHERE customer_id = ? AND user_id = ?").all(cliente_id, dbUser);
+      const atendimentos = db.prepare("SELECT * FROM atendimentos WHERE cliente_id = ? AND user_id = ?").all(cliente_id, dbUser);
+
+      // summary
+      const totalSpent = sales.reduce((sum, s) => sum + (s.total || 0), 0);
+      const totalOficina = sales.filter(s => s.type === 'Oficina').reduce((sum, s) => sum + (s.total || 0), 0);
+      const buyCount = sales.length;
+      const ticketMedio = buyCount > 0 ? totalSpent / buyCount : 0;
+      const valorEmAberto = credits.filter((c: any) => c.status === 'Atrasado' || c.status === 'Aberto').reduce((sum, c) => sum + (c.original_value || 0), 0);
+      const ultimaVisitaDate = sales.length > 0 ? sales[0].date : (atendimentos.length > 0 ? (atendimentos[0] as any).last_contact : null);
+
+      const c360 = {
+        cliente,
+        motos,
+        quotes: quotesWithItems,
+        sales: salesWithItems,
+        credits,
+        financialSummary: {
+          totalSpent,
+          totalOficina,
+          buyCount,
+          ticketMedio,
+          valorEmAberto,
+          ultimaVisitaDate
+        }
+      };
+
+      const masked = maskSensitiveData(c360);
+
+      const hasKey = !!process.env.GEMINI_API_KEY;
+      if (hasKey) {
+        const aiRes = await callGemini(pergunta, JSON.stringify(masked));
+        if (aiRes.success) {
+          logAiRequest(userId, cliente_id, 'perguntar', 'Gemini', pergunta);
+          return res.json({ text: aiRes.text, origem: 'Gemini', status: 'IA Online' });
+        }
+      }
+
+      // If Gemini offline/failed, return fallback response
+      const fallbackText = `**Resposta da IA Kombat (Modo Local):**\n\nDesculpe, o assistente inteligente avançado (Gemini) está temporariamente offline ou a chave de API não foi configurada. No modo local, posso apenas responder às perguntas de ações rápidas através dos botões no painel. Por favor, utilize os botões rápidos para resumir o cliente, gerar oportunidades ou mensagens.`;
+      logAiRequest(userId, cliente_id, 'perguntar', 'Fallback Local', pergunta);
+      res.json({ text: fallbackText, origem: 'Fallback Local', status: 'IA Offline usando modo local' });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // AI Analisar endpoint
+  app.post("/api/ai/analisar", authenticateToken, async (req, res) => {
+    const { cliente_id, acao, param } = req.body;
+    const userId = req.user!.id;
+    if (!cliente_id || !acao) {
+      return res.status(400).json({ error: "Parâmetros cliente_id e acao são obrigatórios." });
+    }
+
+    try {
+      const dbUser = userId;
+      // Get c360 context manually
+      const cliente = db.prepare("SELECT * FROM clientes WHERE id = ? AND user_id = ?").get(cliente_id, dbUser) as any;
+      if (!cliente) return res.status(404).json({ error: "Cliente não encontrado" });
+
+      const motos = db.prepare("SELECT * FROM motorcycles WHERE customer_id = ? AND user_id = ?").all(cliente_id, dbUser);
+      const quotes = db.prepare("SELECT * FROM orcamentos WHERE cliente_id = ? AND user_id = ? ORDER BY created_at DESC").all(cliente_id, dbUser) as any[];
+      const quotesWithItems = quotes.map(q => ({
+        ...q,
+        items: db.prepare("SELECT * FROM orcamento_itens WHERE orcamento_id = ?").all(q.id)
+      }));
+      const sales = db.prepare("SELECT * FROM sales WHERE customer_id = ? AND user_id = ? ORDER BY date DESC").all(cliente_id, dbUser) as any[];
+      const salesWithItems = sales.map(s => ({
+        ...s,
+        items: db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(s.id)
+      }));
+      const credits = db.prepare("SELECT * FROM credit WHERE customer_id = ? AND user_id = ?").all(cliente_id, dbUser);
+      const atendimentos = db.prepare("SELECT * FROM atendimentos WHERE cliente_id = ? AND user_id = ?").all(cliente_id, dbUser);
+
+      // summary
+      const totalSpent = sales.reduce((sum, s) => sum + (s.total || 0), 0);
+      const totalOficina = sales.filter(s => s.type === 'Oficina').reduce((sum, s) => sum + (s.total || 0), 0);
+      const buyCount = sales.length;
+      const ticketMedio = buyCount > 0 ? totalSpent / buyCount : 0;
+      const valorEmAberto = credits.filter((c: any) => c.status === 'Atrasado' || c.status === 'Aberto').reduce((sum, c) => sum + (c.original_value || 0), 0);
+      const ultimaVisitaDate = sales.length > 0 ? sales[0].date : (atendimentos.length > 0 ? (atendimentos[0] as any).last_contact : null);
+
+      const c360 = {
+        cliente,
+        motos,
+        quotes: quotesWithItems,
+        sales: salesWithItems,
+        credits,
+        financialSummary: {
+          totalSpent,
+          totalOficina,
+          buyCount,
+          ticketMedio,
+          valorEmAberto,
+          ultimaVisitaDate
+        }
+      };
+
+      const masked = maskSensitiveData(c360);
+
+      const hasKey = !!process.env.GEMINI_API_KEY;
+      if (hasKey) {
+        let promptText = "";
+        if (acao === 'resumo') {
+          promptText = "Gere um resumo comercial conciso do cliente. Mostre o histórico de compras, motos cadastradas, total gasto, ticket médio e data da última visita em um layout elegante com bullets.";
+        } else if (acao === 'oportunidades') {
+          promptText = "Analise o histórico de compras e motos do cliente. Sugira oportunidades de vendas de peças e serviços relacionados (por exemplo, se comprou pneu dianteiro mas não traseiro, ou óleo há mais de 30 dias). Retorne em formato de lista.";
+        } else if (acao === 'diagnostico') {
+          promptText = "Faça um diagnóstico comercial do engajamento do cliente. Verifique se ele está inativo há mais de 90 dias, se há orçamentos pendentes, ou motos sem manutenção na oficina há mais de 8 meses.";
+        } else if (acao === 'recomendacoes') {
+          promptText = "Sugira 3 a 5 produtos ou peças específicas do nosso estoque que combinem com o modelo da moto do cliente e o seu padrão de compras.";
+        } else if (acao === 'whatsapp') {
+          promptText = `Gere uma mensagem personalizada e persuasiva de WhatsApp para o cliente. Tipo de mensagem solicitada: ${param || 'pos_venda'}. Insira o nome do cliente, dados da moto e dados da loja: Kombat Moto Peças (Rua Paraná, 342, Centro, Andirá – PR, Tel: 43 3538-4537).`;
+        }
+
+        const aiRes = await callGemini(promptText, JSON.stringify(masked));
+        if (aiRes.success) {
+          logAiRequest(userId, cliente_id, acao, 'Gemini', `Ação: ${acao} ${param || ''}`);
+          return res.json({ text: aiRes.text, origem: 'Gemini', status: 'IA Online' });
+        }
+      }
+
+      // Fallback
+      const fallbackText = getLocalFallbackAnalysis(acao, c360, param);
+      logAiRequest(userId, cliente_id, acao, 'Fallback Local', `Ação: ${acao} ${param || ''}`);
+      res.json({ text: fallbackText, origem: 'Fallback Local', status: 'IA Offline usando modo local' });
+    } catch (e: any) {
+      console.error("[IA ANALISAR] Error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Get AI Logs
+  app.get("/api/ai/logs", authenticateToken, (req, res) => {
+    try {
+      const logs = db.prepare(`
+        SELECT l.*, c.nome as cliente_nome, u.username as usuario_nome
+        FROM ai_logs l
+        LEFT JOIN clientes c ON l.cliente_id = c.id
+        LEFT JOIN users u ON l.user_id = u.id
+        ORDER BY l.created_at DESC
+        LIMIT 20
+      `).all();
+      res.json(logs);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // AI Global insights dashboard
+  app.get("/api/ai/centro-inteligencia", authenticateToken, (req, res) => {
+    const userId = req.user!.id;
+    try {
+      // 1. VIP Clients
+      const vips = db.prepare(`
+        SELECT c.id, c.nome, c.telefone, c.modelo_moto, SUM(s.total) as total_gasto, COUNT(s.id) as compras_count
+        FROM sales s
+        JOIN clientes c ON s.customer_id = c.id
+        WHERE s.user_id = ?
+        GROUP BY c.id
+        ORDER BY total_gasto DESC
+        LIMIT 5
+      `).all(userId);
+
+      // 2. Inactive clients
+      const inactives = db.prepare(`
+        SELECT c.id, c.nome, c.telefone, c.modelo_moto, MAX(s.date) as ultima_compra
+        FROM clientes c
+        LEFT JOIN sales s ON s.customer_id = c.id AND s.user_id = ?
+        WHERE c.user_id = ?
+        GROUP BY c.id
+        HAVING ultima_compra IS NULL OR date(ultima_compra) < date('now', '-60 days')
+        ORDER BY ultima_compra ASC
+        LIMIT 5
+      `).all(userId, userId);
+
+      // 3. At-risk clients
+      const atRisk = db.prepare(`
+        SELECT c.id, c.nome, c.telefone, c.modelo_moto, SUM(s.total) as total_gasto, MAX(s.date) as ultima_compra
+        FROM sales s
+        JOIN clientes c ON s.customer_id = c.id
+        WHERE s.user_id = ?
+        GROUP BY c.id
+        HAVING total_gasto > 1000 AND (ultima_compra IS NULL OR date(ultima_compra) < date('now', '-30 days'))
+        ORDER BY ultima_compra ASC
+        LIMIT 5
+      `).all(userId);
+
+      // 4. Hot Quotes
+      const hotQuotes = db.prepare(`
+        SELECT id, customer_name, whatsapp, motorcycle_details, total_value, created_at
+        FROM orcamentos
+        WHERE user_id = ? AND status = 'Pendente' AND total_value > 200
+        ORDER BY total_value DESC
+        LIMIT 5
+      `).all(userId);
+
+      // 5. Top products
+      const topProducts = db.prepare(`
+        SELECT description, SUM(quantity) as total_sold, SUM(price * quantity) as revenue
+        FROM sale_items
+        WHERE sale_id IN (SELECT id FROM sales WHERE user_id = ?) AND (type = 'Peça' OR type IS NULL)
+        GROUP BY description
+        ORDER BY total_sold DESC
+        LIMIT 5
+      `).all(userId);
+
+      // 6. Top Services
+      const topServices = db.prepare(`
+        SELECT description, COUNT(*) as count, SUM(price * quantity) as revenue
+        FROM sale_items
+        WHERE sale_id IN (SELECT id FROM sales WHERE user_id = ?) AND type = 'Serviço'
+        GROUP BY description
+        ORDER BY count DESC
+        LIMIT 5
+      `).all(userId);
+
+      res.json({
+        vips,
+        inactives,
+        atRisk,
+        hotQuotes,
+        topProducts,
+        topServices
+      });
+    } catch (e: any) {
+      console.error("[IA CENTRO] Error:", e);
       res.status(500).json({ error: e.message });
     }
   });
