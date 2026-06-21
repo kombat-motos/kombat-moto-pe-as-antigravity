@@ -2324,7 +2324,7 @@ async function startServer() {
     try {
       const aiInstance = new GoogleGenAI({ apiKey: geminiKey });
       const response = await aiInstance.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: [
           `Você é a IA Kombat, assistente comercial da Kombat Moto Peças.
 Seu objetivo é ajudar no atendimento, vendas, oficina, pós-venda e organização do histórico do cliente.
@@ -3210,7 +3210,7 @@ ${promptText}`,
         try {
           const ai = new GoogleGenAI({ apiKey: geminiKey });
           const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             contents: [
               'Extraia as seguintes informações do boleto bancário (fornecedor/beneficiário, valor, data de vencimento formatada como AAAA-MM-DD, linha digitável, e código pix copia e cola se houver). Forneça o resultado estritamente no formato JSON: {"fornecedor": string|null, "valor": number|null, "data_vencimento": string|null, "linha_digitavel": string|null, "codigo_pix": string|null}',
               {
