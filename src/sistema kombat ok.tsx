@@ -9333,6 +9333,17 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                       <option value="Fiado">Fiado</option>
                     </select>
                   </div>
+                  {osForm.payment_method === 'Fiado' && (
+                    <div className="col-span-2">
+                      <label className="block text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5">Vencimento (Data Limite)</label>
+                      <input
+                        type="date"
+                        className="w-full px-3 py-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800"
+                        value={osForm.due_date || ''}
+                        onChange={e => setOsForm({ ...osForm, due_date: e.target.value })}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
