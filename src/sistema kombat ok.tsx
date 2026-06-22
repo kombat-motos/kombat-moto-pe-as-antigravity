@@ -5344,6 +5344,12 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                         {formatBRL(getCustomerRemainingCredit(c.id))}
                       </span>
                     </div>
+                    {sales.some(s => s.customer_id === c.id && s.payment_status === 'Pendente' && s.due_date && new Date(s.due_date) < new Date()) && (
+                      <div className="flex items-center gap-1 mt-1 px-2 py-1 bg-rose-100 text-rose-700 rounded w-fit border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50">
+                        <AlertTriangle size={12} className="shrink-0" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Conta Vencida</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="w-24 h-24 bg-slate-100 border border-slate-400 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center dark:bg-slate-800 dark:border-slate-700">
@@ -5480,6 +5486,12 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                             style={{ width: `${Math.max(0, Math.min(100, (getCustomerRemainingCredit(c.id) / (c.credit_limit || 1)) * 100))}%` }}
                           />
                         </div>
+                        {sales.some(s => s.customer_id === c.id && s.payment_status === 'Pendente' && s.due_date && new Date(s.due_date) < new Date()) && (
+                          <div className="flex items-center gap-1 mt-1 px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded w-fit border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50">
+                            <AlertTriangle size={10} className="shrink-0" />
+                            <span className="text-[9px] font-black uppercase tracking-widest">Conta Vencida</span>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
