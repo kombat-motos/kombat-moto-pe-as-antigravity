@@ -165,6 +165,10 @@ export default function CRMOficina({
     setPartsList(partsList.filter((_, i) => i !== idx));
   };
 
+  const handleUpdatePrice = (idx: number, newPrice: number) => {
+    setPartsList(partsList.map((item, i) => i === idx ? { ...item, price: newPrice } : item));
+  };
+
   const handleUpdateQty = (idx: number, delta: number) => {
     setPartsList(partsList.map((item, i) => {
       if (i === idx) {
@@ -468,7 +472,7 @@ export default function CRMOficina({
                     className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl outline-none"
                   />
                   {/* Results search list */}
-                  {filteredProducts.length > 0 && (
+                  {productSearch && (
                     <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-[110] divide-y divide-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:divide-slate-700">
                       {filteredProducts.map(p => (
                         <button
@@ -481,6 +485,18 @@ export default function CRMOficina({
                           <span className="text-rose-600">{formatBRL(p.sale_price)} (Qtd: {p.stock})</span>
                         </button>
                       ))}
+                      <div className="p-2 bg-slate-50 sticky bottom-0 dark:bg-slate-900 rounded-b-xl border-t border-slate-100 dark:border-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPartsList([...partsList, { description: productSearch.toUpperCase(), quantity: 1, price: 0 }]);
+                            setProductSearch('');
+                          }}
+                          className="w-full py-2 bg-white border border-rose-200 text-[10px] font-black text-rose-600 rounded-lg hover:bg-rose-50 hover:border-rose-400 transition-all uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm dark:bg-slate-800"
+                        >
+                          <PlusCircle size={14} /> Adicionar "{productSearch}" avulso
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -492,7 +508,16 @@ export default function CRMOficina({
                       <div key={idx} className="flex items-center justify-between bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
                         <div className="flex-1 min-w-0 pr-3">
                           <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{item.description}</p>
-                          <p className="text-[10px] text-slate-400">{formatBRL(item.price)} cada</p>
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className="text-[10px] text-slate-400 font-bold">R$</span>
+                            <input 
+                              type="number" 
+                              step="0.01" 
+                              value={item.price} 
+                              onChange={e => handleUpdatePrice(idx, parseFloat(e.target.value) || 0)} 
+                              className="w-20 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs font-bold outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500/20 text-right dark:bg-slate-900 dark:border-slate-700" 
+                            />
+                          </div>
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1.5">

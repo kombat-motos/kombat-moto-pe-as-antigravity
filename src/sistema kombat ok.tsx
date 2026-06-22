@@ -2410,6 +2410,17 @@ export default function App() {
                   <Package size={48} className="text-slate-700 mb-2 stroke-[1.5]" />
                   <p className="text-sm font-bold">Nenhum produto encontrado</p>
                   <p className="text-xs text-slate-600 mt-1">Experimente mudar o filtro de categoria ou a busca</p>
+                  {pdvSearchProduct && (
+                    <button
+                      onClick={() => {
+                        setPdvForm({ ...pdvForm, items: [...pdvForm.items, { product_id: undefined, description: pdvSearchProduct.toUpperCase(), quantity: 1, price: 0, type: 'Peça' }] });
+                        setPdvSearchProduct('');
+                      }}
+                      className="mt-4 px-4 py-2 bg-rose-600/10 text-rose-500 hover:bg-rose-600/20 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 border border-rose-500/20"
+                    >
+                      <PlusCircle size={14} /> Adicionar "{pdvSearchProduct}" avulso ao carrinho
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 pb-4">
