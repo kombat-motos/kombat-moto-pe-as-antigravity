@@ -1185,19 +1185,59 @@ async function startServer() {
   });
   app.post("/api/customers", authenticateToken, (req, res) => {
     const { name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate, image_url } = req.body;
-    const info = db.prepare("INSERT INTO customers (user_id, name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(req.user!.id, name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit || 0, fine_rate || 2, interest_rate || 1, image_url);
-    res.json({ id: parseInt(info.lastInsertRowid.toString()) });
+    const userId = req.user!.id;
+    try {
+      const run = db.transaction(() => {
+        const info = db.prepare("INSERT INTO customers (user_id, name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+          .run(userId, name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit || 0, fine_rate || 2, interest_rate || 1, image_url);
+        const newId = info.lastInsertRowid;
+        
+        // Sync with CRM clientes table
+        db.prepare(`
+          INSERT INTO clientes (id, user_id, nome, telefone, cpf_cnpj, cidade, endereco, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'Novo')
+        `).run(newId, userId, name, whatsapp || '', cpf || cnpj || '', city || '', address || '');
+        
+        return newId;
+      });
+      const id = run();
+      res.json({ id: parseInt(id.toString()) });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   app.put("/api/customers/:id", authenticateToken, (req, res) => {
     const { name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate, image_url } = req.body;
-    db.prepare(`
-      UPDATE customers 
-      SET name = ?, nickname = ?, cpf = ?, cnpj = ?, whatsapp = ?, address = ?, neighborhood = ?, city = ?, zip_code = ?, credit_limit = ?, fine_rate = ?, interest_rate = ?, image_url = ? 
-      WHERE id = ? AND user_id = ?
-    `).run(name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit || 0, fine_rate || 2, interest_rate || 1, image_url, req.params.id, req.user!.id);
-    res.json({ success: true });
+    const userId = req.user!.id;
+    const customerId = req.params.id;
+    try {
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE customers 
+          SET name = ?, nickname = ?, cpf = ?, cnpj = ?, whatsapp = ?, address = ?, neighborhood = ?, city = ?, zip_code = ?, credit_limit = ?, fine_rate = ?, interest_rate = ?, image_url = ? 
+          WHERE id = ? AND user_id = ?
+        `).run(name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit || 0, fine_rate || 2, interest_rate || 1, image_url, customerId, userId);
+        
+        // Sync CRM clientes
+        const exists = db.prepare("SELECT id FROM clientes WHERE id = ? AND user_id = ?").get(customerId, userId);
+        if (exists) {
+          db.prepare(`
+            UPDATE clientes
+            SET nome = ?, telefone = ?, cpf_cnpj = ?, cidade = ?, endereco = ?
+            WHERE id = ? AND user_id = ?
+          `).run(name, whatsapp || '', cpf || cnpj || '', city || '', address || '', customerId, userId);
+        } else {
+          db.prepare(`
+            INSERT INTO clientes (id, user_id, nome, telefone, cpf_cnpj, cidade, endereco, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Atualizado')
+          `).run(customerId, userId, name, whatsapp || '', cpf || cnpj || '', city || '', address || '');
+        }
+      })();
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Motorcycles
@@ -2505,9 +2545,19 @@ ${promptText}`,
     const userId = req.user!.id;
     try {
       // 1. Cliente
-      const cliente = db.prepare("SELECT * FROM clientes WHERE id = ? AND user_id = ?").get(clienteId, userId) as any;
+      let cliente = db.prepare("SELECT * FROM clientes WHERE id = ? AND user_id = ?").get(clienteId, userId) as any;
       if (!cliente) {
-        return res.status(404).json({ error: "Cliente não encontrado" });
+        // Fallback sync if exists in legacy customers table but not in CRM clientes table
+        const legacyCustomer = db.prepare("SELECT * FROM customers WHERE id = ? AND user_id = ?").get(clienteId, userId) as any;
+        if (legacyCustomer) {
+          db.prepare(`
+            INSERT INTO clientes (id, user_id, nome, telefone, cpf_cnpj, cidade, endereco, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Novo')
+          `).run(clienteId, userId, legacyCustomer.name, legacyCustomer.whatsapp || '', legacyCustomer.cpf || legacyCustomer.cnpj || '', legacyCustomer.city || '', legacyCustomer.address || '');
+          cliente = db.prepare("SELECT * FROM clientes WHERE id = ? AND user_id = ?").get(clienteId, userId) as any;
+        } else {
+          return res.status(404).json({ error: "Cliente não encontrado" });
+        }
       }
 
       // 2. Motos
