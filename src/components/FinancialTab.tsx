@@ -1428,7 +1428,9 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                 <p className="text-slate-500 text-lg dark:text-slate-400 font-bold">{closingResult.customerName}</p>
                 {closingResult.customerDetails && (
                   <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 space-y-1">
-                    {(closingResult.customerDetails as any).cpf && <p>CPF/CNPJ: {(closingResult.customerDetails as any).cpf}</p>}
+                    {((closingResult.customerDetails as any).cpf || (closingResult.customerDetails as any).cnpj) && (
+                      <p>CPF/CNPJ: {(closingResult.customerDetails as any).cpf || (closingResult.customerDetails as any).cnpj}</p>
+                    )}
                     {(closingResult.customerDetails as any).whatsapp && <p>WhatsApp: {(closingResult.customerDetails as any).whatsapp}</p>}
                     {(closingResult.customerDetails as any).address && (
                       <p>{(closingResult.customerDetails as any).address}{(closingResult.customerDetails as any).neighborhood ? `, ${(closingResult.customerDetails as any).neighborhood}` : ''}</p>
