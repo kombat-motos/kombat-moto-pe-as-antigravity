@@ -626,7 +626,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
           hasLaborInItems = true;
         }
 
-        if (item.type === 'Serviço' || item.type === 'Serviço Principal' || !item.product_id) {
+        if (item.type === 'Serviço' || item.type === 'Serviço Principal' || item.description.toUpperCase().includes('MÃO DE OBRA')) {
           totalServicos += itemTotal;
           saleTotalServicos += itemTotal;
           servicosList.push({ ...item, date: sale.date, saleId: sale.id });
@@ -657,8 +657,10 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
     const descontos = totalBruto > totalLiquido ? (totalBruto - totalLiquido) : 0;
     const acrescimos = totalLiquido > totalBruto ? (totalLiquido - totalBruto) : 0;
 
+    const customerDetails = customers.find(c => c.id === customerIdNum);
     setClosingResult({
-      customerName: customers.find(c => c.id === customerIdNum)?.name,
+      customerName: customerDetails?.name,
+      customerDetails,
       periodLabel: closingPeriodType === 'day' 
         ? new Date(closingDate + 'T00:00:00').toLocaleDateString('pt-BR') 
         : closingMonthYear.split('-').reverse().join('/'),
@@ -671,6 +673,54 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       pecasList,
       servicosList
     });
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!closingResult || !(closingResult.customerDetails as any)?.whatsapp) {
+      alert("O cliente não possui WhatsApp cadastrado para envio automático.");
+      return;
+    }
+    
+    let text = `*RESUMO DE FECHAMENTO*\n`;
+    text += `Cliente: ${closingResult.customerName}\n`;
+    text += `Período: ${closingResult.periodLabel}\n\n`;
+    
+    if (closingResult.pecasList.length > 0) {
+      text += `*PEÇAS E ACESSÓRIOS*\n`;
+      const groupedPecas = Object.values(
+        closingResult.pecasList.reduce((acc: any, p: any) => {
+          const key = `d_${p.description}`;
+          if (!acc[key]) acc[key] = { ...p, totalItemPrice: p.price * p.quantity };
+          else { acc[key].quantity += p.quantity; acc[key].totalItemPrice += p.price * p.quantity; }
+          return acc;
+        }, {})
+      );
+      groupedPecas.forEach((p: any) => {
+        text += `${p.quantity}x ${p.description} - ${formatBRL(p.totalItemPrice)}\n`;
+      });
+      text += `Subtotal Peças: ${formatBRL(closingResult.totalPecas)}\n\n`;
+    }
+    
+    if (closingResult.servicosList.length > 0) {
+      text += `*MÃO DE OBRA E SERVIÇOS*\n`;
+      const groupedServicos = Object.values(
+        closingResult.servicosList.reduce((acc: any, s: any) => {
+          const key = `d_${s.description}`;
+          if (!acc[key]) acc[key] = { ...s, totalItemPrice: s.price * s.quantity };
+          else { acc[key].quantity += s.quantity; acc[key].totalItemPrice += s.price * s.quantity; }
+          return acc;
+        }, {})
+      );
+      groupedServicos.forEach((s: any) => {
+        text += `${s.quantity}x ${s.description} - ${formatBRL(s.totalItemPrice)}\n`;
+      });
+      text += `Subtotal Serviços: ${formatBRL(closingResult.totalServicos)}\n\n`;
+    }
+    
+    text += `*VALOR TOTAL GERAL:* ${formatBRL(closingResult.totalLiquido)}`;
+    
+    const url = `https://wa.me/55${(closingResult.customerDetails as any).whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
   };
 
   const handlePrintClosing = () => {
@@ -1375,8 +1425,17 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-indigo-200 dark:bg-slate-800">
               <div className="text-center mb-8 border-b border-slate-200 pb-6 dark:border-slate-700">
                 <h2 className="text-2xl font-black text-slate-900 uppercase dark:text-slate-100">Resumo de Fechamento</h2>
-                <p className="text-slate-500 text-lg dark:text-slate-400">{closingResult.customerName}</p>
-                <p className="text-sm font-bold text-indigo-600 mt-1">Período: {closingResult.periodLabel}</p>
+                <p className="text-slate-500 text-lg dark:text-slate-400 font-bold">{closingResult.customerName}</p>
+                {closingResult.customerDetails && (
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 space-y-1">
+                    {(closingResult.customerDetails as any).cpf && <p>CPF/CNPJ: {(closingResult.customerDetails as any).cpf}</p>}
+                    {(closingResult.customerDetails as any).whatsapp && <p>WhatsApp: {(closingResult.customerDetails as any).whatsapp}</p>}
+                    {(closingResult.customerDetails as any).address && (
+                      <p>{(closingResult.customerDetails as any).address}{(closingResult.customerDetails as any).neighborhood ? `, ${(closingResult.customerDetails as any).neighborhood}` : ''}</p>
+                    )}
+                  </div>
+                )}
+                <p className="text-sm font-bold text-indigo-600 mt-4">Período: {closingResult.periodLabel}</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -1391,18 +1450,19 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                     <ul className="space-y-3">
                       {Object.values(
                         closingResult.pecasList.reduce((acc: any, p: any) => {
-                          const key = `d_${p.description}_${p.price}`;
+                          const key = `d_${p.description}`;
                           if (!acc[key]) {
-                            acc[key] = { ...p };
+                            acc[key] = { ...p, totalItemPrice: p.price * p.quantity };
                           } else {
                             acc[key].quantity += p.quantity;
+                            acc[key].totalItemPrice += (p.price * p.quantity);
                           }
                           return acc;
                         }, {})
                       ).map((p: any, i: number) => (
                         <li key={i} className="flex justify-between text-sm bg-slate-50 p-2 rounded-lg dark:bg-slate-900">
                           <span>{p.quantity}x {p.description} <span className="text-[10px] text-slate-400 ml-1">({new Date(p.date).toLocaleDateString('pt-BR')})</span></span>
-                          <span className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(p.price * p.quantity)}</span>
+                          <span className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(p.totalItemPrice)}</span>
                         </li>
                       ))}
                     </ul>
@@ -1424,18 +1484,19 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                     <ul className="space-y-3">
                       {Object.values(
                         closingResult.servicosList.reduce((acc: any, s: any) => {
-                          const key = `d_${s.description}_${s.price}`;
+                          const key = `d_${s.description}`;
                           if (!acc[key]) {
-                            acc[key] = { ...s };
+                            acc[key] = { ...s, totalItemPrice: s.price * s.quantity };
                           } else {
                             acc[key].quantity += s.quantity;
+                            acc[key].totalItemPrice += (s.price * s.quantity);
                           }
                           return acc;
                         }, {})
                       ).map((s: any, i: number) => (
                         <li key={i} className="flex justify-between text-sm bg-slate-50 p-2 rounded-lg dark:bg-slate-900">
                           <span>{s.quantity}x {s.description} <span className="text-[10px] text-slate-400 ml-1">({new Date(s.date).toLocaleDateString('pt-BR')})</span></span>
-                          <span className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(s.price * s.quantity)}</span>
+                          <span className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(s.totalItemPrice)}</span>
                         </li>
                       ))}
                     </ul>
@@ -1477,7 +1538,10 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                 </div>
               </div>
               
-              <div className="mt-6 flex justify-end no-print">
+              <div className="mt-6 flex justify-end gap-4 no-print">
+                <button onClick={handleWhatsAppShare} className="px-6 py-2.5 bg-[#25D366] text-white rounded-xl font-bold hover:bg-[#128C7E] transition-all flex items-center gap-2">
+                  <MessageCircle size={18} /> Enviar WhatsApp
+                </button>
                 <button onClick={handlePrintClosing} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all flex items-center gap-2 dark:bg-slate-800 dark:text-slate-100">
                   <Printer size={18} /> Imprimir Resumo
                 </button>
