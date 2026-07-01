@@ -1389,7 +1389,17 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                     <p className="text-sm text-slate-400 italic">Nenhuma peça no período.</p>
                   ) : (
                     <ul className="space-y-3">
-                      {closingResult.pecasList.map((p: any, i: number) => (
+                      {Object.values(
+                        closingResult.pecasList.reduce((acc: any, p: any) => {
+                          const key = `d_${p.description}_${p.price}`;
+                          if (!acc[key]) {
+                            acc[key] = { ...p };
+                          } else {
+                            acc[key].quantity += p.quantity;
+                          }
+                          return acc;
+                        }, {})
+                      ).map((p: any, i: number) => (
                         <li key={i} className="flex justify-between text-sm bg-slate-50 p-2 rounded-lg dark:bg-slate-900">
                           <span>{p.quantity}x {p.description} <span className="text-[10px] text-slate-400 ml-1">({new Date(p.date).toLocaleDateString('pt-BR')})</span></span>
                           <span className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(p.price * p.quantity)}</span>
@@ -1412,7 +1422,17 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                     <p className="text-sm text-slate-400 italic">Nenhum serviço no período.</p>
                   ) : (
                     <ul className="space-y-3">
-                      {closingResult.servicosList.map((s: any, i: number) => (
+                      {Object.values(
+                        closingResult.servicosList.reduce((acc: any, s: any) => {
+                          const key = `d_${s.description}_${s.price}`;
+                          if (!acc[key]) {
+                            acc[key] = { ...s };
+                          } else {
+                            acc[key].quantity += s.quantity;
+                          }
+                          return acc;
+                        }, {})
+                      ).map((s: any, i: number) => (
                         <li key={i} className="flex justify-between text-sm bg-slate-50 p-2 rounded-lg dark:bg-slate-900">
                           <span>{s.quantity}x {s.description} <span className="text-[10px] text-slate-400 ml-1">({new Date(s.date).toLocaleDateString('pt-BR')})</span></span>
                           <span className="font-bold text-slate-700 dark:text-slate-100">{formatBRL(s.price * s.quantity)}</span>
