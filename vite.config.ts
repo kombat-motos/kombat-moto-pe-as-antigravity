@@ -15,10 +15,36 @@ export default defineConfig(({mode}) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      // Compatibilidade com Android mais antigos sem polyfills desnecessários
+      target: 'es2015',
+      rollupOptions: {
+        output: {
+          // Code splitting manual: separa bibliotecas pesadas do bundle principal
+          // Evita que xlsx (~600KB) e framer-motion (~150KB) bloqueiem o carregamento
+          // do catálogo no primeiro acesso mobile
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-motion': ['motion/react'],
+            'vendor-xlsx': ['xlsx'],
+            'vendor-lucide': ['lucide-react'],
+          },
+        },
+      },
+    },
     server: {
+      host: '0.0.0.0',
+      allowedHosts: true,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3001',
+          changeOrigin: true,
+          secure: false,
+        },
+      },
     },
   };
 });

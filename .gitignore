@@ -6,3 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+
+dist-server.js
+
+dist-server.js
+
+scratch/
+

@@ -324,7 +324,7 @@ export default function ContasAPagar() {
                       <label className="block text-sm font-bold text-slate-700 mb-1">Tipo</label>
                       <select value={formData.tipo_lancamento} onChange={e => setFormData({...formData, tipo_lancamento: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl">
                         <option value="compra">Compra (Fornecedor)</option>
-                        <option value="boleto">Nota Promissória Avulsa</option>
+                        <option value="boleto">Boleto Avulso</option>
                         <option value="avulsa">Conta Avulsa da Empresa</option>
                       </select>
                     </div>
@@ -377,7 +377,7 @@ export default function ContasAPagar() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Anexar Nota Promissória / Documento (PDF ou Imagem)</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Anexar Boleto / Documento (PDF ou Imagem)</label>
                     <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:bg-slate-50 transition-colors">
                       <input type="file" id="fileBoleto" className="hidden" onChange={e => setFileBoleto(e.target.files?.[0] || null)} />
                       <label htmlFor="fileBoleto" className="cursor-pointer flex flex-col items-center justify-center text-slate-500">
@@ -414,7 +414,7 @@ export default function ContasAPagar() {
                   <label className="block text-sm font-bold text-slate-700 mb-1">Forma de Pagamento</label>
                   <select required value={payData.forma_pagamento} onChange={e => setPayData({...payData, forma_pagamento: e.target.value})} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl">
                     <option value="pix">PIX</option>
-                    <option value="boleto">Nota Promissória</option>
+                    <option value="boleto">Boleto Bancário</option>
                     <option value="transferencia">Transferência TED/DOC</option>
                     <option value="cartao">Cartão de Crédito</option>
                     <option value="dinheiro">Dinheiro</option>
@@ -486,12 +486,12 @@ export default function ContasAPagar() {
                     selectedConta.arquivo_boleto_url.endsWith('.pdf') ? (
                       <embed src={selectedConta.arquivo_boleto_url} type="application/pdf" className="w-full h-full min-h-[500px]" />
                     ) : (
-                      <img src={selectedConta.arquivo_boleto_url} alt="Nota Promissória" className="max-w-full max-h-full object-contain p-2" />
+                      <img src={selectedConta.arquivo_boleto_url} alt="Boleto" className="max-w-full max-h-full object-contain p-2" />
                     )
                   ) : (
                     <div className="text-center text-slate-400">
                       <FileText size={48} className="mx-auto mb-2 opacity-20" />
-                      <p>Nenhuma nota promissória anexada</p>
+                      <p>Nenhum boleto anexado</p>
                     </div>
                   )}
 
