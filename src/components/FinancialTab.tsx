@@ -95,6 +95,8 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
     return localStorage.getItem('gemini_api_key') || '';
   });
 
+  const [selectedReceivables, setSelectedReceivables] = React.useState<number[]>([]);
+
   const todayStr = React.useMemo(() => new Date().toISOString().split('T')[0], []);
 
   const statsPayable = React.useMemo(() => {
@@ -1001,7 +1003,36 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                 <Gavel size={20} className="text-rose-500" />
                 Listagem de Débitos Ativos
               </h3>
-              <div className="relative group w-full md:w-64">
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                {selectedReceivables.length > 0 && (
+                  <button
+                    onClick={async () => {
+                      if (confirm(`Confirmar o recebimento de ${selectedReceivables.length} débito(s) selecionado(s)?`)) {
+                        try {
+                          await Promise.all(selectedReceivables.map(async (id) => {
+                            const sale = allSales.find(s => s.id === id);
+                            if (sale) {
+                              await localApi.put('sales', id, {
+                                ...sale,
+                                payment_status: 'Pago',
+                                paid_date: new Date().toISOString()
+                              });
+                            }
+                          }));
+                          fetchData();
+                          setSelectedReceivables([]);
+                          alert('Débitos selecionados foram liquidados com sucesso!');
+                        } catch (err) {
+                          alert('Erro ao liquidar débitos múltiplos.');
+                        }
+                      }
+                    }}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-sm flex items-center gap-2 text-sm whitespace-nowrap"
+                  >
+                    <CheckCircle size={16} /> Quitar Selecionados ({selectedReceivables.length})
+                  </button>
+                )}
+                <div className="relative group w-full md:w-64">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-rose-500 transition-colors">
                   <Search size={16} />
                 </div>
@@ -1013,11 +1044,26 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest dark:bg-slate-900">
+                    <th className="px-6 py-4 w-10">
+                      <input 
+                        type="checkbox"
+                        checked={filteredSales.length > 0 && selectedReceivables.length === filteredSales.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedReceivables(filteredSales.map(s => s.id));
+                          } else {
+                            setSelectedReceivables([]);
+                          }
+                        }}
+                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                    </th>
                     <th className="px-6 py-4">Cliente / Score</th>
                     <th className="px-6 py-4">Vencimento</th>
                     <th className="px-6 py-4">Original</th>
@@ -1031,6 +1077,20 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                     const score = getCustomerScore(sale.customer_id || 0);
                     return (
                       <tr key={sale.id} className="hover:bg-slate-50 transition-colors group">
+                        <td className="px-6 py-4">
+                          <input 
+                            type="checkbox"
+                            checked={selectedReceivables.includes(sale.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedReceivables([...selectedReceivables, sale.id]);
+                              } else {
+                                setSelectedReceivables(selectedReceivables.filter(id => id !== sale.id));
+                              }
+                            }}
+                            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                          />
+                        </td>
                         <td className="px-6 py-4">
                           <div>
                             <p className="font-bold text-slate-900 dark:text-slate-100">{sale.customer_name}</p>
