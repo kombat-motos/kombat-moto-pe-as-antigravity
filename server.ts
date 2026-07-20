@@ -90,6 +90,27 @@ db.exec(`
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (fornecedor_id) REFERENCES fornecedores(id)
   );
+
+  CREATE TABLE IF NOT EXISTS cash_sessions (
+    id TEXT PRIMARY KEY,
+    opened_at TEXT NOT NULL,
+    closed_at TEXT,
+    opening_balance REAL DEFAULT 0,
+    closing_balance REAL,
+    expected_balance REAL,
+    status TEXT DEFAULT 'Aberto',
+    notes TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS cash_transactions (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    amount REAL NOT NULL,
+    description TEXT,
+    date TEXT NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES cash_sessions (id)
+  );
 `);
 
 async function startServer() {
@@ -313,6 +334,42 @@ async function startServer() {
   app.delete("/api/contas-pagar/:id", (req, res) => {
     db.prepare("DELETE FROM contas_pagar WHERE id = ?").run(req.params.id);
     res.json({ success: true });
+  });
+
+  // Fluxo de Caixa (Cash Sessions)
+  app.get("/api/cash_sessions", (req, res) => {
+    const sessions = db.prepare("SELECT * FROM cash_sessions ORDER BY opened_at DESC").all();
+    res.json(sessions);
+  });
+
+  app.post("/api/cash_sessions", (req, res) => {
+    const { id, opened_at, opening_balance, status, notes } = req.body;
+    db.prepare("INSERT INTO cash_sessions (id, opened_at, opening_balance, status, notes) VALUES (?, ?, ?, ?, ?)").run(
+      id, opened_at, opening_balance, status, notes
+    );
+    res.json({ id });
+  });
+
+  app.put("/api/cash_sessions/:id", (req, res) => {
+    const { closed_at, closing_balance, expected_balance, status } = req.body;
+    db.prepare("UPDATE cash_sessions SET closed_at = ?, closing_balance = ?, expected_balance = ?, status = ? WHERE id = ?").run(
+      closed_at, closing_balance, expected_balance, status, req.params.id
+    );
+    res.json({ success: true });
+  });
+
+  // Cash Transactions
+  app.get("/api/cash_transactions", (req, res) => {
+    const transactions = db.prepare("SELECT * FROM cash_transactions ORDER BY date ASC").all();
+    res.json(transactions);
+  });
+
+  app.post("/api/cash_transactions", (req, res) => {
+    const { id, session_id, type, amount, description, date } = req.body;
+    db.prepare("INSERT INTO cash_transactions (id, session_id, type, amount, description, date) VALUES (?, ?, ?, ?, ?, ?)").run(
+      id, session_id, type, amount, description, date
+    );
+    res.json({ id });
   });
 
   // Seed data if empty
