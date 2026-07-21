@@ -13,6 +13,7 @@ import * as XLSX from "xlsx";
 import cors from 'cors';
 import compression from 'compression';
 import { GoogleGenAI } from "@google/genai";
+import { createAIRouter } from "./server/modules/ai/ai.routes.js";
 import { Jimp } from "jimp";
 import jsQR from "jsqr";
 import { readBarcodesFromImageFile } from "zxing-wasm";
@@ -267,6 +268,44 @@ db.exec(`
     code TEXT PRIMARY KEY,
     url TEXT NOT NULL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_conversations (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    title TEXT,
+    module TEXT,
+    status TEXT DEFAULT 'active',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT,
+    tool_name TEXT,
+    metadata TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (conversation_id) REFERENCES ai_conversations (id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    module TEXT,
+    action TEXT,
+    tool_name TEXT,
+    query_summary TEXT,
+    result_count INTEGER,
+    model TEXT,
+    duration_ms INTEGER,
+    success BOOLEAN,
+    error_message TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id)
   );
 `);
 
@@ -703,6 +742,9 @@ async function startServer() {
     }
     next();
   };
+
+  // AI Router
+  app.use("/api/ai_assistant", authenticateToken, createAIRouter(db));
 
   // Auth Routes
   app.post("/api/auth/register", async (req, res) => {

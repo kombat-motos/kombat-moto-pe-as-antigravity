@@ -75,6 +75,7 @@ import Auth from './components/Auth';
 import Modal from './components/Modal';
 import { ThemeToggle } from './components/ThemeToggle';
 import Cliente360Modal from './components/crm/Cliente360Modal';
+import AIAssistant from './components/ai/AIAssistant';
 
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -10997,6 +10998,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           </div>
         </div>
       )}
+      <AIAssistant />
     </>
   );
 }
