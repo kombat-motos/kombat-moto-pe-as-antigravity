@@ -10721,25 +10721,24 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 display: none !important;
               }
               
-              /* Reset the inset wrapper properties on print */
               .print-quote-wrapper {
                 page: a4-page !important;
-                position: static !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100vw !important;
                 height: auto !important;
                 min-height: 0 !important;
-                width: 100% !important;
-                top: auto !important;
-                bottom: auto !important;
-                left: auto !important;
-                right: auto !important;
                 margin: 0 !important;
                 padding: 0 !important;
               }
 
               /* Show ONLY the print modal and its contents */
               .print-modal-container {
-                position: static !important;
-                width: 100% !important;
+                position: relative !important;
+                width: 800px !important;
+                max-width: 800px !important;
+                margin: 0 auto !important;
                 height: auto !important;
                 z-index: 9999 !important;
                 background: white !important;
@@ -10757,11 +10756,11 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               }
 
               .max-w-4xl {
-                max-width: none !important;
-                width: 100% !important;
+                max-width: 800px !important;
+                width: 800px !important;
                 box-shadow: none !important;
                 border: none !important;
-                margin: 0 !important;
+                margin: 0 auto !important;
               }
               tr {
                 page-break-inside: avoid !important;
