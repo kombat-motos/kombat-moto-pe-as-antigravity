@@ -8457,18 +8457,23 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     width: 80mm !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
+                    color: black !important;
                   }
                   .no-print { display: none !important; }
                   
                   #receipt-content {
                     page: receipt-page !important;
-                    width: 76mm !important;
+                    width: 72mm !important;
                     margin: 0 auto !important;
-                    padding: 2mm !important;
+                    padding: 0 !important;
                     display: block !important;
                     background: white !important;
                     height: auto !important;
                     overflow: visible !important;
+                    color: black !important;
+                  }
+                  #receipt-content * {
+                    color: black !important;
                   }
                 }
               `}</style>
@@ -10681,16 +10686,35 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
             @media print {
               @page {
                 size: A4;
-                margin: 5mm !important;
+                margin: 10mm !important;
               }
               body {
                 page: a4-page !important;
                 background: white !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
+                color: black !important;
               }
               .no-print {
                 display: none !important;
+              }
+              /* Force text colors in print for dark mode fixes */
+              #quote-capture-area .dark\:text-slate-100,
+              #quote-capture-area .dark\:text-slate-400,
+              #quote-capture-area .text-slate-800,
+              #quote-capture-area .text-slate-700,
+              #quote-capture-area .text-slate-500,
+              #quote-capture-area .text-slate-400 {
+                color: black !important;
+              }
+              #quote-capture-area .text-slate-400 {
+                color: #333 !important; /* Slightly lighter for subheaders */
+              }
+              #quote-capture-area .bg-slate-900.text-white p,
+              #quote-capture-area .bg-black.text-white p,
+              #quote-capture-area h3.bg-black.text-white,
+              #quote-capture-area h3.bg-rose-600.text-white {
+                color: white !important;
               }
               /* Hide EVERYTHING by default during print */
               .main-layout-root {
@@ -10714,7 +10738,6 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
               /* Show ONLY the print modal and its contents */
               .print-modal-container {
-                display: block !important;
                 position: static !important;
                 width: 100% !important;
                 height: auto !important;
@@ -10731,32 +10754,6 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               .print-modal-container .no-print button {
                 display: none !important;
                 visibility: hidden !important;
-              }
-              /* Specifically show block elements */
-              .print-modal-container div, 
-              .print-modal-container table, 
-              .print-modal-container tr, 
-              .print-modal-container td, 
-              .print-modal-container h1, 
-              .print-modal-container h3, 
-              .print-modal-container p {
-                display: block !important;
-              }
-              .print-modal-container table {
-                display: table !important;
-              }
-              .print-modal-container tr {
-                display: table-row !important;
-              }
-              .print-modal-container td, 
-              .print-modal-container th {
-                display: table-cell !important;
-              }
-              .print-modal-container .flex {
-                display: flex !important;
-              }
-              .print-modal-container .grid {
-                display: grid !important;
               }
 
               .max-w-4xl {
@@ -10776,7 +10773,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               }
               table {
                 width: 100% !important;
-                table-layout: auto !important;
+                table-layout: fixed !important;
               }
               .overflow-hidden {
                 overflow: visible !important;
@@ -10787,8 +10784,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 padding: 0px !important;
               }
               #quote-capture-area .border-b-4 {
-                padding-bottom: 8px !important;
-                margin-bottom: 8px !important;
+                padding-bottom: 4px !important;
+                margin-bottom: 6px !important;
                 border-bottom-width: 2px !important;
               }
               #quote-capture-area .w-24.h-24 {
@@ -10802,12 +10799,12 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 font-size: 10px !important;
               }
               #quote-capture-area .mt-2.text-xs {
-                margin-top: 4px !important;
+                margin-top: 2px !important;
                 font-size: 9px !important;
               }
               #quote-capture-area .bg-slate-900.text-white.p-4 {
                 padding: 6px !important;
-                margin-bottom: 8px !important;
+                margin-bottom: 6px !important;
                 border-radius: 6px !important;
                 gap: 8px !important;
               }
@@ -10815,26 +10812,26 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 font-size: 10px !important;
               }
               #quote-capture-area .space-y-6 {
-                margin-top: 4px !important;
-                margin-bottom: 4px !important;
+                margin-top: 2px !important;
+                margin-bottom: 2px !important;
               }
               #quote-capture-area .space-y-6 > * + * {
-                margin-top: 6px !important;
+                margin-top: 4px !important;
               }
               #quote-capture-area h3 {
-                margin-bottom: 4px !important;
-                font-size: 10px !important;
+                margin-bottom: 2px !important;
+                font-size: 9.5px !important;
                 padding: 2px 6px !important;
               }
               #quote-capture-area td,
               #quote-capture-area th {
                 padding-top: 2px !important;
                 padding-bottom: 2px !important;
-                font-size: 10px !important;
+                font-size: 9.5px !important;
               }
               #quote-capture-area .mt-8.grid {
-                margin-top: 8px !important;
-                gap: 8px !important;
+                margin-top: 4px !important;
+                gap: 6px !important;
               }
               #quote-capture-area .space-y-4 > * + * {
                 margin-top: 4px !important;
@@ -10848,14 +10845,14 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 line-height: 1.2 !important;
               }
               #quote-capture-area .bg-black.text-white.p-6 {
-                padding: 8px !important;
+                padding: 6px !important;
                 border-radius: 8px !important;
               }
               #quote-capture-area p.text-4xl {
-                font-size: 20px !important;
+                font-size: 18px !important;
               }
               #quote-capture-area .mt-12.pt-6 {
-                margin-top: 10px !important;
+                margin-top: 6px !important;
                 padding-top: 4px !important;
               }
               #quote-capture-area .w-64 {
@@ -10865,7 +10862,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
             }
           `}</style>
           <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-400 relative print-modal-container dark:bg-slate-800 dark:border-slate-700">
-            <div id="quote-capture-area" className="p-10 bg-white print:p-0 dark:bg-slate-800">
+            <div id="quote-capture-area" className="p-10 bg-white print:p-0 dark:bg-slate-800 print:text-black">
               <div className="flex justify-between items-start border-b-4 border-rose-600 pb-6 mb-6">
                 <div className="flex gap-6 items-center">
                   <div className="w-24 h-24 bg-black rounded-2xl flex items-center justify-center overflow-hidden">
