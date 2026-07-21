@@ -14,6 +14,7 @@ import cors from 'cors';
 import compression from 'compression';
 import { GoogleGenAI } from "@google/genai";
 import { createAIRouter } from "./server/modules/ai/ai.routes.js";
+import { createAIInstructionsRouter } from "./server/modules/ai-instructions/ai-instructions.routes.js";
 import { Jimp } from "jimp";
 import jsQR from "jsqr";
 import { readBarcodesFromImageFile } from "zxing-wasm";
@@ -306,6 +307,91 @@ db.exec(`
     error_message TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_instructions (
+    id TEXT PRIMARY KEY,
+    tenant_id INTEGER,
+    company_id INTEGER,
+    title TEXT NOT NULL,
+    description TEXT,
+    content TEXT NOT NULL,
+    category TEXT,
+    instruction_type TEXT,
+    priority TEXT,
+    status TEXT DEFAULT 'rascunho',
+    is_global BOOLEAN DEFAULT 0,
+    valid_from TEXT,
+    valid_until TEXT,
+    created_by INTEGER,
+    updated_by INTEGER,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    published_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_instruction_modules (
+    id TEXT PRIMARY KEY,
+    instruction_id TEXT NOT NULL,
+    module TEXT,
+    route TEXT,
+    FOREIGN KEY (instruction_id) REFERENCES ai_instructions (id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_instruction_keywords (
+    id TEXT PRIMARY KEY,
+    instruction_id TEXT NOT NULL,
+    keyword TEXT NOT NULL,
+    FOREIGN KEY (instruction_id) REFERENCES ai_instructions (id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_instruction_versions (
+    id TEXT PRIMARY KEY,
+    instruction_id TEXT NOT NULL,
+    version_number INTEGER,
+    content TEXT NOT NULL,
+    changed_by INTEGER,
+    change_reason TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (instruction_id) REFERENCES ai_instructions (id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_instruction_usage_logs (
+    id TEXT PRIMARY KEY,
+    instruction_id TEXT NOT NULL,
+    tenant_id INTEGER,
+    user_id INTEGER,
+    module TEXT,
+    route TEXT,
+    question TEXT,
+    relevance_score REAL,
+    used_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    success BOOLEAN,
+    FOREIGN KEY (instruction_id) REFERENCES ai_instructions (id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_instruction_feedback (
+    id TEXT PRIMARY KEY,
+    tenant_id INTEGER,
+    user_id INTEGER,
+    conversation_id TEXT,
+    message_id TEXT,
+    feedback_type TEXT,
+    comment TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_dictionary (
+    id TEXT PRIMARY KEY,
+    tenant_id INTEGER,
+    term TEXT NOT NULL,
+    meaning TEXT NOT NULL,
+    synonyms TEXT,
+    category TEXT,
+    status TEXT DEFAULT 'active',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
 `);
 
@@ -745,6 +831,7 @@ async function startServer() {
 
   // AI Router
   app.use("/api/ai_assistant", authenticateToken, createAIRouter(db));
+  app.use("/api/ai_instructions", authenticateToken, createAIInstructionsRouter(db));
 
   // Auth Routes
   app.post("/api/auth/register", async (req, res) => {

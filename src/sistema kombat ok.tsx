@@ -60,13 +60,15 @@ import {
   User,
   Minus,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  BrainCircuit
 } from 'lucide-react';
 import PurchasesTab from './components/PurchasesTab';
 import InventoryTab from './components/InventoryTab';
 import FinancialTab from './components/FinancialTab';
 import CRMTab from './components/CRMTab';
 import OSTab from './components/OSTab';
+import AIInstructionsDashboard from './components/ai-instructions/AIInstructionsDashboard';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
 import VirtualCatalogModal from './components/VirtualCatalogModal';
@@ -6681,6 +6683,14 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           )}
           {hasAccess(['Administrador']) && (
             <SidebarItem
+              icon={BrainCircuit}
+              label="Instruções da IA"
+              active={activeTab === 'ai_instructions'}
+              onClick={() => { setActiveTab('ai_instructions'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador']) && (
+            <SidebarItem
               icon={Settings}
               label="Configurações"
               active={activeTab === 'settings'}
@@ -6730,6 +6740,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               {activeTab === 'mechanics' && 'Gestão de Mecânicos'}
               {activeTab === 'quotes' && 'Orçamentos Profissionais'}
               {activeTab === 'settings' && 'Configurações do Sistema'}
+              {activeTab === 'ai_instructions' && 'Central de Instruções da IA'}
             </h2>
             <p className="text-slate-500 dark:text-slate-400">
               {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -6849,6 +6860,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 {activeTab === 'mechanics' && renderMechanics()}
                 {activeTab === 'quotes' && renderQuotes()}
                 {activeTab === 'settings' && renderSettings()}
+                {activeTab === 'ai_instructions' && <AIInstructionsDashboard />}
               </>
             )}
           </motion.div>
