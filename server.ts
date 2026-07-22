@@ -3055,7 +3055,7 @@ ${promptText}`,
   });
 
   app.get("/api/registered_services", authenticateToken, (req, res) => {
-    const services = db.prepare("SELECT * FROM registered_services WHERE user_id = ?").all(req.user!.id);
+    const services = db.prepare("SELECT *, base_price as price FROM registered_services WHERE user_id = ?").all(req.user!.id);
     res.json(services);
   });
   app.post("/api/registered_services", authenticateToken, (req, res) => {
