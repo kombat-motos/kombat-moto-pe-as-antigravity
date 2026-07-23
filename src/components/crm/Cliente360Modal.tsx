@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   X, User, Calendar, Phone, DollarSign, CreditCard, Bike, Clock, 
+  History, FileText, Wrench, ShieldAlert, Sparkles, Send, Copy, 
   ArrowRight, MessageSquare, Plus, AlertCircle, CheckCircle, FileUp,
   ShoppingCart, TrendingUp, Printer
 } from 'lucide-react';
