@@ -277,13 +277,19 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
 
   // --- Estados do Fechamento de Cliente ---
   const [closingCustomerId, setClosingCustomerId] = React.useState<string>('');
-  const [closingPeriodType, setClosingPeriodType] = React.useState<'day' | 'month' | 'year'>('month');
+  const [closingPeriodType, setClosingPeriodType] = React.useState<'day' | 'month' | 'year' | 'interval'>('month');
   const [closingDate, setClosingDate] = React.useState<string>(() => new Date().toISOString().split('T')[0]);
   const [closingMonthYear, setClosingMonthYear] = React.useState<string>(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
   const [closingYear, setClosingYear] = React.useState<string>(() => new Date().getFullYear().toString());
+  const [closingStartDate, setClosingStartDate] = React.useState<string>(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
+  });
+  const [closingEndDate, setClosingEndDate] = React.useState<string>(() => new Date().toISOString().split('T')[0]);
   const [closingResult, setClosingResult] = React.useState<any>(null);
   
   const [fiadoSettings, setFiadoSettings] = React.useState(() => {
@@ -626,6 +632,9 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       } else if (closingPeriodType === 'month') {
         const [year, month] = closingMonthYear.split('-');
         return saleDateLocal.getFullYear() === parseInt(year) && (saleDateLocal.getMonth() + 1) === parseInt(month);
+      } else if (closingPeriodType === 'interval') {
+        const isoDate = saleDateLocal.toISOString().split('T')[0];
+        return isoDate >= closingStartDate && isoDate <= closingEndDate;
       } else {
         return saleDateLocal.getFullYear() === parseInt(closingYear);
       }
@@ -699,7 +708,9 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
         ? new Date(closingDate + 'T00:00:00').toLocaleDateString('pt-BR') 
         : closingPeriodType === 'month' 
           ? closingMonthYear.split('-').reverse().join('/') 
-          : closingYear,
+          : closingPeriodType === 'interval'
+            ? `${new Date(closingStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} a ${new Date(closingEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}`
+            : closingYear,
       totalPecas,
       totalServicos,
       totalBruto,
@@ -1492,7 +1503,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-              <div className="md:col-span-2">
+              <div className={closingPeriodType === 'interval' ? 'md:col-span-1' : 'md:col-span-2'}>
                 <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Cliente</label>
                 <select
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
@@ -1516,11 +1527,12 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                   <option value="day">Por Dia</option>
                   <option value="month">Por Mês</option>
                   <option value="year">Por Ano</option>
+                  <option value="interval">Por Período (De / Até)</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Data do Período</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">{closingPeriodType === 'interval' ? 'Data Inicial' : 'Data do Período'}</label>
                 {closingPeriodType === 'day' ? (
                   <input
                     type="date"
@@ -1535,6 +1547,13 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                     value={closingMonthYear}
                     onChange={e => { setClosingMonthYear(e.target.value); setClosingResult(null); }}
                   />
+                ) : closingPeriodType === 'interval' ? (
+                  <input
+                    type="date"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
+                    value={closingStartDate}
+                    onChange={e => { setClosingStartDate(e.target.value); setClosingResult(null); }}
+                  />
                 ) : (
                   <input
                     type="number"
@@ -1546,6 +1565,18 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                   />
                 )}
               </div>
+
+              {closingPeriodType === 'interval' && (
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-100">Data Final</label>
+                  <input
+                    type="date"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none dark:bg-slate-900 dark:border-slate-700"
+                    value={closingEndDate}
+                    onChange={e => { setClosingEndDate(e.target.value); setClosingResult(null); }}
+                  />
+                </div>
+              )}
             </div>
 
             <button
