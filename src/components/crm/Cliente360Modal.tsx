@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { 
   X, User, Calendar, Phone, DollarSign, CreditCard, Bike, Clock, 
-  History, FileText, Wrench, ShieldAlert, Sparkles, Send, Copy, 
   ArrowRight, MessageSquare, Plus, AlertCircle, CheckCircle, FileUp,
-  ShoppingCart, TrendingUp
+  ShoppingCart, TrendingUp, Printer
 } from 'lucide-react';
 
 interface Moto {
@@ -114,6 +113,7 @@ interface Cliente360ModalProps {
   onTriggerPDV: (cliente: any) => void;
   onTriggerOS: (cliente: any, moto: any) => void;
   onTriggerQuote: (cliente: any) => void;
+  onPrintReceipt?: (sale: any) => void;
 }
 
 export default function Cliente360Modal({
@@ -122,7 +122,8 @@ export default function Cliente360Modal({
   formatBRL,
   onTriggerPDV,
   onTriggerOS,
-  onTriggerQuote
+  onTriggerQuote,
+  onPrintReceipt
 }: Cliente360ModalProps) {
   const [data, setData] = useState<Cliente360Data | null>(null);
   const [loading, setLoading] = useState(true);
@@ -320,7 +321,8 @@ export default function Cliente360Modal({
       date: new Date(s.date),
       rawDate: s.date,
       value: s.total,
-      badgeColor: 'bg-green-600/20 text-green-400 border-green-500/30'
+      badgeColor: 'bg-green-600/20 text-green-400 border-green-500/30',
+      details: s
     });
   });
 
@@ -724,8 +726,19 @@ export default function Cliente360Modal({
                         <p className="text-xs text-zinc-300 leading-relaxed mb-2">{item.description}</p>
                         
                         {item.value !== undefined && (
-                          <div className="text-xs font-semibold text-zinc-400">
-                            Valor Financeiro: <span className="text-white font-bold">{formatBRL(item.value)}</span>
+                          <div className="flex justify-between items-center mt-2">
+                            <div className="text-xs font-semibold text-zinc-400">
+                              Valor Financeiro: <span className="text-white font-bold">{formatBRL(item.value)}</span>
+                            </div>
+                            {item.type === 'compra' && onPrintReceipt && (
+                              <button 
+                                onClick={() => onPrintReceipt(item.details)}
+                                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold rounded flex items-center gap-2 border border-zinc-700 transition"
+                              >
+                                <Printer size={14} />
+                                Imprimir Recibo
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>

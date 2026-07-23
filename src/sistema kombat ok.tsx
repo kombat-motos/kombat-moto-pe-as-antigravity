@@ -6875,6 +6875,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
             onTriggerPDV={handleOpenPDVForCliente360}
             onTriggerOS={handleOpenOSForCliente360}
             onTriggerQuote={handleOpenQuoteForCliente360}
+            onPrintReceipt={setSelectedSaleForReceipt}
           />
         )}
 
