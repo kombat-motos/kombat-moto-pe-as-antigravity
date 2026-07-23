@@ -9187,7 +9187,21 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                         {osForm.items.map((item, idx) => (item.product_id || item.type === 'Peça') && (
                           <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-3 hover:bg-white transition-colors">
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-slate-800 truncate dark:text-slate-100" title={item.description}>{item.description}</p>
+                              {!item.product_id ? (
+                                <input 
+                                  type="text"
+                                  value={item.description}
+                                  onChange={e => {
+                                    const newItems = [...osForm.items];
+                                    newItems[idx].description = e.target.value.toUpperCase();
+                                    setOsForm({ ...osForm, items: newItems });
+                                  }}
+                                  className="w-full bg-transparent text-sm font-bold text-slate-800 dark:text-slate-100 outline-none border-b border-dashed border-slate-300 dark:border-slate-600 focus:border-rose-400 dark:focus:border-rose-500 pb-0.5"
+                                  placeholder="Descrição da peça avulsa..."
+                                />
+                              ) : (
+                                <p className="text-sm font-bold text-slate-800 truncate dark:text-slate-100" title={item.description}>{item.description}</p>
+                              )}
                               {!item.product_id && <span className="text-[9px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold uppercase mt-1 inline-flex items-center gap-1"><AlertCircle size={10}/> Item Avulso</span>}
                             </div>
                             
@@ -9226,7 +9240,17 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                         {osForm.items.map((item, idx) => (!item.product_id && item.type === 'Serviço') && (
                           <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-3 hover:bg-white/50 transition-colors">
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-slate-800 truncate dark:text-slate-100" title={item.description}>{item.description}</p>
+                              <input 
+                                type="text"
+                                value={item.description}
+                                onChange={e => {
+                                  const newItems = [...osForm.items];
+                                  newItems[idx].description = e.target.value.toUpperCase();
+                                  setOsForm({ ...osForm, items: newItems });
+                                }}
+                                className="w-full bg-transparent text-sm font-bold text-slate-800 dark:text-slate-100 outline-none border-b border-dashed border-amber-300 dark:border-amber-700/50 focus:border-amber-500 pb-0.5"
+                                placeholder="Descrição do serviço..."
+                              />
                             </div>
                             
                             <div className="flex items-center gap-3 shrink-0">
@@ -9289,7 +9313,16 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 
                 {/* Serviço Principal Card */}
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-3 shrink-0 shadow-sm dark:bg-slate-800 dark:border-slate-700">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block flex items-center gap-1"><Wrench size={12}/> Serviço Principal</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block flex items-center gap-1"><Wrench size={12}/> Serviço Principal</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setOsForm({ ...osForm, items: [...osForm.items, { description: 'NOVO SERVIÇO', quantity: 1, price: 0, type: 'Serviço' }] })}
+                      className="text-[9px] bg-rose-100 text-rose-700 px-2 py-1 rounded-md font-bold uppercase hover:bg-rose-200 transition-colors flex items-center gap-1 dark:bg-rose-900/30 dark:text-rose-400"
+                    >
+                      <Plus size={10} strokeWidth={3} /> Add. Serviço
+                    </button>
+                  </div>
                   <div className="space-y-3">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Descrição</label>
