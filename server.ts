@@ -1600,9 +1600,7 @@ async function startServer() {
 
     query += " ORDER BY date DESC";
 
-    if (!startDate && !endDate) {
-      query += " LIMIT 200";
-    }
+    // Removed LIMIT 200 so that all pending sales (debtors) are always loaded into the frontend.
 
     try {
       const sales = db.prepare(query).all(...params) as any[];
