@@ -1077,6 +1077,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                     </th>
                     <th className="px-6 py-4">Cliente / Score</th>
                     <th className="px-6 py-4">Vencimento</th>
+                    <th className="px-6 py-4">Cód. Venda</th>
                     <th className="px-6 py-4">Original</th>
                     <th className="px-6 py-4">Valor Atual</th>
                     <th className="px-6 py-4">Ações</th>
@@ -1116,6 +1117,9 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                           <p className={`text-sm font-medium ${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-600'}`}>
                             {new Date(sale.due_date!).toLocaleDateString('pt-BR')}
                           </p>
+                        </td>
+                        <td className="px-6 py-4 text-sm font-bold text-slate-500">
+                          #{String(sale.id).slice(-6).toUpperCase()}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600 font-medium dark:text-slate-400">R$ {sale.total.toFixed(2)}</td>
                         <td className="px-6 py-4">
