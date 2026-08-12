@@ -118,6 +118,7 @@ interface Product {
   barcode: string;
   purchase_price: number;
   sale_price: number;
+  sale_price_credit?: number;
   stock: number;
   unit: string;
   category?: string;
@@ -194,6 +195,7 @@ interface Sale {
   service_description?: string;
   whatsapp?: string;
   status?: 'Aberto' | 'Em Andamento' | 'Pronto' | 'Entregue';
+  charge_type?: 'vista' | 'credito_30_dias';
 }
 
 interface QuoteItem {
@@ -218,6 +220,7 @@ interface Quote {
   created_at: string;
   status: 'Pendente' | 'Aprovado' | 'Recusado';
   items: QuoteItem[];
+  charge_type?: 'vista' | 'credito_30_dias';
 }
 
 interface Stats {
@@ -852,7 +855,7 @@ export default function App() {
     neighborhood: '', city: '', zip_code: '', credit_limit: 0, 
     fine_rate: 2, interest_rate: 1, image_url: '' 
   });
-  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '', alt_code: '' });
+  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', sale_price_credit: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '', alt_code: '' });
   const [isAutofilling, setIsAutofilling] = useState(false);
   const [isLookingUpPlate, setIsLookingUpPlate] = useState(false);
   const [serviceForm, setServiceForm] = useState({ description: '', price: '', category: '' });
@@ -1662,6 +1665,26 @@ export default function App() {
     setPdvSearchProduct('');
   };
 
+  const handleChangePdvChargeType = (type: 'vista' | 'credito_30_dias') => {
+    if (pdvForm.items.length > 0) {
+      if (window.confirm('Deseja recalcular os itens do carrinho para a modalidade escolhida?')) {
+        const newItems = pdvForm.items.map(item => {
+          const product = products.find(p => p.id === item.product_id);
+          if (product) {
+            const newPrice = type === 'credito_30_dias' && product.sale_price_credit ? product.sale_price_credit : product.sale_price;
+            return { ...item, price: newPrice };
+          }
+          return item;
+        });
+        setPdvForm({ ...pdvForm, charge_type: type, items: newItems });
+      } else {
+        setPdvForm({ ...pdvForm, charge_type: type });
+      }
+    } else {
+      setPdvForm({ ...pdvForm, charge_type: type });
+    }
+  };
+
   const handleRemovePdvItem = (productId?: number) => {
     setPdvForm({
       ...pdvForm,
@@ -1699,6 +1722,26 @@ export default function App() {
       });
     }
     setOsSearchProduct('');
+  };
+
+  const handleChangeOsChargeType = (type: 'vista' | 'credito_30_dias') => {
+    if (osForm.items.length > 0) {
+      if (window.confirm('Deseja recalcular as peças da OS para a modalidade escolhida?')) {
+        const newItems = osForm.items.map(item => {
+          const product = products.find(p => p.id === item.product_id);
+          if (product) {
+            const newPrice = type === 'credito_30_dias' && product.sale_price_credit ? product.sale_price_credit : product.sale_price;
+            return { ...item, price: newPrice };
+          }
+          return item;
+        });
+        setOsForm({ ...osForm, charge_type: type, items: newItems });
+      } else {
+        setOsForm({ ...osForm, charge_type: type });
+      }
+    } else {
+      setOsForm({ ...osForm, charge_type: type });
+    }
   };
 
   const handleUpdateStockQuick = async () => {
@@ -1997,7 +2040,8 @@ export default function App() {
       date: new Date().toISOString(),
       payment_status: pdvForm.payment_method === 'Fiado' ? 'Pendente' : 'Pago',
       due_date: pdvForm.payment_method === 'Fiado' ? pdvForm.due_date : undefined,
-      paid_date: pdvForm.payment_method !== 'Fiado' ? new Date().toISOString() : undefined
+      paid_date: pdvForm.payment_method !== 'Fiado' ? new Date().toISOString() : undefined,
+      charge_type: pdvForm.charge_type
     };
 
     try {
@@ -2005,7 +2049,8 @@ export default function App() {
       // Send sale with items to the single transactional endpoint
       await localApi.post('sales', {
         ...newSale,
-        sale_items: finalItems
+        sale_items: finalItems,
+        charge_type: pdvForm.charge_type
       });
 
       setSales([newSale, ...sales]);
@@ -2019,7 +2064,8 @@ export default function App() {
         due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         sale_condition: 'Vista',
         installments: 1,
-        discount: 0
+        discount: 0,
+        charge_type: 'vista'
       });
       setCheckoutPaymentReceived('');
       alert(`Venda ${newSale.id} concluída com sucesso!`);
@@ -2236,7 +2282,8 @@ export default function App() {
           status: newOS.status,
           sale_items: finalItems,
           motorcycle_id: motorcycle?.id,
-          motorcycle_km: parseInt(osForm.km) || 0
+          motorcycle_km: parseInt(osForm.km) || 0,
+          charge_type: osForm.charge_type
         });
       } else {
         await localApi.post('sales', {
@@ -2259,7 +2306,8 @@ export default function App() {
           status: newOS.status,
           sale_items: finalItems,
           motorcycle_id: motorcycle?.id,
-          motorcycle_km: parseInt(osForm.km) || 0
+          motorcycle_km: parseInt(osForm.km) || 0,
+          charge_type: osForm.charge_type
         });
       }
 
@@ -2281,7 +2329,8 @@ export default function App() {
         status: 'Aberto',
         due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         service_description: '',
-        km: ''
+        km: '',
+        charge_type: 'vista'
       });
       alert(`Ordem de Serviço ${newOS.id} salva com sucesso!`);
     } catch (error: any) {
@@ -4533,6 +4582,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         barcode: productForm.barcode,
         purchase_price: parseFloat(productForm.purchase_price.toString().replace(',', '.')) || 0,
         sale_price: parseFloat(productForm.sale_price.toString().replace(',', '.')) || 0,
+        sale_price_credit: parseFloat((productForm.sale_price_credit || '').toString().replace(',', '.')) || 0,
         stock: parseInt(productForm.stock.toString()) || 0,
         unit: productForm.unit,
         image_url: finalImageUrl,
@@ -4561,6 +4611,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         barcode: '',
         purchase_price: '',
         sale_price: '',
+        sale_price_credit: '',
         stock: '',
         unit: 'Unitário',
         image_url: '',
@@ -4588,6 +4639,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       barcode: product.barcode || '',
       purchase_price: product.purchase_price.toString(),
       sale_price: product.sale_price.toString(),
+      sale_price_credit: product.sale_price_credit ? product.sale_price_credit.toString() : '',
       stock: product.stock.toString(),
       unit: product.unit || 'Unitário',
       image_url: product.image_url || '',
@@ -7711,8 +7763,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 </div>
               </div>
 
-              {/* Linha 4: Unidade de Medida | Estoque Inicial | Preço Compra (R$) | Preço Venda (R$) */}
-              <div className="grid grid-cols-4 gap-3">
+              {/* Linha 4: Unidade de Medida | Estoque Inicial | Preço Compra (R$) | Preço Venda (R$) | Venda a Crédito */}
+              <div className="grid grid-cols-5 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Unidade</label>
                   <select
@@ -7753,6 +7805,17 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600 dark:bg-slate-900 dark:border-slate-700"
                     value={productForm.sale_price}
                     onChange={e => setProductForm({ ...productForm, sale_price: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Venda 30d</label>
+                  <input
+                    type="number" step="0.01" tabIndex={11}
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-purple-600 dark:bg-slate-900 dark:border-slate-700"
+                    value={productForm.sale_price_credit || ''}
+                    onChange={e => setProductForm({ ...productForm, sale_price_credit: e.target.value })}
+                    placeholder="Auto"
+                    title="Preço a Crédito 30 Dias"
                   />
                 </div>
               </div>
@@ -8687,7 +8750,10 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     <tbody style={{ fontSize: '12px' }}>
                       <tr>
                         <td style={{ textAlign: 'left' }}>{selectedSaleForReceipt.due_date ? new Date(selectedSaleForReceipt.due_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}</td>
-                        <td style={{ textAlign: 'center' }}>{(selectedSaleForReceipt.payment_method === 'Fiado' ? 'CREDITO KOMBAT' : (selectedSaleForReceipt.payment_method || '')).toUpperCase()}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          {(selectedSaleForReceipt.payment_method === 'Fiado' ? 'CREDITO KOMBAT' : (selectedSaleForReceipt.payment_method || '')).toUpperCase()}
+                          {selectedSaleForReceipt.charge_type === 'credito_30_dias' && <span style={{display: 'block', fontSize: '9px'}}>TABELA 30 DIAS</span>}
+                        </td>
                         <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
                       </tr>
                     </tbody>
@@ -8920,9 +8986,30 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           bodyClassName="p-0 flex flex-col bg-slate-50 dark:bg-slate-900 h-full w-full"
         >
           <div className="flex flex-col h-full w-full overflow-hidden p-4 lg:p-6 gap-6 bg-slate-50 dark:bg-slate-900">
-            {/* LINHA 1: Top Bar (Grid 6 colunas) */}
+            {/* LINHA 1: Top Bar (Grid 7 colunas) */}
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm shrink-0 dark:bg-slate-800 dark:border-slate-700">
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4">
+                {/* 0. Tabela de Preço */}
+                <div className="col-span-1 md:col-span-1 lg:col-span-1">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">Tabela</label>
+                  <div className="flex bg-slate-50 border border-slate-200 rounded-xl overflow-hidden p-1 dark:bg-slate-900 dark:border-slate-700 h-[38px]">
+                    <button
+                      type="button"
+                      onClick={() => handleChangeOsChargeType('vista')}
+                      className={`flex-1 text-[10px] font-bold uppercase transition-all rounded-lg ${osForm.charge_type === 'vista' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                    >
+                      À Vista
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleChangeOsChargeType('credito_30_dias')}
+                      className={`flex-1 text-[10px] font-bold uppercase transition-all rounded-lg ${osForm.charge_type === 'credito_30_dias' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                    >
+                      30 Dias
+                    </button>
+                  </div>
+                </div>
+
                 {/* 1. Cliente */}
                 <div className="col-span-1 md:col-span-1 lg:col-span-1">
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Users size={12}/> Cliente</label>

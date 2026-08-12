@@ -440,7 +440,14 @@ const migrations = [
   "ALTER TABLE leads ADD COLUMN phone TEXT",
   "ALTER TABLE leads ADD COLUMN name TEXT",
   "ALTER TABLE products ADD COLUMN distributor TEXT",
-  "ALTER TABLE products ADD COLUMN alt_code TEXT"
+  "ALTER TABLE products ADD COLUMN alt_code TEXT",
+  "ALTER TABLE products ADD COLUMN sale_price_credit REAL DEFAULT 0",
+  "ALTER TABLE sales ADD COLUMN charge_type TEXT DEFAULT 'vista'",
+  "ALTER TABLE quotes ADD COLUMN charge_type TEXT DEFAULT 'vista'",
+  "ALTER TABLE orcamentos ADD COLUMN charge_type TEXT DEFAULT 'vista'",
+  "ALTER TABLE servicos_oficina ADD COLUMN charge_type TEXT DEFAULT 'vista'",
+  "ALTER TABLE credit ADD COLUMN sale_id TEXT",
+  "ALTER TABLE credit ADD COLUMN os_id INTEGER"
 ];
 
 migrations.forEach(m => {
@@ -1221,13 +1228,13 @@ async function startServer() {
 
   app.post("/api/quotes", authenticateToken, (req, res) => {
     console.error(`[API] Recebendo POST /api/quotes`);
-    const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
+    const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items, charge_type } = req.body;
     const userId = req.user!.id;
 
     try {
       const info = db.prepare(`
-        INSERT INTO quotes (user_id, customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO quotes (user_id, customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items, charge_type) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         userId, 
         customer_id, 
@@ -1238,7 +1245,8 @@ async function startServer() {
         warranty_terms, 
         validity_days, 
         status, 
-        JSON.stringify(items)
+        JSON.stringify(items),
+        charge_type || 'vista'
       );
       
       const newQuote = db.prepare("SELECT * FROM quotes WHERE id = ?").get(info.lastInsertRowid) as any;
@@ -1254,14 +1262,14 @@ async function startServer() {
 
   app.put("/api/quotes/:id", authenticateToken, (req, res) => {
     console.log(`[API] Recebendo PUT /api/quotes/${req.params.id}`);
-    const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items } = req.body;
+    const { customer_id, customer_name, motorcycle_details, total_value, observations, warranty_terms, validity_days, status, items, charge_type } = req.body;
     const quoteId = Number(req.params.id);
     const userId = req.user!.id;
     
     try {
       const result = db.prepare(`
         UPDATE quotes 
-        SET customer_id = ?, customer_name = ?, motorcycle_details = ?, total_value = ?, observations = ?, warranty_terms = ?, validity_days = ?, status = ?, items = ?
+        SET customer_id = ?, customer_name = ?, motorcycle_details = ?, total_value = ?, observations = ?, warranty_terms = ?, validity_days = ?, status = ?, items = ?, charge_type = ?
         WHERE id = ? AND user_id = ?
       `).run(
         customer_id, 
@@ -1273,6 +1281,7 @@ async function startServer() {
         validity_days, 
         status, 
         JSON.stringify(items), 
+        charge_type || 'vista',
         quoteId, 
         userId
       );
@@ -1410,9 +1419,9 @@ async function startServer() {
 
     app.post("/api/products", authenticateToken, (req, res) => {
       try {
-        const { description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
-        const info = db.prepare("INSERT INTO products (user_id, description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-          .run(req.user!.id, description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code);
+        const { description, sku, barcode, purchase_price, sale_price, sale_price_credit, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
+        const info = db.prepare("INSERT INTO products (user_id, description, sku, barcode, purchase_price, sale_price, sale_price_credit, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+          .run(req.user!.id, description, sku, barcode, purchase_price, sale_price, sale_price_credit || 0, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code);
       res.json({ id: parseInt(info.lastInsertRowid.toString()) });
     } catch (err: any) {
       console.error('ERRO AO SALVAR PRODUTO:', err);
@@ -1512,9 +1521,9 @@ async function startServer() {
 
     app.put("/api/products/:id", authenticateToken, (req, res) => {
       try {
-        const { description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
-        db.prepare("UPDATE products SET description = ?, sku = ?, barcode = ?, purchase_price = ?, sale_price = ?, stock = ?, unit = ?, image_url = ?, image_url2 = ?, image_url3 = ?, image_url4 = ?, brand = ?, application = ?, category = ?, location = ?, distributor = ?, alt_code = ? WHERE id = ? AND user_id = ?")
-          .run(description, sku, barcode, purchase_price, sale_price, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code, req.params.id, req.user!.id);
+        const { description, sku, barcode, purchase_price, sale_price, sale_price_credit, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
+        db.prepare("UPDATE products SET description = ?, sku = ?, barcode = ?, purchase_price = ?, sale_price = ?, sale_price_credit = ?, stock = ?, unit = ?, image_url = ?, image_url2 = ?, image_url3 = ?, image_url4 = ?, brand = ?, application = ?, category = ?, location = ?, distributor = ?, alt_code = ? WHERE id = ? AND user_id = ?")
+          .run(description, sku, barcode, purchase_price, sale_price, sale_price_credit || 0, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code, req.params.id, req.user!.id);
       res.json({ success: true });
     } catch (err: any) {
       console.error('ERRO AO EDITAR PRODUTO:', err);
@@ -1615,8 +1624,15 @@ async function startServer() {
     }
   });
   app.post("/api/sales", authenticateToken, (req, res) => {
-    const { id, customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, sale_items, motorcycle_km, motorcycle_id, paid_total } = req.body;
+    const { id, customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, sale_items, motorcycle_km, motorcycle_id, paid_total, charge_type } = req.body;
     
+    // Server validation for credit
+    if (charge_type === 'credito_30_dias') {
+      if (!customer_id) {
+        throw new Error("Venda a crédito exige um cliente cadastrado.");
+      }
+    }
+
     const runTransaction = db.transaction(() => {
       // 1. Insert Sale
       const safeTotal = parseFloat(total);
@@ -1627,9 +1643,19 @@ async function startServer() {
       const safeCustId = parseInt(customer_id) || null;
       const safeMechId = parseInt(mechanic_id) || null;
       const safeMotoId = parseInt(motorcycle_id) || null;
+      const safeChargeType = charge_type || 'vista';
 
-      db.prepare("INSERT INTO sales (id, user_id, customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, paid_total, motorcycle_id, motorcycle_km) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        .run(id, req.user!.id, safeCustId, customer_name, safeLabor, safeCommission, safeMechId, mechanic_name, safeTotal, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, safePaidTotal, safeMotoId, safeKm);
+      db.prepare("INSERT INTO sales (id, user_id, customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, paid_total, motorcycle_id, motorcycle_km, charge_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(id, req.user!.id, safeCustId, customer_name, safeLabor, safeCommission, safeMechId, mechanic_name, safeTotal, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, safePaidTotal, safeMotoId, safeKm, safeChargeType);
+      
+      // 1.5 Create Credit if needed
+      if (safeChargeType === 'credito_30_dias' && safeCustId) {
+        const existingCredit = db.prepare("SELECT id FROM credit WHERE sale_id = ?").get(id);
+        if (!existingCredit) {
+          db.prepare("INSERT INTO credit (user_id, customer_id, original_value, due_date, status, sale_id) VALUES (?, ?, ?, ?, 'Pendente', ?)")
+            .run(req.user!.id, safeCustId, safeTotal, due_date, id);
+        }
+      }
       
       // 2. Insert Items & Update Stock
       const insertItem = db.prepare("INSERT INTO sale_items (sale_id, product_id, description, quantity, price, type) VALUES (?, ?, ?, ?, ?, ?)");
@@ -1662,8 +1688,15 @@ async function startServer() {
   });
 
   app.put("/api/sales/:id", authenticateToken, (req, res) => {
-    const { customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, sale_items, motorcycle_km, motorcycle_id, paid_total } = req.body;
+    const { customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, sale_items, motorcycle_km, motorcycle_id, paid_total, charge_type } = req.body;
     
+    // Server validation for credit
+    if (charge_type === 'credito_30_dias') {
+      if (!customer_id) {
+        throw new Error("Venda a crédito exige um cliente cadastrado.");
+      }
+    }
+
     const runTransaction = db.transaction(() => {
       // 1. Update Sale
       const safeTotal = parseFloat(total);
@@ -1674,9 +1707,22 @@ async function startServer() {
       const safeCustId = parseInt(customer_id) || null;
       const safeMechId = parseInt(mechanic_id) || null;
       const safeMotoId = parseInt(motorcycle_id) || null;
+      const safeChargeType = charge_type || 'vista';
 
-      db.prepare("UPDATE sales SET customer_id = ?, customer_name = ?, labor_value = ?, commission = ?, mechanic_id = ?, mechanic_name = ?, total = ?, payment_method = ?, payment_status = ?, due_date = ?, paid_date = ?, status = ?, moto_details = ?, service_description = ?, paid_total = ?, motorcycle_id = ?, motorcycle_km = ? WHERE id = ? AND user_id = ?")
-        .run(safeCustId, customer_name, safeLabor, safeCommission, safeMechId, mechanic_name, safeTotal, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, safePaidTotal, safeMotoId, safeKm, req.params.id, req.user!.id);
+      db.prepare("UPDATE sales SET customer_id = ?, customer_name = ?, labor_value = ?, commission = ?, mechanic_id = ?, mechanic_name = ?, total = ?, payment_method = ?, payment_status = ?, due_date = ?, paid_date = ?, status = ?, moto_details = ?, service_description = ?, paid_total = ?, motorcycle_id = ?, motorcycle_km = ?, charge_type = ? WHERE id = ? AND user_id = ?")
+        .run(safeCustId, customer_name, safeLabor, safeCommission, safeMechId, mechanic_name, safeTotal, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, safePaidTotal, safeMotoId, safeKm, safeChargeType, req.params.id, req.user!.id);
+      
+      // 1.5 Update Credit if needed
+      if (safeChargeType === 'credito_30_dias' && safeCustId) {
+        const existingCredit = db.prepare("SELECT id FROM credit WHERE sale_id = ?").get(req.params.id);
+        if (!existingCredit) {
+          db.prepare("INSERT INTO credit (user_id, customer_id, original_value, due_date, status, sale_id) VALUES (?, ?, ?, ?, 'Pendente', ?)")
+            .run(req.user!.id, safeCustId, safeTotal, due_date, req.params.id);
+        } else {
+          db.prepare("UPDATE credit SET customer_id = ?, original_value = ?, due_date = ? WHERE sale_id = ?")
+            .run(safeCustId, safeTotal, due_date, req.params.id);
+        }
+      }
       
       // 2. Reversal logic for stock
       const oldItems = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(req.params.id) as any[];
