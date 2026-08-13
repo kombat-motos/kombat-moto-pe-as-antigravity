@@ -1546,10 +1546,10 @@ async function startServer() {
       let query = "";
       if (type === 'percent') {
         const multiplier = action === 'increase' ? (1 + (val / 100)) : (1 - (val / 100));
-        query = `UPDATE products SET ${field} = ROUND(${field} * ${multiplier}, 2) WHERE user_id = ?`;
+        query = `UPDATE products SET ${field} = ROUND(sale_price * ${multiplier}, 2) WHERE user_id = ?`;
       } else {
         const sign = action === 'increase' ? '+' : '-';
-        query = `UPDATE products SET ${field} = ROUND(${field} ${sign} ${val}, 2) WHERE user_id = ?`;
+        query = `UPDATE products SET ${field} = ROUND(sale_price ${sign} ${val}, 2) WHERE user_id = ?`;
       }
 
       const ids = Array.isArray(productIds) ? productIds : [];
