@@ -8165,11 +8165,23 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           maxWidth="max-w-4xl"
         >
           {(() => {
-            const itemsBaseTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+            const itemsBaseTotal = pdvForm.items.reduce((acc, curr) => {
+              let itemPrice = curr.price;
+              if (pdvForm.payment_method === 'Fiado') {
+                const product = products.find(p => p.id === curr.product_id);
+                if (product && product.sale_price_credit) {
+                  itemPrice = product.sale_price_credit;
+                } else if (product && product.sale_price) {
+                  itemPrice = product.sale_price;
+                }
+              }
+              return acc + (itemPrice * curr.quantity);
+            }, 0);
+            
             const subtotalWithDiscount = Math.max(0, itemsBaseTotal - (pdvForm.discount || 0));
             let total = subtotalWithDiscount;
             
-            if (pdvForm.sale_condition === 'Prazo') {
+            if (pdvForm.payment_method === 'Cartão' && pdvForm.sale_condition === 'Prazo') {
               const fee = cardFeesSettings[pdvForm.installments] || 0;
               const divisor = 1 - (fee / 100);
               total = divisor > 0 ? (subtotalWithDiscount / divisor) : subtotalWithDiscount;
@@ -8199,7 +8211,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                           <span className="font-bold">-{formatBRL(pdvForm.discount)}</span>
                         </div>
                       )}
-                      {pdvForm.sale_condition === 'Prazo' && (
+                      {pdvForm.payment_method === 'Cartão' && pdvForm.sale_condition === 'Prazo' && (
                         <div className="flex justify-between py-2.5 text-sm text-rose-500">
                           <span>Taxa de Parcelamento ({pdvForm.installments}x):</span>
                           <span className="font-bold">
