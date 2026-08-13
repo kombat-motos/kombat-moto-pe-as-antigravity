@@ -876,6 +876,7 @@ export default function App() {
   const [isPdvModalOpen, setIsPdvModalOpen] = useState(false);
   const [isOsModalOpen, setIsOsModalOpen] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [isOpenMotosModal, setIsOpenMotosModal] = useState(false);
   const [pdvForm, setPdvForm] = useState<{
     customer_id: string;
     mechanic_id: string;
@@ -5292,6 +5293,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           icon={Bike}
           color="bg-amber-500"
           subtitle="Revisões pendentes"
+          onClick={() => setIsOpenMotosModal(true)}
         />
         <StatCard
           title="Ticket Médio (Venda)"
@@ -10822,6 +10824,55 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           </button>
         </div>
       </Modal>
+
+      <Modal isOpen={isOpenMotosModal} onClose={() => setIsOpenMotosModal(false)} title="Motos em Aberto (Revisões Pendentes)">
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+          {generalSales.filter((s: any) => s.type === 'Oficina' && s.status !== 'Entregue').length === 0 ? (
+            <p className="text-center text-slate-500 py-4 font-medium">Nenhuma moto em espera no momento.</p>
+          ) : (
+            generalSales.filter((s: any) => s.type === 'Oficina' && s.status !== 'Entregue').map((os: any) => (
+              <div key={os.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/50 flex flex-col gap-2 transition-all hover:border-amber-300">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-bold text-slate-800 dark:text-slate-100">{os.customer_name}</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">O.S. #{os.id} • {new Date(os.date).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
+                    os.status === 'Pronto' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                    os.status === 'Em Andamento' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                    'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                  }`}>
+                    {os.status || 'Aberto'}
+                  </span>
+                </div>
+                
+                {os.moto_details && (
+                  <div className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <Bike size={14} className="text-slate-400" />
+                    {os.moto_details}
+                  </div>
+                )}
+                
+                <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <span className="font-black text-slate-900 dark:text-white">
+                    {formatBRL(os.total)}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setIsOpenMotosModal(false);
+                      handleEditOS(os);
+                    }}
+                    className="px-3 py-1 bg-amber-500 text-white rounded text-xs font-bold uppercase hover:bg-amber-600 transition-colors shadow-sm"
+                  >
+                    Ver O.S.
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Modal>
+
       </div>
 
       {/* Quote Print View / High Resolution Layout */}
