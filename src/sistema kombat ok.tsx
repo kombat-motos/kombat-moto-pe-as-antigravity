@@ -694,7 +694,8 @@ export default function App() {
       await localApi.post('products/mass-update', {
         ...massUpdateForm,
         value: val,
-        productIds: selectedProductIds.length > 0 ? selectedProductIds : []
+        productIds: selectedProductIds.length > 0 ? selectedProductIds : [],
+        targetField: 'sale_price'
       });
       setIsMassUpdateModalOpen(false);
       setMassUpdateForm({ type: 'percent', action: 'increase', value: '' });
@@ -704,6 +705,37 @@ export default function App() {
     } catch (e: any) {
       console.error(e);
       alert(e.message || 'Erro ao atualizar preços em massa');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMassCreditUpdate = async () => {
+    try {
+      const val = parseFloat(massCreditUpdateForm.value.replace(',', '.'));
+      if (isNaN(val) || val <= 0) return alert('Insira um valor maior que zero válido.');
+      
+      const confirmMsg = selectedProductIds.length > 0 
+        ? `Você vai alterar os preços de CRÉDITO (30 Dias) de ${selectedProductIds.length} PRODUTOS SELECIONADOS. Tem certeza?`
+        : `Você vai alterar os preços de CRÉDITO (30 Dias) de TODOS OS PRODUTOS DO SISTEMA. Tem certeza absoluta?`;
+        
+      if (!confirm(confirmMsg)) return;
+
+      setLoading(true);
+      await localApi.post('products/mass-update', {
+        ...massCreditUpdateForm,
+        value: val,
+        productIds: selectedProductIds.length > 0 ? selectedProductIds : [],
+        targetField: 'sale_price_credit'
+      });
+      setIsMassCreditUpdateModalOpen(false);
+      setMassCreditUpdateForm({ type: 'percent', action: 'increase', value: '' });
+      setSelectedProductIds([]);
+      fetchData();
+      alert('Preços de crédito (30 dias) atualizados com sucesso!');
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || 'Erro ao atualizar preços de crédito em massa');
     } finally {
       setLoading(false);
     }
@@ -813,6 +845,8 @@ export default function App() {
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isMassUpdateModalOpen, setIsMassUpdateModalOpen] = useState(false);
   const [massUpdateForm, setMassUpdateForm] = useState<{type: 'percent'|'fixed', action: 'increase'|'decrease', value: string}>({ type: 'percent', action: 'increase', value: '' });
+  const [isMassCreditUpdateModalOpen, setIsMassCreditUpdateModalOpen] = useState(false);
+  const [massCreditUpdateForm, setMassCreditUpdateForm] = useState<{type: 'percent'|'fixed', action: 'increase'|'decrease', value: string}>({ type: 'percent', action: 'increase', value: '' });
   const [isMotorcycleModalOpen, setIsMotorcycleModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -6868,6 +6902,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     handleDownloadExcel={handleDownloadExcel}
                     setIsQuickInventoryOpen={setIsQuickInventoryOpen}
                     setIsMassUpdateModalOpen={setIsMassUpdateModalOpen}
+                    isMassCreditUpdateModalOpen={isMassCreditUpdateModalOpen}
+                    setIsMassCreditUpdateModalOpen={setIsMassCreditUpdateModalOpen}
                     handleEditProduct={handleEditProduct}
                     handleDeleteProduct={handleDeleteProduct}
                     onAddProduct={() => {
@@ -10862,6 +10898,69 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
             className="w-full py-4 bg-amber-500 text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
           >
             CONFIRMAR {massUpdateForm.action === 'increase' ? 'AUMENTO' : 'REDUÇÃO'} EM MASSA
+          </button>
+        </div>
+      </Modal>
+
+      <Modal isOpen={isMassCreditUpdateModalOpen} onClose={() => setIsMassCreditUpdateModalOpen(false)} title="Atualização de Preços 30 Dias (Massa)">
+        <div className="space-y-6">
+          <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+            <h4 className="font-bold text-purple-800 text-sm mb-1 uppercase">Atenção Especial (Preço de Crédito)</h4>
+            <p className="text-xs text-purple-700">
+              {selectedProductIds.length > 0 
+                ? `Esta ação vai atualizar o preço de CRÉDITO (30 Dias) dos ${selectedProductIds.length} produtos que você selecionou agora.`
+                : `Você NÃO selecionou nenhum produto, então esta ação vai atualizar o preço de CRÉDITO (30 Dias) de TODOS (${products.length}) os produtos do seu estoque.`}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-400 mb-2 uppercase">Ação</label>
+              <select
+                value={massCreditUpdateForm.action}
+                onChange={e => setMassCreditUpdateForm({...massCreditUpdateForm, action: e.target.value as 'increase'|'decrease'})}
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 font-bold bg-white dark:bg-slate-800 dark:border-slate-700"
+              >
+                <option value="increase">AUMENTAR (Subir preços)</option>
+                <option value="decrease">DIMINUIR (Baixar preços)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 mb-2 uppercase">Tipo de Reajuste</label>
+              <select
+                value={massCreditUpdateForm.type}
+                onChange={e => setMassCreditUpdateForm({...massCreditUpdateForm, type: e.target.value as 'percent'|'fixed'})}
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-purple-500 font-bold bg-white dark:bg-slate-800 dark:border-slate-700"
+              >
+                <option value="percent">Porcentagem (%)</option>
+                <option value="fixed">Valor Fixo (R$)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-400 mb-2 uppercase">
+              {massCreditUpdateForm.type === 'percent' ? 'Qual a porcentagem (%) ?' : 'Qual o valor (R$) ?'}
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+                {massCreditUpdateForm.type === 'percent' ? '%' : 'R$'}
+              </span>
+              <input
+                type="number"
+                value={massCreditUpdateForm.value}
+                onChange={e => setMassCreditUpdateForm({...massCreditUpdateForm, value: e.target.value})}
+                placeholder="Exemplo: 10"
+                className="w-full border border-slate-300 rounded-xl pl-12 pr-4 py-4 font-black text-xl focus:ring-2 focus:ring-purple-500 dark:border-slate-700"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={handleMassCreditUpdate}
+            className="w-full py-4 bg-purple-600 text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-purple-700 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+          >
+            CONFIRMAR {massCreditUpdateForm.action === 'increase' ? 'AUMENTO' : 'REDUÇÃO'} EM MASSA
           </button>
         </div>
       </Modal>

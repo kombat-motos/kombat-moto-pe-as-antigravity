@@ -48,8 +48,12 @@ interface InventoryTabProps {
   handleBulkDelete: () => void;
   handleImportProducts: (e: any) => void;
   handleDownloadExcel: () => void;
-  setIsQuickInventoryOpen: (open: boolean) => void;
-  setIsMassUpdateModalOpen: (open: boolean) => void;
+  isQuickInventoryOpen: boolean;
+  setIsQuickInventoryOpen: (val: boolean) => void;
+  isMassUpdateModalOpen: boolean;
+  setIsMassUpdateModalOpen: (val: boolean) => void;
+  isMassCreditUpdateModalOpen: boolean;
+  setIsMassCreditUpdateModalOpen: (val: boolean) => void;
   handleEditProduct: (product: Product) => void;
   handleDeleteProduct: (id: number) => void;
   onAddProduct: () => void;
@@ -72,8 +76,12 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   handleBulkDelete,
   handleImportProducts,
   handleDownloadExcel,
+  isQuickInventoryOpen,
   setIsQuickInventoryOpen,
+  isMassUpdateModalOpen,
   setIsMassUpdateModalOpen,
+  isMassCreditUpdateModalOpen,
+  setIsMassCreditUpdateModalOpen,
   handleEditProduct,
   handleDeleteProduct,
   onAddProduct,
@@ -192,6 +200,14 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
           >
             <TrendingUp size={18} />
             Preços em Massa
+          </button>
+
+          <button
+            onClick={() => setIsMassCreditUpdateModalOpen(true)}
+            className="h-10 flex items-center justify-center gap-2 px-4 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all font-medium text-sm whitespace-nowrap shadow-sm"
+          >
+            <TrendingUp size={18} />
+            Preços 30 Dias (Massa)
           </button>
           
           <button
