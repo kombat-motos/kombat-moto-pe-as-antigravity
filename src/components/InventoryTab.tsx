@@ -433,6 +433,11 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                     <div>
                       <p className="text-[9px] text-slate-300 uppercase font-black tracking-tighter line-through">{formatBRL(p.purchase_price)}</p>
                       <p className="text-xl font-black text-slate-900 leading-none dark:text-slate-100">{formatBRL(p.sale_price)}</p>
+                      {p.sale_price_credit && p.sale_price_credit > 0 ? (
+                        <p className="text-[10px] font-bold text-purple-600 mt-1 dark:text-purple-400">
+                          30D: {formatBRL(p.sale_price_credit)}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex gap-1">
                       <button
