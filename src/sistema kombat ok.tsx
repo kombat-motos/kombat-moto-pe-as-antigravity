@@ -423,8 +423,11 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }: any) => (
   </button>
 );
 
-const StatCard = ({ title, value, icon: Icon, color, subtitle }: any) => (
-  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 flex items-start justify-between dark:bg-slate-800 dark:border-slate-700">
+const StatCard = ({ title, value, icon: Icon, color, subtitle, onClick }: any) => (
+  <div 
+    onClick={onClick}
+    className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-400 flex items-start justify-between dark:bg-slate-800 dark:border-slate-700 ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow active:scale-95' : ''}`}
+  >
     <div>
       <p className="text-sm font-medium text-slate-500 mb-1 dark:text-slate-400">{title}</p>
       <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</h3>
