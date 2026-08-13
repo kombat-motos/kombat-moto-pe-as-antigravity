@@ -338,8 +338,14 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <p className="text-[10px] text-slate-300 line-through">{formatBRL(p.purchase_price)}</p>
-                        <p className="font-black text-slate-900 dark:text-slate-100">{formatBRL(p.sale_price)}</p>
+                        <p className="text-[10px] text-slate-300 line-through" title="Preço de Custo">{formatBRL(p.purchase_price)}</p>
+                        <p className="font-black text-slate-900 dark:text-slate-100" title="Preço à Vista">{formatBRL(p.sale_price)}</p>
+                        {p.sale_price_credit && p.sale_price_credit > 0 ? (
+                          <p className="text-[10px] font-bold text-purple-600 dark:text-purple-400 mt-0.5" title="Preço de Crédito (30 Dias)">
+                            <span className="opacity-70 font-normal mr-1">30D:</span>
+                            {formatBRL(p.sale_price_credit)}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-tighter ${p.stock <= 2 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-700'}`}>

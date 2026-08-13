@@ -141,6 +141,11 @@ const ProductCard = React.memo(({
               <span className="text-slate-900 font-black text-2xl tracking-tighter dark:text-slate-100">
                 {formatBRL(product.sale_price)}
               </span>
+              {product.sale_price_credit && product.sale_price_credit > 0 ? (
+                <span className="text-[10px] font-bold text-purple-600 mt-0.5">
+                  ou {formatBRL(product.sale_price_credit)} (30 Dias)
+                </span>
+              ) : null}
             </div>
           </div>
 

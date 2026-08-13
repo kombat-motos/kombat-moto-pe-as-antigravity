@@ -2592,9 +2592,16 @@ export default function App() {
 
                           <div className="mt-3 flex items-baseline justify-between">
                             <span className="text-[8px] font-black text-slate-400 uppercase">Preço</span>
-                            <span className="text-sm font-black text-rose-500 group-hover:text-rose-400 transition-colors">
-                              {formatBRL(product.sale_price)}
-                            </span>
+                            <div className="flex flex-col items-end">
+                              <span className="text-sm font-black text-rose-500 group-hover:text-rose-400 transition-colors">
+                                {formatBRL(product.sale_price)}
+                              </span>
+                              {product.sale_price_credit && product.sale_price_credit > 0 ? (
+                                <span className="text-[9px] font-bold text-purple-400">
+                                  30D: {formatBRL(product.sale_price_credit)}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
                       </div>
