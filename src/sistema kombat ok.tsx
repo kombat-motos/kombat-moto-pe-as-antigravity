@@ -9506,10 +9506,11 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               </div>
 
               {/* Painel Direito (Fixo, Resumo e Observações, 25%) */}
-              <div className="w-full lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col gap-4 h-full">
+              <div className="w-full lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col gap-4 h-full overflow-hidden">
                 
-                {/* Serviço Principal Card */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-3 shrink-0 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                <div className="flex-1 overflow-y-auto flex flex-col gap-4 pr-1 custom-scrollbar min-h-0">
+                  {/* Serviço Principal Card */}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-3 shrink-0 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block flex items-center gap-1"><Wrench size={12}/> Serviço Principal</span>
                     <button 
@@ -9650,7 +9651,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 )}
 
                 {/* Observações - Flex-1 (rolagem permitida aqui internamente) */}
-                <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden min-h-[100px] shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                <div className="flex-none flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden min-h-[100px] shadow-sm dark:bg-slate-800 dark:border-slate-700">
                   <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 shrink-0 dark:bg-slate-900 dark:border-slate-700">
                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5 dark:text-slate-400"><FileText size={12}/> Observações</span>
                   </div>
@@ -9660,6 +9661,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     value={osForm.service_description}
                     onChange={e => setOsForm({ ...osForm, service_description: e.target.value })}
                   />
+                </div>
                 </div>
 
                 {/* Resumo Financeiro Premium (Fixo na parte inferior) */}
