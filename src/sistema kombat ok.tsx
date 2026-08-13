@@ -10827,10 +10827,10 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
       <Modal isOpen={isOpenMotosModal} onClose={() => setIsOpenMotosModal(false)} title="Motos em Aberto (Revisões Pendentes)">
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-          {generalSales.filter((s: any) => s.type === 'Oficina' && s.status !== 'Entregue').length === 0 ? (
+          {sales.filter((s: any) => s.type === 'Oficina' && s.status !== 'Entregue').length === 0 ? (
             <p className="text-center text-slate-500 py-4 font-medium">Nenhuma moto em espera no momento.</p>
           ) : (
-            generalSales.filter((s: any) => s.type === 'Oficina' && s.status !== 'Entregue').map((os: any) => (
+            sales.filter((s: any) => s.type === 'Oficina' && s.status !== 'Entregue').map((os: any) => (
               <div key={os.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/50 flex flex-col gap-2 transition-all hover:border-amber-300">
                 <div className="flex justify-between items-start">
                   <div>
