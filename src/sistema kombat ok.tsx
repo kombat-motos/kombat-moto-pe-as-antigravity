@@ -2079,6 +2079,22 @@ export default function App() {
     }
   };
 
+  const handleUpdateOSStatus = async (osId: string, newStatus: string) => {
+    try {
+      const osToUpdate = sales.find(s => s.id === osId);
+      if (!osToUpdate) return;
+      
+      const updatedOS = { ...osToUpdate, status: newStatus };
+      
+      await localApi.put('sales', osId, updatedOS);
+      
+      setSales(sales.map(s => s.id === osId ? updatedOS : s));
+    } catch (error: any) {
+      console.error('Error updating OS status:', error);
+      alert('Erro ao atualizar status: ' + (error.message || 'Erro no servidor'));
+    }
+  };
+
   const handleEditOS = (os: Sale) => {
     setEditingOS(os);
 
@@ -6884,6 +6900,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     setSelectedSaleForOS={setSelectedSaleForOS}
                     setSelectedSaleForReceipt={setSelectedSaleForReceipt}
                     handleSendSaleWhatsApp={handleSendSaleWhatsApp}
+                    handleUpdateOSStatus={handleUpdateOSStatus}
                   />
                 )}
                 {activeTab === 'financial' && (

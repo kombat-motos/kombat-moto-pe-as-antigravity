@@ -51,6 +51,7 @@ interface OSTabProps {
   setSelectedSaleForOS: (os: Sale) => void;
   setSelectedSaleForReceipt: (os: Sale) => void;
   handleSendSaleWhatsApp: (sale: Sale) => void;
+  handleUpdateOSStatus?: (osId: string, status: string) => void;
 }
 
 const OSTab: React.FC<OSTabProps> = ({
@@ -66,7 +67,8 @@ const OSTab: React.FC<OSTabProps> = ({
   handleEditOS,
   setSelectedSaleForOS,
   setSelectedSaleForReceipt,
-  handleSendSaleWhatsApp
+  handleSendSaleWhatsApp,
+  handleUpdateOSStatus
 }) => {
   const osSales = sales.filter(s => s.type === 'Oficina');
 
@@ -175,7 +177,19 @@ const OSTab: React.FC<OSTabProps> = ({
               <div className="text-right">
                 <p className="text-xs text-slate-400 uppercase font-bold mb-1">Total da O.S.</p>
                 <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{formatBRL(os.total)}</p>
-                <div className="flex gap-2 mt-4 justify-end">
+                <div className="flex gap-2 mt-4 justify-end items-center">
+                  {handleUpdateOSStatus && (
+                    <select
+                      value={os.status || 'Aberto'}
+                      onChange={(e) => handleUpdateOSStatus(os.id, e.target.value)}
+                      className="mr-2 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-amber-500/20 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300"
+                    >
+                      <option value="Aberto">Aberto</option>
+                      <option value="Em Andamento">Em Andamento</option>
+                      <option value="Pronto">Pronto</option>
+                      <option value="Entregue">Entregue</option>
+                    </select>
+                  )}
                   <button
                     onClick={() => handleEditOS(os)}
                     className="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-100 transition-colors flex items-center gap-1 border border-slate-400 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-700"
