@@ -89,14 +89,14 @@ interface Customer {
   id: number;
   name: string;
   nickname?: string;
-  cpf?: string;
-  cnpj?: string; // CNPJ is optional
-  whatsapp?: string;
-  address?: string;
-  neighborhood?: string;
-  city?: string; // City is optional
-  zip_code?: string;
-  credit_limit: number;
+  cpf: string;
+  cnpj?: string;
+  whatsapp: string;
+  address: string;
+  neighborhood: string;
+  city: string;
+  zip_code: string;
+  credit_limit?: number;
   fine_rate?: number;
   interest_rate?: number;
   image_url?: string;
@@ -109,6 +109,7 @@ interface Motorcycle {
   plate: string;
   model: string;
   current_km: number;
+  brand?: string;
 }
 
 interface Product {
@@ -196,6 +197,10 @@ interface Sale {
   whatsapp?: string;
   status?: 'Aberto' | 'Em Andamento' | 'Pronto' | 'Entregue';
   charge_type?: 'vista' | 'credito_30_dias';
+  km?: string;
+  selected_fixed_services?: any[];
+  motorcycle_id?: string | number;
+  delivery_date?: string;
 }
 
 interface QuoteItem {
@@ -880,6 +885,7 @@ export default function App() {
     sale_condition: 'Vista' | 'Prazo';
     installments: number;
     discount: number;
+    charge_type?: 'vista' | 'credito_30_dias';
   }>({
     customer_id: '',
     mechanic_id: '',
@@ -917,6 +923,7 @@ export default function App() {
     due_date: string;
     service_description: string;
     km: string;
+    charge_type?: 'vista' | 'credito_30_dias';
   }>({
     customer_id: '',
     motorcycle_id: '',

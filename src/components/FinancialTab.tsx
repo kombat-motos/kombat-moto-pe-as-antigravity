@@ -14,25 +14,33 @@ interface SaleItem {
   description: string;
   quantity: number;
   price: number;
-  type?: 'Peça' | 'Serviço';
-  total: number;
+  type?: 'Peça' | 'Serviço' | 'Serviço Principal' | 'Adicional Interno';
 }
 
 interface Sale {
   id: string;
+  user_id?: string;
   customer_id?: number;
   customer_name: string;
-  date: string;
+  items: SaleItem[];
+  sale_items?: SaleItem[];
+  labor_value: number;
+  mechanic_id?: string;
+  mechanic_name?: string;
+  commission: number;
   total: number;
-  payment_method: string;
-  payment_status: string;
+  payment_method: 'Pix' | 'Cartão' | 'Dinheiro' | 'Fiado';
+  type: 'Balcão' | 'Oficina';
+  date: string;
+  moto_details?: string;
+  payment_status: 'Pago' | 'Pendente';
   due_date?: string;
   paid_date?: string;
   paid_total?: number;
-  items: SaleItem[];
-  labor_value: number;
   service_description?: string;
-  type: string;
+  whatsapp?: string;
+  status?: 'Aberto' | 'Em Andamento' | 'Pronto' | 'Entregue';
+  charge_type?: 'vista' | 'credito_30_dias';
 }
 
 interface Product {
@@ -41,6 +49,7 @@ interface Product {
   purchase_price: number;
   sale_price: number;
   stock: number;
+  [key: string]: any;
 }
 
 interface Customer {
@@ -48,6 +57,7 @@ interface Customer {
   name: string;
   whatsapp?: string;
   credit_limit?: number;
+  [key: string]: any;
 }
 
 interface FinancialTabProps {

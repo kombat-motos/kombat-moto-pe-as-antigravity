@@ -44,6 +44,7 @@ interface ProfessionalCatalogProps {
   products: Product[];
   onClose: () => void;
   initialSearch?: string;
+  isOpen?: boolean;
 }
 
 // ─── CARD DE PRODUTO — div simples com CSS transitions (sem Framer Motion) ───
