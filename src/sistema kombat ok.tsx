@@ -9194,7 +9194,33 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   <select
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
                     value={osForm.payment_method}
-                    onChange={e => setOsForm({ ...osForm, payment_method: e.target.value as any })}
+                    onChange={e => {
+                      const method = e.target.value as any;
+                      let newItems = osForm.items;
+                      let newChargeType = osForm.charge_type;
+                      
+                      if (method === 'Fiado') {
+                        newChargeType = 'credito_30_dias';
+                        if (osForm.items.length > 0 && window.confirm('Deseja recalcular as peças da OS para a tabela de 30 Dias (Crédito)?')) {
+                          newItems = osForm.items.map(item => {
+                            const product = products.find(p => p.id === item.product_id);
+                            if (product) {
+                              const newPrice = product.sale_price_credit ? product.sale_price_credit : product.sale_price;
+                              return { ...item, price: newPrice };
+                            }
+                            return item;
+                          });
+                        }
+                      }
+                      
+                      setOsForm({ 
+                        ...osForm, 
+                        payment_method: method,
+                        charge_type: newChargeType,
+                        items: newItems,
+                        due_date: method === 'Fiado' && !osForm.due_date ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : osForm.due_date
+                      });
+                    }}
                   >
                     <option value="Pix">Pix</option>
                     <option value="Cartão">Cartão</option>
