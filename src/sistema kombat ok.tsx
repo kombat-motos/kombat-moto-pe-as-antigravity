@@ -11320,9 +11320,9 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total dos Serviços</p>
                     <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2 dark:text-slate-100 dark:border-slate-700">R$ {isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
                   </div>
-                  <div className="bg-black text-white p-6 rounded-2xl text-right w-full">
-                    <p className="text-xs font-black uppercase tracking-[0.2em] mb-2">Total Geral do Orçamento</p>
-                    <p className="text-4xl font-black text-rose-500">R$ {isPrintingQuote.total_value.toFixed(2)}</p>
+                  <div className="bg-black text-white p-6 rounded-2xl text-right w-full print:bg-transparent print:border-2 print:border-black print:text-black print:p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] mb-2 print:text-black">Total Geral do Orçamento</p>
+                    <p className="text-4xl font-black text-rose-500 print:text-black">R$ {isPrintingQuote.total_value.toFixed(2)}</p>
                   </div>
                 </div>
               </div>
