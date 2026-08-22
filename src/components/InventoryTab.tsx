@@ -13,7 +13,8 @@ import {
   RefreshCw,
   Image as ImageIcon,
   Share2,
-  FileText
+  FileText,
+  Copy
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -55,6 +56,7 @@ interface InventoryTabProps {
   isMassCreditUpdateModalOpen: boolean;
   setIsMassCreditUpdateModalOpen: (val: boolean) => void;
   handleEditProduct: (product: Product) => void;
+  handleCloneProduct: (product: Product) => void;
   handleDeleteProduct: (id: number) => void;
   onAddProduct: () => void;
   setSelectedProductDetail: (product: Product | null) => void;
@@ -83,6 +85,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   isMassCreditUpdateModalOpen,
   setIsMassCreditUpdateModalOpen,
   handleEditProduct,
+  handleCloneProduct,
   handleDeleteProduct,
   onAddProduct,
   setSelectedProductDetail,
@@ -355,6 +358,13 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
+                            onClick={() => handleCloneProduct(p)}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                            title="Clonar"
+                          >
+                            <Copy size={18} />
+                          </button>
+                          <button
                             onClick={() => handleEditProduct(p)}
                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
                             title="Editar"
@@ -440,6 +450,13 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
                       ) : null}
                     </div>
                     <div className="flex gap-1">
+                      <button
+                        onClick={() => handleCloneProduct(p)}
+                        className="p-2.5 bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-slate-100 dark:bg-slate-900"
+                        title="Clonar"
+                      >
+                        <Copy size={18} />
+                      </button>
                       <button
                         onClick={() => handleEditProduct(p)}
                         className="p-2.5 bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-slate-100 dark:bg-slate-900"

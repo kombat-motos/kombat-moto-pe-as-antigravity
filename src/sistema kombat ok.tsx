@@ -4724,6 +4724,31 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
     setIsProductModalOpen(true);
   };
 
+  const handleCloneProduct = (product: Product) => {
+    setEditingProduct(null);
+    setProductForm({
+      description: `${product.description} (Cópia)`,
+      sku: '',
+      barcode: '',
+      purchase_price: product.purchase_price.toString(),
+      sale_price: product.sale_price.toString(),
+      sale_price_credit: product.sale_price_credit ? product.sale_price_credit.toString() : '',
+      stock: '0',
+      unit: product.unit || 'Unitário',
+      image_url: product.image_url || '',
+      image_url2: product.image_url2 || '',
+      image_url3: product.image_url3 || '',
+      image_url4: product.image_url4 || '',
+      category: product.category || categorizeProduct(product.description),
+      brand: product.brand || '',
+      location: product.location || '',
+      application: product.application || '',
+      distributor: product.distributor || '',
+      alt_code: product.alt_code || ''
+    });
+    setIsProductModalOpen(true);
+  };
+
   const handleProductImageUpload = async (productId: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -6912,6 +6937,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     isMassCreditUpdateModalOpen={isMassCreditUpdateModalOpen}
                     setIsMassCreditUpdateModalOpen={setIsMassCreditUpdateModalOpen}
                     handleEditProduct={handleEditProduct}
+                    handleCloneProduct={handleCloneProduct}
                     handleDeleteProduct={handleDeleteProduct}
                     onAddProduct={() => {
                       setEditingProduct(null);
