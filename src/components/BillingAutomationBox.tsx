@@ -192,7 +192,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
         if (content) {
           const win = window.open('', '', 'height=800,width=800');
           win?.document.write('<html><head><title>Imprimir / Salvar em PDF</title>');
-          win?.document.write('<style>@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } @page { margin: 10mm; } .promissory { page-break-inside: avoid; break-inside: avoid; margin-bottom: 20px; border-bottom: 1px dashed #ccc; padding-bottom: 20px; } }</style>');
+          win?.document.write('<style>@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } } @page { size: A4 portrait; margin: 6mm; } .promissory-page { width: 100%; display: flex; flex-direction: column; gap: 2mm; align-items: stretch; } .promissory-note { width: 100%; height: 88mm; max-height: 88mm; box-sizing: border-box; padding: 4mm; margin: 0; overflow: hidden; break-inside: avoid; page-break-inside: avoid; border-bottom: 1px dashed #000; } .promissory-note * { box-sizing: border-box; } .promissory-note p { margin: 1mm 0; line-height: 1.25; } .promissory-note .section { margin: 2mm 0; padding: 0; } .promissory-note .issuer-data { margin-top: 2mm; padding: 2mm; line-height: 1.2; min-height: 0; height: auto; border: 1px solid #333; } .promissory-note .signature { margin-top: 3mm; padding-top: 0; text-align: center; } .promissory-note .legal-footer { margin-top: 2mm; padding-top: 1mm; line-height: 1.1; text-align: center; font-size: 7px; font-weight: bold; }</style>');
           win?.document.write('</head><body style="margin:0;padding:0;font-family: Arial, sans-serif;">');
           win?.document.write(content.innerHTML);
           win?.document.write('</body></html>');
@@ -636,63 +636,72 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
 
       {/* Template da Nota Promissória (Invisível no Normal, Visível no Print) */}
       <div id="promissory-note-print" style={{ display: 'none' }}>
-        {selectedPromissory && selectedPromissory.credits && selectedPromissory.credits.map((credit: any, index: number) => {
-          const parcelValue = credit.original_value;
-          
-          return (
-          <div key={credit.id || index} className="promissory" style={{
-            width: '100%',
-            maxWidth: '18cm',
-            padding: '1.5cm',
-            backgroundColor: '#ffffff',
-            border: '2px solid #333',
-            color: '#000',
-            fontFamily: 'serif',
-            position: 'relative',
-            margin: '0 auto',
-            boxSizing: 'border-box'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #333', paddingBottom: '10px', marginBottom: '20px' }}>
-              <div>
-                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold', letterSpacing: '2px' }}>NOTA PROMISSÓRIA</h1>
-                <div style={{ fontSize: '12px', marginTop: '5px', fontWeight: 'bold' }}>Nº {credit.identifier || `VENDA-${selectedPromissory.id.substring(0, 8).toUpperCase()}-${String(credit.parcel_number).padStart(2, '0')}`}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '14px', marginBottom: '5px' }}>Parcela <strong>{credit.parcel_number}</strong> de <strong>{credit.total_parcels}</strong></div>
-                <div style={{ border: '2px solid #333', padding: '5px 15px', fontWeight: 'bold', fontSize: '18px' }}>
-                  VENCIMENTO: {credit.due_date ? format(new Date(credit.due_date), 'dd/MM/yyyy') : '___/___/_____'}
+        {selectedPromissory && selectedPromissory.credits && (
+          <div className="promissory-page">
+            {selectedPromissory.credits.map((credit: any, index: number) => {
+              const parcelValue = credit.original_value;
+              return (
+                <div key={credit.id || index} className="promissory-note" style={{ position: 'relative' }}>
+                  
+                  {/* First row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #333', paddingBottom: '2px', marginBottom: '4px' }}>
+                    <div>
+                      <h1 style={{ margin: 0, fontSize: '12px', fontWeight: 'bold' }}>NOTA PROMISSÓRIA</h1>
+                      <div style={{ fontSize: '8px', marginTop: '2px', fontWeight: 'bold' }}>Nº {credit.identifier || `VENDA-${selectedPromissory.id.substring(0, 8).toUpperCase()}-${String(credit.parcel_number).padStart(2, '0')}`}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '8px', marginBottom: '2px' }}>Parcela <strong>{credit.parcel_number}</strong> de <strong>{credit.total_parcels}</strong></div>
+                      <div style={{ fontSize: '9px', fontWeight: 'bold' }}>
+                        VENCIMENTO: {credit.due_date ? format(new Date(credit.due_date), 'dd/MM/yyyy') : '___/___/_____'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Second row */}
+                  <div className="section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #ccc', paddingBottom: '2px' }}>
+                    <div style={{ fontSize: '9px', fontWeight: 'bold', whiteSpace: 'nowrap', marginRight: '10px' }}>
+                      R$ {parcelValue.toFixed(2)}
+                    </div>
+                    <div style={{ fontSize: '8px', fontStyle: 'italic', flex: 1, textAlign: 'left' }}>
+                      ({valorPorExtenso(parcelValue)})
+                    </div>
+                  </div>
+
+                  {/* Body Text */}
+                  <div className="section" style={{ fontSize: '8px', textAlign: 'justify' }}>
+                    <p>
+                      Ao(s) <strong>{credit.due_date ? format(new Date(credit.due_date), 'dd') : '___'}</strong> dias do mês de <strong>{credit.due_date ? format(new Date(credit.due_date), 'MMMM', { locale: ptBR }) : '________________'}</strong> do ano de <strong>{credit.due_date ? format(new Date(credit.due_date), 'yyyy') : '_______'}</strong>, pagarei por esta única via de NOTA PROMISSÓRIA a <strong>KOMBAT MOTO PEÇAS</strong> ou à sua ordem, a quantia acima estipulada em moeda corrente deste país.
+                    </p>
+                  </div>
+
+                  {/* Issuer data */}
+                  <div className="issuer-data" style={{ fontSize: '8px' }}>
+                    <div style={{ marginBottom: '1px' }}><strong>EMITENTE:</strong> {selectedPromissory.customer_name.toUpperCase()}</div>
+                    <div style={{ marginBottom: '1px' }}><strong>CPF/CNPJ:</strong> {customers.find(c => c.id === selectedPromissory.customer_id)?.cpf || '____________________'}</div>
+                    <div style={{ marginBottom: '0' }}><strong>ENDEREÇO:</strong> {customers.find(c => c.id === selectedPromissory.customer_id)?.address || '________________________________________________'}</div>
+                  </div>
+
+                  {/* Local and date */}
+                  <div style={{ fontSize: '8px', marginTop: '4px', textAlign: 'right' }}>
+                    Emitido em: {format(new Date(), 'dd/MM/yyyy HH:mm')}
+                  </div>
+
+                  {/* Signature */}
+                  <div className="signature" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ width: '60%', borderTop: '1px solid #000', marginBottom: '2px' }}></div>
+                    <div style={{ fontSize: '8px', fontWeight: 'bold' }}>ASSINATURA DO EMITENTE</div>
+                  </div>
+
+                  {/* Legal Footer */}
+                  <div className="legal-footer" style={{ borderTop: '1px dashed #ccc' }}>
+                    ATENÇÃO: APÓS 90 DIAS DE ATRASO, ESTE TÍTULO PODERÁ SER ENCAMINHADO PARA PROTESTO, COBRANÇA E EXECUÇÃO JUDICIAL.
+                  </div>
+                  
                 </div>
-              </div>
-            </div>
-
-            <div style={{ fontSize: '16px', lineHeight: '1.8', textAlign: 'justify', minHeight: '120px' }}>
-              Ao(s) <strong>{credit.due_date ? format(new Date(credit.due_date), 'dd') : '___'}</strong> dias do mês de <strong>{credit.due_date ? format(new Date(credit.due_date), 'MMMM', { locale: ptBR }) : '________________'}</strong> do ano de <strong>{credit.due_date ? format(new Date(credit.due_date), 'yyyy') : '_______'}</strong>, 
-              pagarei por esta única via de NOTA PROMISSÓRIA a <strong>KOMBAT MOTO PEÇAS</strong> ou à sua ordem, a quantia de 
-              <strong> R$ {parcelValue.toFixed(2)}</strong> (<em>{valorPorExtenso(parcelValue)}</em>), 
-              em moeda corrente deste país.
-            </div>
-
-            <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #333' }}>
-              <div style={{ marginBottom: '10px' }}><strong>EMITENTE:</strong> {selectedPromissory.customer_name.toUpperCase()}</div>
-              <div style={{ marginBottom: '10px' }}><strong>CPF/CNPJ:</strong> {customers.find(c => c.id === selectedPromissory.customer_id)?.cpf || '____________________'}</div>
-              <div style={{ marginBottom: '10px' }}><strong>ENDEREÇO:</strong> {customers.find(c => c.id === selectedPromissory.customer_id)?.address || '________________________________________________'}</div>
-            </div>
-
-            <div style={{ marginTop: '50px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: '400px', borderTop: '1px solid #000', marginBottom: '5px' }}></div>
-              <div style={{ fontSize: '12px', fontWeight: 'bold' }}>ASSINATURA DO EMITENTE</div>
-            </div>
-
-            <div style={{ marginTop: '30px', textAlign: 'center', fontSize: '10px', fontWeight: 'bold', borderTop: '1px dashed #ccc', paddingTop: '10px' }}>
-              ATENÇÃO: APÓS 90 DIAS DE ATRASO, ESTE TÍTULO PODERÁ SER ENCAMINHADO PARA PROTESTO, COBRANÇA E EXECUÇÃO JUDICIAL.
-            </div>
-
-            <div style={{ position: 'absolute', bottom: '5px', right: '15px', fontSize: '9px', color: '#888' }}>
-              Emitido em {format(new Date(), 'dd/MM/yyyy HH:mm')}
-            </div>
+              );
+            })}
           </div>
-          );
-        })}
+        )}
       </div>
     </motion.div>
   );
