@@ -165,25 +165,49 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
     );
   }, [pendingSales, searchTerm, filterOverdue]);
 
-  const handlePrintPromissory = (sale: any, totalWithCharges: number) => {
-    setSelectedPromissory({ ...sale, totalWithCharges });
-    setTimeout(() => {
-      const content = document.getElementById('promissory-note-print');
-      if (content) {
-        const win = window.open('', '', 'height=600,width=800');
-        win?.document.write('<html><head><title>Nota de Cobrança</title>');
-        win?.document.write('<style>@media print { body { -webkit-print-color-adjust: exact; } }</style>');
-        win?.document.write('</head><body style="margin:0;padding:20px;font-family:sans-serif;">');
-        win?.document.write(content.innerHTML);
-        win?.document.write('</body></html>');
-        win?.document.close();
-        win?.focus();
-        setTimeout(() => {
-          win?.print();
-          win?.close();
-        }, 250);
+  const handlePrintPromissory = async (sale: any, totalWithCharges: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/credit', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!res.ok) throw new Error('Erro ao buscar parcelas');
+      
+      const allCredits = await res.json();
+      let saleCredits = allCredits.filter((c: any) => c.sale_id === sale.id);
+
+      if (saleCredits.length === 0) {
+        alert("Nenhuma parcela encontrada para esta venda. Salve a venda no PDV/OS com a opção Fiado antes de imprimir.");
+        return;
       }
-    }, 100);
+      
+      saleCredits.sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+      
+      setSelectedPromissory({ ...sale, totalWithCharges, credits: saleCredits });
+      
+      setTimeout(() => {
+        const content = document.getElementById('promissory-note-print');
+        if (content) {
+          const win = window.open('', '', 'height=800,width=800');
+          win?.document.write('<html><head><title>Imprimir / Salvar em PDF</title>');
+          win?.document.write('<style>@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } @page { margin: 10mm; } .promissory { page-break-inside: avoid; break-inside: avoid; margin-bottom: 20px; border-bottom: 1px dashed #ccc; padding-bottom: 20px; } }</style>');
+          win?.document.write('</head><body style="margin:0;padding:0;font-family: Arial, sans-serif;">');
+          win?.document.write(content.innerHTML);
+          win?.document.write('</body></html>');
+          win?.document.close();
+          win?.focus();
+          setTimeout(() => {
+            win?.print();
+            win?.close();
+          }, 500);
+        }
+      }, 300);
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao gerar promissória.');
+    }
   };
 
   const getCustomerWhatsapp = (customerId?: number) => {
@@ -612,90 +636,63 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
 
       {/* Template da Nota Promissória (Invisível no Normal, Visível no Print) */}
       <div id="promissory-note-print" style={{ display: 'none' }}>
-        {selectedPromissory && (
-          <div style={{
+        {selectedPromissory && selectedPromissory.credits && selectedPromissory.credits.map((credit: any, index: number) => {
+          const parcelValue = credit.original_value;
+          
+          return (
+          <div key={credit.id || index} className="promissory" style={{
             width: '100%',
             maxWidth: '18cm',
             padding: '1.5cm',
-            backgroundColor: '#fffbe6',
-            border: '2px solid #5d4037',
-            borderRadius: '8px',
-            color: '#2d2d2d',
+            backgroundColor: '#ffffff',
+            border: '2px solid #333',
+            color: '#000',
             fontFamily: 'serif',
             position: 'relative',
-            margin: '0 auto'
+            margin: '0 auto',
+            boxSizing: 'border-box'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #5d4037', paddingBottom: '10px', marginBottom: '20px' }}>
-              <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', letterSpacing: '2px' }}>NOTA DE COBRANÇA</h1>
-              <div style={{ border: '2px solid #5d4037', padding: '5px 15px', fontWeight: 'bold' }}>
-                VENCIMENTO: {selectedPromissory.due_date ? format(new Date(selectedPromissory.due_date), 'dd/MM/yyyy') : '___/___/_____'}
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #333', paddingBottom: '10px', marginBottom: '20px' }}>
+              <div>
+                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold', letterSpacing: '2px' }}>NOTA PROMISSÓRIA</h1>
+                <div style={{ fontSize: '12px', marginTop: '5px', fontWeight: 'bold' }}>Nº {credit.identifier || `VENDA-${selectedPromissory.id.substring(0, 8).toUpperCase()}-${String(credit.parcel_number).padStart(2, '0')}`}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '14px', marginBottom: '5px' }}>Parcela <strong>{credit.parcel_number}</strong> de <strong>{credit.total_parcels}</strong></div>
+                <div style={{ border: '2px solid #333', padding: '5px 15px', fontWeight: 'bold', fontSize: '18px' }}>
+                  VENCIMENTO: {credit.due_date ? format(new Date(credit.due_date), 'dd/MM/yyyy') : '___/___/_____'}
+                </div>
               </div>
             </div>
 
-            <div style={{ fontSize: '18px', lineHeight: '1.8', textAlign: 'justify' }}>
-              Referente ao título de ID <strong>#{selectedPromissory.id.substring(0, 8).toUpperCase()}</strong>,
-              registramos que o valor pendente atualizado para pagamento é de 
-              <strong> R$ {(selectedPromissory.totalWithCharges || selectedPromissory.total).toFixed(2)}</strong> (<em>{valorPorExtenso(selectedPromissory.totalWithCharges || selectedPromissory.total)}</em>).
-              {selectedPromissory.totalWithCharges > selectedPromissory.total && (
-                <span> Este valor já inclui multa e juros por atraso calculados até a presente data.</span>
-              )}
+            <div style={{ fontSize: '16px', lineHeight: '1.8', textAlign: 'justify', minHeight: '120px' }}>
+              Ao(s) <strong>{credit.due_date ? format(new Date(credit.due_date), 'dd') : '___'}</strong> dias do mês de <strong>{credit.due_date ? format(new Date(credit.due_date), 'MMMM', { locale: ptBR }) : '________________'}</strong> do ano de <strong>{credit.due_date ? format(new Date(credit.due_date), 'yyyy') : '_______'}</strong>, 
+              pagarei por esta única via de NOTA PROMISSÓRIA a <strong>KOMBAT MOTO PEÇAS</strong> ou à sua ordem, a quantia de 
+              <strong> R$ {parcelValue.toFixed(2)}</strong> (<em>{valorPorExtenso(parcelValue)}</em>), 
+              em moeda corrente deste país.
             </div>
 
-            <div style={{ marginTop: '15px', border: '1px solid #eee', padding: '10px', fontSize: '14px' }}>
-              <strong style={{ display: 'block', borderBottom: '1px solid #eee', paddingBottom: '5px', marginBottom: '5px' }}>DESCRIÇÃO DOS ITENS E SERVIÇOS</strong>
-              {(selectedPromissory?.items || selectedPromissory?.sale_items || []).map((item: any, idx: number) => (
-                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                  <span>{item.quantity}x {item.description}</span>
-                  <span>R$ {(item.quantity * item.price).toFixed(2)}</span>
-                </div>
-              ))}
-              {selectedPromissory.labor_value > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginTop: '5px', borderTop: '1px dashed #eee', paddingTop: '5px' }}>
-                  <span>SERVIÇOS / MÃO DE OBRA</span>
-                  <span>R$ {selectedPromissory.labor_value.toFixed(2)}</span>
-                </div>
-              )}
-            </div>
-
-            <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #dcdcdc', backgroundColor: '#fff' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                <span>Valor Original:</span>
-                <span>R$ {selectedPromissory.total.toFixed(2)}</span>
-              </div>
-              {selectedPromissory.paid_total > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', color: '#10b981' }}>
-                  <span>Total Já Pago:</span>
-                  <span>- R$ {selectedPromissory.paid_total.toFixed(2)}</span>
-                </div>
-              )}
-              {selectedPromissory.totalWithCharges > (selectedPromissory.total - (selectedPromissory.paid_total || 0)) && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', color: '#ef4444' }}>
-                  <span>Encargos (Atraso):</span>
-                  <span>+ R$ {(selectedPromissory.totalWithCharges - (selectedPromissory.total - (selectedPromissory.paid_total || 0))).toFixed(2)}</span>
-                </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', borderTop: '2px solid #eee', paddingTop: '10px', fontWeight: 'bold', fontSize: '20px' }}>
-                <span>SALDO PARA PAGAMENTO:</span>
-                <span>R$ {(selectedPromissory.totalWithCharges || selectedPromissory.total).toFixed(2)}</span>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '40px', padding: '15px', border: '1px solid #dcdcdc' }}>
+            <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #333' }}>
               <div style={{ marginBottom: '10px' }}><strong>EMITENTE:</strong> {selectedPromissory.customer_name.toUpperCase()}</div>
               <div style={{ marginBottom: '10px' }}><strong>CPF/CNPJ:</strong> {customers.find(c => c.id === selectedPromissory.customer_id)?.cpf || '____________________'}</div>
               <div style={{ marginBottom: '10px' }}><strong>ENDEREÇO:</strong> {customers.find(c => c.id === selectedPromissory.customer_id)?.address || '________________________________________________'}</div>
             </div>
 
-            <div style={{ marginTop: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: '300px', borderTop: '1px solid #000', marginBottom: '5px' }}></div>
+            <div style={{ marginTop: '50px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ width: '400px', borderTop: '1px solid #000', marginBottom: '5px' }}></div>
               <div style={{ fontSize: '12px', fontWeight: 'bold' }}>ASSINATURA DO EMITENTE</div>
             </div>
 
-            <div style={{ position: 'absolute', bottom: '10px', right: '20px', fontSize: '10px', color: '#888' }}>
-              ID: {selectedPromissory.id} - Emitido em {format(new Date(), 'dd/MM/yyyy HH:mm')}
+            <div style={{ marginTop: '30px', textAlign: 'center', fontSize: '10px', fontWeight: 'bold', borderTop: '1px dashed #ccc', paddingTop: '10px' }}>
+              ATENÇÃO: APÓS 90 DIAS DE ATRASO, ESTE TÍTULO PODERÁ SER ENCAMINHADO PARA PROTESTO, COBRANÇA E EXECUÇÃO JUDICIAL.
+            </div>
+
+            <div style={{ position: 'absolute', bottom: '5px', right: '15px', fontSize: '9px', color: '#888' }}>
+              Emitido em {format(new Date(), 'dd/MM/yyyy HH:mm')}
             </div>
           </div>
-        )}
+          );
+        })}
       </div>
     </motion.div>
   );

@@ -962,6 +962,7 @@ export default function App() {
     service_description: string;
     km: string;
     charge_type?: 'vista' | 'credito_30_dias';
+    installments?: number;
   }>({
     customer_id: '',
     motorcycle_id: '',
@@ -976,7 +977,8 @@ export default function App() {
     status: 'Aberto' as 'Aberto' | 'Em Andamento' | 'Pronto' | 'Entregue',
     due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     service_description: '',
-    km: ''
+    km: '',
+    installments: 1
   });
   const [newInternalServiceDesc, setNewInternalServiceDesc] = useState('');
   const [newInternalServicePrice, setNewInternalServicePrice] = useState('');
@@ -2095,7 +2097,8 @@ export default function App() {
       await localApi.post('sales', {
         ...newSale,
         sale_items: finalItems,
-        charge_type: pdvForm.charge_type
+        charge_type: pdvForm.charge_type,
+        installments: pdvForm.installments
       });
 
       setSales([newSale, ...sales]);
@@ -2344,7 +2347,8 @@ export default function App() {
           sale_items: finalItems,
           motorcycle_id: motorcycle?.id,
           motorcycle_km: parseInt(osForm.km) || 0,
-          charge_type: osForm.charge_type
+          charge_type: osForm.charge_type,
+          installments: osForm.installments
         });
       } else {
         await localApi.post('sales', {
@@ -2368,7 +2372,8 @@ export default function App() {
           sale_items: finalItems,
           motorcycle_id: motorcycle?.id,
           motorcycle_km: parseInt(osForm.km) || 0,
-          charge_type: osForm.charge_type
+          charge_type: osForm.charge_type,
+          installments: osForm.installments
         });
       }
 
@@ -8355,14 +8360,27 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   )}
 
                   {pdvForm.payment_method === 'Fiado' && (
-                    <div className="p-4 bg-amber-50/50 border border-amber-200/50 rounded-2xl dark:bg-amber-950/20 dark:border-amber-900/30 animate-in fade-in duration-200">
-                      <label className="block text-xs uppercase font-black text-amber-700 dark:text-amber-400 mb-1.5">Data de Vencimento</label>
-                      <input
-                        type="date"
-                        className="w-full px-4 py-2 bg-white border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none font-bold text-slate-950 dark:bg-slate-800 dark:border-amber-800 dark:text-slate-100"
-                        value={pdvForm.due_date}
-                        onChange={e => setPdvForm({ ...pdvForm, due_date: e.target.value })}
-                      />
+                    <div className="p-4 bg-amber-50/50 border border-amber-200/50 rounded-2xl dark:bg-amber-950/20 dark:border-amber-900/30 animate-in fade-in duration-200 flex flex-col gap-3">
+                      <div>
+                        <label className="block text-xs uppercase font-black text-amber-700 dark:text-amber-400 mb-1.5">Data de Vencimento da 1ª Parcela</label>
+                        <input
+                          type="date"
+                          className="w-full px-4 py-2 bg-white border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none font-bold text-slate-950 dark:bg-slate-800 dark:border-amber-800 dark:text-slate-100"
+                          value={pdvForm.due_date}
+                          onChange={e => setPdvForm({ ...pdvForm, due_date: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs uppercase font-black text-amber-700 dark:text-amber-400 mb-1.5">Número de Parcelas</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="24"
+                          className="w-full px-4 py-2 bg-white border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none font-bold text-slate-950 dark:bg-slate-800 dark:border-amber-800 dark:text-slate-100"
+                          value={pdvForm.installments || 1}
+                          onChange={e => setPdvForm({ ...pdvForm, installments: parseInt(e.target.value) || 1 })}
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -9297,14 +9315,27 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     <option value="Fiado">Fiado</option>
                   </select>
                   {osForm.payment_method === 'Fiado' && (
-                    <div className="absolute left-0 top-[100%] mt-2 w-full bg-white p-3 border border-slate-200 shadow-2xl rounded-xl z-50 dark:bg-slate-800 dark:border-slate-700">
-                      <label className="block text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5">Data Limite</label>
-                      <input
-                        type="date"
-                        className="w-full px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-xs font-bold text-rose-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800"
-                        value={osForm.due_date || ''}
-                        onChange={e => setOsForm({ ...osForm, due_date: e.target.value })}
-                      />
+                    <div className="absolute left-0 top-[100%] mt-2 w-full bg-white p-3 border border-slate-200 shadow-2xl rounded-xl z-50 dark:bg-slate-800 dark:border-slate-700 flex flex-col gap-3">
+                      <div>
+                        <label className="block text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5">1ª Parcela</label>
+                        <input
+                          type="date"
+                          className="w-full px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-xs font-bold text-rose-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800"
+                          value={osForm.due_date || ''}
+                          onChange={e => setOsForm({ ...osForm, due_date: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5">Parcelas</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="24"
+                          className="w-full px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-xs font-bold text-rose-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800"
+                          value={osForm.installments || 1}
+                          onChange={e => setOsForm({ ...osForm, installments: parseInt(e.target.value) || 1 })}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

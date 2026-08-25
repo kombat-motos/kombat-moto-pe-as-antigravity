@@ -447,7 +447,10 @@ const migrations = [
   "ALTER TABLE orcamentos ADD COLUMN charge_type TEXT DEFAULT 'vista'",
   "ALTER TABLE servicos_oficina ADD COLUMN charge_type TEXT DEFAULT 'vista'",
   "ALTER TABLE credit ADD COLUMN sale_id TEXT",
-  "ALTER TABLE credit ADD COLUMN os_id INTEGER"
+  "ALTER TABLE credit ADD COLUMN os_id INTEGER",
+  "ALTER TABLE credit ADD COLUMN parcel_number INTEGER DEFAULT 1",
+  "ALTER TABLE credit ADD COLUMN total_parcels INTEGER DEFAULT 1",
+  "ALTER TABLE credit ADD COLUMN identifier TEXT"
 ];
 
 migrations.forEach(m => {
@@ -1654,8 +1657,38 @@ async function startServer() {
       if (safeChargeType === 'credito_30_dias' && safeCustId) {
         const existingCredit = db.prepare("SELECT id FROM credit WHERE sale_id = ?").get(id);
         if (!existingCredit) {
-          db.prepare("INSERT INTO credit (user_id, customer_id, original_value, due_date, status, sale_id) VALUES (?, ?, ?, ?, 'Pendente', ?)")
-            .run(req.user!.id, safeCustId, safeTotal, due_date, id);
+          const numInstallments = parseInt(req.body.installments) || 1;
+          const baseValue = safeTotal / numInstallments;
+          const roundedValue = Math.floor(baseValue * 100) / 100;
+          const remainder = safeTotal - (roundedValue * numInstallments);
+          
+          const [year, month, day] = due_date.split('T')[0].split('-').map(Number);
+          let currentDate = new Date(year, month - 1, day);
+          const originalDay = day;
+
+          for (let i = 1; i <= numInstallments; i++) {
+            const isLast = i === numInstallments;
+            const parcelValue = isLast ? roundedValue + remainder : roundedValue;
+            
+            const identifier = `VENDA-${id.substring(0, 8).toUpperCase()}-${i.toString().padStart(2, '0')}`;
+            
+            const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+
+            db.prepare("INSERT INTO credit (user_id, customer_id, original_value, due_date, status, sale_id, parcel_number, total_parcels, identifier) VALUES (?, ?, ?, ?, 'Pendente', ?, ?, ?, ?)")
+              .run(req.user!.id, safeCustId, parcelValue, dateStr, id, i, numInstallments, identifier);
+              
+            let nextMonth = currentDate.getMonth() + 1;
+            let nextYear = currentDate.getFullYear();
+            if (nextMonth > 11) {
+              nextMonth = 0;
+              nextYear++;
+            }
+            let nextDate = new Date(nextYear, nextMonth, originalDay);
+            if (nextDate.getMonth() !== nextMonth) {
+              nextDate = new Date(nextYear, nextMonth + 1, 0);
+            }
+            currentDate = nextDate;
+          }
         }
       }
       
@@ -1716,13 +1749,44 @@ async function startServer() {
       
       // 1.5 Update Credit if needed
       if (safeChargeType === 'credito_30_dias' && safeCustId) {
-        const existingCredit = db.prepare("SELECT id FROM credit WHERE sale_id = ?").get(req.params.id);
-        if (!existingCredit) {
-          db.prepare("INSERT INTO credit (user_id, customer_id, original_value, due_date, status, sale_id) VALUES (?, ?, ?, ?, 'Pendente', ?)")
-            .run(req.user!.id, safeCustId, safeTotal, due_date, req.params.id);
-        } else {
+        const existingCredits = db.prepare("SELECT id FROM credit WHERE sale_id = ?").all(req.params.id) as any[];
+        if (existingCredits.length === 0) {
+          const numInstallments = parseInt(req.body.installments) || 1;
+          const baseValue = safeTotal / numInstallments;
+          const roundedValue = Math.floor(baseValue * 100) / 100;
+          const remainder = safeTotal - (roundedValue * numInstallments);
+          
+          const [year, month, day] = due_date.split('T')[0].split('-').map(Number);
+          let currentDate = new Date(year, month - 1, day);
+          const originalDay = day;
+
+          for (let i = 1; i <= numInstallments; i++) {
+            const isLast = i === numInstallments;
+            const parcelValue = isLast ? roundedValue + remainder : roundedValue;
+            const identifier = `VENDA-${req.params.id.substring(0, 8).toUpperCase()}-${i.toString().padStart(2, '0')}`;
+            const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+
+            db.prepare("INSERT INTO credit (user_id, customer_id, original_value, due_date, status, sale_id, parcel_number, total_parcels, identifier) VALUES (?, ?, ?, ?, 'Pendente', ?, ?, ?, ?)")
+              .run(req.user!.id, safeCustId, parcelValue, dateStr, req.params.id, i, numInstallments, identifier);
+              
+            let nextMonth = currentDate.getMonth() + 1;
+            let nextYear = currentDate.getFullYear();
+            if (nextMonth > 11) {
+              nextMonth = 0;
+              nextYear++;
+            }
+            let nextDate = new Date(nextYear, nextMonth, originalDay);
+            if (nextDate.getMonth() !== nextMonth) {
+              nextDate = new Date(nextYear, nextMonth + 1, 0);
+            }
+            currentDate = nextDate;
+          }
+        } else if (existingCredits.length === 1) {
           db.prepare("UPDATE credit SET customer_id = ?, original_value = ?, due_date = ? WHERE sale_id = ?")
             .run(safeCustId, safeTotal, due_date, req.params.id);
+        } else {
+          db.prepare("UPDATE credit SET customer_id = ? WHERE sale_id = ?")
+            .run(safeCustId, req.params.id);
         }
       }
       
