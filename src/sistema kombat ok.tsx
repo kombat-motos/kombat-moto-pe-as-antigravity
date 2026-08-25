@@ -2016,7 +2016,7 @@ export default function App() {
     let total = subtotalWithDiscount;
     let finalItems = [...pdvForm.items];
 
-    if (pdvForm.sale_condition === 'Prazo') {
+    if (pdvForm.payment_method === 'Cartão' && pdvForm.sale_condition === 'Prazo') {
       const fee = cardFeesSettings[pdvForm.installments] || 0;
       const divisor = 1 - (fee / 100);
       total = divisor > 0 ? (subtotalWithDiscount / divisor) : subtotalWithDiscount;
@@ -8239,18 +8239,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           maxWidth="max-w-4xl"
         >
           {(() => {
-            const itemsBaseTotal = pdvForm.items.reduce((acc, curr) => {
-              let itemPrice = curr.price;
-              if (pdvForm.payment_method === 'Fiado') {
-                const product = products.find(p => p.id === curr.product_id);
-                if (product && product.sale_price_credit) {
-                  itemPrice = product.sale_price_credit;
-                } else if (product && product.sale_price) {
-                  itemPrice = product.sale_price;
-                }
-              }
-              return acc + (itemPrice * curr.quantity);
-            }, 0);
+            const itemsBaseTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
             
             const subtotalWithDiscount = Math.max(0, itemsBaseTotal - (pdvForm.discount || 0));
             let total = subtotalWithDiscount;
@@ -8317,9 +8306,24 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                           key={method.id}
                           type="button"
                           onClick={() => {
+                            let newItems = pdvForm.items;
+                            let newChargeType = pdvForm.charge_type;
+                            if (method.id === 'Fiado' && pdvForm.items.length > 0 && window.confirm('Deseja recalcular os itens do carrinho para a tabela de 30 Dias (Crédito)?')) {
+                              newItems = pdvForm.items.map(item => {
+                                const product = products.find(p => p.id === item.product_id);
+                                if (product) {
+                                  const newPrice = product.sale_price_credit ? product.sale_price_credit : product.sale_price;
+                                  return { ...item, price: newPrice };
+                                }
+                                return item;
+                              });
+                              newChargeType = 'credito_30_dias';
+                            }
                             setPdvForm({ 
                               ...pdvForm, 
                               payment_method: method.id as any,
+                              items: newItems,
+                              charge_type: newChargeType,
                               due_date: method.id === 'Fiado' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : pdvForm.due_date
                             });
                           }}
