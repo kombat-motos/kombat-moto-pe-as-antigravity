@@ -1632,7 +1632,7 @@ async function startServer() {
     const { id, customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, sale_items, motorcycle_km, motorcycle_id, paid_total, charge_type } = req.body;
     
     // Server validation for credit
-    if (charge_type === 'credito_30_dias') {
+    if (charge_type === 'credito_30_dias' || payment_method === 'Fiado') {
       if (!customer_id) {
         throw new Error("Venda a crédito exige um cliente cadastrado.");
       }
@@ -1654,7 +1654,7 @@ async function startServer() {
         .run(id, req.user!.id, safeCustId, customer_name, safeLabor, safeCommission, safeMechId, mechanic_name, safeTotal, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, safePaidTotal, safeMotoId, safeKm, safeChargeType);
       
       // 1.5 Create Credit if needed
-      if (safeChargeType === 'credito_30_dias' && safeCustId) {
+      if ((safeChargeType === 'credito_30_dias' || payment_method === 'Fiado') && safeCustId) {
         const existingCredit = db.prepare("SELECT id FROM credit WHERE sale_id = ?").get(id);
         if (!existingCredit) {
           const numInstallments = parseInt(req.body.installments) || 1;
@@ -1726,7 +1726,7 @@ async function startServer() {
     const { customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, sale_items, motorcycle_km, motorcycle_id, paid_total, charge_type } = req.body;
     
     // Server validation for credit
-    if (charge_type === 'credito_30_dias') {
+    if (charge_type === 'credito_30_dias' || payment_method === 'Fiado') {
       if (!customer_id) {
         throw new Error("Venda a crédito exige um cliente cadastrado.");
       }
@@ -1748,7 +1748,7 @@ async function startServer() {
         .run(safeCustId, customer_name, safeLabor, safeCommission, safeMechId, mechanic_name, safeTotal, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, safePaidTotal, safeMotoId, safeKm, safeChargeType, req.params.id, req.user!.id);
       
       // 1.5 Update Credit if needed
-      if (safeChargeType === 'credito_30_dias' && safeCustId) {
+      if ((safeChargeType === 'credito_30_dias' || payment_method === 'Fiado') && safeCustId) {
         const existingCredits = db.prepare("SELECT id FROM credit WHERE sale_id = ?").all(req.params.id) as any[];
         if (existingCredits.length === 0) {
           const numInstallments = parseInt(req.body.installments) || 1;
