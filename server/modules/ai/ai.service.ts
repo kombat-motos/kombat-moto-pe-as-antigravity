@@ -5,10 +5,16 @@ import { AIToolsService, toolsDeclarations } from "./ai.tools.js";
 
 // Initialize Gemini
 const geminiKey = process.env.GEMINI_API_KEY;
+let ai: GoogleGenAI | null = null;
 if (!geminiKey) {
   console.warn("⚠️ GEMINI_API_KEY is not defined in environment variables. AI features will not work.");
+} else {
+  try {
+    ai = new GoogleGenAI({ apiKey: geminiKey });
+  } catch (e) {
+    console.warn("⚠️ Failed to initialize GoogleGenAI", e);
+  }
 }
-const ai = new GoogleGenAI({ apiKey: geminiKey || "" });
 
 export class AIService {
   private db: Database.Database;
@@ -123,6 +129,7 @@ Sempre retorne respostas bem formatadas, curtas e diretas. Se puder apresentar d
     let toolCallsExecuted = 0;
 
     try {
+      if (!ai) throw new Error("A IA não está configurada.");
       const chat = ai.chats.create({
         model: modelName,
         config: {

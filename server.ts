@@ -450,7 +450,8 @@ const migrations = [
   "ALTER TABLE credit ADD COLUMN os_id INTEGER",
   "ALTER TABLE credit ADD COLUMN parcel_number INTEGER DEFAULT 1",
   "ALTER TABLE credit ADD COLUMN total_parcels INTEGER DEFAULT 1",
-  "ALTER TABLE credit ADD COLUMN identifier TEXT"
+  "ALTER TABLE credit ADD COLUMN identifier TEXT",
+  "ALTER TABLE products ADD COLUMN sale_price_wholesale REAL DEFAULT 0"
 ];
 
 migrations.forEach(m => {
@@ -1422,9 +1423,9 @@ async function startServer() {
 
     app.post("/api/products", authenticateToken, (req, res) => {
       try {
-        const { description, sku, barcode, purchase_price, sale_price, sale_price_credit, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
-        const info = db.prepare("INSERT INTO products (user_id, description, sku, barcode, purchase_price, sale_price, sale_price_credit, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-          .run(req.user!.id, description, sku, barcode, purchase_price, sale_price, sale_price_credit || 0, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code);
+        const { description, sku, barcode, purchase_price, sale_price, sale_price_credit, sale_price_wholesale, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
+        const info = db.prepare("INSERT INTO products (user_id, description, sku, barcode, purchase_price, sale_price, sale_price_credit, sale_price_wholesale, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+          .run(req.user!.id, description, sku, barcode, purchase_price, sale_price, sale_price_credit || 0, sale_price_wholesale || 0, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code);
       res.json({ id: parseInt(info.lastInsertRowid.toString()) });
     } catch (err: any) {
       console.error('ERRO AO SALVAR PRODUTO:', err);
@@ -1524,9 +1525,9 @@ async function startServer() {
 
     app.put("/api/products/:id", authenticateToken, (req, res) => {
       try {
-        const { description, sku, barcode, purchase_price, sale_price, sale_price_credit, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
-        db.prepare("UPDATE products SET description = ?, sku = ?, barcode = ?, purchase_price = ?, sale_price = ?, sale_price_credit = ?, stock = ?, unit = ?, image_url = ?, image_url2 = ?, image_url3 = ?, image_url4 = ?, brand = ?, application = ?, category = ?, location = ?, distributor = ?, alt_code = ? WHERE id = ? AND user_id = ?")
-          .run(description, sku, barcode, purchase_price, sale_price, sale_price_credit || 0, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code, req.params.id, req.user!.id);
+        const { description, sku, barcode, purchase_price, sale_price, sale_price_credit, sale_price_wholesale, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
+        db.prepare("UPDATE products SET description = ?, sku = ?, barcode = ?, purchase_price = ?, sale_price = ?, sale_price_credit = ?, sale_price_wholesale = ?, stock = ?, unit = ?, image_url = ?, image_url2 = ?, image_url3 = ?, image_url4 = ?, brand = ?, application = ?, category = ?, location = ?, distributor = ?, alt_code = ? WHERE id = ? AND user_id = ?")
+          .run(description, sku, barcode, purchase_price, sale_price, sale_price_credit || 0, sale_price_wholesale || 0, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code, req.params.id, req.user!.id);
       res.json({ success: true });
     } catch (err: any) {
       console.error('ERRO AO EDITAR PRODUTO:', err);

@@ -120,6 +120,7 @@ interface Product {
   purchase_price: number;
   sale_price: number;
   sale_price_credit?: number;
+  sale_price_wholesale?: number;
   stock: number;
   unit: string;
   category?: string;
@@ -196,7 +197,7 @@ interface Sale {
   service_description?: string;
   whatsapp?: string;
   status?: 'Aberto' | 'Em Andamento' | 'Pronto' | 'Entregue';
-  charge_type?: 'vista' | 'credito_30_dias';
+  charge_type?: 'vista' | 'credito_30_dias' | 'atacado';
   km?: string;
   selected_fixed_services?: any[];
   motorcycle_id?: string | number;
@@ -225,7 +226,7 @@ interface Quote {
   created_at: string;
   status: 'Pendente' | 'Aprovado' | 'Recusado';
   items: QuoteItem[];
-  charge_type?: 'vista' | 'credito_30_dias';
+  charge_type?: 'vista' | 'credito_30_dias' | 'atacado';
 }
 
 interface Stats {
@@ -897,7 +898,7 @@ export default function App() {
     neighborhood: '', city: '', zip_code: '', credit_limit: 0, 
     fine_rate: 2, interest_rate: 1, image_url: '' 
   });
-  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', sale_price_credit: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '', alt_code: '' });
+  const [productForm, setProductForm] = useState({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', sale_price_credit: '', sale_price_wholesale: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '', alt_code: '' });
   const [isAutofilling, setIsAutofilling] = useState(false);
   const [isLookingUpPlate, setIsLookingUpPlate] = useState(false);
   const [serviceForm, setServiceForm] = useState({ description: '', price: '', category: '' });
@@ -923,7 +924,7 @@ export default function App() {
     sale_condition: 'Vista' | 'Prazo';
     installments: number;
     discount: number;
-    charge_type?: 'vista' | 'credito_30_dias';
+    charge_type?: 'vista' | 'credito_30_dias' | 'atacado';
   }>({
     customer_id: '',
     mechanic_id: '',
@@ -961,7 +962,7 @@ export default function App() {
     due_date: string;
     service_description: string;
     km: string;
-    charge_type?: 'vista' | 'credito_30_dias';
+    charge_type?: 'vista' | 'credito_30_dias' | 'atacado';
     installments?: number;
   }>({
     customer_id: '',
@@ -1704,21 +1705,26 @@ export default function App() {
         items: pdvForm.items.map(i => i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
       });
     } else {
+      let newPrice = product.sale_price;
+      if (pdvForm.charge_type === 'credito_30_dias' && product.sale_price_credit) newPrice = product.sale_price_credit;
+      if (pdvForm.charge_type === 'atacado' && product.sale_price_wholesale) newPrice = product.sale_price_wholesale;
       setPdvForm({
         ...pdvForm,
-        items: [...pdvForm.items, { product_id: product.id, description: product.description, quantity: 1, price: product.sale_price }]
+        items: [...pdvForm.items, { product_id: product.id, description: product.description, quantity: 1, price: newPrice }]
       });
     }
     setPdvSearchProduct('');
   };
 
-  const handleChangePdvChargeType = (type: 'vista' | 'credito_30_dias') => {
+  const handleChangePdvChargeType = (type: 'vista' | 'credito_30_dias' | 'atacado') => {
     if (pdvForm.items.length > 0) {
       if (window.confirm('Deseja recalcular os itens do carrinho para a modalidade escolhida?')) {
         const newItems = pdvForm.items.map(item => {
           const product = products.find(p => p.id === item.product_id);
           if (product) {
-            const newPrice = type === 'credito_30_dias' && product.sale_price_credit ? product.sale_price_credit : product.sale_price;
+            let newPrice = product.sale_price;
+            if (type === 'credito_30_dias' && product.sale_price_credit) newPrice = product.sale_price_credit;
+            if (type === 'atacado' && product.sale_price_wholesale) newPrice = product.sale_price_wholesale;
             return { ...item, price: newPrice };
           }
           return item;
@@ -1763,21 +1769,26 @@ export default function App() {
         items: osForm.items.map(i => i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
       });
     } else {
+      let newPrice = product.sale_price;
+      if (osForm.charge_type === 'credito_30_dias' && product.sale_price_credit) newPrice = product.sale_price_credit;
+      if (osForm.charge_type === 'atacado' && product.sale_price_wholesale) newPrice = product.sale_price_wholesale;
       setOsForm({
         ...osForm,
-        items: [...osForm.items, { product_id: product.id, description: product.description, quantity: 1, price: product.sale_price }]
+        items: [...osForm.items, { product_id: product.id, description: product.description, quantity: 1, price: newPrice }]
       });
     }
     setOsSearchProduct('');
   };
 
-  const handleChangeOsChargeType = (type: 'vista' | 'credito_30_dias') => {
+  const handleChangeOsChargeType = (type: 'vista' | 'credito_30_dias' | 'atacado') => {
     if (osForm.items.length > 0) {
       if (window.confirm('Deseja recalcular as peças da OS para a modalidade escolhida?')) {
         const newItems = osForm.items.map(item => {
           const product = products.find(p => p.id === item.product_id);
           if (product) {
-            const newPrice = type === 'credito_30_dias' && product.sale_price_credit ? product.sale_price_credit : product.sale_price;
+            let newPrice = product.sale_price;
+            if (type === 'credito_30_dias' && product.sale_price_credit) newPrice = product.sale_price_credit;
+            if (type === 'atacado' && product.sale_price_wholesale) newPrice = product.sale_price_wholesale;
             return { ...item, price: newPrice };
           }
           return item;
@@ -1788,6 +1799,31 @@ export default function App() {
       }
     } else {
       setOsForm({ ...osForm, charge_type: type });
+    }
+  };
+
+  const handleChangeQuoteChargeType = (type: 'vista' | 'credito_30_dias' | 'atacado') => {
+    if (quoteForm.items.length > 0) {
+      if (window.confirm('Deseja recalcular as peças do orçamento para a modalidade escolhida?')) {
+        const newItems = quoteForm.items.map(item => {
+          if (item.type === 'Peça') {
+            const product = products.find(p => p.description === item.description);
+            if (product) {
+              let newPrice = product.sale_price;
+              if (type === 'credito_30_dias' && product.sale_price_credit) newPrice = product.sale_price_credit;
+              if (type === 'atacado' && product.sale_price_wholesale) newPrice = product.sale_price_wholesale;
+              return { ...item, price: newPrice, total: newPrice * item.quantity };
+            }
+          }
+          return item;
+        });
+        const newTotal = newItems.reduce((acc, curr) => acc + curr.total, 0);
+        setQuoteForm({ ...quoteForm, charge_type: type, items: newItems, total_value: newTotal });
+      } else {
+        setQuoteForm({ ...quoteForm, charge_type: type });
+      }
+    } else {
+      setQuoteForm({ ...quoteForm, charge_type: type });
     }
   };
 
@@ -2478,6 +2514,34 @@ export default function App() {
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 overflow-hidden">
           {/* LEFT SIDE (~60%): PRODUCT CATALOG */}
           <div className="lg:col-span-3 flex flex-col border-r border-slate-800 overflow-hidden bg-slate-900/50 p-4 space-y-4">
+            {/* Tabela de Preço / Tipo de Venda */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tabela de Preço</label>
+              <div className="flex bg-slate-950 border border-slate-800 rounded-xl overflow-hidden p-1 h-[42px]">
+                <button
+                  type="button"
+                  onClick={() => handleChangePdvChargeType('vista')}
+                  className={`flex-1 text-[11px] font-bold uppercase transition-all rounded-lg ${pdvForm.charge_type === 'vista' || !pdvForm.charge_type ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  À Vista
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChangePdvChargeType('credito_30_dias')}
+                  className={`flex-1 text-[11px] font-bold uppercase transition-all rounded-lg ${pdvForm.charge_type === 'credito_30_dias' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  30 Dias
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChangePdvChargeType('atacado')}
+                  className={`flex-1 text-[11px] font-bold uppercase transition-all rounded-lg ${pdvForm.charge_type === 'atacado' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Atacado
+                </button>
+              </div>
+            </div>
+
             {/* Search and Category filters */}
             <div className="space-y-3">
               <div className="relative">
@@ -4438,7 +4502,7 @@ export default function App() {
         }
       }
 
-      const prompt = `Você é o IA Kombat Assistant, um especialista em motopeças. O usuário forneceu o seguinte texto para cadastro rápido de um produto:\n\n"${description}"\n\nSua tarefa é extrair o máximo de informações possível e gerar dados adicionais úteis.\n\nREGRAS:\n1. DESCRIÇÃO: Corrija e padronize o nome do produto (Ex: Pneu Traseiro 90/90-18).\n2. MARCA: Identifique a marca se mencionada, senão deixe null.\n3. APLICAÇÃO: Use seu conhecimento para listar TODAS as motos compatíveis (Ex: Honda CG 160 Titan (2016-2023), Fan, Cargo). Seja bem completo.\n4. PREÇOS: Se o usuário citar valores (ex: "custo 10", "venda 30"), preencha "compra" e "venda" apenas com o número. Senão null.\n5. OUTROS: Extraia estoque (numero), distribuidor, unidade (Unitário, Par, Kit, Litro, Conjunto), localizacao, sku, e codigo_barras se mencionados.\n\nRetorne APENAS o JSON no formato exato abaixo, sem formatar como markdown e sem textos extras:\n{\n  "descricao": "Nome formatado",\n  "marca": "Marca ou null",\n  "aplicacao": "Lista de aplicação detalhada",\n  "compra": "numero ou null",\n  "venda": "numero ou null",\n  "estoque": "numero ou null",\n  "distribuidor": "texto ou null",\n  "unidade": "texto ou null",\n  "localizacao": "texto ou null",\n  "sku": "texto ou null",\n  "codigo_barras": "texto ou null"\n}`;
+      const prompt = `Você é o IA Kombat Assistant, um especialista em motopeças. O usuário forneceu o seguinte texto para cadastro rápido de um produto:\n\n"${description}"\n\nSua tarefa é extrair o máximo de informações possível e gerar dados adicionais úteis.\n\nREGRAS:\n1. DESCRIÇÃO: Corrija e padronize o nome do produto (Ex: Pneu Traseiro 90/90-18).\n2. MARCA: Identifique a marca se mencionada, senão deixe null.\n3. APLICAÇÃO: Use seu conhecimento para listar TODAS as motos compatíveis (Ex: Honda CG 160 Titan (2016-2023), Fan, Cargo). Seja bem completo.\n4. PREÇOS: Se o usuário citar valores (ex: "custo 10", "venda 30", "atacado 25"), preencha "compra", "venda", "venda_credito" e "venda_atacado" apenas com o número. Senão null.\n5. OUTROS: Extraia estoque (numero), distribuidor, unidade (Unitário, Par, Kit, Litro, Conjunto), localizacao, sku, e codigo_barras se mencionados.\n\nRetorne APENAS o JSON no formato exato abaixo, sem formatar como markdown e sem textos extras:\n{\n  "descricao": "Nome formatado",\n  "marca": "Marca ou null",\n  "aplicacao": "Lista de aplicação detalhada",\n  "compra": "numero ou null",\n  "venda": "numero ou null",\n  "venda_credito": "numero ou null",\n  "venda_atacado": "numero ou null",\n  "estoque": "numero ou null",\n  "distribuidor": "texto ou null",\n  "unidade": "texto ou null",\n  "localizacao": "texto ou null",\n  "sku": "texto ou null",\n  "codigo_barras": "texto ou null"\n}`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
@@ -4472,6 +4536,8 @@ export default function App() {
         application: parsed.aplicacao || prev.application,
         purchase_price: parsed.compra ? String(parsed.compra) : prev.purchase_price,
         sale_price: parsed.venda ? String(parsed.venda) : prev.sale_price,
+        sale_price_credit: parsed.venda_credito ? String(parsed.venda_credito) : prev.sale_price_credit,
+        sale_price_wholesale: parsed.venda_atacado ? String(parsed.venda_atacado) : prev.sale_price_wholesale,
         stock: parsed.estoque ? String(parsed.estoque) : prev.stock,
         distributor: parsed.distribuidor || prev.distributor,
         unit: parsed.unidade || prev.unit,
@@ -4713,6 +4779,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       purchase_price: product.purchase_price.toString(),
       sale_price: product.sale_price.toString(),
       sale_price_credit: product.sale_price_credit ? product.sale_price_credit.toString() : '',
+      sale_price_wholesale: product.sale_price_wholesale ? product.sale_price_wholesale.toString() : '',
       stock: product.stock.toString(),
       unit: product.unit || 'Unitário',
       image_url: product.image_url || '',
@@ -4738,6 +4805,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       purchase_price: product.purchase_price.toString(),
       sale_price: product.sale_price.toString(),
       sale_price_credit: product.sale_price_credit ? product.sale_price_credit.toString() : '',
+      sale_price_wholesale: product.sale_price_wholesale ? product.sale_price_wholesale.toString() : '',
       stock: '0',
       unit: product.unit || 'Unitário',
       image_url: product.image_url || '',
@@ -6948,7 +7016,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                       setEditingProduct(null);
                       setProductForm({ 
                         description: '', sku: '', barcode: '', purchase_price: '', 
-                        sale_price: '', stock: '', unit: 'Unitário', brand: '', 
+                        sale_price: '', sale_price_credit: '', sale_price_wholesale: '', stock: '', unit: 'Unitário', brand: '', 
                         location: '', application: '' 
                       });
                       setIsProductModalOpen(true);
@@ -7179,6 +7247,33 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           maxWidth="max-w-5xl"
         >
           <form onSubmit={handleCreateQuote} className="space-y-6">
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700 mb-6">
+              <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Tabela de Preço</label>
+              <div className="flex bg-white border border-slate-400 rounded-xl overflow-hidden p-1 dark:bg-slate-800 dark:border-slate-700 h-[42px] max-w-md">
+                <button
+                  type="button"
+                  onClick={() => handleChangeQuoteChargeType('vista')}
+                  className={`flex-1 text-[11px] font-bold uppercase transition-all rounded-lg ${quoteForm.charge_type === 'vista' || !quoteForm.charge_type ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                >
+                  À Vista
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChangeQuoteChargeType('credito_30_dias')}
+                  className={`flex-1 text-[11px] font-bold uppercase transition-all rounded-lg ${quoteForm.charge_type === 'credito_30_dias' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                >
+                  30 Dias
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChangeQuoteChargeType('atacado')}
+                  className={`flex-1 text-[11px] font-bold uppercase transition-all rounded-lg ${quoteForm.charge_type === 'atacado' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                >
+                  Atacado
+                </button>
+              </div>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
               <div className="relative">
                 <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Cliente / Razão Social</label>
@@ -7579,17 +7674,21 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                           <button
                             type="button"
                             onClick={() => {
+                              let newPrice = product.sale_price;
+                              if (quoteForm.charge_type === 'credito_30_dias' && product.sale_price_credit) newPrice = product.sale_price_credit;
+                              if (quoteForm.charge_type === 'atacado' && product.sale_price_wholesale) newPrice = product.sale_price_wholesale;
+                              
                               const newItem: QuoteItem = {
                                 description: product.description,
                                 quantity: 1,
-                                price: product.sale_price,
-                                total: product.sale_price,
+                                price: newPrice,
+                                total: newPrice,
                                 type: 'Peça'
                               };
                               setQuoteForm(prev => ({
                                 ...prev,
                                 items: [...prev.items, newItem],
-                                total_value: prev.total_value + product.sale_price
+                                total_value: prev.total_value + newPrice
                               }));
                               setIsStockSelectorOpen(false);
                               setStockSearchTerm('');
@@ -7781,7 +7880,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           onClose={() => {
             setIsProductModalOpen(false);
             setEditingProduct(null);
-            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '', alt_code: '' });
+            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', sale_price_credit: '', sale_price_wholesale: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '', alt_code: '' });
           }}
           title={editingProduct ? "Editar Produto" : "Adicionar Produto ao Estoque"}
           maxWidth="max-w-4xl"
@@ -7866,8 +7965,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 </div>
               </div>
 
-              {/* Linha 4: Unidade de Medida | Estoque Inicial | Preço Compra (R$) | Preço Venda (R$) | Venda a Crédito */}
-              <div className="grid grid-cols-5 gap-3">
+              {/* Linha 4: Unidade de Medida | Estoque Inicial | Preço Compra (R$) | Preço Venda (R$) | Venda a Crédito | Venda Atacado */}
+              <div className="grid grid-cols-6 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Unidade</label>
                   <select
@@ -7919,6 +8018,17 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     onChange={e => setProductForm({ ...productForm, sale_price_credit: e.target.value })}
                     placeholder="Auto"
                     title="Preço a Crédito 30 Dias"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Venda Atacado</label>
+                  <input
+                    type="number" step="0.01" tabIndex={11}
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-emerald-600 dark:bg-slate-900 dark:border-slate-700"
+                    value={productForm.sale_price_wholesale || ''}
+                    onChange={e => setProductForm({ ...productForm, sale_price_wholesale: e.target.value })}
+                    placeholder="Auto"
+                    title="Preço Atacado"
                   />
                 </div>
               </div>
@@ -8885,6 +8995,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                         <td style={{ textAlign: 'center' }}>
                           {(selectedSaleForReceipt.payment_method === 'Fiado' ? 'CREDITO KOMBAT' : (selectedSaleForReceipt.payment_method || '')).toUpperCase()}
                           {selectedSaleForReceipt.charge_type === 'credito_30_dias' && <span style={{display: 'block', fontSize: '9px'}}>TABELA 30 DIAS</span>}
+                          {selectedSaleForReceipt.charge_type === 'atacado' && <span style={{display: 'block', fontSize: '9px'}}>TABELA ATACADO</span>}
                         </td>
                         <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
                       </tr>
@@ -9138,6 +9249,13 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                       className={`flex-1 text-[10px] font-bold uppercase transition-all rounded-lg ${osForm.charge_type === 'credito_30_dias' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
                     >
                       30 Dias
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleChangeOsChargeType('atacado')}
+                      className={`flex-1 text-[10px] font-bold uppercase transition-all rounded-lg ${osForm.charge_type === 'atacado' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
+                    >
+                      Atacado
                     </button>
                   </div>
                 </div>
