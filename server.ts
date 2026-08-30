@@ -466,6 +466,10 @@ try { db.exec("ALTER TABLE mechanics ADD COLUMN commission_rate REAL DEFAULT 50"
 
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_status TEXT DEFAULT 'LIBERADO'"); } catch (e) {}
 try { db.exec("UPDATE credit SET status = 'Pago' WHERE sale_id IN (SELECT id FROM sales WHERE payment_status = 'Pago') AND status != 'Pago'"); } catch (e) {}
+try { db.exec("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id IS NOT NULL AND sale_id NOT IN (SELECT id FROM sales))"); } catch (e) {}
+try { db.exec("DELETE FROM credit WHERE sale_id IS NOT NULL AND sale_id NOT IN (SELECT id FROM sales)"); } catch (e) {}
+try { db.exec("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE payment_method != 'Fiado' AND charge_type != 'credito_30_dias'))"); } catch (e) {}
+try { db.exec("DELETE FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE payment_method != 'Fiado' AND charge_type != 'credito_30_dias')"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_block_reason TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_blocked_at TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_blocked_by INTEGER"); } catch (e) {}
@@ -1867,6 +1871,10 @@ async function startServer() {
           db.prepare("UPDATE credit SET customer_id = ?, status = ? WHERE sale_id = ?")
             .run(safeCustId, targetStatus, req.params.id);
         }
+      } else {
+        // If sale is no longer Fiado/Credito, remove associated credits
+        db.prepare("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id = ?)").run(req.params.id);
+        db.prepare("DELETE FROM credit WHERE sale_id = ?").run(req.params.id);
       }
       
       // 2. Reversal logic for stock
@@ -1919,6 +1927,8 @@ async function startServer() {
         }
       }
       // 2. Delete
+      db.prepare("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id = ?)").run(req.params.id);
+      db.prepare("DELETE FROM credit WHERE sale_id = ?").run(req.params.id);
       db.prepare("DELETE FROM sale_items WHERE sale_id = ?").run(req.params.id);
       db.prepare("DELETE FROM sales WHERE id = ? AND user_id = ?").run(req.params.id, req.user!.id);
     });
