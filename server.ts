@@ -468,8 +468,28 @@ try { db.exec("ALTER TABLE customers ADD COLUMN credit_status TEXT DEFAULT 'LIBE
 try { db.exec("UPDATE credit SET status = 'Pago' WHERE sale_id IN (SELECT id FROM sales WHERE payment_status = 'Pago') AND status != 'Pago'"); } catch (e) {}
 try { db.exec("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id IS NOT NULL AND sale_id NOT IN (SELECT id FROM sales))"); } catch (e) {}
 try { db.exec("DELETE FROM credit WHERE sale_id IS NOT NULL AND sale_id NOT IN (SELECT id FROM sales)"); } catch (e) {}
-try { db.exec("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE payment_method != 'Fiado' AND charge_type != 'credito_30_dias'))"); } catch (e) {}
-try { db.exec("DELETE FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE payment_method != 'Fiado' AND charge_type != 'credito_30_dias')"); } catch (e) {}
+try { db.exec("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE payment_method != 'Fiado' AND charge_type != 'credito_30_dias' AND payment_status != 'Pendente'))"); } catch (e) {}
+try { db.exec("DELETE FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE payment_method != 'Fiado' AND charge_type != 'credito_30_dias' AND payment_status != 'Pendente')"); } catch (e) {}
+
+try {
+  const missingCredits = db.prepare(`
+    SELECT * FROM sales 
+    WHERE payment_status = 'Pendente'
+      AND id NOT IN (SELECT sale_id FROM credit WHERE sale_id IS NOT NULL)
+  `).all() as any[];
+  
+  if (missingCredits.length > 0) {
+    const insertCredit = db.prepare("INSERT INTO credit (user_id, customer_id, original_value, due_date, status, sale_id, parcel_number, total_parcels, identifier) VALUES (?, ?, ?, ?, 'Pendente', ?, 1, 1, ?)");
+    for (const sale of missingCredits) {
+      if (!sale.customer_id || !sale.due_date) continue;
+      const identifier = `VENDA-${sale.id.substring(0, 8).toUpperCase()}-01`;
+      const balance = sale.total - (sale.paid_total || 0);
+      if (balance > 0) {
+        insertCredit.run(sale.user_id, sale.customer_id, balance, sale.due_date, sale.id, identifier);
+      }
+    }
+  }
+} catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_block_reason TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_blocked_at TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_blocked_by INTEGER"); } catch (e) {}
@@ -1720,7 +1740,7 @@ async function startServer() {
         .run(id, req.user!.id, safeCustId, customer_name, safeLabor, safeCommission, safeMechId, mechanic_name, safeTotal, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, safePaidTotal, safeMotoId, safeKm, safeChargeType);
       
       // 1.5 Create Credit if needed
-      if ((safeChargeType === 'credito_30_dias' || payment_method === 'Fiado') && safeCustId) {
+      if ((safeChargeType === 'credito_30_dias' || payment_method === 'Fiado' || payment_status === 'Pendente') && safeCustId) {
         const existingCredit = db.prepare("SELECT id FROM credit WHERE sale_id = ?").get(id);
         if (!existingCredit) {
           const numInstallments = parseInt(req.body.installments) || 1;
@@ -1828,7 +1848,7 @@ async function startServer() {
         .run(safeCustId, customer_name, safeLabor, safeCommission, safeMechId, mechanic_name, safeTotal, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, safePaidTotal, safeMotoId, safeKm, safeChargeType, req.params.id, req.user!.id);
       
       // 1.5 Update Credit if needed
-      if ((safeChargeType === 'credito_30_dias' || payment_method === 'Fiado') && safeCustId) {
+      if ((safeChargeType === 'credito_30_dias' || payment_method === 'Fiado' || payment_status === 'Pendente') && safeCustId) {
         const existingCredits = db.prepare("SELECT id FROM credit WHERE sale_id = ?").all(req.params.id) as any[];
         if (existingCredits.length === 0) {
           const numInstallments = parseInt(req.body.installments) || 1;
