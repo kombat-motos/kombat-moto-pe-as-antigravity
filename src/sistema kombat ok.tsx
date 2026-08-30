@@ -945,7 +945,15 @@ export default function App() {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [checkoutPaymentReceived, setCheckoutPaymentReceived] = useState<string>('');
   const [isPdvHistoryOpen, setIsPdvHistoryOpen] = useState(false);
-  const [historyDate, setHistoryDate] = useState(() => {
+  const [historyStartDate, setHistoryStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
+  const [historyEndDate, setHistoryEndDate] = useState(() => {
     const d = new Date();
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -2471,7 +2479,8 @@ export default function App() {
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
-      const matchesDate = `${year}-${month}-${day}` === historyDate;
+      const sDate = `${year}-${month}-${day}`;
+      const matchesDate = sDate >= historyStartDate && sDate <= historyEndDate;
       const matchesSearch = historyCustomerSearch.trim() === '' || 
         (s.customer_name || '').toLowerCase().includes(historyCustomerSearch.toLowerCase());
       return matchesDate && matchesSearch;
@@ -2881,13 +2890,23 @@ export default function App() {
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-400 tracking-wider">Filtrar por data:</span>
+                  <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-400 tracking-wider">Período:</span>
                   <div className="relative flex items-center">
                     <Calendar size={14} className="absolute left-3 text-rose-500 pointer-events-none" />
                     <input
                       type="date"
-                      value={historyDate}
-                      onChange={(e) => setHistoryDate(e.target.value)}
+                      value={historyStartDate}
+                      onChange={(e) => setHistoryStartDate(e.target.value)}
+                      className="pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all dark:bg-slate-950"
+                    />
+                  </div>
+                  <span className="text-slate-500 text-xs font-bold uppercase">até</span>
+                  <div className="relative flex items-center">
+                    <Calendar size={14} className="absolute left-3 text-rose-500 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={historyEndDate}
+                      onChange={(e) => setHistoryEndDate(e.target.value)}
                       className="pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all dark:bg-slate-950"
                     />
                   </div>
