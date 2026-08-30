@@ -465,6 +465,7 @@ try { db.exec("ALTER TABLE customers ADD COLUMN interest_rate REAL DEFAULT 1"); 
 try { db.exec("ALTER TABLE mechanics ADD COLUMN commission_rate REAL DEFAULT 50"); } catch (e) {}
 
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_status TEXT DEFAULT 'LIBERADO'"); } catch (e) {}
+try { db.exec("UPDATE credit SET status = 'Pago' WHERE sale_id IN (SELECT id FROM sales WHERE payment_status = 'Pago') AND status != 'Pago'"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_block_reason TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_blocked_at TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_blocked_by INTEGER"); } catch (e) {}
@@ -1840,9 +1841,10 @@ async function startServer() {
             const parcelValue = isLast ? Number((roundedValue + remainder).toFixed(2)) : roundedValue;
             const identifier = `VENDA-${req.params.id.substring(0, 8).toUpperCase()}-${i.toString().padStart(2, '0')}`;
             const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+            const targetStatus = payment_status === 'Pago' ? 'Pago' : 'Pendente';
 
-            db.prepare("INSERT INTO credit (user_id, customer_id, original_value, due_date, status, sale_id, parcel_number, total_parcels, identifier) VALUES (?, ?, ?, ?, 'Pendente', ?, ?, ?, ?)")
-              .run(req.user!.id, safeCustId, parcelValue, dateStr, req.params.id, i, numInstallments, identifier);
+            db.prepare("INSERT INTO credit (user_id, customer_id, original_value, due_date, status, sale_id, parcel_number, total_parcels, identifier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+              .run(req.user!.id, safeCustId, parcelValue, dateStr, targetStatus, req.params.id, i, numInstallments, identifier);
               
             let nextMonth = currentDate.getMonth() + 1;
             let nextYear = currentDate.getFullYear();
@@ -1857,11 +1859,13 @@ async function startServer() {
             currentDate = nextDate;
           }
         } else if (existingCredits.length === 1) {
-          db.prepare("UPDATE credit SET customer_id = ?, original_value = ?, due_date = ? WHERE sale_id = ?")
-            .run(safeCustId, safeTotal, due_date, req.params.id);
+          const targetStatus = payment_status === 'Pago' ? 'Pago' : 'Pendente';
+          db.prepare("UPDATE credit SET customer_id = ?, original_value = ?, due_date = ?, status = ? WHERE sale_id = ?")
+            .run(safeCustId, safeTotal, due_date, targetStatus, req.params.id);
         } else {
-          db.prepare("UPDATE credit SET customer_id = ? WHERE sale_id = ?")
-            .run(safeCustId, req.params.id);
+          const targetStatus = payment_status === 'Pago' ? 'Pago' : 'Pendente';
+          db.prepare("UPDATE credit SET customer_id = ?, status = ? WHERE sale_id = ?")
+            .run(safeCustId, targetStatus, req.params.id);
         }
       }
       
@@ -2064,6 +2068,15 @@ async function startServer() {
            is_total ? 'PAGAMENTO' : 'PAGAMENTO_PARCIAL', 
            observation || `Pagamento de R$ ${received_value} via ${payment_method}`,
            JSON.stringify({ received_value, fine_applied, interest_applied, discount_applied, payment_method }));
+
+    // Sync back to sales table if all credits for this sale are paid
+    if (new_status === 'Pago' && credit.sale_id) {
+      const allCreditsForSale = db.prepare("SELECT status FROM credit WHERE sale_id = ?").all(credit.sale_id) as any[];
+      const allPaid = allCreditsForSale.every(c => c.status === 'Pago');
+      if (allPaid) {
+        db.prepare("UPDATE sales SET payment_status = 'Pago', paid_date = ? WHERE id = ?").run(new Date().toISOString(), credit.sale_id);
+      }
+    }
 
     res.json({ success: true, status: new_status });
   });
