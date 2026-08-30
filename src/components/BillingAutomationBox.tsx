@@ -179,7 +179,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
       let saleCredits = allCredits.filter((c: any) => c.sale_id === sale.id);
 
       if (saleCredits.length === 0) {
-        alert("Nenhuma parcela encontrada para esta venda. Salve a venda no PDV/OS com a opção Fiado antes de imprimir.");
+        alert("Erro: Nenhuma parcela financeira foi encontrada para esta venda.\n\nIsso pode ocorrer se a venda é muito antiga (antes da atualização do sistema) ou se a modalidade Fiado não foi processada corretamente.\n\nPara resolver: Abra a venda no PDV/OS, certifique-se de que a forma de pagamento é 'Fiado' e clique em Salvar novamente.");
         return;
       }
       

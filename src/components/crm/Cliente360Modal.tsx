@@ -105,6 +105,7 @@ interface Cliente360Data {
   credits: Credit[];
   atendimentos: Atendimento[];
   financialSummary: FinancialSummary;
+  collection_history?: any[];
 }
 
 interface Cliente360ModalProps {
@@ -153,6 +154,16 @@ export default function Cliente360Modal({
     description: string;
     param?: any;
   } | null>(null);
+
+  // FASE 7 - Register contact modal
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    action_type: 'WhatsApp',
+    message: '',
+    has_promise: false,
+    promise_date: '',
+    promise_amount: ''
+  });
 
   const getHeaders = () => ({
     'Content-Type': 'application/json',
@@ -263,8 +274,45 @@ export default function Cliente360Modal({
       return;
     }
     const cleanPhone = data.cliente.telefone.replace(/\D/g, '');
-    const url = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(aiText)}`;
-    window.open(url, '_blank');
+    const encodedText = encodeURIComponent(aiText || 'Olá!');
+    window.open(`https://wa.me/55${cleanPhone}?text=${encodedText}`, '_blank');
+    setIsContactModalOpen(true); // Open modal after clicking WhatsApp (FASE 7 requirement)
+  };
+
+  const handleSaveContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/collections/history', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          customer_id: clienteId,
+          action_type: contactForm.action_type,
+          channel: contactForm.action_type,
+          message: contactForm.message,
+          status: contactForm.has_promise ? 'PROMESSA' : 'CONTATO_REALIZADO',
+          metadata: {
+            has_promise: contactForm.has_promise,
+            promise_date: contactForm.promise_date,
+            promise_amount: contactForm.promise_amount
+          }
+        })
+      });
+      if (!res.ok) throw new Error('Erro ao salvar contato');
+      alert('Contato salvo com sucesso!');
+      setIsContactModalOpen(false);
+      setContactForm({
+        action_type: 'WhatsApp',
+        message: '',
+        has_promise: false,
+        promise_date: '',
+        promise_amount: ''
+      });
+      fetch360Data(); // Refresh to update timeline
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao registrar contato.');
+    }
   };
 
   if (loading) {
@@ -368,7 +416,19 @@ export default function Cliente360Modal({
     });
   });
 
-  // Sort timeline by date descending
+  // 6. Histórico de Cobranças (Nova Feature FASE 7)
+  (data.collection_history || []).forEach(ch => {
+    timelineItems.push({
+      id: `col-hist-${ch.id}`,
+      type: 'cobranca',
+      title: `Ação de Cobrança: ${ch.action_type}`,
+      description: ch.message || 'Sem mensagem registrada',
+      date: new Date(ch.created_at),
+      badgeColor: 'border-purple-500 bg-purple-500/20 text-purple-400'
+    });
+  });
+
+  // Sort Descending
   timelineItems.sort((a, b) => b.date.getTime() - a.date.getTime());
 
   // Confirm and execute the callback actions
@@ -1031,6 +1091,106 @@ export default function Cliente360Modal({
                 Cancelar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* FASE 7: Registrar Contato Modal */}
+      {isContactModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-4 bg-zinc-800 border-b border-zinc-700 flex justify-between items-center">
+              <h3 className="font-bold text-zinc-100 flex items-center gap-2">
+                <MessageSquare size={18} className="text-purple-500" />
+                Registrar Contato de Cobrança
+              </h3>
+              <button onClick={() => setIsContactModalOpen(false)} className="text-zinc-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveContact} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 mb-1 uppercase tracking-wider">Canal de Contato</label>
+                <select 
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-sm text-zinc-200 outline-none focus:border-purple-500 transition"
+                  value={contactForm.action_type}
+                  onChange={e => setContactForm({...contactForm, action_type: e.target.value})}
+                >
+                  <option value="WhatsApp">WhatsApp</option>
+                  <option value="Ligação">Ligação Telefônica</option>
+                  <option value="Presencial">Presencial (Loja)</option>
+                  <option value="Outros">Outros</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 mb-1 uppercase tracking-wider">Resumo da Conversa</label>
+                <textarea 
+                  required
+                  rows={3}
+                  placeholder="Ex: Cliente informou que vai pagar amanhã..."
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-sm text-zinc-200 outline-none focus:border-purple-500 transition resize-none"
+                  value={contactForm.message}
+                  onChange={e => setContactForm({...contactForm, message: e.target.value})}
+                />
+              </div>
+
+              <div className="flex items-center gap-3 bg-zinc-950 p-3 rounded-xl border border-zinc-800">
+                <input 
+                  type="checkbox" 
+                  id="has_promise"
+                  className="w-5 h-5 rounded border-zinc-700 text-purple-600 focus:ring-purple-600 bg-zinc-900"
+                  checked={contactForm.has_promise}
+                  onChange={e => setContactForm({...contactForm, has_promise: e.target.checked})}
+                />
+                <label htmlFor="has_promise" className="text-sm font-semibold text-zinc-200 cursor-pointer">
+                  Gerou Promessa de Pagamento?
+                </label>
+              </div>
+
+              {contactForm.has_promise && (
+                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-zinc-800">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 mb-1 uppercase tracking-wider">Data Prometida</label>
+                    <input 
+                      type="date"
+                      required={contactForm.has_promise}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-sm text-zinc-200 outline-none focus:border-purple-500 transition"
+                      value={contactForm.promise_date}
+                      onChange={e => setContactForm({...contactForm, promise_date: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 mb-1 uppercase tracking-wider">Valor (R$)</label>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-sm text-zinc-200 outline-none focus:border-purple-500 transition"
+                      value={contactForm.promise_amount}
+                      onChange={e => setContactForm({...contactForm, promise_amount: e.target.value})}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800 mt-6">
+                <button 
+                  type="button" 
+                  onClick={() => setIsContactModalOpen(false)}
+                  className="px-4 py-2 text-sm font-bold text-zinc-400 hover:text-white transition"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-900/20 transition-all flex items-center gap-2"
+                >
+                  <Check size={16} /> Salvar Histórico
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

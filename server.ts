@@ -464,6 +464,52 @@ try { db.exec("ALTER TABLE customers ADD COLUMN fine_rate REAL DEFAULT 2"); } ca
 try { db.exec("ALTER TABLE customers ADD COLUMN interest_rate REAL DEFAULT 1"); } catch (e) {}
 try { db.exec("ALTER TABLE mechanics ADD COLUMN commission_rate REAL DEFAULT 50"); } catch (e) {}
 
+try { db.exec("ALTER TABLE customers ADD COLUMN credit_status TEXT DEFAULT 'LIBERADO'"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN credit_block_reason TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN credit_blocked_at TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN credit_blocked_by INTEGER"); } catch (e) {}
+
+try { db.exec("ALTER TABLE credit ADD COLUMN promise_date TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE credit ADD COLUMN promise_amount REAL"); } catch (e) {}
+try { db.exec("ALTER TABLE credit ADD COLUMN collection_status TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE credit ADD COLUMN last_collection_at TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE credit ADD COLUMN next_collection_at TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE credit ADD COLUMN interest_applied REAL DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE credit ADD COLUMN fine_applied REAL DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE credit ADD COLUMN discount_applied REAL DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE credit ADD COLUMN paid_value REAL DEFAULT 0"); } catch (e) {}
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS collection_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      customer_id INTEGER NOT NULL,
+      credit_id INTEGER,
+      action_type TEXT NOT NULL,
+      message TEXT,
+      channel TEXT,
+      status TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      metadata TEXT
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS collection_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id INTEGER DEFAULT 1,
+      reminder_days INTEGER DEFAULT 3,
+      first_collection_days INTEGER DEFAULT 1,
+      strong_collection_days INTEGER DEFAULT 15,
+      block_days INTEGER DEFAULT 31,
+      grave_days INTEGER DEFAULT 60,
+      admin_days INTEGER DEFAULT 90,
+      default_fine REAL DEFAULT 2,
+      default_interest REAL DEFAULT 1,
+      auto_unblock INTEGER DEFAULT 1
+    )
+  `);
+
   // --- CRM Table Initializations ---
   db.exec(`
     CREATE TABLE IF NOT EXISTS clientes (
@@ -1637,6 +1683,20 @@ async function startServer() {
       if (!customer_id) {
         throw new Error("Venda a crédito exige um cliente cadastrado.");
       }
+
+      // NOVO BLOQUEIO DE CRÉDITO NO BACKEND
+      const overdueCredits = db.prepare(`
+        SELECT COUNT(*) as overdueCount 
+        FROM credit 
+        WHERE customer_id = ? 
+        AND status IN ('Aberto', 'Pendente') 
+        AND due_date < date('now', 'localtime') 
+        AND cast(julianday('now', 'localtime') - julianday(due_date) as integer) > 30
+      `).get(customer_id) as any;
+
+      if (overdueCredits && overdueCredits.overdueCount > 0) {
+        return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 30 dias." });
+      }
     }
 
     const runTransaction = db.transaction(() => {
@@ -1660,8 +1720,8 @@ async function startServer() {
         if (!existingCredit) {
           const numInstallments = parseInt(req.body.installments) || 1;
           const baseValue = safeTotal / numInstallments;
-          const roundedValue = Math.floor(baseValue * 100) / 100;
-          const remainder = safeTotal - (roundedValue * numInstallments);
+          const roundedValue = Math.round(baseValue * 100) / 100;
+          const remainder = Number((safeTotal - (roundedValue * numInstallments)).toFixed(2));
           
           const [year, month, day] = due_date.split('T')[0].split('-').map(Number);
           let currentDate = new Date(year, month - 1, day);
@@ -1731,6 +1791,20 @@ async function startServer() {
       if (!customer_id) {
         throw new Error("Venda a crédito exige um cliente cadastrado.");
       }
+
+      // NOVO BLOQUEIO DE CRÉDITO NO BACKEND
+      const overdueCredits = db.prepare(`
+        SELECT COUNT(*) as overdueCount 
+        FROM credit 
+        WHERE customer_id = ? 
+        AND status IN ('Aberto', 'Pendente') 
+        AND due_date < date('now', 'localtime') 
+        AND cast(julianday('now', 'localtime') - julianday(due_date) as integer) > 30
+      `).get(customer_id) as any;
+
+      if (overdueCredits && overdueCredits.overdueCount > 0) {
+        return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 30 dias." });
+      }
     }
 
     const runTransaction = db.transaction(() => {
@@ -1754,8 +1828,8 @@ async function startServer() {
         if (existingCredits.length === 0) {
           const numInstallments = parseInt(req.body.installments) || 1;
           const baseValue = safeTotal / numInstallments;
-          const roundedValue = Math.floor(baseValue * 100) / 100;
-          const remainder = safeTotal - (roundedValue * numInstallments);
+          const roundedValue = Math.round(baseValue * 100) / 100;
+          const remainder = Number((safeTotal - (roundedValue * numInstallments)).toFixed(2));
           
           const [year, month, day] = due_date.split('T')[0].split('-').map(Number);
           let currentDate = new Date(year, month - 1, day);
@@ -1763,7 +1837,7 @@ async function startServer() {
 
           for (let i = 1; i <= numInstallments; i++) {
             const isLast = i === numInstallments;
-            const parcelValue = isLast ? roundedValue + remainder : roundedValue;
+            const parcelValue = isLast ? Number((roundedValue + remainder).toFixed(2)) : roundedValue;
             const identifier = `VENDA-${req.params.id.substring(0, 8).toUpperCase()}-${i.toString().padStart(2, '0')}`;
             const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
 
@@ -1886,6 +1960,114 @@ async function startServer() {
     db.prepare("UPDATE credit SET status = 'Pago' WHERE id = ? AND user_id = ?").run(req.params.id, req.user!.id);
     res.json({ success: true });
   });
+
+  // Central de Cobrança APIs
+  app.get("/api/collections/dashboard", authenticateToken, (req, res) => {
+    const credits = db.prepare("SELECT * FROM credit WHERE user_id = ?").all(req.user!.id) as any[];
+    const customers = db.prepare("SELECT * FROM customers WHERE user_id = ?").all(req.user!.id) as any[];
+    
+    const stats = {
+      total_receivable: credits.filter(c => c.status === 'Aberto').reduce((acc, c) => acc + c.original_value - (c.paid_value || 0), 0),
+      total_overdue: credits.filter(c => c.status === 'Aberto' && new Date(c.due_date) < new Date()).reduce((acc, c) => acc + c.original_value - (c.paid_value || 0), 0),
+      blocked_customers: customers.filter(c => c.credit_status?.includes('BLOQUEADO')).length
+    };
+    res.json(stats);
+  });
+
+  app.get("/api/collections/settings", authenticateToken, (req, res) => {
+    let settings = db.prepare("SELECT * FROM collection_settings WHERE tenant_id = 1").get();
+    if (!settings) {
+      db.prepare("INSERT INTO collection_settings (tenant_id) VALUES (1)").run();
+      settings = db.prepare("SELECT * FROM collection_settings WHERE tenant_id = 1").get();
+    }
+    res.json(settings);
+  });
+
+  app.put("/api/collections/settings", authenticateToken, (req, res) => {
+    const { reminder_days, first_collection_days, strong_collection_days, block_days, grave_days, admin_days, default_fine, default_interest, auto_unblock } = req.body;
+    db.prepare(`
+      UPDATE collection_settings 
+      SET reminder_days=?, first_collection_days=?, strong_collection_days=?, block_days=?, grave_days=?, admin_days=?, default_fine=?, default_interest=?, auto_unblock=? 
+      WHERE tenant_id = 1
+    `).run(reminder_days, first_collection_days, strong_collection_days, block_days, grave_days, admin_days, default_fine, default_interest, auto_unblock);
+    res.json({ success: true });
+  });
+
+  app.get("/api/collections/history/:customer_id", authenticateToken, (req, res) => {
+    const history = db.prepare("SELECT * FROM collection_history WHERE user_id = ? AND customer_id = ? ORDER BY created_at DESC").all(req.user!.id, req.params.customer_id);
+    res.json(history);
+  });
+
+  app.post("/api/collections/history", authenticateToken, (req, res) => {
+    const { customer_id, credit_id, action_type, message, channel, status, metadata } = req.body;
+    const info = db.prepare(`
+      INSERT INTO collection_history (user_id, customer_id, credit_id, action_type, message, channel, status, metadata)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(req.user!.id, customer_id, credit_id, action_type, message, channel, status, JSON.stringify(metadata || {}));
+    res.json({ id: parseInt(info.lastInsertRowid.toString()), success: true });
+  });
+
+  app.put("/api/customers/:id/credit-status", authenticateToken, (req, res) => {
+    const { credit_status, credit_block_reason, credit_blocked_at } = req.body;
+    db.prepare(`
+      UPDATE customers 
+      SET credit_status = ?, credit_block_reason = ?, credit_blocked_at = ?, credit_blocked_by = ?
+      WHERE id = ? AND user_id = ?
+    `).run(credit_status, credit_block_reason, credit_blocked_at, req.user!.id, req.params.id, req.user!.id);
+    
+    // Log history
+    db.prepare(`
+      INSERT INTO collection_history (user_id, customer_id, action_type, message, status)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(req.user!.id, req.params.id, credit_status.includes('BLOQUEADO') ? 'BLOQUEIO_MANUAL' : 'DESBLOQUEIO_MANUAL', credit_block_reason, 'Concluído');
+    
+    res.json({ success: true });
+  });
+
+  app.put("/api/credit/:id/promise", authenticateToken, (req, res) => {
+    const { promise_date, promise_amount, observation, customer_id } = req.body;
+    db.prepare(`
+      UPDATE credit SET promise_date = ?, promise_amount = ? WHERE id = ? AND user_id = ?
+    `).run(promise_date, promise_amount, req.params.id, req.user!.id);
+
+    db.prepare(`
+      INSERT INTO collection_history (user_id, customer_id, credit_id, action_type, message, status)
+      VALUES (?, ?, ?, 'PROMESSA_PAGAMENTO', ?, 'Registrado')
+    `).run(req.user!.id, customer_id, req.params.id, observation || `Promessa para ${promise_date} de R$ ${promise_amount}`);
+
+    res.json({ success: true });
+  });
+
+  app.post("/api/credit/:id/pay-partial", authenticateToken, (req, res) => {
+    const { received_value, fine_applied, interest_applied, discount_applied, observation, customer_id, payment_method, is_total } = req.body;
+    
+    const credit = db.prepare("SELECT * FROM credit WHERE id = ? AND user_id = ?").get(req.params.id, req.user!.id) as any;
+    if (!credit) return res.status(404).json({error: 'Credit not found'});
+
+    const new_paid_value = (credit.paid_value || 0) + received_value;
+    const new_status = is_total ? 'Pago' : 'Aberto';
+    
+    db.prepare(`
+      UPDATE credit 
+      SET paid_value = ?, fine_applied = ?, interest_applied = ?, discount_applied = ?, status = ?
+      WHERE id = ? AND user_id = ?
+    `).run(new_paid_value, 
+           (credit.fine_applied || 0) + (fine_applied || 0), 
+           (credit.interest_applied || 0) + (interest_applied || 0), 
+           (credit.discount_applied || 0) + (discount_applied || 0), 
+           new_status, req.params.id, req.user!.id);
+
+    db.prepare(`
+      INSERT INTO collection_history (user_id, customer_id, credit_id, action_type, message, status, metadata)
+      VALUES (?, ?, ?, ?, ?, 'Concluído', ?)
+    `).run(req.user!.id, customer_id, req.params.id, 
+           is_total ? 'PAGAMENTO' : 'PAGAMENTO_PARCIAL', 
+           observation || `Pagamento de R$ ${received_value} via ${payment_method}`,
+           JSON.stringify({ received_value, fine_applied, interest_applied, discount_applied, payment_method }));
+
+    res.json({ success: true, status: new_status });
+  });
+
 
   // Leads
   app.get("/api/leads", authenticateToken, (req, res) => {
@@ -2853,6 +3035,9 @@ ${promptText}`,
         ultimaVisitaDate
       };
 
+      // 8. Collection History
+      const collection_history = db.prepare("SELECT * FROM collection_history WHERE customer_id = ? AND user_id = ? ORDER BY created_at DESC").all(clienteId, userId);
+
       res.json({
         cliente,
         motos,
@@ -2860,7 +3045,8 @@ ${promptText}`,
         sales: salesWithItems,
         credits,
         atendimentos: atendimentosWithConversas,
-        financialSummary
+        financialSummary,
+        collection_history
       });
     } catch (e: any) {
       console.error("[360] Error fetching 360 data:", e);

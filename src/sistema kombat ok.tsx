@@ -78,6 +78,7 @@ import Modal from './components/Modal';
 import { ThemeToggle } from './components/ThemeToggle';
 import Cliente360Modal from './components/crm/Cliente360Modal';
 import AIAssistant from './components/ai/AIAssistant';
+import CentralCobranca from './components/CentralCobranca';
 
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -100,6 +101,9 @@ interface Customer {
   fine_rate?: number;
   interest_rate?: number;
   image_url?: string;
+  credit_status?: string;
+  credit_block_reason?: string;
+  credit_blocked_at?: string;
 }
 
 interface Motorcycle {
@@ -915,6 +919,7 @@ export default function App() {
   const [isOsModalOpen, setIsOsModalOpen] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isOpenMotosModal, setIsOpenMotosModal] = useState(false);
+  const [credit, setCredit] = useState<any[]>([]);
   const [pdvForm, setPdvForm] = useState<{
     customer_id: string;
     mechanic_id: string;
@@ -1128,6 +1133,7 @@ export default function App() {
         quotesData,
         servicesData,
         workshopPurchasesData,
+        creditData,
       ] = await Promise.all([
         fetchTable('products').catch(() => []),
         fetchTable('customers').catch(() => []),
@@ -1143,6 +1149,7 @@ export default function App() {
         fetchTable('quotes').catch(() => []),
         fetchTable('registered_services').catch(() => []),
         fetchTable('workshop_purchases').catch(() => []),
+        fetchTable('credit').catch(() => []),
       ]);
 
       if (productsData) setProducts(productsData);
@@ -1165,6 +1172,7 @@ export default function App() {
       if (quotesData) setQuotes(quotesData);
       if (servicesData) setRegisteredServices(servicesData);
       if (workshopPurchasesData) setWorkshopPurchases(workshopPurchasesData);
+      if (creditData) setCredit(creditData);
 
       // Sync settings from localStorage
       const savedFees = localStorage.getItem('cardFeesSettings');
@@ -2080,6 +2088,11 @@ export default function App() {
         return;
       }
 
+      if (customer.credit_status && customer.credit_status.includes('BLOQUEADO')) {
+        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
+        return;
+      }
+
       try {
         const currentDebt = (sales || [])
           .filter(s => s && s.customer_id === customer.id && s.payment_status === 'Pendente')
@@ -2284,6 +2297,11 @@ export default function App() {
 
       if (!customer) {
         alert("Cliente não encontrado.");
+        return;
+      }
+
+      if (customer.credit_status && customer.credit_status.includes('BLOQUEADO')) {
+        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
         return;
       }
 
@@ -5351,7 +5369,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
   const renderDashboard = () => (
     <div className="space-y-8">
       {/* Atalhos Rápidos no Topo do Dashboard */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-2">
         <button
           onClick={() => setIsPdvModalOpen(true)}
           className="flex items-center justify-center gap-3 px-6 py-4 bg-emerald-600 text-white rounded-2xl shadow-lg shadow-emerald-100 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 transition-all font-black text-[10px] tracking-widest uppercase"
@@ -5388,10 +5406,17 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         </button>
         <button
           onClick={() => setIsQuickInventoryOpen(true)}
-          className="col-span-2 sm:col-span-1 flex items-center justify-center gap-3 px-6 py-4 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 hover:scale-[1.02] active:scale-95 transition-all font-black text-[10px] tracking-widest uppercase border-b-4 border-indigo-800"
+          className="flex items-center justify-center gap-3 px-6 py-4 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 hover:scale-[1.02] active:scale-95 transition-all font-black text-[10px] tracking-widest uppercase border-b-4 border-indigo-800"
         >
           <ClipboardCheck size={20} />
           <span>Contagem Rápida</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('cobranca')}
+          className="flex items-center justify-center gap-3 px-6 py-4 bg-rose-600 text-white rounded-2xl shadow-lg shadow-rose-100 hover:bg-rose-700 hover:scale-[1.02] active:scale-95 transition-all font-black text-[10px] tracking-widest uppercase border-b-4 border-rose-800"
+        >
+          <ShieldAlert size={20} />
+          <span>Cobranças</span>
         </button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -6124,7 +6149,31 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
 
 
-  const renderSettings = () => (
+  const renderSettings = () => {
+    // Calcula Métricas de Cobrança (FASE 8)
+    let totalAtrasado = 0;
+    let totalVencer = 0;
+    let totalPago = 0;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    credit.forEach((c: any) => {
+      totalPago += (c.paid_value || 0);
+      if (c.status === 'Aberto' || c.status === 'Pendente' || c.status === 'Atrasado') {
+        const saldo = c.original_value - (c.paid_value || 0);
+        if (saldo > 0) {
+          const due = new Date(c.due_date);
+          const diffDays = Math.floor((due.getTime() - today.getTime()) / (1000 * 3600 * 24));
+          if (diffDays < 0) totalAtrasado += saldo;
+          else if (diffDays <= 30) totalVencer += saldo;
+        }
+      }
+    });
+
+    const inadimplencia = totalAtrasado + totalVencer + totalPago > 0 
+      ? (totalAtrasado / (totalAtrasado + totalVencer + totalPago)) * 100 : 0;
+
+    return (
     <div className="max-w-4xl space-y-8">
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
         <div className="flex items-center gap-4 mb-8">
@@ -6299,6 +6348,32 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
         <div className="flex items-center gap-4 mb-6">
+          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
+            <ShieldAlert size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Dashboard de Inadimplência e Cobrança</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Métricas globais de risco de crédito (FASE 8)</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-rose-50 p-6 rounded-2xl border border-rose-200">
+            <p className="text-xs uppercase font-black text-rose-600 mb-2">Total Atrasado (Em Risco)</p>
+            <p className="text-3xl font-black text-rose-700">{formatBRL(totalAtrasado)}</p>
+          </div>
+          <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200">
+            <p className="text-xs uppercase font-black text-amber-600 mb-2">Total a Vencer (30 Dias)</p>
+            <p className="text-3xl font-black text-amber-700">{formatBRL(totalVencer)}</p>
+          </div>
+          <div className="bg-slate-100 p-6 rounded-2xl border border-slate-300 dark:bg-slate-900 dark:border-slate-700">
+            <p className="text-xs uppercase font-black text-slate-500 mb-2 dark:text-slate-400">Índice de Inadimplência</p>
+            <p className="text-3xl font-black text-slate-800 dark:text-slate-200">{inadimplencia.toFixed(1)}%</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
+        <div className="flex items-center gap-4 mb-6">
           <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl">
             <BarChart3 size={24} />
           </div>
@@ -6363,6 +6438,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       </div>
     </div>
   );
+  };
   const renderOrders = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -6859,6 +6935,12 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               active={activeTab === 'crm'}
               onClick={() => { setActiveTab('crm'); setIsSidebarOpen(false); }}
             />
+            <SidebarItem
+              icon={ShieldAlert}
+              label="Cobranças"
+              active={activeTab === 'cobranca'}
+              onClick={() => { setActiveTab('cobranca'); setIsSidebarOpen(false); }}
+            />
           )}
           {hasAccess(['Administrador']) && (
             <SidebarItem
@@ -6951,6 +7033,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               {activeTab === 'manual_inventory' && 'Contagem Rápida (Estoque)'}
               {activeTab === 'services' && 'Cadastro de Serviços'}
               {activeTab === 'crm' && 'CRM de Vendas'}
+              {activeTab === 'cobranca' && 'Central de Cobrança'}
               {activeTab === 'pdv' && 'Frente de Caixa (PDV)'}
               {activeTab === 'os' && 'Ordens de Serviço'}
               {activeTab === 'financial' && 'Gestão Financeira'}
@@ -7036,6 +7119,14 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     onTriggerPDV={handleConvertQuoteToSale}
                     onTriggerOS={handleConvertQuoteToOS}
                     onOpenCliente360={(id) => setActiveCliente360Id(id)}
+                  />
+                )}
+                {activeTab === 'cobranca' && (
+                  <CentralCobranca 
+                    customers={customers}
+                    credits={credit}
+                    onPrintReceipt={handlePrintReceipt}
+                    fetchCredits={fetchData}
                   />
                 )}
                 {activeTab === 'pdv' && renderPDV()}
