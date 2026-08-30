@@ -6929,18 +6929,20 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
             />
           )}
           {hasAccess(['Administrador', 'Atendente']) && (
-            <SidebarItem
-              icon={Target}
-              label="CRM / Vendas"
-              active={activeTab === 'crm'}
-              onClick={() => { setActiveTab('crm'); setIsSidebarOpen(false); }}
-            />
-            <SidebarItem
-              icon={ShieldAlert}
-              label="Cobranças"
-              active={activeTab === 'cobranca'}
-              onClick={() => { setActiveTab('cobranca'); setIsSidebarOpen(false); }}
-            />
+            <>
+              <SidebarItem
+                icon={Target}
+                label="CRM / Vendas"
+                active={activeTab === 'crm'}
+                onClick={() => { setActiveTab('crm'); setIsSidebarOpen(false); }}
+              />
+              <SidebarItem
+                icon={ShieldAlert}
+                label="Cobranças"
+                active={activeTab === 'cobranca'}
+                onClick={() => { setActiveTab('cobranca'); setIsSidebarOpen(false); }}
+              />
+            </>
           )}
           {hasAccess(['Administrador']) && (
             <SidebarItem

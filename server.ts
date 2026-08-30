@@ -3873,6 +3873,77 @@ ${promptText}`,
     });
   });
 
+  // FASE 9: Motor de Automação de Cobrança (Idempotente)
+  const runCreditAutomationEngine = () => {
+    try {
+      console.log("[Credit Engine] Rodando motor de automação de cobranças...");
+      
+      // 1. Bloqueio Automático (Atraso > 30 dias)
+      const clientsToBlock = db.prepare(`
+        SELECT DISTINCT c.id, c.name, c.user_id 
+        FROM customers c
+        JOIN credit cr ON c.id = cr.customer_id
+        WHERE cr.status IN ('Aberto', 'Pendente')
+        AND cr.due_date < date('now', 'localtime')
+        AND cast(julianday('now', 'localtime') - julianday(cr.due_date) as integer) > 30
+        AND (c.credit_status != 'BLOQUEADO_AUTOMATICAMENTE' OR c.credit_status IS NULL)
+      `).all() as any[];
+
+      const blockStmt = db.prepare("UPDATE customers SET credit_status = 'BLOQUEADO_AUTOMATICAMENTE' WHERE id = ?");
+      const historyStmt = db.prepare("INSERT INTO collection_history (user_id, customer_id, action_type, message) VALUES (?, ?, ?, ?)");
+      
+      if (clientsToBlock.length > 0) {
+        db.transaction(() => {
+          for (const client of clientsToBlock) {
+            blockStmt.run(client.id);
+            historyStmt.run(client.user_id, client.id, 'Bloqueio Automático', 'Sistema: Cliente bloqueado automaticamente por possuir dívida(s) vencida(s) há mais de 30 dias.');
+            console.log(`[Credit Engine] Cliente bloqueado: ${client.name} (ID: ${client.id})`);
+          }
+        })();
+      }
+
+      // 2. Liberação Automática
+      const clientsToUnblock = db.prepare(`
+        SELECT c.id, c.name, c.user_id 
+        FROM customers c
+        WHERE c.credit_status = 'BLOQUEADO_AUTOMATICAMENTE'
+        AND NOT EXISTS (
+          SELECT 1 FROM credit cr 
+          WHERE cr.customer_id = c.id 
+          AND cr.status IN ('Aberto', 'Pendente')
+          AND cr.due_date < date('now', 'localtime')
+          AND cast(julianday('now', 'localtime') - julianday(cr.due_date) as integer) > 30
+        )
+      `).all() as any[];
+
+      const unblockStmt = db.prepare("UPDATE customers SET credit_status = 'LIBERADO' WHERE id = ?");
+
+      if (clientsToUnblock.length > 0) {
+        db.transaction(() => {
+          for (const client of clientsToUnblock) {
+            unblockStmt.run(client.id);
+            historyStmt.run(client.user_id, client.id, 'Liberação Automática', 'Sistema: Cliente liberado automaticamente (dívidas superiores a 30 dias foram quitadas ou renegociadas).');
+            console.log(`[Credit Engine] Cliente liberado: ${client.name} (ID: ${client.id})`);
+          }
+        })();
+      }
+      
+      console.log(`[Credit Engine] Finalizado. Bloqueios: ${clientsToBlock.length} | Liberações: ${clientsToUnblock.length}`);
+    } catch (err) {
+      console.error("[Credit Engine] Erro na automação:", err);
+    }
+  };
+
+  // Run engine immediately on startup, and then every 1 hour (3600000 ms)
+  runCreditAutomationEngine();
+  setInterval(runCreditAutomationEngine, 60 * 60 * 1000);
+
+  // Endpoint for testing/triggering manually
+  app.post("/api/admin/trigger-credit-engine", authenticateToken, (req, res) => {
+    runCreditAutomationEngine();
+    res.json({ success: true, message: "Motor de crédito executado com sucesso." });
+  });
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`\n=================================================`);
     console.log(`🚀 ERP Kombat Moto Pecas - Sistema Pronto!`);
