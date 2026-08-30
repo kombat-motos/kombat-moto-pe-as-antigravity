@@ -25,7 +25,7 @@ export default function CentralCobranca({
     today.setHours(0,0,0,0);
 
     credits.forEach((c: any) => {
-      if (c.status === 'Aberto' || c.status === 'Pendente') {
+      if (c.status === 'Aberto' || c.status === 'Pendente' || c.status === 'Atrasado') {
         const saldo = c.original_value - (c.paid_value || 0);
         aReceber += saldo;
         
@@ -46,7 +46,7 @@ export default function CentralCobranca({
   }, [credits, customers]);
 
   const filteredCredits = useMemo(() => {
-    let list = credits.filter((c: any) => c.status === 'Aberto' || c.status === 'Pendente');
+    let list = credits.filter((c: any) => c.status === 'Aberto' || c.status === 'Pendente' || c.status === 'Atrasado');
     const today = new Date();
     today.setHours(0,0,0,0);
 
