@@ -61,6 +61,7 @@ import {
   Minus,
   AlertCircle,
   ExternalLink,
+  ShieldAlert,
   BrainCircuit
 } from 'lucide-react';
 import PurchasesTab from './components/PurchasesTab';
