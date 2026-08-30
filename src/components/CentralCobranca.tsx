@@ -29,7 +29,8 @@ export default function CentralCobranca({
         const saldo = c.original_value - (c.paid_value || 0);
         aReceber += saldo;
         
-        const due = new Date(c.due_date);
+        const [year, month, day] = c.due_date.split('T')[0].split('-').map(Number);
+        const due = new Date(year, month - 1, day);
         const diff = differenceInDays(due, today);
 
         if (diff === 0) venceHoje += saldo;
@@ -51,13 +52,25 @@ export default function CentralCobranca({
 
     // Apply specific filter
     if (filter === 'A vencer') {
-      list = list.filter((c: any) => differenceInDays(new Date(c.due_date), today) > 0);
+      list = list.filter((c: any) => {
+        const [y, m, d] = c.due_date.split('T')[0].split('-').map(Number);
+        return differenceInDays(new Date(y, m - 1, d), today) > 0;
+      });
     } else if (filter === 'Vence hoje') {
-      list = list.filter((c: any) => differenceInDays(new Date(c.due_date), today) === 0);
+      list = list.filter((c: any) => {
+        const [y, m, d] = c.due_date.split('T')[0].split('-').map(Number);
+        return differenceInDays(new Date(y, m - 1, d), today) === 0;
+      });
     } else if (filter === 'Vencidos') {
-      list = list.filter((c: any) => differenceInDays(new Date(c.due_date), today) < 0);
+      list = list.filter((c: any) => {
+        const [y, m, d] = c.due_date.split('T')[0].split('-').map(Number);
+        return differenceInDays(new Date(y, m - 1, d), today) < 0;
+      });
     } else if (filter === '+30 dias atraso') {
-      list = list.filter((c: any) => differenceInDays(new Date(c.due_date), today) <= -30);
+      list = list.filter((c: any) => {
+        const [y, m, d] = c.due_date.split('T')[0].split('-').map(Number);
+        return differenceInDays(new Date(y, m - 1, d), today) <= -30;
+      });
     }
 
     if (!searchTerm) return list;
