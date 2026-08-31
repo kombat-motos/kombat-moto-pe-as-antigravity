@@ -3490,9 +3490,53 @@ ${promptText}`,
 
   try {
     db.exec(`ALTER TABLE workshop_purchases ADD COLUMN installments TEXT;`);
-  } catch (e) {
-    // Column already exists
-  }
+    } catch (e) {
+      // Column might already exist
+    }
+
+    // ---------------------------------------------------------
+    // NOVO MODULO: AGENDAMENTOS E PATIO
+    // ---------------------------------------------------------
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS agendamentos (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        cliente_id TEXT NOT NULL,
+        motorcycle_id TEXT,
+        data_agendamento TEXT NOT NULL,
+        horario_agendamento TEXT,
+        status TEXT NOT NULL,
+        observacoes TEXT,
+        valor_estimado REAL,
+        modo_chegada TEXT,
+        endereco_busca TEXT,
+        sale_id TEXT,
+        data_entrada TEXT,
+        data_saida TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (cliente_id) REFERENCES customers (id),
+        FOREIGN KEY (motorcycle_id) REFERENCES motorcycles (id)
+      )
+    `).run();
+
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS agendamento_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        agendamento_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        status_novo TEXT NOT NULL,
+        observacao TEXT,
+        data_alteracao TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `).run();
+
+    try { db.prepare("ALTER TABLE motorcycles ADD COLUMN brand TEXT").run(); } catch(e) {}
+    try { db.prepare("ALTER TABLE motorcycles ADD COLUMN year TEXT").run(); } catch(e) {}
+    try { db.prepare("ALTER TABLE motorcycles ADD COLUMN color TEXT").run(); } catch(e) {}
+    try { db.prepare("ALTER TABLE motorcycles ADD COLUMN chassis TEXT").run(); } catch(e) {}
 
   app.get("/api/workshop_purchases", authenticateToken, (req, res) => {
     const data = db.prepare("SELECT * FROM workshop_purchases WHERE user_id = ? ORDER BY purchase_date DESC").all(req.user!.id);
