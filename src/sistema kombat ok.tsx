@@ -7054,6 +7054,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               {activeTab === 'inventory' && 'Controle de Estoque'}
               {activeTab === 'manual_inventory' && 'Contagem Rápida (Estoque)'}
               {activeTab === 'services' && 'Cadastro de Serviços'}
+              {activeTab === 'agendamentos' && 'Gestão da Oficina e Pátio'}
               {activeTab === 'crm' && 'CRM de Vendas'}
               {activeTab === 'cobranca' && 'Central de Cobrança'}
               {activeTab === 'pdv' && 'Frente de Caixa (PDV)'}
@@ -7132,6 +7133,14 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 )}
                 {activeTab === 'manual_inventory' && renderManualInventory()}
                 {activeTab === 'services' && renderServices()}
+                {activeTab === 'agendamentos' && (
+                  <AgendamentosDashboard 
+                    customers={customers}
+                    motorcycles={motorcycles}
+                    fetchCustomers={fetchData}
+                    fetchMotorcycles={fetchData}
+                  />
+                )}
                 {activeTab === 'crm' && (
                   <CRMTab
                     currentUser={user}
@@ -11646,4 +11655,4 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       <AIAssistant />
     </>
   );
-}
+}

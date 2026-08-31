@@ -3987,6 +3987,193 @@ ${promptText}`,
     res.json({ success: true, message: "Motor de crédito executado com sucesso." });
   });
 
+  // ==========================================
+  // AGENDAMENTOS E PÁTIO API
+  // ==========================================
+
+  app.get("/api/agendamentos", authenticateToken, (req, res) => {
+    try {
+      const { status, view } = req.query;
+      let query = `
+        SELECT a.*, c.name as customer_name, c.whatsapp, 
+               m.model as moto_model, m.plate as moto_plate, m.brand as moto_brand, m.color as moto_color
+        FROM agendamentos a
+        JOIN customers c ON a.cliente_id = c.id
+        LEFT JOIN motorcycles m ON a.motorcycle_id = m.id
+        WHERE a.user_id = ?
+      `;
+      const params: any[] = [req.user!.id];
+
+      if (status && status !== 'Todos') {
+        if (status === 'Na Oficina') {
+          query += " AND a.data_entrada IS NOT NULL AND a.data_saida IS NULL";
+        } else if (status === 'Para Buscar') {
+          query += " AND a.modo_chegada = 'KOMBAT_BUSCA' AND a.status IN ('AGENDADA', 'AGUARDANDO BUSCA', 'SAINDO PARA BUSCAR')";
+        } else if (status === 'Atrasadas') {
+          // Atrasadas handled in frontend for flexibility
+        } else {
+          query += " AND a.status = ?";
+          params.push(status);
+        }
+      }
+
+      query += " ORDER BY a.data_agendamento ASC, a.horario_agendamento ASC";
+      
+      const results = db.prepare(query).all(...params);
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/agendamentos", authenticateToken, (req, res) => {
+    try {
+      const b = req.body;
+      const stmt = db.prepare(`
+        INSERT INTO agendamentos (
+          user_id, cliente_id, motorcycle_id, data_agendamento, horario_agendamento, 
+          previsao_conclusao, prioridade, modo_chegada, endereco_busca, bairro_busca, 
+          cidade_busca, referencia_busca, responsavel_busca, solicitacao_cliente, 
+          observacoes_internas, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const info = stmt.run(
+        req.user!.id, b.cliente_id, b.motorcycle_id || null, b.data_agendamento, b.horario_agendamento,
+        b.previsao_conclusao, b.prioridade || 'NORMAL', b.modo_chegada || 'CLIENTE_LEVA', b.endereco_busca, b.bairro_busca,
+        b.cidade_busca, b.referencia_busca, b.responsavel_busca, b.solicitacao_cliente,
+        b.observacoes_internas, 'AGENDADA'
+      );
+
+      db.prepare("INSERT INTO agendamento_history (agendamento_id, user_id, status_novo, observacao) VALUES (?, ?, ?, ?)").run(
+        info.lastInsertRowid, req.user!.id, 'AGENDADA', 'Agendamento criado.'
+      );
+
+      res.json({ id: info.lastInsertRowid, success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/agendamentos/:id/status", authenticateToken, (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, motivo_paralisacao, isEntrada, isSaida, tipo_saida, responsavel_saida } = req.body;
+      
+      const current = db.prepare("SELECT * FROM agendamentos WHERE id = ? AND user_id = ?").get(id, req.user!.id) as any;
+      if (!current) return res.status(404).json({ error: "Agendamento não encontrado" });
+
+      const updates: string[] = ["status = ?", "motivo_paralisacao = ?"];
+      const params: any[] = [status, motivo_paralisacao];
+
+      if (isEntrada && !current.data_entrada) {
+        updates.push("data_entrada = ?");
+        params.push(new Date().toISOString());
+      }
+
+      if (isSaida && !current.data_saida) {
+        updates.push("data_saida = ?");
+        params.push(new Date().toISOString());
+        updates.push("tipo_saida = ?");
+        params.push(tipo_saida);
+        updates.push("responsavel_saida = ?");
+        params.push(responsavel_saida);
+      }
+
+      updates.push("updated_at = CURRENT_TIMESTAMP");
+      params.push(id, req.user!.id);
+
+      db.prepare(`UPDATE agendamentos SET ${updates.join(", ")} WHERE id = ? AND user_id = ?`).run(...params);
+
+      if (current.status !== status) {
+         db.prepare("INSERT INTO agendamento_history (agendamento_id, user_id, status_anterior, status_novo) VALUES (?, ?, ?, ?)").run(
+           id, req.user!.id, current.status, status
+         );
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/agendamentos/:id", authenticateToken, (req, res) => {
+    try {
+      const { id } = req.params;
+      const b = req.body;
+      const stmt = db.prepare(`
+        UPDATE agendamentos SET
+          cliente_id = ?, motorcycle_id = ?, data_agendamento = ?, horario_agendamento = ?, 
+          previsao_conclusao = ?, prioridade = ?, modo_chegada = ?, endereco_busca = ?, bairro_busca = ?, 
+          cidade_busca = ?, referencia_busca = ?, responsavel_busca = ?, solicitacao_cliente = ?, 
+          observacoes_internas = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND user_id = ?
+      `);
+      stmt.run(
+        b.cliente_id, b.motorcycle_id || null, b.data_agendamento, b.horario_agendamento,
+        b.previsao_conclusao, b.prioridade, b.modo_chegada, b.endereco_busca, b.bairro_busca,
+        b.cidade_busca, b.referencia_busca, b.responsavel_busca, b.solicitacao_cliente,
+        b.observacoes_internas, id, req.user!.id
+      );
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/agendamentos/:id/history", authenticateToken, (req, res) => {
+    try {
+      const rows = db.prepare(`
+        SELECT h.*, u.username as user_name 
+        FROM agendamento_history h
+        JOIN users u ON h.user_id = u.id
+        WHERE h.agendamento_id = ?
+        ORDER BY h.created_at DESC
+      `).all(req.params.id);
+      res.json(rows);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/agendamentos/:id/os", authenticateToken, (req, res) => {
+    try {
+      const { id } = req.params;
+      const ag = db.prepare(`
+        SELECT a.*, c.name as customer_name, m.model as moto_model, m.plate as moto_plate, m.current_km, m.brand as moto_brand
+        FROM agendamentos a 
+        JOIN customers c ON a.cliente_id = c.id
+        LEFT JOIN motorcycles m ON a.motorcycle_id = m.id
+        WHERE a.id = ? AND a.user_id = ?
+      `).get(id, req.user!.id) as any;
+
+      if (!ag) return res.status(404).json({ error: "Agendamento não encontrado" });
+
+      const newId = Date.now().toString() + Math.floor(Math.random() * 1000).toString();
+      const motoDetails = `${ag.moto_brand || ''} ${ag.moto_model || ''} - ${ag.moto_plate || ''}`.trim();
+
+      db.prepare(`
+        INSERT INTO sales (
+          id, user_id, customer_id, customer_name, type, status, 
+          moto_details, motorcycle_id, motorcycle_km, service_description, total,
+          labor_value, commission
+        ) VALUES (?, ?, ?, ?, 'Oficina', 'Aberto', ?, ?, ?, ?, 0, 0, 0)
+      `).run(
+        newId, req.user!.id, ag.cliente_id, ag.customer_name, 
+        motoDetails, ag.motorcycle_id, ag.current_km || 0, ag.solicitacao_cliente
+      );
+
+      db.prepare("UPDATE agendamentos SET sale_id = ? WHERE id = ?").run(newId, id);
+
+      db.prepare("INSERT INTO agendamento_history (agendamento_id, user_id, status_novo, observacao) VALUES (?, ?, ?, ?)").run(
+        id, req.user!.id, ag.status, `Ordem de Serviço ${newId} criada.`
+      );
+
+      res.json({ success: true, sale_id: newId });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`\n=================================================`);
     console.log(`🚀 ERP Kombat Moto Pecas - Sistema Pronto!`);
