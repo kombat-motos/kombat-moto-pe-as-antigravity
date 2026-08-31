@@ -70,6 +70,7 @@ import FinancialTab from './components/FinancialTab';
 import CRMTab from './components/CRMTab';
 import OSTab from './components/OSTab';
 import AIInstructionsDashboard from './components/ai-instructions/AIInstructionsDashboard';
+import { AgendamentosDashboard } from './components/Agendamentos/AgendamentosDashboard';
 import { motion, AnimatePresence } from 'motion/react';
 import BillingAutomationBox from './components/BillingAutomationBox';
 import VirtualCatalogModal from './components/VirtualCatalogModal';
@@ -6946,6 +6947,14 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               label="Orçamentos"
               active={activeTab === 'quotes'}
               onClick={() => { setActiveTab('quotes'); setIsSidebarOpen(false); }}
+            />
+          )}
+          {hasAccess(['Administrador', 'Atendente', 'Mecânico']) && (
+            <SidebarItem
+              icon={Calendar}
+              label="Agendamentos"
+              active={activeTab === 'agendamentos'}
+              onClick={() => { setActiveTab('agendamentos'); setIsSidebarOpen(false); }}
             />
           )}
           {hasAccess(['Administrador', 'Atendente']) && (

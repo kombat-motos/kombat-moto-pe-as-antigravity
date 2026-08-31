@@ -3,7 +3,7 @@ import { Calendar, Filter, Plus, Search, MapPin, Settings, AlertCircle, Wrench, 
 import { MotoCard } from './MotoCard';
 import { AgendamentoModal } from './AgendamentoModal';
 import { AgendamentoTimeline } from './AgendamentoTimeline';
-import { toast } from 'react-hot-toast';
+
 
 export const AgendamentosDashboard = ({ customers, motorcycles, fetchCustomers, fetchMotorcycles }: any) => {
   const [agendamentos, setAgendamentos] = useState<any[]>([]);
@@ -26,7 +26,7 @@ export const AgendamentosDashboard = ({ customers, motorcycles, fetchCustomers, 
       const data = await res.json();
       setAgendamentos(data);
     } catch (err) {
-      toast.error('Erro ao buscar agendamentos');
+      alert('Erro ao buscar agendamentos');
     }
   };
 
@@ -50,13 +50,13 @@ export const AgendamentosDashboard = ({ customers, motorcycles, fetchCustomers, 
       });
       
       if (res.ok) {
-        toast.success(data.id ? 'Atualizado!' : 'Criado com sucesso!');
+        alert(data.id ? 'Atualizado!' : 'Criado com sucesso!');
         setShowModal(false);
         fetchAgendamentos();
         if (selectedAg && selectedAg.id === data.id) setSelectedAg(null); // Close sidebar on edit to refresh
       }
     } catch (err) {
-      toast.error('Erro ao salvar');
+      alert('Erro ao salvar');
     }
   };
 
@@ -80,14 +80,14 @@ export const AgendamentosDashboard = ({ customers, motorcycles, fetchCustomers, 
       });
       
       if (res.ok) {
-        toast.success(`Status atualizado para ${novoStatus}`);
+        alert(`Status atualizado para ${novoStatus}`);
         fetchAgendamentos();
         if (selectedAg && selectedAg.id === id) {
            setSelectedAg({...selectedAg, status: novoStatus});
         }
       }
     } catch (err) {
-      toast.error('Erro ao mudar status');
+      alert('Erro ao mudar status');
     }
   };
 
@@ -100,14 +100,14 @@ export const AgendamentosDashboard = ({ customers, motorcycles, fetchCustomers, 
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success(`Ordem de Serviço criada: #${data.sale_id}`);
+        alert(`Ordem de Serviço criada: #${data.sale_id}`);
         fetchAgendamentos();
         if (selectedAg) setSelectedAg({...selectedAg, sale_id: data.sale_id});
       } else {
-        toast.error(data.error || 'Erro ao criar OS');
+        alert(data.error || 'Erro ao criar OS');
       }
     } catch (err) {
-      toast.error('Erro de conexão');
+      alert('Erro de conexão');
     }
   };
 

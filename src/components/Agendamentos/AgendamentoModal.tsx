@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, MapPin, Wrench, Search, AlertCircle, Save } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+
 
 export const AgendamentoModal = ({ agendamento, onClose, onSave, customers, fetchCustomers, motorcycles, fetchMotorcycles }: any) => {
   const [formData, setFormData] = useState({
@@ -48,7 +48,7 @@ export const AgendamentoModal = ({ agendamento, onClose, onSave, customers, fetc
 
   const handleCreateMoto = async () => {
     if (!newMoto.plate || !newMoto.model) {
-      toast.error('Placa e Modelo são obrigatórios');
+      alert('Placa e Modelo são obrigatórios');
       return;
     }
     
@@ -64,20 +64,20 @@ export const AgendamentoModal = ({ agendamento, onClose, onSave, customers, fetc
       });
       
       if (res.ok) {
-        toast.success("Moto adicionada!");
+        alert("Moto adicionada!");
         await fetchMotorcycles();
         setShowNewMoto(false);
       } else {
-        toast.error("Erro ao adicionar moto");
+        alert("Erro ao adicionar moto");
       }
     } catch (err) {
-      toast.error("Erro de conexão");
+      alert("Erro de conexão");
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.cliente_id) return toast.error("Selecione um cliente");
+    if (!formData.cliente_id) return alert("Selecione um cliente");
     onSave(formData);
   };
 
