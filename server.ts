@@ -3952,22 +3952,6 @@ ${promptText}`,
   }
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { 
-        middlewareMode: true,
-        host: '0.0.0.0',
-        hmr: { port: 24678 }
-      },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "dist", "index.html"));
-    });
-  }
 
   // Global Error Handler for API
   app.use((err: any, req: Request, res: Response, next: NextFunction) => {
@@ -4235,6 +4219,25 @@ ${promptText}`,
       res.status(500).json({ error: error.message });
     }
   });
+
+  
+    // Serve frontend (MUST BE LAST ROUTE)
+    if (process.env.NODE_ENV !== "production") {
+      const vite = await createViteServer({
+        server: { 
+          middlewareMode: true,
+          host: '0.0.0.0',
+          hmr: { port: 24678 }
+        },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } else {
+      app.use(express.static(path.join(__dirname, "dist")));
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(__dirname, "dist", "index.html"));
+      });
+    }
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`\n=================================================`);
