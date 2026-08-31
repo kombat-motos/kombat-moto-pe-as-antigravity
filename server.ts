@@ -3497,19 +3497,37 @@ ${promptText}`,
     // ---------------------------------------------------------
     // NOVO MODULO: AGENDAMENTOS E PATIO
     // ---------------------------------------------------------
+    
+    // Migration: Drop old table if it was created with wrong schema (TEXT id)
+    try {
+      const infoAg: any = db.prepare("PRAGMA table_info(agendamentos)").all();
+      const idCol = infoAg.find((c: any) => c.name === 'id');
+      if (idCol && idCol.type === 'TEXT') {
+        db.prepare("DROP TABLE IF EXISTS agendamento_history").run();
+        db.prepare("DROP TABLE IF EXISTS agendamentos").run();
+        console.log("[DB] Dropped old agendamentos table due to schema mismatch");
+      }
+    } catch(e) {}
+
     db.prepare(`
       CREATE TABLE IF NOT EXISTS agendamentos (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        cliente_id TEXT NOT NULL,
-        motorcycle_id TEXT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        cliente_id INTEGER NOT NULL,
+        motorcycle_id INTEGER,
         data_agendamento TEXT NOT NULL,
         horario_agendamento TEXT,
-        status TEXT NOT NULL,
-        observacoes TEXT,
-        valor_estimado REAL,
+        previsao_conclusao TEXT,
+        prioridade TEXT,
         modo_chegada TEXT,
         endereco_busca TEXT,
+        bairro_busca TEXT,
+        cidade_busca TEXT,
+        referencia_busca TEXT,
+        responsavel_busca TEXT,
+        solicitacao_cliente TEXT,
+        observacoes_internas TEXT,
+        status TEXT NOT NULL,
         sale_id TEXT,
         data_entrada TEXT,
         data_saida TEXT,
@@ -3523,8 +3541,8 @@ ${promptText}`,
     db.prepare(`
       CREATE TABLE IF NOT EXISTS agendamento_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        agendamento_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
+        agendamento_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
         status_novo TEXT NOT NULL,
         observacao TEXT,
         data_alteracao TEXT DEFAULT CURRENT_TIMESTAMP,
