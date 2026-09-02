@@ -3528,10 +3528,14 @@ ${promptText}`,
         solicitacao_cliente TEXT,
         observacoes_internas TEXT,
         status TEXT NOT NULL,
+        motivo_paralisacao TEXT,
         sale_id TEXT,
         data_entrada TEXT,
         data_saida TEXT,
+        tipo_saida TEXT,
+        responsavel_saida TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id),
         FOREIGN KEY (cliente_id) REFERENCES customers (id),
         FOREIGN KEY (motorcycle_id) REFERENCES motorcycles (id)
@@ -3542,14 +3546,26 @@ ${promptText}`,
       CREATE TABLE IF NOT EXISTS agendamento_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         agendamento_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
+        user_id INTEGER,
+        status_anterior TEXT,
         status_novo TEXT NOT NULL,
         observacao TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         data_alteracao TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (agendamento_id) REFERENCES agendamentos(id),
         FOREIGN KEY (user_id) REFERENCES users(id)
       )
     `).run();
+
+    // Migrações automáticas para agendamentos e agendamento_history
+    try { db.prepare("ALTER TABLE agendamentos ADD COLUMN motivo_paralisacao TEXT").run(); } catch(e) {}
+    try { db.prepare("ALTER TABLE agendamentos ADD COLUMN tipo_saida TEXT").run(); } catch(e) {}
+    try { db.prepare("ALTER TABLE agendamentos ADD COLUMN responsavel_saida TEXT").run(); } catch(e) {}
+    try { db.prepare("ALTER TABLE agendamentos ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP").run(); } catch(e) {}
+
+    try { db.prepare("ALTER TABLE agendamento_history ADD COLUMN status_anterior TEXT").run(); } catch(e) {}
+    try { db.prepare("ALTER TABLE agendamento_history ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP").run(); } catch(e) {}
+    try { db.prepare("ALTER TABLE agendamento_history ADD COLUMN data_alteracao TEXT DEFAULT CURRENT_TIMESTAMP").run(); } catch(e) {}
 
     try { db.prepare("ALTER TABLE motorcycles ADD COLUMN brand TEXT").run(); } catch(e) {}
     try { db.prepare("ALTER TABLE motorcycles ADD COLUMN year TEXT").run(); } catch(e) {}
@@ -4169,15 +4185,19 @@ ${promptText}`,
   app.get("/api/agendamentos/:id/history", authenticateToken, (req, res) => {
     try {
       const rows = db.prepare(`
-        SELECT h.*, u.username as user_name 
+        SELECT 
+          h.*, 
+          COALESCE(h.created_at, h.data_alteracao, CURRENT_TIMESTAMP) as created_at,
+          COALESCE(u.username, 'Sistema') as user_name 
         FROM agendamento_history h
-        JOIN users u ON h.user_id = u.id
+        LEFT JOIN users u ON h.user_id = u.id
         WHERE h.agendamento_id = ?
-        ORDER BY h.created_at DESC
+        ORDER BY h.id DESC
       `).all(req.params.id);
-      res.json(rows);
+      res.json(rows || []);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("[AGENDAMENTOS] Erro ao buscar histórico:", error);
+      res.status(500).json({ error: error.message, rows: [] });
     }
   });
 

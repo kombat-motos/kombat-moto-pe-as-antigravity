@@ -24,9 +24,10 @@ export const AgendamentosDashboard = ({ customers, motorcycles, fetchCustomers, 
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      setAgendamentos(data);
+      setAgendamentos(Array.isArray(data) ? data : []);
     } catch (err) {
-      alert('Erro ao buscar agendamentos');
+      console.error('Erro ao buscar agendamentos', err);
+      setAgendamentos([]);
     }
   };
 
@@ -237,8 +238,8 @@ export const AgendamentosDashboard = ({ customers, motorcycles, fetchCustomers, 
           <div className="p-6 overflow-y-auto flex-1 space-y-6">
             {/* Header info */}
             <div>
-              <h3 className="text-2xl font-black text-slate-800">{selectedAg.moto_model}</h3>
-              <p className="text-lg font-bold text-slate-500 mb-1">{selectedAg.moto_plate}</p>
+              <h3 className="text-2xl font-black text-slate-800">{selectedAg.moto_model || 'Moto não informada'}</h3>
+              <p className="text-lg font-bold text-slate-500 mb-1">{selectedAg.moto_plate || 'Sem placa'}</p>
               <p className="text-sm text-slate-600 font-medium flex items-center gap-2">
                 👤 {selectedAg.customer_name}
               </p>
