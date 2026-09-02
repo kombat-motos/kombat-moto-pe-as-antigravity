@@ -7083,7 +7083,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <div className="flex flex-col items-end gap-1">
-              <span className="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">SISTEMA ATUALIZADO V2.1</span>
+              <span className="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">SISTEMA ATUALIZADO V3.1</span>
             </div>
           </div>
         </header>
