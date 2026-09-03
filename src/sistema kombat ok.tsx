@@ -5107,36 +5107,114 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
     }
   };
 
-  const handlePrintReceipt = () => {
-    const printContent = document.getElementById('receipt-content');
-    if (printContent) {
-      const originalContents = document.body.innerHTML;
-      document.body.innerHTML = printContent.outerHTML;
-      window.print();
-      document.body.innerHTML = originalContents;
-      window.location.reload(); // To re-attach event listeners
+  const printThermalElement = (elementId: string, title = 'Recibo Kombat Moto') => {
+    const printContent = document.getElementById(elementId);
+    if (!printContent) return;
+
+    const clone = printContent.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('.no-print').forEach(el => el.remove());
+
+    const contentHeightPx = Math.max(printContent.scrollHeight, printContent.offsetHeight);
+    const contentHeightMm = Math.max(140, Math.ceil((contentHeightPx * 25.4) / 96) + 15);
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+
+    doc.open();
+    doc.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <style>
+    @page {
+      size: 80mm ${contentHeightMm}mm;
+      margin: 0mm;
     }
+    * {
+      box-sizing: border-box;
+      color: #000000 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 80mm !important;
+      background: #ffffff !important;
+      font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+    }
+    #${elementId} {
+      width: 72mm !important;
+      max-width: 72mm !important;
+      margin: 0 auto !important;
+      padding: 2mm 0 4mm 0 !important;
+      background: #ffffff !important;
+      display: block !important;
+    }
+    .no-print {
+      display: none !important;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    tr, td, th, div, p, span {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+  </style>
+</head>
+<body>
+  ${clone.outerHTML}
+</body>
+</html>`);
+    doc.close();
+
+    iframe.contentWindow?.focus();
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error('Erro ao imprimir via iframe:', err);
+      }
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      }, 2000);
+    }, 300);
+  };
+
+  const handlePrintReceipt = () => {
+    printThermalElement('receipt-content', 'Recibo de Venda - Kombat Moto');
   };
 
   const handlePrintMechanicReport = () => {
-    const printContent = document.getElementById('mechanic-report-thermal-content');
-    if (printContent) {
-      const originalContents = document.body.innerHTML;
-      document.body.innerHTML = printContent.outerHTML;
-      window.print();
-      document.body.innerHTML = originalContents;
-      window.location.reload();
-    }
+    printThermalElement('mechanic-report-thermal-content', 'Relatório Mecânico - Kombat Moto');
   };
 
   const handlePrintCustomerHistory = () => {
-    const printContent = document.getElementById('customer-history-print-content');
-    if (printContent) {
-      const originalContents = document.body.innerHTML;
-      document.body.innerHTML = printContent.outerHTML;
-      window.print();
-      document.body.innerHTML = originalContents;
-      window.location.reload();
+    if (selectedCustomerForPrint?.type === '80mm') {
+      printThermalElement('customer-history-print-content', 'Histórico Cliente - Kombat Moto');
+    } else {
+      const printContent = document.getElementById('customer-history-print-content');
+      if (printContent) {
+        const originalContents = document.body.innerHTML;
+        document.body.innerHTML = printContent.outerHTML;
+        window.print();
+        document.body.innerHTML = originalContents;
+        window.location.reload();
+      }
     }
   };
 
@@ -8730,7 +8808,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
             <div id="customer-history-print-content" className={`bg-white p-8 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape print-a4' : 'print-receipt font-bold text-[15px] w-[80mm] mx-auto overflow-visible print:p-0'}`} style={selectedCustomerForPrint.type === '80mm' ? { fontFamily: '"Arial Black", Gadget, sans-serif' } : {}}>
               <style>{selectedCustomerForPrint.type === '80mm' ? `
                 @media print {
-                  @page { margin: 0; size: 80mm auto; }
+                  @page { margin: 0; size: 80mm 2000mm; }
                   body { margin: 0; padding: 0; page: receipt-page !important; }
                   .no-print { display: none !important; }
                   #customer-history-print-content { page: receipt-page !important; }
@@ -8878,12 +8956,12 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           maxWidth="max-w-lg"
         >
           {selectedSaleForReceipt && (
-            <div id="receipt-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800 print-receipt" style={{ fontFamily: '"Arial Black", "Arial Bold", Gadget, sans-serif' }}>
+            <div id="receipt-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800 print-receipt" style={{ fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif' }}>
               <style>{`
                 @media print {
                   @page {
                     margin: 0;
-                    size: 80mm auto;
+                    size: 80mm 2000mm;
                   }
                   html, body {
                     page: receipt-page !important;
@@ -8908,9 +8986,13 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     height: auto !important;
                     overflow: visible !important;
                     color: black !important;
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
                   }
                   #receipt-content * {
                     color: black !important;
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
                   }
                 }
               `}</style>
@@ -9318,7 +9400,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 </div>
               )}
               
-              <div style={{ height: '30px' }}></div> {/* Buffer for thermal cutter */}
+              <div style={{ height: '10px' }}></div> {/* Buffer for thermal cutter */}
 
               <button
                 onClick={handlePrintReceipt}
@@ -10108,7 +10190,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               @media print {
                 @page {
                   margin: 0;
-                  size: 80mm auto;
+                  size: 80mm 2000mm;
                 }
                 html, body {
                   page: receipt-page !important;
