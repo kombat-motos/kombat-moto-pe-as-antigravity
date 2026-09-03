@@ -242,7 +242,7 @@ html, body {
 }
 
 @page receipt-page {
-  size: 80mm 2000mm;
+  size: auto;
   margin: 0;
 }
 
@@ -252,18 +252,9 @@ html, body {
 
 .print-receipt {
   page: receipt-page !important;
-  page-break-inside: avoid !important;
-  break-inside: avoid !important;
-}
-
-.print-receipt table,
-.print-receipt tr,
-.print-receipt td,
-.print-receipt th,
-.print-receipt div,
-.print-receipt p {
-  page-break-inside: avoid !important;
-  break-inside: avoid !important;
+  width: 72mm !important;
+  max-width: 72mm !important;
+  margin: 0 auto !important;
 }
 
 /* Custom Scrollbar for a premium look */

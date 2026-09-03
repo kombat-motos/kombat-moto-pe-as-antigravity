@@ -5107,15 +5107,20 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
     }
   };
 
-  const printThermalElement = (elementId: string, title = 'Recibo Kombat Moto') => {
+  const printThermalElement = (elementId: string, title = 'Recibo Kombat Moto', printTarget: 'all' | 'client' | 'internal' = 'client') => {
     const printContent = document.getElementById(elementId);
     if (!printContent) return;
 
     const clone = printContent.cloneNode(true) as HTMLElement;
     clone.querySelectorAll('.no-print').forEach(el => el.remove());
 
-    const contentHeightPx = Math.max(printContent.scrollHeight, printContent.offsetHeight);
-    const contentHeightMm = Math.max(140, Math.ceil((contentHeightPx * 25.4) / 96) + 15);
+    if (elementId === 'receipt-content') {
+      if (printTarget === 'internal') {
+        clone.querySelectorAll('.client-receipt').forEach(el => el.remove());
+      } else if (printTarget === 'client') {
+        clone.querySelectorAll('.internal-receipt').forEach(el => el.remove());
+      }
+    }
 
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
@@ -5137,8 +5142,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
   <title>${title}</title>
   <style>
     @page {
-      size: 80mm ${contentHeightMm}mm;
       margin: 0mm;
+      size: auto;
     }
     * {
       box-sizing: border-box;
@@ -5149,15 +5154,17 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
     html, body {
       margin: 0 !important;
       padding: 0 !important;
-      width: 80mm !important;
+      width: 72mm !important;
       background: #ffffff !important;
       font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+      font-size: 11px;
+      line-height: 1.15;
     }
-    #${elementId} {
+    #${elementId}, .client-receipt, .internal-receipt {
       width: 72mm !important;
       max-width: 72mm !important;
       margin: 0 auto !important;
-      padding: 2mm 0 4mm 0 !important;
+      padding: 1mm 0 2mm 0 !important;
       background: #ffffff !important;
       display: block !important;
     }
@@ -5168,9 +5175,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       border-collapse: collapse;
       width: 100%;
     }
-    tr, td, th, div, p, span {
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
+    td, th {
+      padding: 1px 0 !important;
     }
   </style>
 </head>
@@ -5196,7 +5202,11 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
   };
 
   const handlePrintReceipt = () => {
-    printThermalElement('receipt-content', 'Recibo de Venda - Kombat Moto');
+    printThermalElement('receipt-content', 'Recibo de Venda - Kombat Moto', 'client');
+  };
+
+  const handlePrintInternalReceipt = () => {
+    printThermalElement('receipt-content', 'Recibo Interno Oficina - Kombat Moto', 'internal');
   };
 
   const handlePrintMechanicReport = () => {
@@ -8956,12 +8966,12 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           maxWidth="max-w-lg"
         >
           {selectedSaleForReceipt && (
-            <div id="receipt-content" className="bg-white p-4 text-[15px] leading-tight text-black w-[80mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800 print-receipt" style={{ fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif' }}>
+            <div id="receipt-content" className="bg-white p-2 text-[12px] leading-snug text-black w-[72mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800 print-receipt" style={{ fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif' }}>
               <style>{`
                 @media print {
                   @page {
-                    margin: 0;
-                    size: 80mm 2000mm;
+                    margin: 0mm;
+                    size: auto;
                   }
                   html, body {
                     page: receipt-page !important;
@@ -8969,7 +8979,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     padding: 0 !important;
                     height: auto !important;
                     background: white !important;
-                    width: 80mm !important;
+                    width: 72mm !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
                     color: black !important;
@@ -8983,16 +8993,10 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     padding: 0 !important;
                     display: block !important;
                     background: white !important;
-                    height: auto !important;
-                    overflow: visible !important;
                     color: black !important;
-                    page-break-inside: avoid !important;
-                    break-inside: avoid !important;
                   }
                   #receipt-content * {
                     color: black !important;
-                    page-break-inside: avoid !important;
-                    break-inside: avoid !important;
                   }
                 }
               `}</style>
@@ -9255,16 +9259,16 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   </tbody>
                 </table>
 
-                <div style={{ textAlign: 'center', marginTop: '20px', paddingBottom: '10px' }}>
-                  <div style={{ borderTop: '2px solid black', width: '200px', margin: '0 auto' }}></div>
-                  <p style={{ fontSize: '11px', marginTop: '2px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
+                <div style={{ textAlign: 'center', marginTop: '10px', paddingBottom: '2px' }}>
+                  <div style={{ borderTop: '1px solid black', width: '180px', margin: '0 auto' }}></div>
+                  <p style={{ fontSize: '10px', marginTop: '2px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
                 </div>
 
-                <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '8px', borderTop: '1px dashed black' }}>
-                  <p style={{ fontWeight: '900', fontSize: '10px', textTransform: 'uppercase' }}>Esse cupom não é um documento fiscal</p>
+                <div style={{ textAlign: 'center', marginTop: '6px', paddingTop: '4px', borderTop: '1px dashed black' }}>
+                  <p style={{ fontWeight: '900', fontSize: '9px', textTransform: 'uppercase' }}>Esse cupom não é um documento fiscal</p>
                 </div>
                 <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
-                <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: '900' }}>Obrigado pela preferência!<br />Kombat Moto Peças</div>
+                <div style={{ textAlign: 'center', fontSize: '10px', fontWeight: '900' }}>Obrigado pela preferência!<br />Kombat Moto Peças</div>
               </div>
 
               {/* ================================================== */}
@@ -9400,15 +9404,24 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 </div>
               )}
               
-              <div style={{ height: '10px' }}></div> {/* Buffer for thermal cutter */}
-
-              <button
-                onClick={handlePrintReceipt}
-                className="w-full mt-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all flex items-center justify-center gap-2 no-print"
-              >
-                <Printer size={18} />
-                Imprimir Recibo (80mm)
-              </button>
+              <div className="flex flex-col gap-2 mt-4 no-print">
+                <button
+                  onClick={handlePrintReceipt}
+                  className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <Printer size={18} />
+                  Imprimir Recibo do Cliente (1 Folha)
+                </button>
+                {selectedSaleForReceipt.mechanic_id && (
+                  <button
+                    onClick={handlePrintInternalReceipt}
+                    className="w-full py-2 bg-slate-100 border border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2 text-xs"
+                  >
+                    <FileText size={16} />
+                    Imprimir Via da Oficina (Mecânico)
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </Modal>
