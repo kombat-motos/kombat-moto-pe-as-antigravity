@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { Tool } from "@google/genai";
 
 // Mapeamento de tipos para o Gemini
-export const toolsDeclarations: Tool[] = [
+export const toolsDeclarations: any[] = [
   {
     functionDeclarations: [
       {

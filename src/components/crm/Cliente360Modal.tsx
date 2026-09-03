@@ -3,7 +3,7 @@ import {
   X, User, Calendar, Phone, DollarSign, CreditCard, Bike, Clock, 
   History, FileText, Wrench, ShieldAlert, Sparkles, Send, Copy, 
   ArrowRight, MessageSquare, Plus, AlertCircle, CheckCircle, FileUp,
-  ShoppingCart, TrendingUp, Printer
+  ShoppingCart, TrendingUp, Printer, Check
 } from 'lucide-react';
 
 interface Moto {
@@ -424,6 +424,7 @@ export default function Cliente360Modal({
       title: `Ação de Cobrança: ${ch.action_type}`,
       description: ch.message || 'Sem mensagem registrada',
       date: new Date(ch.created_at),
+      rawDate: ch.created_at || new Date().toISOString(),
       badgeColor: 'border-purple-500 bg-purple-500/20 text-purple-400'
     });
   });

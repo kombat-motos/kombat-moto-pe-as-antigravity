@@ -29,6 +29,7 @@ interface Product {
   barcode: string;
   purchase_price: number;
   sale_price: number;
+  sale_price_credit?: number;
   stock: number;
   unit: string;
   category?: string;
