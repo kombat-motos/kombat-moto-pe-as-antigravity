@@ -5122,6 +5122,18 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       }
     }
 
+    let autoScale = 1;
+    if (elementId === 'receipt-content') {
+      const origTarget = (document.querySelector(printTarget === 'internal' ? '.internal-receipt' : '.client-receipt') as HTMLElement) || printContent;
+      const contentHeightPx = origTarget ? Math.max(origTarget.scrollHeight, origTarget.offsetHeight) : printContent.scrollHeight;
+
+      // Limite máximo para 1 folha no padrão 80x210mm (~720px com folga)
+      const maxPageHeightPx = 720;
+      if (contentHeightPx > maxPageHeightPx) {
+        autoScale = Math.max(0.60, Number((maxPageHeightPx / contentHeightPx).toFixed(2)));
+      }
+    }
+
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
@@ -5157,14 +5169,15 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       width: 72mm !important;
       background: #ffffff !important;
       font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-      font-size: 11px;
+      font-size: 10.5px;
       line-height: 1.15;
+      ${autoScale < 1 ? `zoom: ${autoScale};` : ''}
     }
     #${elementId}, .client-receipt, .internal-receipt {
       width: 72mm !important;
       max-width: 72mm !important;
       margin: 0 auto !important;
-      padding: 1mm 0 2mm 0 !important;
+      padding: 0 0 1mm 0 !important;
       background: #ffffff !important;
       display: block !important;
     }
