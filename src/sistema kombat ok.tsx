@@ -2099,7 +2099,7 @@ export default function App() {
       }
 
       if (customer.credit_status && customer.credit_status.includes('BLOQUEADO')) {
-        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
+        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 60 dias de atraso.'}`);
         return;
       }
 
@@ -2311,7 +2311,7 @@ export default function App() {
       }
 
       if (customer.credit_status && customer.credit_status.includes('BLOQUEADO')) {
-        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
+        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 60 dias de atraso.'}`);
         return;
       }
 
@@ -9485,6 +9485,10 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                         setOsForm({ ...osForm, customer_id: '', motorcycle_id: '', motorcycle_plate: '', km: '' });
                         return;
                       }
+                      const selectedCust = customers.find(c => c.id === parseInt(cid));
+                      if (selectedCust && selectedCust.credit_status && selectedCust.credit_status.includes('BLOQUEADO')) {
+                        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${selectedCust.credit_block_reason || 'Débito superior a 60 dias de atraso.'}`);
+                      }
                       const customerMotos = motorcycles.filter(m => m.customer_id === parseInt(cid));
                       if (customerMotos.length > 0) {
                         setOsForm({ ...osForm, customer_id: cid, motorcycle_id: customerMotos[0].id.toString(), motorcycle_plate: customerMotos[0].plate, km: customerMotos[0].current_km || '' });
@@ -9499,9 +9503,17 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   {osForm.customer_id && (
                     <div className="mt-1 flex justify-between items-center px-1">
                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Crédito:</span>
-                      <span className={`text-[11px] font-black ${getCustomerRemainingCredit(parseInt(osForm.customer_id)) > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        R$ {getCustomerRemainingCredit(parseInt(osForm.customer_id)).toFixed(2)}
-                      </span>
+                      {(() => {
+                        const cust = customers.find(c => c.id === parseInt(osForm.customer_id));
+                        if (cust?.credit_status?.includes('BLOQUEADO')) {
+                          return <span className="text-[10px] font-black text-rose-600 uppercase bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 animate-pulse">BLOQUEADO (+60D)</span>;
+                        }
+                        return (
+                          <span className={`text-[11px] font-black ${getCustomerRemainingCredit(parseInt(osForm.customer_id)) > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            R$ {getCustomerRemainingCredit(parseInt(osForm.customer_id)).toFixed(2)}
+                          </span>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>

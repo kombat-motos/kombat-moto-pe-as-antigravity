@@ -526,7 +526,7 @@ try { db.exec("ALTER TABLE credit ADD COLUMN paid_value REAL DEFAULT 0"); } catc
       reminder_days INTEGER DEFAULT 3,
       first_collection_days INTEGER DEFAULT 1,
       strong_collection_days INTEGER DEFAULT 15,
-      block_days INTEGER DEFAULT 31,
+      block_days INTEGER DEFAULT 60,
       grave_days INTEGER DEFAULT 60,
       admin_days INTEGER DEFAULT 90,
       default_fine REAL DEFAULT 2,
@@ -534,6 +534,7 @@ try { db.exec("ALTER TABLE credit ADD COLUMN paid_value REAL DEFAULT 0"); } catc
       auto_unblock INTEGER DEFAULT 1
     )
   `);
+  try { db.exec("UPDATE collection_settings SET block_days = 60 WHERE block_days <= 31"); } catch(e) {}
 
   // --- CRM Table Initializations ---
   db.exec(`
@@ -1716,11 +1717,11 @@ async function startServer() {
         WHERE customer_id = ? 
         AND status IN ('Aberto', 'Pendente') 
         AND due_date < date('now', 'localtime') 
-        AND cast(julianday('now', 'localtime') - julianday(due_date) as integer) > 30
+        AND cast(julianday('now', 'localtime') - julianday(due_date) as integer) > 60
       `).get(customer_id) as any;
 
       if (overdueCredits && overdueCredits.overdueCount > 0) {
-        return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 30 dias." });
+        return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 60 dias." });
       }
     }
 
@@ -1817,18 +1818,18 @@ async function startServer() {
         throw new Error("Venda a crédito exige um cliente cadastrado.");
       }
 
-      // NOVO BLOQUEIO DE CRÉDITO NO BACKEND
+      // NOVO BLOQUEIO DE CRÉDITO NO BACKEND (> 60 dias)
       const overdueCredits = db.prepare(`
         SELECT COUNT(*) as overdueCount 
         FROM credit 
         WHERE customer_id = ? 
         AND status IN ('Aberto', 'Pendente') 
         AND due_date < date('now', 'localtime') 
-        AND cast(julianday('now', 'localtime') - julianday(due_date) as integer) > 30
+        AND cast(julianday('now', 'localtime') - julianday(due_date) as integer) > 60
       `).get(customer_id) as any;
 
       if (overdueCredits && overdueCredits.overdueCount > 0) {
-        return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 30 dias." });
+        return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 60 dias." });
       }
     }
 
@@ -3983,26 +3984,52 @@ ${promptText}`,
     try {
       console.log("[Credit Engine] Rodando motor de automação de cobranças...");
       
-      // 1. Bloqueio Automático (Atraso > 30 dias)
+      // 0. Desbloqueia automaticamente clientes bloqueados pela regra antiga (<= 60 dias)
+      try {
+        const clientsToLiberateOldRule = db.prepare(`
+          SELECT c.id, c.name, c.user_id 
+          FROM customers c
+          WHERE c.credit_status = 'BLOQUEADO_AUTOMATICAMENTE'
+          AND NOT EXISTS (
+            SELECT 1 FROM credit cr 
+            WHERE cr.customer_id = c.id 
+            AND cr.status IN ('Aberto', 'Pendente') 
+            AND cr.due_date < date('now', 'localtime') 
+            AND cast(julianday('now', 'localtime') - julianday(cr.due_date) as integer) > 60
+          )
+        `).all() as any[];
+
+        if (clientsToLiberateOldRule.length > 0) {
+          const unblockOldStmt = db.prepare("UPDATE customers SET credit_status = 'LIBERADO', credit_block_reason = NULL WHERE id = ?");
+          for (const cl of clientsToLiberateOldRule) {
+            unblockOldStmt.run(cl.id);
+            console.log(`[Credit Engine] Cliente desbloqueado da regra antiga (atraso <= 60 dias): ${cl.name} (ID: ${cl.id})`);
+          }
+        }
+      } catch (e) {
+        console.error("[Credit Engine] Erro ao liberar clientes da regra antiga:", e);
+      }
+
+      // 1. Bloqueio Automático (Atraso > 60 dias)
       const clientsToBlock = db.prepare(`
         SELECT DISTINCT c.id, c.name, c.user_id 
         FROM customers c
         JOIN credit cr ON c.id = cr.customer_id
         WHERE cr.status IN ('Aberto', 'Pendente')
         AND cr.due_date < date('now', 'localtime')
-        AND cast(julianday('now', 'localtime') - julianday(cr.due_date) as integer) > 30
+        AND cast(julianday('now', 'localtime') - julianday(cr.due_date) as integer) > 60
         AND (c.credit_status != 'BLOQUEADO_AUTOMATICAMENTE' OR c.credit_status IS NULL)
       `).all() as any[];
 
-      const blockStmt = db.prepare("UPDATE customers SET credit_status = 'BLOQUEADO_AUTOMATICAMENTE' WHERE id = ?");
+      const blockStmt = db.prepare("UPDATE customers SET credit_status = 'BLOQUEADO_AUTOMATICAMENTE', credit_block_reason = 'Débito superior a 60 dias de atraso.' WHERE id = ?");
       const historyStmt = db.prepare("INSERT INTO collection_history (user_id, customer_id, action_type, message) VALUES (?, ?, ?, ?)");
       
       if (clientsToBlock.length > 0) {
         db.transaction(() => {
           for (const client of clientsToBlock) {
             blockStmt.run(client.id);
-            historyStmt.run(client.user_id, client.id, 'Bloqueio Automático', 'Sistema: Cliente bloqueado automaticamente por possuir dívida(s) vencida(s) há mais de 30 dias.');
-            console.log(`[Credit Engine] Cliente bloqueado: ${client.name} (ID: ${client.id})`);
+            historyStmt.run(client.user_id, client.id, 'Bloqueio Automático', 'Sistema: Cliente bloqueado automaticamente por possuir dívida(s) vencida(s) há mais de 60 dias.');
+            console.log(`[Credit Engine] Cliente bloqueado (+60d): ${client.name} (ID: ${client.id})`);
           }
         })();
       }
@@ -4017,17 +4044,17 @@ ${promptText}`,
           WHERE cr.customer_id = c.id 
           AND cr.status IN ('Aberto', 'Pendente')
           AND cr.due_date < date('now', 'localtime')
-          AND cast(julianday('now', 'localtime') - julianday(cr.due_date) as integer) > 30
+          AND cast(julianday('now', 'localtime') - julianday(cr.due_date) as integer) > 60
         )
       `).all() as any[];
 
-      const unblockStmt = db.prepare("UPDATE customers SET credit_status = 'LIBERADO' WHERE id = ?");
+      const unblockStmt = db.prepare("UPDATE customers SET credit_status = 'LIBERADO', credit_block_reason = NULL WHERE id = ?");
 
       if (clientsToUnblock.length > 0) {
         db.transaction(() => {
           for (const client of clientsToUnblock) {
             unblockStmt.run(client.id);
-            historyStmt.run(client.user_id, client.id, 'Liberação Automática', 'Sistema: Cliente liberado automaticamente (dívidas superiores a 30 dias foram quitadas ou renegociadas).');
+            historyStmt.run(client.user_id, client.id, 'Liberação Automática', 'Sistema: Cliente liberado automaticamente (dívidas superiores a 60 dias foram quitadas ou renegociadas).');
             console.log(`[Credit Engine] Cliente liberado: ${client.name} (ID: ${client.id})`);
           }
         })();
