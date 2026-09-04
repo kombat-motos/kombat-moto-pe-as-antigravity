@@ -843,13 +843,101 @@ async function startServer() {
     next();
   });
 
+  // Helper to robustly parse due_date in any format (ISO, YYYY-MM-DD, DD/MM/YYYY)
+  const parseDueDateToDate = (dateStr: any): Date | null => {
+    if (!dateStr) return null;
+    try {
+      const str = String(dateStr).trim();
+      if (str.includes('/')) {
+        const parts = str.split('/');
+        if (parts.length === 3) {
+          const d = parseInt(parts[0]);
+          const m = parseInt(parts[1]);
+          const y = parseInt(parts[2]);
+          if (!isNaN(d) && !isNaN(m) && !isNaN(y)) return new Date(y, m - 1, d);
+        }
+      }
+      const clean = str.includes('T') ? str.split('T')[0] : str;
+      if (clean.includes('-')) {
+        const parts = clean.split('-');
+        if (parts.length === 3) {
+          const y = parseInt(parts[0]);
+          const m = parseInt(parts[1]);
+          const d = parseInt(parts[2]);
+          if (!isNaN(y) && !isNaN(m) && !isNaN(d)) return new Date(y, m - 1, d);
+        }
+      }
+      const d = new Date(str);
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      return null;
+    }
+  };
+
+  // Helper to check if a customer has debts overdue by MORE THAN 60 days
+  const checkIfCustomerHasOverdueOver60 = (customerId: number | string): boolean => {
+    try {
+      const cid = parseInt(String(customerId));
+      if (!cid) return false;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Checa vendas pendentes
+      const pendingSales = db.prepare(`
+        SELECT due_date, total, paid_total 
+        FROM sales 
+        WHERE customer_id = ? 
+          AND payment_status = 'Pendente' 
+          AND (payment_method = 'Fiado' OR charge_type = 'credito_30_dias')
+      `).all(cid) as any[];
+
+      for (const s of pendingSales) {
+        if ((s.total || 0) - (s.paid_total || 0) <= 0.01) continue;
+        const dueDate = parseDueDateToDate(s.due_date);
+        if (dueDate) {
+          dueDate.setHours(0, 0, 0, 0);
+          const diffDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays > 60) return true;
+        }
+      }
+
+      // Checa tabela credit
+      const pendingCredits = db.prepare(`
+        SELECT due_date, original_value, paid_value, sale_id 
+        FROM credit 
+        WHERE customer_id = ? 
+          AND status IN ('Aberto', 'Pendente')
+      `).all(cid) as any[];
+
+      for (const c of pendingCredits) {
+        if (c.sale_id && pendingSales.some(s => s.id === c.sale_id)) continue;
+        if ((c.original_value || 0) - (c.paid_value || 0) <= 0.01) continue;
+        const dueDate = parseDueDateToDate(c.due_date);
+        if (dueDate) {
+          dueDate.setHours(0, 0, 0, 0);
+          const diffDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays > 60) return true;
+        }
+      }
+
+      return false;
+    } catch (err) {
+      console.error("[Credit Check Error]", err);
+      return false;
+    }
+  };
+
   // Helper to calculate interest
   const calculateCreditUpdate = (item: any) => {
     if (item.status === 'Pago') return { ...item, total_updated: item.original_value, fine: 0, interest: 0, days_late: 0 };
 
-    const dueDate = new Date(item.due_date);
+    const dueDate = parseDueDateToDate(item.due_date);
+    if (!dueDate) return { ...item, total_updated: item.original_value, fine: 0, interest: 0, days_late: 0 };
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    dueDate.setHours(0, 0, 0, 0);
 
     if (today > dueDate) {
       const diffTime = Math.abs(today.getTime() - dueDate.getTime());
@@ -1394,7 +1482,22 @@ async function startServer() {
 
   // Customers
   app.get("/api/customers", authenticateToken, (req, res) => {
-    const customers = db.prepare("SELECT * FROM customers WHERE user_id = ? ORDER BY name ASC").all(req.user!.id);
+    const customers = db.prepare("SELECT * FROM customers WHERE user_id = ? ORDER BY name ASC").all(req.user!.id) as any[];
+    
+    // Auto-correção dinâmica: garante que clientes sem atraso superior a 60 dias nunca sejam retornados como bloqueados
+    for (const cust of customers) {
+      if (cust.credit_status && cust.credit_status.includes('BLOQUEADO')) {
+        const isBlocked = checkIfCustomerHasOverdueOver60(cust.id);
+        if (!isBlocked) {
+          cust.credit_status = 'LIBERADO';
+          cust.credit_block_reason = null;
+          try {
+            db.prepare("UPDATE customers SET credit_status = 'LIBERADO', credit_block_reason = NULL, credit_blocked_at = NULL, credit_blocked_by = NULL WHERE id = ?").run(cust.id);
+          } catch (e) {}
+        }
+      }
+    }
+
     res.json(customers);
   });
   app.post("/api/customers", authenticateToken, (req, res) => {
@@ -1710,17 +1813,8 @@ async function startServer() {
         throw new Error("Venda a crédito exige um cliente cadastrado.");
       }
 
-      // NOVO BLOQUEIO DE CRÉDITO NO BACKEND
-      const overdueCredits = db.prepare(`
-        SELECT COUNT(*) as overdueCount 
-        FROM credit 
-        WHERE customer_id = ? 
-        AND status IN ('Aberto', 'Pendente') 
-        AND due_date < date('now', 'localtime') 
-        AND cast(julianday('now', 'localtime') - julianday(due_date) as integer) > 60
-      `).get(customer_id) as any;
-
-      if (overdueCredits && overdueCredits.overdueCount > 0) {
+      // NOVO BLOQUEIO DE CRÉDITO NO BACKEND (> 60 dias)
+      if (checkIfCustomerHasOverdueOver60(customer_id)) {
         return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 60 dias." });
       }
     }
@@ -1819,16 +1913,7 @@ async function startServer() {
       }
 
       // NOVO BLOQUEIO DE CRÉDITO NO BACKEND (> 60 dias)
-      const overdueCredits = db.prepare(`
-        SELECT COUNT(*) as overdueCount 
-        FROM credit 
-        WHERE customer_id = ? 
-        AND status IN ('Aberto', 'Pendente') 
-        AND due_date < date('now', 'localtime') 
-        AND cast(julianday('now', 'localtime') - julianday(due_date) as integer) > 60
-      `).get(customer_id) as any;
-
-      if (overdueCredits && overdueCredits.overdueCount > 0) {
+      if (checkIfCustomerHasOverdueOver60(customer_id)) {
         return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 60 dias." });
       }
     }
@@ -1967,6 +2052,9 @@ async function startServer() {
     try {
       db.prepare("UPDATE sales SET paid_total = ?, payment_status = ?, paid_date = ? WHERE id = ? AND user_id = ?")
         .run(paid_total, payment_status, paid_date, req.params.id, req.user!.id);
+      if (payment_status === 'Pago') {
+        db.prepare("UPDATE credit SET status = 'Pago' WHERE sale_id = ?").run(req.params.id);
+      }
       res.json({ success: true });
     } catch (err) {
       console.error(err);
@@ -1979,6 +2067,7 @@ async function startServer() {
     try {
       db.prepare("UPDATE sales SET due_date = ? WHERE id = ? AND user_id = ?")
         .run(due_date, req.params.id, req.user!.id);
+      db.prepare("UPDATE credit SET due_date = ? WHERE sale_id = ?").run(due_date, req.params.id);
       res.json({ success: true });
     } catch (err) {
       console.error(err);
@@ -3979,90 +4068,128 @@ ${promptText}`,
     });
   });
 
-  // FASE 9: Motor de Automação de Cobrança (Idempotente)
+  // FASE 9: Motor de Automação de Cobrança e Revisão Geral de Clientes (Idempotente)
   const runCreditAutomationEngine = () => {
     try {
-      console.log("[Credit Engine] Rodando motor de automação de cobranças...");
+      console.log("[Credit Engine] Rodando revisão completa de crédito e bloqueio de clientes...");
       
-      // 0. Desbloqueia automaticamente clientes bloqueados pela regra antiga (<= 60 dias)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // 1. Sincroniza tabela credit com tabela sales
       try {
-        const clientsToLiberateOldRule = db.prepare(`
-          SELECT c.id, c.name, c.user_id 
-          FROM customers c
-          WHERE c.credit_status = 'BLOQUEADO_AUTOMATICAMENTE'
-          AND NOT EXISTS (
-            SELECT 1 FROM credit cr 
-            WHERE cr.customer_id = c.id 
-            AND cr.status IN ('Aberto', 'Pendente') 
-            AND cr.due_date < date('now', 'localtime') 
-            AND cast(julianday('now', 'localtime') - julianday(cr.due_date) as integer) > 60
-          )
+        db.exec("UPDATE credit SET status = 'Pago' WHERE sale_id IN (SELECT id FROM sales WHERE payment_status = 'Pago') AND status != 'Pago'");
+        db.exec("DELETE FROM credit WHERE sale_id IS NOT NULL AND sale_id NOT IN (SELECT id FROM sales)");
+        db.exec("DELETE FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE payment_method != 'Fiado' AND charge_type != 'credito_30_dias' AND payment_status != 'Pendente')");
+        
+        // Cria credit faltante para vendas Pendentes
+        const missingSales = db.prepare(`
+          SELECT * FROM sales 
+          WHERE payment_status = 'Pendente' 
+            AND (payment_method = 'Fiado' OR charge_type = 'credito_30_dias')
+            AND id NOT IN (SELECT sale_id FROM credit WHERE sale_id IS NOT NULL)
         `).all() as any[];
 
-        if (clientsToLiberateOldRule.length > 0) {
-          const unblockOldStmt = db.prepare("UPDATE customers SET credit_status = 'LIBERADO', credit_block_reason = NULL WHERE id = ?");
-          for (const cl of clientsToLiberateOldRule) {
-            unblockOldStmt.run(cl.id);
-            console.log(`[Credit Engine] Cliente desbloqueado da regra antiga (atraso <= 60 dias): ${cl.name} (ID: ${cl.id})`);
+        if (missingSales.length > 0) {
+          const insertCredit = db.prepare("INSERT INTO credit (user_id, customer_id, original_value, due_date, status, sale_id, parcel_number, total_parcels, identifier) VALUES (?, ?, ?, ?, 'Pendente', ?, 1, 1, ?)");
+          for (const s of missingSales) {
+            if (!s.customer_id || !s.due_date) continue;
+            const bal = (s.total || 0) - (s.paid_total || 0);
+            if (bal > 0.01) {
+              const ident = `VENDA-${String(s.id).substring(0, 8).toUpperCase()}-01`;
+              insertCredit.run(s.user_id, s.customer_id, bal, s.due_date, s.id, ident);
+            }
           }
         }
-      } catch (e) {
-        console.error("[Credit Engine] Erro ao liberar clientes da regra antiga:", e);
+      } catch (syncErr) {
+        console.error("[Credit Engine] Erro na sincronização credit x sales:", syncErr);
       }
 
-      // 1. Bloqueio Automático (Atraso > 60 dias)
-      const clientsToBlock = db.prepare(`
-        SELECT DISTINCT c.id, c.name, c.user_id 
-        FROM customers c
-        JOIN credit cr ON c.id = cr.customer_id
-        WHERE cr.status IN ('Aberto', 'Pendente')
-        AND cr.due_date < date('now', 'localtime')
-        AND cast(julianday('now', 'localtime') - julianday(cr.due_date) as integer) > 60
-        AND (c.credit_status != 'BLOQUEADO_AUTOMATICAMENTE' OR c.credit_status IS NULL)
+      // 2. Busca todos os clientes cadastrados
+      const allCustomers = db.prepare("SELECT id, name, user_id, credit_status, credit_block_reason FROM customers").all() as any[];
+      
+      // Busca todas as vendas pendentes
+      const allPendingSales = db.prepare(`
+        SELECT id, user_id, customer_id, due_date, total, paid_total, payment_status, payment_method, charge_type 
+        FROM sales 
+        WHERE payment_status = 'Pendente'
       `).all() as any[];
 
-      const blockStmt = db.prepare("UPDATE customers SET credit_status = 'BLOQUEADO_AUTOMATICAMENTE', credit_block_reason = 'Débito superior a 60 dias de atraso.' WHERE id = ?");
+      // Busca créditos pendentes
+      const allPendingCredits = db.prepare(`
+        SELECT id, user_id, customer_id, due_date, original_value, paid_value, status, sale_id 
+        FROM credit 
+        WHERE status IN ('Aberto', 'Pendente')
+      `).all() as any[];
+
+      const updateBlockStmt = db.prepare("UPDATE customers SET credit_status = 'BLOQUEADO_AUTOMATICAMENTE', credit_block_reason = ? WHERE id = ?");
+      const updateUnblockStmt = db.prepare("UPDATE customers SET credit_status = 'LIBERADO', credit_block_reason = NULL, credit_blocked_at = NULL, credit_blocked_by = NULL WHERE id = ?");
       const historyStmt = db.prepare("INSERT INTO collection_history (user_id, customer_id, action_type, message) VALUES (?, ?, ?, ?)");
-      
-      if (clientsToBlock.length > 0) {
-        db.transaction(() => {
-          for (const client of clientsToBlock) {
-            blockStmt.run(client.id);
-            historyStmt.run(client.user_id, client.id, 'Bloqueio Automático', 'Sistema: Cliente bloqueado automaticamente por possuir dívida(s) vencida(s) há mais de 60 dias.');
-            console.log(`[Credit Engine] Cliente bloqueado (+60d): ${client.name} (ID: ${client.id})`);
+
+      let blockedCount = 0;
+      let unblockedCount = 0;
+
+      db.transaction(() => {
+        for (const cust of allCustomers) {
+          // Coleta todos os débitos pendentes deste cliente
+          const custSales = allPendingSales.filter(s => s.customer_id === cust.id && ((s.total || 0) - (s.paid_total || 0) > 0.01));
+          const custCredits = allPendingCredits.filter(c => c.customer_id === cust.id && ((c.original_value || 0) - (c.paid_value || 0) > 0.01));
+
+          let maxOverdueDays = 0;
+          let oldestDueDateStr: string | null = null;
+
+          // Checa datas de vencimento nas vendas
+          for (const s of custSales) {
+            const dueDate = parseDueDateToDate(s.due_date);
+            if (dueDate) {
+              dueDate.setHours(0, 0, 0, 0);
+              const diffDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+              if (diffDays > maxOverdueDays) {
+                maxOverdueDays = diffDays;
+                oldestDueDateStr = s.due_date;
+              }
+            }
           }
-        })();
-      }
 
-      // 2. Liberação Automática
-      const clientsToUnblock = db.prepare(`
-        SELECT c.id, c.name, c.user_id 
-        FROM customers c
-        WHERE c.credit_status = 'BLOQUEADO_AUTOMATICAMENTE'
-        AND NOT EXISTS (
-          SELECT 1 FROM credit cr 
-          WHERE cr.customer_id = c.id 
-          AND cr.status IN ('Aberto', 'Pendente')
-          AND cr.due_date < date('now', 'localtime')
-          AND cast(julianday('now', 'localtime') - julianday(cr.due_date) as integer) > 60
-        )
-      `).all() as any[];
-
-      const unblockStmt = db.prepare("UPDATE customers SET credit_status = 'LIBERADO', credit_block_reason = NULL WHERE id = ?");
-
-      if (clientsToUnblock.length > 0) {
-        db.transaction(() => {
-          for (const client of clientsToUnblock) {
-            unblockStmt.run(client.id);
-            historyStmt.run(client.user_id, client.id, 'Liberação Automática', 'Sistema: Cliente liberado automaticamente (dívidas superiores a 60 dias foram quitadas ou renegociadas).');
-            console.log(`[Credit Engine] Cliente liberado: ${client.name} (ID: ${client.id})`);
+          // Checa datas de vencimento nos créditos (que não sejam duplicados da venda já checada)
+          for (const c of custCredits) {
+            if (c.sale_id && custSales.some(s => s.id === c.sale_id)) continue;
+            const dueDate = parseDueDateToDate(c.due_date);
+            if (dueDate) {
+              dueDate.setHours(0, 0, 0, 0);
+              const diffDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+              if (diffDays > maxOverdueDays) {
+                maxOverdueDays = diffDays;
+                oldestDueDateStr = c.due_date;
+              }
+            }
           }
-        })();
-      }
-      
-      console.log(`[Credit Engine] Finalizado. Bloqueios: ${clientsToBlock.length} | Liberações: ${clientsToUnblock.length}`);
+
+          // REGRA ESTRITA: Bloqueio SOMENTE se o cliente tiver dívida vencida há mais de 60 dias (> 60)
+          if (maxOverdueDays > 60) {
+            if (cust.credit_status !== 'BLOQUEADO_AUTOMATICAMENTE') {
+              const reason = `Débito com ${maxOverdueDays} dias de atraso (vencimento: ${oldestDueDateStr || 'superior a 60 dias'}).`;
+              updateBlockStmt.run(reason, cust.id);
+              historyStmt.run(cust.user_id, cust.id, 'Bloqueio Automático', `Sistema: Cliente bloqueado automaticamente por possuir dívida vencida há ${maxOverdueDays} dias.`);
+              console.log(`[Credit Engine] Bloqueado (+60d): ${cust.name} (ID: ${cust.id}, Atraso: ${maxOverdueDays} dias)`);
+              blockedCount++;
+            }
+          } else {
+            // Cliente NÃO possui débitos superiores a 60 dias (atraso <= 60 ou sem débitos)
+            // Se estava bloqueado (seja automático, manual ou antigo), DESBLOQUEIA IMEDIATAMENTE!
+            if (cust.credit_status && cust.credit_status.includes('BLOQUEADO')) {
+              updateUnblockStmt.run(cust.id);
+              historyStmt.run(cust.user_id, cust.id, 'Liberação Automática', `Sistema: Cliente liberado automaticamente (sem débitos com mais de 60 dias de atraso). Maior atraso atual: ${maxOverdueDays} dias.`);
+              console.log(`[Credit Engine] Desbloqueado / Liberado: ${cust.name} (ID: ${cust.id}, Maior atraso: ${maxOverdueDays} dias <= 60 dias)`);
+              unblockedCount++;
+            }
+          }
+        }
+      })();
+
+      console.log(`[Credit Engine] Revisão de todos os clientes concluída. Clientes desbloqueados: ${unblockedCount} | Clientes bloqueados (+60d): ${blockedCount}`);
     } catch (err) {
-      console.error("[Credit Engine] Erro na automação:", err);
+      console.error("[Credit Engine] Erro na automação de crédito:", err);
     }
   };
 
@@ -4301,4 +4428,4 @@ startServer().catch(err => {
   process.exit(1);
 });
 
-// Force redeploy - 2026-09-02 17:37:00
+// Force redeploy - 2026-09-04 10:35:00 - Revise all customer credit blocks

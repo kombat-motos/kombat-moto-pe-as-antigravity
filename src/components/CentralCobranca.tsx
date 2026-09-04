@@ -13,31 +13,62 @@ export default function CentralCobranca({
   const [filter, setFilter] = useState('Todos');
   const [searchTerm, setSearchTerm] = useState('');
   
+  const parseDueDate = (dateStr: any): Date | null => {
+    if (!dateStr) return null;
+    try {
+      const str = String(dateStr).trim();
+      if (str.includes('/')) {
+        const parts = str.split('/');
+        if (parts.length === 3) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      } else if (str.includes('T')) {
+        const parts = str.split('T')[0].split('-');
+        if (parts.length === 3) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      } else if (str.includes('-')) {
+        const parts = str.split('-');
+        if (parts.length === 3) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      }
+      const d = new Date(str);
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      return null;
+    }
+  };
+
   const stats = useMemo(() => {
     let aReceber = 0;
     let venceHoje = 0;
     let vence3Dias = 0;
     let vencidos = 0;
     let atrasados60 = 0;
-    let bloqueados = customers.filter((c: any) => c.credit_status?.includes('BLOQUEADO')).length;
 
     const today = new Date();
     today.setHours(0,0,0,0);
+
+    let bloqueados = customers.filter((c: any) => {
+      if (!c.credit_status?.includes('BLOQUEADO')) return false;
+      return credits.some((cr: any) => {
+        if (cr.customer_id !== c.id) return false;
+        if (cr.status !== 'Aberto' && cr.status !== 'Pendente' && cr.status !== 'Atrasado') return false;
+        const due = parseDueDate(cr.due_date);
+        return due ? differenceInDays(due, today) < -60 : false;
+      });
+    }).length;
 
     credits.forEach((c: any) => {
       if (c.status === 'Aberto' || c.status === 'Pendente' || c.status === 'Atrasado') {
         const saldo = c.original_value - (c.paid_value || 0);
         aReceber += saldo;
         
-        const [year, month, day] = c.due_date.split('T')[0].split('-').map(Number);
-        const due = new Date(year, month - 1, day);
-        const diff = differenceInDays(due, today);
+        const due = parseDueDate(c.due_date);
+        if (due) {
+          const diff = differenceInDays(due, today);
 
-        if (diff === 0) venceHoje += saldo;
-        else if (diff > 0 && diff <= 3) vence3Dias += saldo;
-        else if (diff < 0) {
-          vencidos += saldo;
-          if (diff <= -60) atrasados60 += saldo;
+          if (diff === 0) venceHoje += saldo;
+          else if (diff > 0 && diff <= 3) vence3Dias += saldo;
+          else if (diff < 0) {
+            vencidos += saldo;
+            if (diff < -60) atrasados60 += saldo;
+          }
         }
       }
     });
@@ -53,23 +84,23 @@ export default function CentralCobranca({
     // Apply specific filter
     if (filter === 'A vencer') {
       list = list.filter((c: any) => {
-        const [y, m, d] = c.due_date.split('T')[0].split('-').map(Number);
-        return differenceInDays(new Date(y, m - 1, d), today) > 0;
+        const due = parseDueDate(c.due_date);
+        return due ? differenceInDays(due, today) > 0 : false;
       });
     } else if (filter === 'Vence hoje') {
       list = list.filter((c: any) => {
-        const [y, m, d] = c.due_date.split('T')[0].split('-').map(Number);
-        return differenceInDays(new Date(y, m - 1, d), today) === 0;
+        const due = parseDueDate(c.due_date);
+        return due ? differenceInDays(due, today) === 0 : false;
       });
     } else if (filter === 'Vencidos') {
       list = list.filter((c: any) => {
-        const [y, m, d] = c.due_date.split('T')[0].split('-').map(Number);
-        return differenceInDays(new Date(y, m - 1, d), today) < 0;
+        const due = parseDueDate(c.due_date);
+        return due ? differenceInDays(due, today) < 0 : false;
       });
     } else if (filter === '+60 dias atraso') {
       list = list.filter((c: any) => {
-        const [y, m, d] = c.due_date.split('T')[0].split('-').map(Number);
-        return differenceInDays(new Date(y, m - 1, d), today) <= -60;
+        const due = parseDueDate(c.due_date);
+        return due ? differenceInDays(due, today) < -60 : false;
       });
     }
 

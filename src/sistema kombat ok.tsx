@@ -1328,6 +1328,45 @@ export default function App() {
   const [inventoryReportSearchTerm, setInventoryReportSearchTerm] = useState('');
   const [companyLogo, setCompanyLogo] = useState<string | null>(localStorage.getItem('companyLogo'));
   const [partialPaymentAmount, setPartialPaymentAmount] = useState<string>('');
+
+  // Validação dinâmica e estrita: o cliente só é bloqueado se possuir débito vencido há MAIS DE 60 DIAS (> 60)
+  const isCustomerReallyBlocked = (c: Customer | any): boolean => {
+    if (!c) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const pendingSales = (sales || []).filter(s => 
+      s && s.customer_id === c.id && s.payment_status === 'Pendente' && ((s.total || 0) - (s.paid_total || 0) > 0.01)
+    );
+
+    // Se o cliente não tem nenhuma venda pendente, não pode estar bloqueado!
+    if (pendingSales.length === 0) {
+      return false;
+    }
+
+    const hasDebtOver60Days = pendingSales.some(s => {
+      if (!s.due_date) return false;
+      let due: Date | null = null;
+      const str = String(s.due_date).trim();
+      if (str.includes('/')) {
+        const parts = str.split('/');
+        if (parts.length === 3) due = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      } else if (str.includes('T')) {
+        const parts = str.split('T')[0].split('-');
+        if (parts.length === 3) due = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      } else if (str.includes('-')) {
+        const parts = str.split('-');
+        if (parts.length === 3) due = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      }
+      if (!due || isNaN(due.getTime())) return false;
+      due.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
+      return diffDays > 60;
+    });
+
+    return hasDebtOver60Days;
+  };
   const [payingSaleId, setPayingSaleId] = useState<string | null>(null);
   const [companyData, setCompanyData] = useState(() => {
     const saved = localStorage.getItem('companyData');
@@ -2098,7 +2137,7 @@ export default function App() {
         return;
       }
 
-      if (customer.credit_status && customer.credit_status.includes('BLOQUEADO')) {
+      if (isCustomerReallyBlocked(customer)) {
         alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 60 dias de atraso.'}`);
         return;
       }
@@ -2310,7 +2349,7 @@ export default function App() {
         return;
       }
 
-      if (customer.credit_status && customer.credit_status.includes('BLOQUEADO')) {
+      if (isCustomerReallyBlocked(customer)) {
         alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 60 dias de atraso.'}`);
         return;
       }
@@ -9512,7 +9551,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                         return;
                       }
                       const selectedCust = customers.find(c => c.id === parseInt(cid));
-                      if (selectedCust && selectedCust.credit_status && selectedCust.credit_status.includes('BLOQUEADO')) {
+                      if (selectedCust && isCustomerReallyBlocked(selectedCust)) {
                         alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${selectedCust.credit_block_reason || 'Débito superior a 60 dias de atraso.'}`);
                       }
                       const customerMotos = motorcycles.filter(m => m.customer_id === parseInt(cid));
@@ -9531,7 +9570,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Crédito:</span>
                       {(() => {
                         const cust = customers.find(c => c.id === parseInt(osForm.customer_id));
-                        if (cust?.credit_status?.includes('BLOQUEADO')) {
+                        if (isCustomerReallyBlocked(cust)) {
                           return <span className="text-[10px] font-black text-rose-600 uppercase bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 animate-pulse">BLOQUEADO (+60D)</span>;
                         }
                         return (
