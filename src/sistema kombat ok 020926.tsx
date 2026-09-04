@@ -5160,18 +5160,6 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       }
     }
 
-    let autoScale = 1;
-    if (elementId === 'receipt-content') {
-      const origTarget = (document.querySelector(printTarget === 'internal' ? '.internal-receipt' : '.client-receipt') as HTMLElement) || printContent;
-      const contentHeightPx = origTarget ? Math.max(origTarget.scrollHeight, origTarget.offsetHeight) : printContent.scrollHeight;
-
-      // Limite máximo para 1 folha no padrão 80x210mm (~720px com folga)
-      const maxPageHeightPx = 720;
-      if (contentHeightPx > maxPageHeightPx) {
-        autoScale = Math.max(0.60, Number((maxPageHeightPx / contentHeightPx).toFixed(2)));
-      }
-    }
-
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
@@ -5204,18 +5192,18 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
     html, body {
       margin: 0 !important;
       padding: 0 !important;
-      width: 72mm !important;
+      width: 100% !important;
       background: #ffffff !important;
       font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-      font-size: 10.5px;
-      line-height: 1.15;
-      ${autoScale < 1 ? `zoom: ${autoScale};` : ''}
+      font-size: 12.5px;
+      line-height: 1.25;
+      font-weight: bold;
     }
     #${elementId}, .client-receipt, .internal-receipt {
-      width: 72mm !important;
-      max-width: 72mm !important;
+      width: 100% !important;
+      max-width: 76mm !important;
       margin: 0 auto !important;
-      padding: 0 0 1mm 0 !important;
+      padding: 2mm 1.5mm 4mm 1.5mm !important;
       background: #ffffff !important;
       display: block !important;
     }
@@ -5224,10 +5212,10 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
     }
     table {
       border-collapse: collapse;
-      width: 100%;
+      width: 100% !important;
     }
     td, th {
-      padding: 1px 0 !important;
+      padding: 2px 0 !important;
     }
   </style>
 </head>
@@ -8868,7 +8856,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                             <div id="customer-history-print-content" className={`bg-white p-8 rounded-2xl border border-slate-400 print-area ${selectedCustomerForPrint.type === 'A4' ? 'print-landscape print-a4' : 'print-receipt font-bold text-[15px] w-[80mm] mx-auto overflow-visible print:p-0'}`} style={selectedCustomerForPrint.type === '80mm' ? { fontFamily: '"Arial Black", Gadget, sans-serif' } : {}}>
                                 <style>{selectedCustomerForPrint.type === '80mm' ? `
                                     @media print {
-                                        @page { margin: 0; size: 80mm 2000mm; }
+                                        @page { margin: 0; size: auto; }
                                         body { margin: 0; padding: 0; page: receipt-page !important; }
                                         .no-print { display: none !important; }
                                         #customer-history-print-content { page: receipt-page !important; }
@@ -9016,7 +9004,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                         maxWidth="max-w-lg"
                     >
                         {selectedSaleForReceipt && (
-                            <div id="receipt-content" className="bg-white p-2 text-[12px] leading-snug text-black w-[72mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800 print-receipt" style={{ fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif' }}>
+                            <div id="receipt-content" className="bg-white p-2 text-[12.5px] leading-snug text-black w-full max-w-[76mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800 print-receipt" style={{ fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif' }}>
                                 <style>{`
                                 @media print {
                                     @page {
@@ -9029,16 +9017,18 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                                         padding: 0 !important;
                                         height: auto !important;
                                         background: white !important;
-                                        width: 72mm !important;
+                                        width: 100% !important;
                                         -webkit-print-color-adjust: exact !important;
                                         print-color-adjust: exact !important;
                                         color: black !important;
+                                        font-size: 12.5px !important;
                                     }
                                     .no-print { display: none !important; }
                                     
                                     #receipt-content {
                                         page: receipt-page !important;
-                                        width: 72mm !important;
+                                        width: 100% !important;
+                                        max-width: 76mm !important;
                                         margin: 0 auto !important;
                                         padding: 0 !important;
                                         display: block !important;
@@ -9056,11 +9046,11 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                                 {/* ================================================== */}
                                 <div className="client-receipt">
                                     <div style={{ textAlign: 'center', marginBottom: '4px', fontWeight: 'bold' }}>
-                                        <h4 style={{ fontWeight: '900', fontSize: '15px', margin: '0' }}>KOMBAT MOTO PECAS</h4>
-                                        <p style={{ margin: '0', fontSize: '11px' }}>CNPJ: 12.802.931/0001-92</p>
-                                        <p style={{ margin: '0', fontSize: '11px' }}>R PARANA, 342 - CENTRO, Andirá / PR</p>
-                                        <p style={{ margin: '0', fontSize: '11px' }}>Tel (43) 3538-4537 | Email: kombatpecas@gmail.com</p>
-                                        <p style={{ margin: '4px 0 0 0', fontSize: '13px', fontWeight: '900', textDecoration: 'underline' }}>RECIBO DO CLIENTE</p>
+                                        <h4 style={{ fontWeight: '900', fontSize: '16px', margin: '0' }}>KOMBAT MOTO PECAS</h4>
+                                        <p style={{ margin: '0', fontSize: '11.5px' }}>CNPJ: 12.802.931/0001-92</p>
+                                        <p style={{ margin: '0', fontSize: '11.5px' }}>R PARANA, 342 - CENTRO, Andirá / PR</p>
+                                        <p style={{ margin: '0', fontSize: '11.5px' }}>Tel (43) 3538-4537 | Email: kombatpecas@gmail.com</p>
+                                        <p style={{ margin: '4px 0 0 0', fontSize: '14px', fontWeight: '900', textDecoration: 'underline' }}>RECIBO DO CLIENTE</p>
                                     </div>
 
                                     <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
@@ -9309,16 +9299,16 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                                         </tbody>
                                     </table>
 
-                                    <div style={{ textAlign: 'center', marginTop: '10px', paddingBottom: '2px' }}>
-                                        <div style={{ borderTop: '1px solid black', width: '180px', margin: '0 auto' }}></div>
-                                        <p style={{ fontSize: '10px', marginTop: '2px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
+                                    <div style={{ textAlign: 'center', marginTop: '14px', paddingBottom: '2px' }}>
+                                        <div style={{ borderTop: '1.5px solid black', width: '220px', margin: '0 auto' }}></div>
+                                        <p style={{ fontSize: '11px', marginTop: '3px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
                                     </div>
 
-                                    <div style={{ textAlign: 'center', marginTop: '6px', paddingTop: '4px', borderTop: '1px dashed black' }}>
-                                        <p style={{ fontWeight: '900', fontSize: '9px', textTransform: 'uppercase' }}>Esse cupom não é um documento fiscal</p>
+                                    <div style={{ textAlign: 'center', marginTop: '8px', paddingTop: '4px', borderTop: '1px dashed black' }}>
+                                        <p style={{ fontWeight: '900', fontSize: '10px', textTransform: 'uppercase' }}>Esse cupom não é um documento fiscal</p>
                                     </div>
                                     <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
-                                    <div style={{ textAlign: 'center', fontSize: '10px', fontWeight: '900' }}>Obrigado pela preferência!<br />Kombat Moto Peças</div>
+                                    <div style={{ textAlign: 'center', fontSize: '11.5px', fontWeight: '900' }}>Obrigado pela preferência!<br />Kombat Moto Peças</div>
                                 </div>
 
                                 {/* ================================================== */}
