@@ -42,10 +42,11 @@ export default function AIAssistant() {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 bg-red-600 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 hover:bg-red-700 transition-colors z-50 group"
+        className="fixed bottom-3 right-4 bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 px-3 py-1.5 rounded-full shadow-xl flex items-center gap-1.5 transition-all z-40 group backdrop-blur-sm active:scale-95"
+        title="Assistente Ozzy IA"
       >
-        <Bot size={24} className="group-hover:animate-pulse" />
-        <span className="font-medium hidden md:block">Ozzy IA</span>
+        <Bot size={15} className="text-rose-500 group-hover:animate-pulse" />
+        <span className="text-xs font-bold text-slate-300 group-hover:text-rose-400">Ozzy IA</span>
       </motion.button>
 
       {/* Chat Panel */}

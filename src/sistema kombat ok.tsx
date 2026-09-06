@@ -81,6 +81,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import Cliente360Modal from './components/crm/Cliente360Modal';
 import AIAssistant from './components/ai/AIAssistant';
 import CentralCobranca from './components/CentralCobranca';
+import PDVTab from './components/PDVTab';
 
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -2527,392 +2528,59 @@ export default function App() {
     });
     const totalHistorySales = historySales.reduce((acc, curr) => acc + curr.total, 0);
 
-    const categories = (() => {
-      const list = new Set(products.map(p => p.category).filter(Boolean));
-      return ['all', ...Array.from(list)];
-    })();
-
-    const filteredProducts = sortedProducts.filter(p => {
-      const query = pdvSearchProduct.toLowerCase();
-      const matchesSearch = 
-        (p.description || '').toLowerCase().includes(query) ||
-        (p.brand || '').toLowerCase().includes(query) ||
-        (p.sku || '').toLowerCase().includes(query) ||
-        (p.barcode || '').toLowerCase().includes(query) ||
-        (p.alt_code || '').toLowerCase().includes(query);
-
-      const matchesCategory = selectedPdvCategory === 'all' || p.category === selectedPdvCategory;
-      return matchesSearch && matchesCategory;
-    });
-
-    const cartTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-    const cartGrandTotal = Math.max(0, cartTotal - (pdvForm.discount || 0));
-
     return (
-      <div className="flex flex-col h-[calc(100vh-140px)] -mt-4 -mx-6 bg-slate-900 text-slate-100 overflow-hidden select-none">
-        {/* PDV Header / Top Bar */}
-        <div className="bg-slate-950 px-6 py-3 border-b border-slate-800 flex justify-between items-center shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-rose-600/10 text-rose-500 rounded-lg">
-              <ShoppingCart size={20} className="animate-pulse" />
-            </div>
-            <div>
-              <h2 className="text-sm font-black uppercase tracking-wider text-rose-500">Kombat Moto Peças - Frente de Caixa</h2>
-              <p className="text-[10px] text-slate-400 font-bold">Operação ativa • Vendas de Hoje: <span className="text-emerald-500">{formatBRL(totalToday)}</span> ({todaySales.length} atendimentos)</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsPdvHistoryOpen(true)}
-              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs font-black uppercase hover:bg-slate-700 transition-all flex items-center gap-2 text-slate-200"
-            >
-              <History size={14} />
-              Histórico de Hoje
-            </button>
-            <div className="flex items-center gap-3 bg-slate-800/50 px-3 py-1.5 rounded-xl border border-slate-800 text-[10px] text-slate-400 font-mono">
-              <span className="flex items-center gap-1"><kbd className="bg-slate-700 text-slate-100 px-1 py-0.5 rounded font-sans font-bold">F2</kbd> Pagar</span>
-              <span className="flex items-center gap-1"><kbd className="bg-slate-700 text-slate-100 px-1 py-0.5 rounded font-sans font-bold">F4</kbd> Desconto</span>
-              <span className="flex items-center gap-1"><kbd className="bg-slate-700 text-slate-100 px-1 py-0.5 rounded font-sans font-bold">ESC</kbd> Cancelar</span>
-            </div>
-          </div>
-        </div>
-
-        {/* PDV Body */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 overflow-hidden">
-          {/* LEFT SIDE (~60%): PRODUCT CATALOG */}
-          <div className="lg:col-span-3 flex flex-col border-r border-slate-800 overflow-hidden bg-slate-900/50 p-4 space-y-4">
-            {/* Tabela de Preço / Tipo de Venda */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tabela de Preço</label>
-              <div className="flex bg-slate-950 border border-slate-800 rounded-xl overflow-hidden p-1 h-[42px]">
-                <button
-                  type="button"
-                  onClick={() => handleChangePdvChargeType('vista')}
-                  className={`flex-1 text-[11px] font-bold uppercase transition-all rounded-lg ${pdvForm.charge_type === 'vista' || !pdvForm.charge_type ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                  À Vista
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleChangePdvChargeType('credito_30_dias')}
-                  className={`flex-1 text-[11px] font-bold uppercase transition-all rounded-lg ${pdvForm.charge_type === 'credito_30_dias' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                  30 Dias
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleChangePdvChargeType('atacado')}
-                  className={`flex-1 text-[11px] font-bold uppercase transition-all rounded-lg ${pdvForm.charge_type === 'atacado' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                  Atacado
-                </button>
-              </div>
-            </div>
-
-            {/* Search and Category filters */}
-            <div className="space-y-3">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input
-                  type="text"
-                  placeholder="Pesquisar produto por nome, código, marca ou bipe o código de barras..."
-                  className="w-full pl-11 pr-12 py-3.5 bg-slate-950 border border-slate-800 rounded-2xl focus:ring-2 focus:ring-rose-500/20 outline-none text-sm text-slate-100 font-bold transition-all placeholder-slate-500"
-                  value={pdvSearchProduct}
-                  onChange={e => setPdvSearchProduct(e.target.value)}
-                  autoFocus
-                />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                  <Barcode className="text-slate-500" size={18} />
-                </div>
-              </div>
-
-              {/* Horizontally scrollable Category selector */}
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-                <button
-                  onClick={() => setSelectedPdvCategory('all')}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all whitespace-nowrap border ${selectedPdvCategory === 'all'
-                    ? 'bg-rose-600 border-rose-600 text-white shadow-md'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                    }`}
-                >
-                  Todas
-                </button>
-                {categories.filter(c => c !== 'all').map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedPdvCategory(cat)}
-                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-all whitespace-nowrap border ${selectedPdvCategory === cat
-                      ? 'bg-rose-600 border-rose-600 text-white shadow-md'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                      }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Catalog Grid */}
-            <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-              {filteredProducts.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-500 py-12">
-                  <Package size={48} className="text-slate-700 mb-2 stroke-[1.5]" />
-                  <p className="text-sm font-bold">Nenhum produto encontrado</p>
-                  <p className="text-xs text-slate-600 mt-1">Experimente mudar o filtro de categoria ou a busca</p>
-                  {pdvSearchProduct && (
-                    <button
-                      onClick={() => {
-                        setPdvForm({ ...pdvForm, items: [...pdvForm.items, { product_id: undefined, description: pdvSearchProduct.toUpperCase(), quantity: 1, price: 0, type: 'Peça' }] });
-                        setPdvSearchProduct('');
-                      }}
-                      className="mt-4 px-4 py-2 bg-rose-600/10 text-rose-500 hover:bg-rose-600/20 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 border border-rose-500/20"
-                    >
-                      <PlusCircle size={14} /> Adicionar "{pdvSearchProduct}" avulso ao carrinho
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 pb-4">
-                  {filteredProducts.map(product => {
-                    const isLowStock = product.stock <= 2;
-                    const isOutOfStock = product.stock <= 0;
-                    return (
-                      <div
-                        key={product.id}
-                        onClick={() => !isOutOfStock && handleAddPdvItem(product)}
-                        className={`group relative flex flex-col bg-slate-950 border rounded-2xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${isOutOfStock
-                          ? 'opacity-40 border-slate-850 cursor-not-allowed'
-                          : 'border-slate-800 hover:border-rose-500/50 hover:shadow-lg hover:shadow-rose-950/20'
-                          }`}
-                      >
-                        {/* Image / Icon Box */}
-                        <div className="aspect-video w-full bg-slate-900 flex items-center justify-center relative overflow-hidden border-b border-slate-900">
-                          {product.image_url ? (
-                            <img
-                              src={product.image_url}
-                              alt={product.description}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-950 flex flex-col items-center justify-center text-slate-600 group-hover:text-rose-500/60 transition-colors">
-                              <Package size={28} className="stroke-[1.5]" />
-                            </div>
-                          )}
-
-                          {/* Brand Tag */}
-                          {product.brand && (
-                            <span className="absolute top-2 left-2 px-1.5 py-0.5 bg-slate-950/80 backdrop-blur-sm border border-slate-800 text-[8px] font-black text-rose-400 uppercase rounded">
-                              {product.brand}
-                            </span>
-                          )}
-
-                          {/* Stock Tag */}
-                          <span className={`absolute top-2 right-2 px-2 py-0.5 text-[8px] font-black uppercase rounded shadow-sm ${isOutOfStock
-                            ? 'bg-red-950 border border-red-800 text-red-400'
-                            : isLowStock
-                              ? 'bg-amber-950 border border-amber-800 text-amber-400'
-                              : 'bg-emerald-950 border border-emerald-800 text-emerald-400'
-                            }`}>
-                            Estoque: {product.stock}
-                          </span>
-                        </div>
-
-                        {/* Details */}
-                        <div className="p-3 flex-1 flex flex-col justify-between">
-                          <div className="space-y-1">
-                            <h4 className="font-bold text-xs text-slate-200 line-clamp-2 group-hover:text-white transition-colors">
-                              {product.description}
-                            </h4>
-                            <p className="text-[9px] text-slate-500 font-mono">SKU: {product.sku}</p>
-                          </div>
-
-                          <div className="mt-3 flex items-baseline justify-between">
-                            <span className="text-[8px] font-black text-slate-400 uppercase">Preço</span>
-                            <div className="flex flex-col items-end">
-                              <span className="text-sm font-black text-rose-500 group-hover:text-rose-400 transition-colors">
-                                {formatBRL(product.sale_price)}
-                              </span>
-                              {product.sale_price_credit && product.sale_price_credit > 0 ? (
-                                <span className="text-[9px] font-bold text-purple-400">
-                                  30D: {formatBRL(product.sale_price_credit)}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* RIGHT SIDE (~40%): SHOPPING CART */}
-          <div className="lg:col-span-2 flex flex-col overflow-hidden bg-slate-950">
-            {/* Vínculo Vendedor e Cliente */}
-            <div className="p-4 border-b border-slate-800 space-y-3 bg-slate-950">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[9px] uppercase font-black text-slate-400 mb-1 tracking-wider">Cliente da Venda</label>
-                  <select
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-rose-500/20 text-slate-100"
-                    value={pdvForm.customer_id}
-                    onChange={e => setPdvForm({ ...pdvForm, customer_id: e.target.value })}
-                  >
-                    <option value="">Consumidor Final</option>
-                    {sortedCustomers.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}{c.nickname ? ` (${c.nickname})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[9px] uppercase font-black text-slate-400 mb-1 tracking-wider">Mecânico / Vendedor</label>
-                  <select
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-rose-500/20 text-slate-100"
-                    value={pdvForm.mechanic_id}
-                    onChange={e => setPdvForm({ ...pdvForm, mechanic_id: e.target.value })}
-                  >
-                    <option value="">Nenhum (Sem Comissão)</option>
-                    {mechanics.map(m => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {pdvForm.customer_id && (
-                <div className="flex justify-between items-center text-[10px] bg-rose-950/20 border border-rose-900/30 p-2 rounded-lg text-rose-400">
-                  <span className="font-bold uppercase tracking-wider">Crédito Disponível:</span>
-                  <span className="font-black text-xs">
-                    {formatBRL(getCustomerRemainingCredit(parseInt(pdvForm.customer_id)))}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Shopping Cart List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-              {pdvForm.items.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-600">
-                  <ShoppingCart size={40} className="stroke-[1.5] mb-2" />
-                  <p className="text-xs font-bold uppercase tracking-wider">Carrinho Vazio</p>
-                  <p className="text-[10px] text-slate-700 mt-0.5">Selecione produtos no catálogo à esquerda</p>
-                </div>
-              ) : (
-                pdvForm.items.map((item, idx) => (
-                  <div key={idx} className="flex gap-3 items-center justify-between p-3 bg-slate-900 border border-slate-800 rounded-2xl animate-in fade-in duration-200">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-xs text-slate-200 truncate">{item.description}</h4>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        {/* Quantity adjusters */}
-                        <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg overflow-hidden h-6.5">
-                          <button
-                            type="button"
-                            onClick={() => handlePdvItemQuantityChange(idx, Math.max(1, item.quantity - 1))}
-                            className="px-2 h-full hover:bg-slate-900 text-slate-400 transition-colors"
-                          >
-                            <Minus size={10} />
-                          </button>
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={e => handlePdvItemQuantityChange(idx, parseInt(e.target.value) || 1)}
-                            className="w-8 h-full text-center text-xs font-mono font-bold bg-slate-950 outline-none border-x border-slate-800 text-slate-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handlePdvItemQuantityChange(idx, item.quantity + 1)}
-                            className="px-2 h-full hover:bg-slate-900 text-slate-400 transition-colors"
-                          >
-                            <Plus size={10} />
-                          </button>
-                        </div>
-
-                        <span className="text-[10px] text-slate-500">x</span>
-
-                        {/* Price Input */}
-                        <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg px-2 h-6.5">
-                          <span className="text-[9px] text-slate-500 mr-0.5">R$</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={item.price}
-                            onChange={e => handlePdvItemPriceChange(idx, parseFloat(e.target.value) || 0)}
-                            className="w-14 bg-transparent outline-none text-xs font-mono font-bold text-slate-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-xs font-black text-slate-200">{formatBRL(item.price * item.quantity)}</span>
-                      <button
-                        onClick={() => handleRemovePdvItem(item.product_id)}
-                        className="p-1 text-slate-500 hover:text-rose-500 transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* pinned checkout footer */}
-            <div className="p-4 border-t border-slate-800 bg-slate-950 space-y-4 shadow-xl">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-xs text-slate-400">
-                  <span>Subtotal:</span>
-                  <span className="font-mono font-bold text-slate-200">{formatBRL(cartTotal)}</span>
-                </div>
-
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-400">Desconto (R$):</span>
-                  <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl px-3 py-1">
-                    <span className="text-[10px] text-slate-500 mr-1 font-mono">R$</span>
-                    <input
-                      id="pdv-discount-input"
-                      type="number"
-                      step="0.01"
-                      placeholder="0,00"
-                      className="w-16 bg-transparent text-right outline-none text-xs font-mono font-black text-emerald-500 placeholder-slate-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      value={pdvForm.discount || ''}
-                      onChange={e => setPdvForm({ ...pdvForm, discount: Math.max(0, parseFloat(e.target.value) || 0) })}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center pt-2 border-t border-slate-850 mt-1">
-                  <span className="text-xs uppercase font-black tracking-wider text-slate-300">Total Geral:</span>
-                  <span className="text-2xl font-black text-rose-500 font-mono">
-                    {formatBRL(cartGrandTotal)}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  if (pdvForm.items.length > 0) {
-                    setIsCheckoutModalOpen(true);
-                  } else {
-                    alert('Adicione itens ao carrinho primeiro!');
-                  }
-                }}
-                className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-rose-700 transition-all shadow-lg hover:shadow-rose-600/10 active:scale-[0.99] flex items-center justify-center gap-2"
-              >
-                Falta Pagar / Fechar Venda (F2)
-              </button>
-            </div>
-          </div>
-        </div>
+      <>
+        <PDVTab
+          pdvState={{
+            form: pdvForm,
+            searchProduct: pdvSearchProduct,
+            selectedCategory: selectedPdvCategory,
+          }}
+          pdvActions={{
+            onAddProduct: handleAddPdvItem,
+            onRemoveItem: handleRemovePdvItem,
+            onQuantityChange: handlePdvItemQuantityChange,
+            onPriceChange: handlePdvItemPriceChange,
+            onChangeChargeType: handleChangePdvChargeType,
+            onSearchChange: setPdvSearchProduct,
+            onSelectCategory: setSelectedPdvCategory,
+            onOpenHistory: () => setIsPdvHistoryOpen(true),
+            onOpenCheckout: () => {
+              if (pdvForm.items.length > 0) {
+                setIsCheckoutModalOpen(true);
+              } else {
+                alert('Adicione itens ao carrinho primeiro!');
+              }
+            },
+            onDiscountChange: (discount) => setPdvForm(prev => ({ ...prev, discount })),
+            onCustomerChange: (customer_id) => setPdvForm(prev => ({ ...prev, customer_id })),
+            onMechanicChange: (mechanic_id) => setPdvForm(prev => ({ ...prev, mechanic_id })),
+            onAddCustomItem: (description) => {
+              setPdvForm(prev => ({
+                ...prev,
+                items: [
+                  ...prev.items,
+                  { product_id: undefined, description, quantity: 1, price: 0, type: 'Peça' }
+                ]
+              }));
+              setPdvSearchProduct('');
+            },
+          }}
+          data={{
+            products,
+            sortedProducts,
+            customers,
+            sortedCustomers,
+            mechanics,
+            todaySales,
+            totalToday,
+            currentUser: user,
+          }}
+          helpers={{
+            formatBRL,
+            getCustomerRemainingCredit,
+          }}
+        />
 
         {/* PDV Sales History Modal */}
         <Modal
@@ -3055,7 +2723,7 @@ export default function App() {
             </div>
           </div>
         </Modal>
-      </div>
+      </>
     );
   };
 
@@ -7182,39 +6850,40 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto ml-0 no-print">
-        <header className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-              {activeTab === 'dashboard' && 'Bem-vindo de volta!'}
-              {activeTab === 'customers' && 'Gestão de Clientes'}
-              {activeTab === 'inventory' && 'Controle de Estoque'}
-              {activeTab === 'manual_inventory' && 'Contagem Rápida (Estoque)'}
-              {activeTab === 'services' && 'Cadastro de Serviços'}
-              {activeTab === 'agendamentos' && 'Gestão da Oficina e Pátio'}
-              {activeTab === 'crm' && 'CRM de Vendas'}
-              {activeTab === 'cobranca' && 'Central de Cobrança'}
-              {activeTab === 'pdv' && 'Frente de Caixa (PDV)'}
-              {activeTab === 'os' && 'Ordens de Serviço'}
-              {activeTab === 'financial' && 'Gestão Financeira'}
-              {activeTab === 'orders' && 'Pedidos de Peças'}
-              {activeTab === 'purchases' && 'Entrada de Compras (Oficina)'}
-              {activeTab === 'mechanics' && 'Gestão de Mecânicos'}
-              {activeTab === 'quotes' && 'Orçamentos Profissionais'}
-              {activeTab === 'settings' && 'Configurações do Sistema'}
-              {activeTab === 'ai_instructions' && 'Central de Instruções da IA'}
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400">
-              {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <div className="flex flex-col items-end gap-1">
-              <span className="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">SISTEMA ATUALIZADO V3.1</span>
+      <main className={`flex-1 ml-0 no-print ${activeTab === 'pdv' ? 'p-0 overflow-hidden h-screen' : 'p-8 overflow-y-auto'}`}>
+        {activeTab !== 'pdv' && (
+          <header className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+                {activeTab === 'dashboard' && 'Bem-vindo de volta!'}
+                {activeTab === 'customers' && 'Gestão de Clientes'}
+                {activeTab === 'inventory' && 'Controle de Estoque'}
+                {activeTab === 'manual_inventory' && 'Contagem Rápida (Estoque)'}
+                {activeTab === 'services' && 'Cadastro de Serviços'}
+                {activeTab === 'agendamentos' && 'Gestão da Oficina e Pátio'}
+                {activeTab === 'crm' && 'CRM de Vendas'}
+                {activeTab === 'cobranca' && 'Central de Cobrança'}
+                {activeTab === 'os' && 'Ordens de Serviço'}
+                {activeTab === 'financial' && 'Gestão Financeira'}
+                {activeTab === 'orders' && 'Pedidos de Peças'}
+                {activeTab === 'purchases' && 'Entrada de Compras (Oficina)'}
+                {activeTab === 'mechanics' && 'Gestão de Mecânicos'}
+                {activeTab === 'quotes' && 'Orçamentos Profissionais'}
+                {activeTab === 'settings' && 'Configurações do Sistema'}
+                {activeTab === 'ai_instructions' && 'Central de Instruções da IA'}
+              </h2>
+              <p className="text-slate-500 dark:text-slate-400">
+                {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </p>
             </div>
-          </div>
-        </header>
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
+              <div className="flex flex-col items-end gap-1">
+                <span className="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">SISTEMA ATUALIZADO V3.1</span>
+              </div>
+            </div>
+          </header>
+        )}
 
         <AnimatePresence mode="wait">
           <motion.div
@@ -7223,6 +6892,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
+            className={activeTab === 'pdv' ? 'h-full w-full' : ''}
           >
             {loading ? (
               <div className="flex items-center justify-center h-64">
