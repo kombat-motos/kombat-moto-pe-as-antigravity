@@ -750,6 +750,37 @@ export default function App() {
     }
   };
 
+  const handleMassWholesaleUpdate = async () => {
+    try {
+      const val = parseFloat(massWholesaleUpdateForm.value.replace(',', '.'));
+      if (isNaN(val) || val <= 0) return alert('Insira um valor maior que zero válido.');
+      
+      const confirmMsg = selectedProductIds.length > 0 
+        ? `Você vai alterar os preços de VENDA NO ATACADO de ${selectedProductIds.length} PRODUTOS SELECIONADOS. Tem certeza?`
+        : `Você vai alterar os preços de VENDA NO ATACADO de TODOS OS PRODUTOS DO SISTEMA (${products.length}). Tem certeza absoluta?`;
+        
+      if (!confirm(confirmMsg)) return;
+
+      setLoading(true);
+      await localApi.post('products/mass-update', {
+        ...massWholesaleUpdateForm,
+        value: val,
+        productIds: selectedProductIds.length > 0 ? selectedProductIds : [],
+        targetField: 'sale_price_wholesale'
+      });
+      setIsMassWholesaleUpdateModalOpen(false);
+      setMassWholesaleUpdateForm({ type: 'percent', action: 'decrease', baseField: 'sale_price', value: '' });
+      setSelectedProductIds([]);
+      fetchData();
+      alert('Preços de atacado atualizados com sucesso em todos os produtos!');
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || 'Erro ao atualizar preços de atacado em massa');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const localApi = {
     getHeaders: () => {
       const token = localStorage.getItem('token');
@@ -856,6 +887,8 @@ export default function App() {
   const [massUpdateForm, setMassUpdateForm] = useState<{type: 'percent'|'fixed', action: 'increase'|'decrease', value: string}>({ type: 'percent', action: 'increase', value: '' });
   const [isMassCreditUpdateModalOpen, setIsMassCreditUpdateModalOpen] = useState(false);
   const [massCreditUpdateForm, setMassCreditUpdateForm] = useState<{type: 'percent'|'fixed', action: 'increase'|'decrease', value: string}>({ type: 'percent', action: 'increase', value: '' });
+  const [isMassWholesaleUpdateModalOpen, setIsMassWholesaleUpdateModalOpen] = useState(false);
+  const [massWholesaleUpdateForm, setMassWholesaleUpdateForm] = useState<{type: 'percent'|'fixed', action: 'increase'|'decrease', baseField: 'sale_price'|'purchase_price', value: string}>({ type: 'percent', action: 'decrease', baseField: 'sale_price', value: '' });
   const [isMotorcycleModalOpen, setIsMotorcycleModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -4469,6 +4502,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         purchase_price: parseFloat(productForm.purchase_price.toString().replace(',', '.')) || 0,
         sale_price: parseFloat(productForm.sale_price.toString().replace(',', '.')) || 0,
         sale_price_credit: parseFloat((productForm.sale_price_credit || '').toString().replace(',', '.')) || 0,
+        sale_price_wholesale: parseFloat((productForm.sale_price_wholesale || '').toString().replace(',', '.')) || 0,
         stock: parseInt(productForm.stock.toString()) || 0,
         unit: productForm.unit,
         image_url: finalImageUrl,
@@ -4498,6 +4532,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         purchase_price: '',
         sale_price: '',
         sale_price_credit: '',
+        sale_price_wholesale: '',
         stock: '',
         unit: 'Unitário',
         image_url: '',
@@ -6923,6 +6958,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     setIsMassUpdateModalOpen={setIsMassUpdateModalOpen}
                     isMassCreditUpdateModalOpen={isMassCreditUpdateModalOpen}
                     setIsMassCreditUpdateModalOpen={setIsMassCreditUpdateModalOpen}
+                    isMassWholesaleUpdateModalOpen={isMassWholesaleUpdateModalOpen}
+                    setIsMassWholesaleUpdateModalOpen={setIsMassWholesaleUpdateModalOpen}
                     handleEditProduct={handleEditProduct}
                     handleCloneProduct={handleCloneProduct}
                     handleDeleteProduct={handleDeleteProduct}
@@ -11013,6 +11050,83 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
             className="w-full py-4 bg-purple-600 text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-purple-700 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
           >
             CONFIRMAR {massCreditUpdateForm.action === 'increase' ? 'AUMENTO' : 'REDUÇÃO'} EM MASSA
+          </button>
+        </div>
+      </Modal>
+
+      <Modal isOpen={isMassWholesaleUpdateModalOpen} onClose={() => setIsMassWholesaleUpdateModalOpen(false)} title="Atualização de Preços de Atacado (Massa)">
+        <div className="space-y-6">
+          <div className="bg-teal-50 p-4 rounded-xl border border-teal-200 dark:bg-teal-950/40 dark:border-teal-900">
+            <h4 className="font-bold text-teal-800 dark:text-teal-300 text-sm mb-1 uppercase">Reajuste de Venda no Atacado</h4>
+            <p className="text-xs text-teal-700 dark:text-teal-400">
+              {selectedProductIds.length > 0 
+                ? `Esta ação vai atualizar o preço de ATACADO dos ${selectedProductIds.length} produtos selecionados.`
+                : `Você NÃO selecionou produtos individualmente, então esta ação vai atualizar o preço de ATACADO de TODOS (${products.length}) os produtos do seu estoque.`}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-400 mb-2 uppercase">Base do Cálculo</label>
+              <select
+                value={massWholesaleUpdateForm.baseField}
+                onChange={e => setMassWholesaleUpdateForm({...massWholesaleUpdateForm, baseField: e.target.value as 'sale_price'|'purchase_price'})}
+                className="w-full border border-slate-300 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-teal-500 font-bold bg-white dark:bg-slate-800 dark:border-slate-700"
+              >
+                <option value="sale_price">Preço À Vista (Venda)</option>
+                <option value="purchase_price">Preço de Custo (Compra)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 mb-2 uppercase">Operação</label>
+              <select
+                value={massWholesaleUpdateForm.action}
+                onChange={e => setMassWholesaleUpdateForm({...massWholesaleUpdateForm, action: e.target.value as 'increase'|'decrease'})}
+                className="w-full border border-slate-300 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-teal-500 font-bold bg-white dark:bg-slate-800 dark:border-slate-700"
+              >
+                <option value="decrease">DIMINUIR (Desconto no Atacado)</option>
+                <option value="increase">AUMENTAR (Margem sobre a Base)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 mb-2 uppercase">Tipo</label>
+              <select
+                value={massWholesaleUpdateForm.type}
+                onChange={e => setMassWholesaleUpdateForm({...massWholesaleUpdateForm, type: e.target.value as 'percent'|'fixed'})}
+                className="w-full border border-slate-300 rounded-xl px-3 py-3 text-sm focus:ring-2 focus:ring-teal-500 font-bold bg-white dark:bg-slate-800 dark:border-slate-700"
+              >
+                <option value="percent">Porcentagem (%)</option>
+                <option value="fixed">Valor Fixo (R$)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-400 mb-2 uppercase">
+              {massWholesaleUpdateForm.type === 'percent' 
+                ? (massWholesaleUpdateForm.action === 'decrease' ? 'Porcentagem de desconto no atacado (%)' : 'Porcentagem de acréscimo (%)')
+                : (massWholesaleUpdateForm.action === 'decrease' ? 'Valor do desconto no atacado (R$)' : 'Valor do acréscimo (R$)')}
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+                {massWholesaleUpdateForm.type === 'percent' ? '%' : 'R$'}
+              </span>
+              <input
+                type="number"
+                step="0.01"
+                value={massWholesaleUpdateForm.value}
+                onChange={e => setMassWholesaleUpdateForm({...massWholesaleUpdateForm, value: e.target.value})}
+                placeholder={massWholesaleUpdateForm.type === 'percent' ? "Exemplo: 10 (para 10%)" : "Exemplo: 5.00 (para R$ 5,00)"}
+                className="w-full border border-slate-300 rounded-xl pl-12 pr-4 py-4 font-black text-xl focus:ring-2 focus:ring-teal-500 dark:border-slate-700"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={handleMassWholesaleUpdate}
+            className="w-full py-4 bg-teal-600 text-white rounded-xl font-black text-sm uppercase tracking-widest hover:bg-teal-700 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+          >
+            CONFIRMAR PREÇOS DE ATACADO EM MASSA
           </button>
         </div>
       </Modal>

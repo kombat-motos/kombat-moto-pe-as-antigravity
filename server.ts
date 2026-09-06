@@ -1712,7 +1712,7 @@ async function startServer() {
   
   app.post("/api/products/mass-update", authenticateToken, (req, res) => {
     try {
-      const { type, action, value, productIds, targetField } = req.body;
+      const { type, action, value, productIds, targetField, baseField } = req.body;
       const userId = req.user!.id;
       
       const val = parseFloat(value);
@@ -1720,15 +1720,21 @@ async function startServer() {
         return res.status(400).json({ error: "Valor inválido" });
       }
 
-      const field = targetField === 'sale_price_credit' ? 'sale_price_credit' : 'sale_price';
+      let field = 'sale_price';
+      if (targetField === 'sale_price_credit') field = 'sale_price_credit';
+      if (targetField === 'sale_price_wholesale') field = 'sale_price_wholesale';
+
+      const base = (baseField === 'purchase_price') ? 'purchase_price' : 'sale_price';
 
       let query = "";
       if (type === 'percent') {
         const multiplier = action === 'increase' ? (1 + (val / 100)) : (1 - (val / 100));
-        query = `UPDATE products SET ${field} = ROUND(sale_price * ${multiplier}, 2) WHERE user_id = ?`;
+        query = `UPDATE products SET ${field} = MAX(0, ROUND(${base} * ${multiplier}, 2)) WHERE user_id = ?`;
+      } else if (type === 'set') {
+        query = `UPDATE products SET ${field} = MAX(0, ROUND(${val}, 2)) WHERE user_id = ?`;
       } else {
         const sign = action === 'increase' ? '+' : '-';
-        query = `UPDATE products SET ${field} = ROUND(sale_price ${sign} ${val}, 2) WHERE user_id = ?`;
+        query = `UPDATE products SET ${field} = MAX(0, ROUND(${base} ${sign} ${val}, 2)) WHERE user_id = ?`;
       }
 
       const ids = Array.isArray(productIds) ? productIds : [];

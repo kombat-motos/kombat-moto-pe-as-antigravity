@@ -27,6 +27,8 @@ interface InventoryTabProps {
   setIsMassUpdateModalOpen: (val: boolean) => void;
   isMassCreditUpdateModalOpen?: boolean;
   setIsMassCreditUpdateModalOpen: (val: boolean) => void;
+  isMassWholesaleUpdateModalOpen?: boolean;
+  setIsMassWholesaleUpdateModalOpen?: (val: boolean) => void;
   handleEditProduct: (product: Product) => void;
   handleCloneProduct: (product: Product) => void;
   handleDeleteProduct: (id: number) => void;
@@ -54,6 +56,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
   setIsQuickInventoryOpen,
   setIsMassUpdateModalOpen,
   setIsMassCreditUpdateModalOpen,
+  setIsMassWholesaleUpdateModalOpen,
   handleEditProduct,
   handleCloneProduct,
   handleDeleteProduct,
@@ -286,6 +289,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
         onOpenQuickInventory={() => setIsQuickInventoryOpen(true)}
         onOpenMassPriceUpdate={() => setIsMassUpdateModalOpen(true)}
         onOpenMassCreditUpdate={() => setIsMassCreditUpdateModalOpen(true)}
+        onOpenMassWholesaleUpdate={setIsMassWholesaleUpdateModalOpen ? () => setIsMassWholesaleUpdateModalOpen(true) : undefined}
         onAddNewProduct={onAddProduct}
         selectedProductIds={selectedProductIds}
         onClearSelection={() => setSelectedProductIds([])}

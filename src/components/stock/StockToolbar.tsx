@@ -46,6 +46,7 @@ interface StockToolbarProps {
   onOpenQuickInventory: () => void;
   onOpenMassPriceUpdate: () => void;
   onOpenMassCreditUpdate: () => void;
+  onOpenMassWholesaleUpdate?: () => void;
   onAddNewProduct: () => void;
   selectedProductIds: number[];
   onClearSelection: () => void;
@@ -74,6 +75,7 @@ export const StockToolbar: React.FC<StockToolbarProps> = ({
   onOpenQuickInventory,
   onOpenMassPriceUpdate,
   onOpenMassCreditUpdate,
+  onOpenMassWholesaleUpdate,
   onAddNewProduct,
   selectedProductIds,
   onClearSelection,
@@ -241,6 +243,19 @@ export const StockToolbar: React.FC<StockToolbarProps> = ({
             <TrendingUp size={16} />
             <span className="hidden lg:inline">Preços 30 Dias</span>
           </button>
+
+          {/* Preços Atacado (Massa) */}
+          {onOpenMassWholesaleUpdate && (
+            <button
+              type="button"
+              onClick={onOpenMassWholesaleUpdate}
+              className="h-10 flex items-center justify-center gap-1.5 px-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl transition-all font-bold text-xs shadow-2xs"
+              title="Reajuste de preços de venda no atacado em massa"
+            >
+              <TrendingUp size={16} />
+              <span className="hidden lg:inline">Preços Atacado</span>
+            </button>
+          )}
 
           {/* Novo Produto */}
           <button
@@ -419,6 +434,17 @@ export const StockToolbar: React.FC<StockToolbarProps> = ({
               <TrendingUp size={14} />
               Reajustar 30 Dias
             </button>
+
+            {onOpenMassWholesaleUpdate && (
+              <button
+                type="button"
+                onClick={onOpenMassWholesaleUpdate}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold uppercase transition-all shadow-2xs"
+              >
+                <TrendingUp size={14} />
+                Reajustar Atacado
+              </button>
+            )}
 
             <button
               type="button"
