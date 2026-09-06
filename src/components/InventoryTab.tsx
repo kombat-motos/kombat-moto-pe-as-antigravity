@@ -1,38 +1,10 @@
-import React, { useMemo } from 'react';
-import { 
-  Search, 
-  List, 
-  LayoutGrid, 
-  Trash2, 
-  Pencil, 
-  Plus, 
-  Package, 
-  Printer, 
-  ClipboardCheck, 
-  TrendingUp, 
-  RefreshCw,
-  Image as ImageIcon,
-  Share2,
-  FileText,
-  Copy
-} from 'lucide-react';
-import { motion } from 'motion/react';
-
-interface Product {
-  id: number;
-  description: string;
-  sku: string;
-  barcode: string;
-  purchase_price: number;
-  sale_price: number;
-  stock: number;
-  unit: string;
-  brand?: string;
-  location?: string;
-  image_url?: string;
-  alt_code?: string;
-  distributor?: string;
-}
+import React, { useState, useMemo, useCallback } from 'react';
+import { Product, QuickFilterType, SortField, SortDirection } from './stock/types';
+import { StockMetrics } from './stock/StockMetrics';
+import { StockToolbar, AdvancedFiltersState } from './stock/StockToolbar';
+import { StockListView } from './stock/StockListView';
+import { StockCardView } from './stock/StockCardView';
+import { ProductDetailsDrawer } from './stock/ProductDetailsDrawer';
 
 interface InventoryTabProps {
   products: Product[];
@@ -49,21 +21,22 @@ interface InventoryTabProps {
   handleBulkDelete: () => void;
   handleImportProducts: (e: any) => void;
   handleDownloadExcel: () => void;
-  isQuickInventoryOpen: boolean;
+  isQuickInventoryOpen?: boolean;
   setIsQuickInventoryOpen: (val: boolean) => void;
-  isMassUpdateModalOpen: boolean;
+  isMassUpdateModalOpen?: boolean;
   setIsMassUpdateModalOpen: (val: boolean) => void;
-  isMassCreditUpdateModalOpen: boolean;
+  isMassCreditUpdateModalOpen?: boolean;
   setIsMassCreditUpdateModalOpen: (val: boolean) => void;
   handleEditProduct: (product: Product) => void;
   handleCloneProduct: (product: Product) => void;
   handleDeleteProduct: (id: number) => void;
   onAddProduct: () => void;
-  setSelectedProductDetail: (product: Product | null) => void;
+  setSelectedProductDetail?: (product: Product | null) => void;
+  setLabelPreviewProduct?: (product: Product | null) => void;
   formatBRL: (val: number) => string;
 }
 
-const InventoryTab: React.FC<InventoryTabProps> = ({
+export const InventoryTab: React.FC<InventoryTabProps> = ({
   products,
   inventorySearchTerm,
   setInventorySearchTerm,
@@ -78,406 +51,292 @@ const InventoryTab: React.FC<InventoryTabProps> = ({
   handleBulkDelete,
   handleImportProducts,
   handleDownloadExcel,
-  isQuickInventoryOpen,
   setIsQuickInventoryOpen,
-  isMassUpdateModalOpen,
   setIsMassUpdateModalOpen,
-  isMassCreditUpdateModalOpen,
   setIsMassCreditUpdateModalOpen,
   handleEditProduct,
   handleCloneProduct,
   handleDeleteProduct,
   onAddProduct,
   setSelectedProductDetail,
+  setLabelPreviewProduct,
   formatBRL
 }) => {
+  // ── Estados Locais de Filtro e Ordenação ──
+  const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilterType>('ALL');
+  const [sortField, setSortField] = useState<SortField>('description');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  
+  // Ficha Completa do Produto (Drawer)
+  const [drawerProduct, setDrawerProduct] = useState<Product | null>(null);
 
-  const [brandSearchTerm, setBrandSearchTerm] = React.useState('');
+  // Filtros Avançados
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersState>({
+    brand: '',
+    category: '',
+    location: '',
+    distributor: '',
+    minPrice: '',
+    maxPrice: ''
+  });
 
-  const sortedProducts = useMemo(() => {
-    return [...products].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+  const handleResetAdvancedFilters = useCallback(() => {
+    setAdvancedFilters({
+      brand: '',
+      category: '',
+      location: '',
+      distributor: '',
+      minPrice: '',
+      maxPrice: ''
+    });
+  }, []);
+
+  // ── Listas Únicas para os Seletores dos Filtros Avançados ──
+  const { availableBrands, availableCategories, availableLocations, availableDistributors } = useMemo(() => {
+    const brandsSet = new Set<string>();
+    const categoriesSet = new Set<string>();
+    const locationsSet = new Set<string>();
+    const distributorsSet = new Set<string>();
+
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i];
+      if (p.brand && p.brand.trim()) brandsSet.add(p.brand.trim());
+      if (p.category && p.category.trim()) categoriesSet.add(p.category.trim());
+      if (p.location && p.location.trim()) locationsSet.add(p.location.trim());
+      if (p.distributor && p.distributor.trim()) distributorsSet.add(p.distributor.trim());
+    }
+
+    return {
+      availableBrands: Array.from(brandsSet).sort(),
+      availableCategories: Array.from(categoriesSet).sort(),
+      availableLocations: Array.from(locationsSet).sort(),
+      availableDistributors: Array.from(distributorsSet).sort()
+    };
   }, [products]);
 
-  const filtered = useMemo(() => {
-    const search = (inventorySearchTerm.trim() || globalSearchTerm.trim()).toLowerCase();
-    const brandSearch = brandSearchTerm.trim().toLowerCase();
-    
-    return sortedProducts.filter(p => {
-      const matchesSearch = !search || (
-        (p.description || '').toLowerCase().includes(search) ||
-        (p.sku || '').toLowerCase().includes(search) ||
-        (p.alt_code || '').toLowerCase().includes(search) ||
-        (p.location && (p.location || '').toLowerCase().includes(search)) ||
-        (p.barcode || '').toLowerCase().includes(search) ||
-        (p.brand && (p.brand || '').toLowerCase().includes(search))
-      );
+  // ── Filtragem de Produtos ──
+  const filteredProducts = useMemo(() => {
+    const term = (inventorySearchTerm.trim() || globalSearchTerm.trim()).toLowerCase();
+    const adv = advancedFilters;
+    const minP = adv.minPrice ? parseFloat(adv.minPrice.replace(',', '.')) : null;
+    const maxP = adv.maxPrice ? parseFloat(adv.maxPrice.replace(',', '.')) : null;
 
-      const matchesBrand = !brandSearch || (
-        (p.brand || '').toLowerCase().includes(brandSearch)
-      );
+    return products.filter(p => {
+      // 1. Busca Geral (nome, sku, barcode, alt_code, brand, category, application, location, distributor)
+      if (term) {
+        const descMatch = (p.description || '').toLowerCase().includes(term);
+        const skuMatch = (p.sku || '').toLowerCase().includes(term);
+        const barcodeMatch = (p.barcode || '').toLowerCase().includes(term);
+        const altCodeMatch = (p.alt_code || '').toLowerCase().includes(term);
+        const brandMatch = (p.brand || '').toLowerCase().includes(term);
+        const catMatch = (p.category || '').toLowerCase().includes(term);
+        const appMatch = (p.application || '').toLowerCase().includes(term);
+        const locMatch = (p.location || '').toLowerCase().includes(term);
+        const distMatch = (p.distributor || '').toLowerCase().includes(term);
 
-      return matchesSearch && matchesBrand;
+        if (!descMatch && !skuMatch && !barcodeMatch && !altCodeMatch && !brandMatch && !catMatch && !appMatch && !locMatch && !distMatch) {
+          return false;
+        }
+      }
+
+      // 2. Filtro Rápido
+      const stock = Number(p.stock) || 0;
+      switch (activeQuickFilter) {
+        case 'IN_STOCK':
+          if (stock <= 0) return false;
+          break;
+        case 'LOW_STOCK':
+          if (stock < 1 || stock > 2) return false;
+          break;
+        case 'OUT_OF_STOCK':
+          if (stock > 0) return false;
+          break;
+        case 'NO_IMAGE':
+          if (p.image_url && p.image_url.trim()) return false;
+          break;
+        case 'NO_EAN':
+          if (p.barcode && p.barcode.trim()) return false;
+          break;
+        case 'NO_LOCATION':
+          if (p.location && p.location.trim()) return false;
+          break;
+        case 'ALL':
+        default:
+          break;
+      }
+
+      // 3. Filtros Avançados
+      if (adv.brand && (p.brand || '').toLowerCase() !== adv.brand.toLowerCase()) {
+        return false;
+      }
+      if (adv.category && (p.category || '').toLowerCase() !== adv.category.toLowerCase()) {
+        return false;
+      }
+      if (adv.location && (p.location || '').toLowerCase() !== adv.location.toLowerCase()) {
+        return false;
+      }
+      if (adv.distributor && (p.distributor || '').toLowerCase() !== adv.distributor.toLowerCase()) {
+        return false;
+      }
+      if (minP !== null && !isNaN(minP) && Number(p.sale_price) < minP) {
+        return false;
+      }
+      if (maxP !== null && !isNaN(maxP) && Number(p.sale_price) > maxP) {
+        return false;
+      }
+
+      return true;
     });
-  }, [sortedProducts, inventorySearchTerm, globalSearchTerm, brandSearchTerm]);
+  }, [products, inventorySearchTerm, globalSearchTerm, activeQuickFilter, advancedFilters]);
+
+  // ── Ordenação Dinâmica ──
+  const sortedAndFilteredProducts = useMemo(() => {
+    const list = [...filteredProducts];
+
+    list.sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case 'description':
+          comparison = (a.description || '').localeCompare(b.description || '');
+          break;
+        case 'sku':
+          comparison = (a.sku || '').localeCompare(b.sku || '');
+          break;
+        case 'brand':
+          comparison = (a.brand || '').localeCompare(b.brand || '');
+          break;
+        case 'location':
+          comparison = (a.location || '').localeCompare(b.location || '');
+          break;
+        case 'stock':
+          comparison = (Number(a.stock) || 0) - (Number(b.stock) || 0);
+          break;
+        case 'sale_price':
+          comparison = (Number(a.sale_price) || 0) - (Number(b.sale_price) || 0);
+          break;
+        default:
+          comparison = (a.description || '').localeCompare(b.description || '');
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    return list;
+  }, [filteredProducts, sortField, sortDirection]);
+
+  // Alternar campo de ordenação
+  const handleSortChange = useCallback((field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  }, [sortField]);
+
+  // Selecionar / desselecionar todos os itens visíveis na tela
+  const handleSelectAllVisible = useCallback((select: boolean) => {
+    if (select) {
+      const visibleIds = sortedAndFilteredProducts.map(p => p.id);
+      setSelectedProductIds(Array.from(new Set([...selectedProductIds, ...visibleIds])));
+    } else {
+      const visibleIdsSet = new Set(sortedAndFilteredProducts.map(p => p.id));
+      setSelectedProductIds(selectedProductIds.filter(id => !visibleIdsSet.has(id)));
+    }
+  }, [sortedAndFilteredProducts, selectedProductIds, setSelectedProductIds]);
+
+  const handleOpenProductDetail = useCallback((p: Product) => {
+    if (setSelectedProductDetail) {
+      setSelectedProductDetail(p);
+    } else {
+      setDrawerProduct(p);
+    }
+  }, [setSelectedProductDetail]);
 
   return (
-    <div className="space-y-6 notranslate" translate="no">
-      <div className="flex flex-col gap-4">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Estoque de Peças</h2>
-        
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => fetchData()}
-            className="h-10 w-10 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100 shadow-sm bg-white dark:bg-slate-800 dark:border-slate-700"
-            title="Sincronizar Estoque"
-          >
-            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-          </button>
-          
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
-              type="text"
-              placeholder="Pesquisar produtos..."
-              className="h-10 pl-10 pr-4 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-full sm:w-56 dark:bg-slate-800 dark:border-slate-700"
-              value={inventorySearchTerm}
-              onChange={e => setInventorySearchTerm(e.target.value)}
-            />
-          </div>
+    <div className="space-y-4 notranslate" translate="no">
+      {/* ── 1. Indicadores do Estoque (Metrics) ── */}
+      <StockMetrics
+        products={products}
+        formatBRL={formatBRL}
+        activeQuickFilter={activeQuickFilter}
+        onSelectQuickFilter={setActiveQuickFilter}
+      />
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
-              type="text"
-              placeholder="Buscar por marca..."
-              className="h-10 pl-10 pr-4 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-full sm:w-48 dark:bg-slate-800 dark:border-slate-700"
-              value={brandSearchTerm}
-              onChange={e => setBrandSearchTerm(e.target.value)}
-            />
-          </div>
+      {/* ── 2. Toolbar Profissional (Busca, Filtros, Alternador e Ações) ── */}
+      <StockToolbar
+        searchTerm={inventorySearchTerm}
+        onSearchTermChange={setInventorySearchTerm}
+        activeQuickFilter={activeQuickFilter}
+        onSelectQuickFilter={setActiveQuickFilter}
+        advancedFilters={advancedFilters}
+        onAdvancedFiltersChange={setAdvancedFilters}
+        onResetAdvancedFilters={handleResetAdvancedFilters}
+        availableBrands={availableBrands}
+        availableCategories={availableCategories}
+        availableLocations={availableLocations}
+        availableDistributors={availableDistributors}
+        viewMode={inventoryView}
+        onViewModeChange={setInventoryView}
+        loading={loading}
+        onRefresh={fetchData}
+        onImportExcel={handleImportProducts}
+        onExportExcel={handleDownloadExcel}
+        onOpenQuickInventory={() => setIsQuickInventoryOpen(true)}
+        onOpenMassPriceUpdate={() => setIsMassUpdateModalOpen(true)}
+        onOpenMassCreditUpdate={() => setIsMassCreditUpdateModalOpen(true)}
+        onAddNewProduct={onAddProduct}
+        selectedProductIds={selectedProductIds}
+        onClearSelection={() => setSelectedProductIds([])}
+        onBulkDelete={handleBulkDelete}
+        totalFiltered={sortedAndFilteredProducts.length}
+      />
 
-          <div className="flex bg-slate-100 p-1 rounded-xl h-10 items-center dark:bg-slate-800">
-            <button
-              onClick={() => setInventoryView('list')}
-              className={`p-1.5 rounded-lg transition-all ${inventoryView === 'list' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              title="Visualização em Lista"
-            >
-              <List size={18} />
-            </button>
-            <button
-              onClick={() => setInventoryView('grid')}
-              className={`p-1.5 rounded-lg transition-all ${inventoryView === 'grid' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              title="Visualização em Cards"
-            >
-              <LayoutGrid size={18} />
-            </button>
-          </div>
-
-          <label className="h-10 flex items-center justify-center gap-2 px-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium cursor-pointer text-sm whitespace-nowrap shadow-sm">
-            <Package size={18} />
-            Importar
-            <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportProducts} />
-          </label>
-
-          <button
-            onClick={handleDownloadExcel}
-            className="h-10 flex items-center justify-center gap-2 px-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-medium text-sm whitespace-nowrap shadow-sm"
-          >
-            <Printer size={18} />
-            Exportar
-          </button>
-
-
-
-          <button
-            onClick={() => setIsQuickInventoryOpen(true)}
-            className="h-10 flex items-center justify-center gap-2 px-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-black text-sm whitespace-nowrap shadow-sm hover:scale-105 active:scale-95"
-          >
-            <ClipboardCheck size={20} />
-            CONTAGEM RÁPIDA
-          </button>
-          
-          <button
-            onClick={() => setIsMassUpdateModalOpen(true)}
-            className="h-10 flex items-center justify-center gap-2 px-4 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-all font-medium text-sm whitespace-nowrap shadow-sm"
-          >
-            <TrendingUp size={18} />
-            Preços em Massa
-          </button>
-
-          <button
-            onClick={() => setIsMassCreditUpdateModalOpen(true)}
-            className="h-10 flex items-center justify-center gap-2 px-4 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all font-medium text-sm whitespace-nowrap shadow-sm"
-          >
-            <TrendingUp size={18} />
-            Preços 30 Dias (Massa)
-          </button>
-          
-          <button
-            onClick={onAddProduct}
-            className="h-10 flex items-center justify-center gap-2 px-4 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all font-medium text-sm whitespace-nowrap shadow-sm"
-          >
-            <Plus size={18} />
-            Produto
-          </button>
-        </div>
-      </div>
-
-      {selectedProductIds.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-4 bg-rose-50 border border-rose-200 px-4 py-3 rounded-2xl shadow-sm"
-        >
-          <span className="text-sm font-black text-rose-600 uppercase tracking-widest">
-            {selectedProductIds.length} selecionado{selectedProductIds.length > 1 ? 's' : ''}
-          </span>
-          <button
-            onClick={handleBulkDelete}
-            className="flex items-center gap-2 px-4 py-1.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-all font-bold text-xs uppercase"
-          >
-            <Trash2 size={14} />
-            Excluir Selecionados
-          </button>
-          <button
-            onClick={() => setSelectedProductIds([])}
-            className="text-xs font-bold text-slate-400 hover:text-slate-600 uppercase"
-          >
-            Limpar Seleção
-          </button>
-        </motion.div>
+      {/* ── 3. Visualização em Lista ou Cards ── */}
+      {inventoryView === 'list' ? (
+        <StockListView
+          products={sortedAndFilteredProducts}
+          selectedProductIds={selectedProductIds}
+          onToggleSelectProduct={toggleSelectProduct}
+          onSelectAllVisible={handleSelectAllVisible}
+          onOpenProductDetail={handleOpenProductDetail}
+          onEditProduct={handleEditProduct}
+          onCloneProduct={handleCloneProduct}
+          onDeleteProduct={handleDeleteProduct}
+          formatBRL={formatBRL}
+          loading={loading}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
+        />
+      ) : (
+        <StockCardView
+          products={sortedAndFilteredProducts}
+          selectedProductIds={selectedProductIds}
+          onToggleSelectProduct={toggleSelectProduct}
+          onOpenProductDetail={handleOpenProductDetail}
+          onEditProduct={handleEditProduct}
+          onCloneProduct={handleCloneProduct}
+          onDeleteProduct={handleDeleteProduct}
+          formatBRL={formatBRL}
+        />
       )}
 
-      {inventoryView === 'list' ? (
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden text-sm dark:bg-slate-800 dark:border-slate-700">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-100 dark:bg-slate-900">
-                  <th className="px-6 py-4 w-10">
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 dark:border-slate-700"
-                      checked={filtered.length > 0 && selectedProductIds.length === filtered.length}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedProductIds(filtered.map(p => p.id));
-                        } else {
-                          setSelectedProductIds([]);
-                        }
-                      }}
-                    />
-                  </th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Produto</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">SKU / EAN</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Preços (C/V)</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Estoque</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading && products.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-20 text-center">
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="w-8 h-8 border-4 border-rose-600 border-t-transparent rounded-full animate-spin" />
-                        <p className="text-slate-400 font-medium">Buscando estoque...</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-medium">
-                      Nenhum produto encontrado.
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((p) => (
-                    <tr key={p.id} className={`hover:bg-slate-50/50 transition-colors ${selectedProductIds.includes(p.id) ? 'bg-rose-50/30' : ''}`}>
-                      <td className="px-6 py-4 text-slate-400">
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 dark:border-slate-700"
-                          checked={selectedProductIds.includes(p.id)}
-                          onChange={() => toggleSelectProduct(p.id)}
-                        />
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-10 h-10 bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200 cursor-pointer shadow-sm hover:shadow-md transition-shadow dark:bg-slate-900 dark:border-slate-700"
-                            onClick={() => setSelectedProductDetail(p)}
-                          >
-                            {p.image_url ? (
-                              <img src={p.image_url} alt={p.description} className="w-full h-full object-cover" />
-                            ) : (
-                              <ImageIcon size={18} className="text-slate-300" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-900 line-clamp-1 dark:text-slate-100">{p.description}</p>
-                            <div className="flex items-center gap-2">
-                              {p.brand && (
-                                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-black uppercase tracking-tighter dark:bg-slate-800 dark:text-slate-400">
-                                  {p.brand}
-                                </span>
-                              )}
-                              {p.location && (
-                                <span className="text-[9px] text-slate-400 font-bold uppercase">{p.location}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center font-mono text-[11px] text-slate-500 leading-tight dark:text-slate-400">
-                        <div className="flex flex-col items-center">
-                          <span>{p.sku || '-'}</span>
-                          <span>{p.barcode || '-'}</span>
-                          {p.alt_code && (
-                            <span className="mt-1 text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded uppercase border border-rose-100">
-                              ALT: {p.alt_code}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <p className="text-[10px] text-slate-300 line-through" title="Preço de Custo">{formatBRL(p.purchase_price)}</p>
-                        <p className="font-black text-slate-900 dark:text-slate-100" title="Preço à Vista">{formatBRL(p.sale_price)}</p>
-                        {p.sale_price_credit && p.sale_price_credit > 0 ? (
-                          <p className="text-[10px] font-bold text-purple-600 dark:text-purple-400 mt-0.5" title="Preço de Crédito (30 Dias)">
-                            <span className="opacity-70 font-normal mr-1">30D:</span>
-                            {formatBRL(p.sale_price_credit)}
-                          </p>
-                        ) : null}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-tighter ${p.stock <= 2 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-700'}`}>
-                          {p.stock} Un
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => handleCloneProduct(p)}
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                            title="Clonar"
-                          >
-                            <Copy size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleEditProduct(p)}
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                            title="Editar"
-                          >
-                            <Pencil size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProduct(p.id)}
-                            className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                            title="Remover"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {filtered.length === 0 ? (
-            <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400 font-medium dark:bg-slate-800 dark:border-slate-700">
-              Nenhum produto encontrado.
-            </div>
-          ) : (
-            filtered.map((p) => (
-              <div 
-                key={p.id} 
-                className={`bg-white rounded-3xl shadow-sm border overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all group relative ${selectedProductIds.includes(p.id) ? 'border-rose-500 ring-4 ring-rose-500/10' : 'border-slate-200'}`}
-              >
-                <div className="absolute top-4 left-4 z-20">
-                  <input
-                    type="checkbox"
-                    className="w-5 h-5 rounded-lg border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer shadow-sm dark:border-slate-700"
-                    checked={selectedProductIds.includes(p.id)}
-                    onChange={() => toggleSelectProduct(p.id)}
-                  />
-                </div>
-                
-                <div 
-                  className="h-48 bg-slate-50 relative overflow-hidden flex items-center justify-center cursor-pointer dark:bg-slate-900"
-                  onClick={() => setSelectedProductDetail(p)}
-                >
-                  {p.image_url ? (
-                    <img
-                      src={p.image_url}
-                      alt={p.description}
-                      className="w-full h-full object-contain p-4 group-hover:scale-110 transition-transform duration-500"
-                    />
-                  ) : (
-                    <ImageIcon size={48} className="text-slate-200" />
-                  )}
-                  <div className="absolute bottom-3 left-3 flex gap-2">
-                    <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm ${p.stock <= 2 ? 'bg-rose-600 text-white' : 'bg-white text-slate-600'}`}>
-                      {p.stock} Un
-                    </span>
-                    {p.location && (
-                       <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm dark:text-slate-400">
-                         {p.location}
-                       </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-5">
-                  <div className="min-h-[2.5rem] mb-2">
-                    <h3 className="text-sm font-black text-slate-900 line-clamp-2 uppercase leading-tight tracking-tight dark:text-slate-100">{p.description}</h3>
-                    {p.brand && <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{p.brand}</p>}
-                  </div>
-                  
-                  <div className="flex items-end justify-between mt-4">
-                    <div>
-                      <p className="text-[9px] text-slate-300 uppercase font-black tracking-tighter line-through">{formatBRL(p.purchase_price)}</p>
-                      <p className="text-xl font-black text-slate-900 leading-none dark:text-slate-100">{formatBRL(p.sale_price)}</p>
-                      {p.sale_price_credit && p.sale_price_credit > 0 ? (
-                        <p className="text-[10px] font-bold text-purple-600 mt-1 dark:text-purple-400">
-                          30D: {formatBRL(p.sale_price_credit)}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleCloneProduct(p)}
-                        className="p-2.5 bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-slate-100 dark:bg-slate-900"
-                        title="Clonar"
-                      >
-                        <Copy size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleEditProduct(p)}
-                        className="p-2.5 bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-slate-100 dark:bg-slate-900"
-                        title="Editar"
-                      >
-                        <Pencil size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProduct(p.id)}
-                        className="p-2.5 bg-slate-50 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-slate-100 dark:bg-slate-900"
-                        title="Remover"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+      {/* ── 4. Ficha Completa do Produto (Drawer Horizontal 85-90% de Largura) se gerenciado localmente ── */}
+      {!setSelectedProductDetail && drawerProduct && (
+        <ProductDetailsDrawer
+          product={drawerProduct}
+          onClose={() => setDrawerProduct(null)}
+          onEditProduct={handleEditProduct}
+          onCloneProduct={handleCloneProduct}
+          onPrintLabel={p => {
+            if (setLabelPreviewProduct) {
+              setLabelPreviewProduct(p);
+            }
+          }}
+          formatBRL={formatBRL}
+        />
       )}
     </div>
   );

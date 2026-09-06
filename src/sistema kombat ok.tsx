@@ -66,6 +66,7 @@ import {
 } from 'lucide-react';
 import PurchasesTab from './components/PurchasesTab';
 import InventoryTab from './components/InventoryTab';
+import { ProductDetailsDrawer } from './components/stock/ProductDetailsDrawer';
 import FinancialTab from './components/FinancialTab';
 import CRMTab from './components/CRMTab';
 import OSTab from './components/OSTab';
@@ -6935,6 +6936,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                       setIsProductModalOpen(true);
                     }}
                     setSelectedProductDetail={setSelectedProductDetail}
+                    setLabelPreviewProduct={setLabelPreviewProduct}
                     formatBRL={formatBRL}
                   />
                 )}
@@ -10554,111 +10556,23 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         </div>
       </Modal>
 
-      <Modal
-        isOpen={!!selectedProductDetail}
+      {/* Ficha Completa Horizontal do Produto (Painel 85-90% de Largura) */}
+      <ProductDetailsDrawer
+        product={selectedProductDetail}
         onClose={() => setSelectedProductDetail(null)}
-        title="Detalhes do Produto"
-        maxWidth="max-w-3xl"
-      >
-        {selectedProductDetail && (
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <div className="aspect-square bg-white rounded-3xl overflow-hidden border-2 border-slate-100 flex items-center justify-center shadow-inner relative group dark:bg-slate-800">
-                <img 
-                  src={selectedProductDetail.image_url || 'https://via.placeholder.com/400?text=Sem+Imagem'} 
-                  id="main-detail-image"
-                  alt={selectedProductDetail.description} 
-                  className="w-full h-full object-contain p-4" 
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 gap-3">
-                {[
-                  selectedProductDetail.image_url,
-                  selectedProductDetail.image_url2,
-                  selectedProductDetail.image_url3,
-                  selectedProductDetail.image_url4
-                ].filter(Boolean).map((url, idx) => (
-                  <button 
-                    key={idx}
-                    onClick={() => {
-                      const mainImg = document.getElementById('main-detail-image') as HTMLImageElement;
-                      if (mainImg) mainImg.src = url || '';
-                    }}
-                    className="aspect-square bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all shadow-sm dark:bg-slate-800 dark:border-slate-700"
-                  >
-                    <img src={url} alt={`Preview ${idx + 1}`} className="w-full h-full object-contain" />
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-xl font-bold text-slate-900 uppercase dark:text-slate-100">{selectedProductDetail.description}</h4>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {selectedProductDetail.brand && (
-                    <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase dark:bg-slate-800 dark:text-slate-400">
-                      Marca: {selectedProductDetail.brand}
-                    </span>
-                  )}
-                  <span className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold uppercase">
-                    SKU: {selectedProductDetail.sku}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
-                <h5 className="text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">Aplicação das Peças</h5>
-                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap dark:text-slate-100">
-                  {selectedProductDetail.application || "Nenhuma especificação de aplicação cadastrada para este item."}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between pt-4">
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Preço de Venda</p>
-                  <p className="text-3xl font-black text-slate-900 dark:text-slate-100">{formatBRL(selectedProductDetail.sale_price)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest leading-none mb-1">Disponibilidade</p>
-                  <p className={`text-xl font-black ${selectedProductDetail.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {selectedProductDetail.stock} {selectedProductDetail.unit}(s)
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-6">
-                <button
-                  onClick={() => {
-                    setLabelPreviewProduct(selectedProductDetail);
-                  }}
-                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
-                >
-                  <Printer size={20} />
-                  Etiqueta
-                </button>
-                <button
-                  onClick={() => {
-                    handleEditProduct(selectedProductDetail);
-                    setSelectedProductDetail(null);
-                  }}
-                  className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2"
-                >
-                  <Pencil size={20} />
-                  Editar
-                </button>
-                <button
-                  onClick={() => setSelectedProductDetail(null)}
-                  className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-2 dark:bg-slate-800 dark:text-slate-400"
-                >
-                  <X size={20} />
-                  Fechar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
+        onEditProduct={(p) => {
+          handleEditProduct(p);
+          setSelectedProductDetail(null);
+        }}
+        onCloneProduct={(p) => {
+          handleCloneProduct(p);
+          setSelectedProductDetail(null);
+        }}
+        onPrintLabel={(p) => {
+          setLabelPreviewProduct(p);
+        }}
+        formatBRL={formatBRL}
+      />
 
       <Modal
         isOpen={!!labelPreviewProduct}
