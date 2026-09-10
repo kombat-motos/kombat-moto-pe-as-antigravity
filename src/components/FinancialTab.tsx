@@ -105,7 +105,7 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
     return localStorage.getItem('gemini_api_key') || '';
   });
 
-  const [selectedReceivables, setSelectedReceivables] = React.useState<number[]>([]);
+  const [selectedReceivables, setSelectedReceivables] = React.useState<(string | number)[]>([]);
 
   const todayStr = React.useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -1031,20 +1031,31 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                       if (confirm(`Confirmar o recebimento de ${selectedReceivables.length} débito(s) selecionado(s)?`)) {
                         try {
                           await Promise.all(selectedReceivables.map(async (id) => {
-                            const sale = allSales.find(s => s.id === id);
+                            const sale = allSales.find(s => String(s.id) === String(id));
                             if (sale) {
-                              await localApi.put('sales', id, {
-                                ...sale,
-                                payment_status: 'Pago',
-                                paid_date: new Date().toISOString()
-                              });
+                              const paidDate = new Date().toISOString();
+                              try {
+                                await localApi.patch('sales', id, 'partial-payment', {
+                                  paid_total: sale.total,
+                                  payment_status: 'Pago',
+                                  paid_date: paidDate
+                                });
+                              } catch (patchErr) {
+                                await localApi.put('sales', id, {
+                                  ...sale,
+                                  paid_total: sale.total,
+                                  payment_status: 'Pago',
+                                  paid_date: paidDate
+                                });
+                              }
                             }
                           }));
                           fetchData();
                           setSelectedReceivables([]);
                           alert('Débitos selecionados foram liquidados com sucesso!');
-                        } catch (err) {
-                          alert('Erro ao liquidar débitos múltiplos.');
+                        } catch (err: any) {
+                          console.error('Erro ao liquidar débitos:', err);
+                          alert('Erro ao liquidar débitos múltiplos: ' + (err.message || 'Erro no servidor'));
                         }
                       }
                     }}
@@ -1102,12 +1113,12 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                         <td className="px-6 py-4">
                           <input 
                             type="checkbox"
-                            checked={selectedReceivables.includes(sale.id)}
+                            checked={selectedReceivables.some(id => String(id) === String(sale.id))}
                             onChange={(e) => {
                               if (e.target.checked) {
                                 setSelectedReceivables([...selectedReceivables, sale.id]);
                               } else {
-                                setSelectedReceivables(selectedReceivables.filter(id => id !== sale.id));
+                                setSelectedReceivables(selectedReceivables.filter(id => String(id) !== String(sale.id)));
                               }
                             }}
                             className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
@@ -1151,14 +1162,26 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
                               onClick={async () => {
                                 if (confirm('Confirmar recebimento deste débito?')) {
                                   try {
-                                    await localApi.put('sales', sale.id, {
-                                      ...sale,
-                                      payment_status: 'Pago',
-                                      paid_date: new Date().toISOString()
-                                    });
+                                    const paidDate = new Date().toISOString();
+                                    try {
+                                      await localApi.patch('sales', sale.id, 'partial-payment', {
+                                        paid_total: sale.total,
+                                        payment_status: 'Pago',
+                                        paid_date: paidDate
+                                      });
+                                    } catch (patchErr) {
+                                      await localApi.put('sales', sale.id, {
+                                        ...sale,
+                                        paid_total: sale.total,
+                                        payment_status: 'Pago',
+                                        paid_date: paidDate
+                                      });
+                                    }
                                     fetchData();
-                                  } catch (err) {
-                                    alert('Erro ao liquidar débito.');
+                                    alert('Débito liquidado com sucesso!');
+                                  } catch (err: any) {
+                                    console.error('Erro ao liquidar débito:', err);
+                                    alert('Erro ao liquidar débito: ' + (err.message || 'Erro no servidor'));
                                   }
                                 }
                               }}

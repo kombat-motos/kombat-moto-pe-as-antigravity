@@ -1912,14 +1912,19 @@ async function startServer() {
   app.put("/api/sales/:id", authenticateToken, (req, res) => {
     const { customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, status, moto_details, service_description, sale_items, motorcycle_km, motorcycle_id, paid_total, charge_type } = req.body;
     
-    // Server validation for credit
-    if (charge_type === 'credito_30_dias' || payment_method === 'Fiado') {
+    // Server validation for credit:
+    // Only check credit rules if this is a pending credit/fiado sale (never when paying / settling debts!)
+    if ((charge_type === 'credito_30_dias' || payment_method === 'Fiado') && payment_status !== 'Pago') {
       if (!customer_id) {
-        throw new Error("Venda a crédito exige um cliente cadastrado.");
+        return res.status(400).json({ error: "Venda a crédito exige um cliente cadastrado." });
       }
 
-      // NOVO BLOQUEIO DE CRÉDITO NO BACKEND (> 60 dias)
-      if (checkIfCustomerHasOverdueOver60(customer_id)) {
+      // Check if this sale was already a credit/fiado sale (if so, we are not issuing new credit)
+      const currentSale = db.prepare("SELECT payment_method, payment_status, charge_type FROM sales WHERE id = ? AND user_id = ?").get(req.params.id, req.user!.id) as any;
+      const wasAlreadyCredit = currentSale && (currentSale.payment_method === 'Fiado' || currentSale.charge_type === 'credito_30_dias');
+
+      // Only block if granting NEW credit to a customer with overdue > 60 days
+      if (!wasAlreadyCredit && checkIfCustomerHasOverdueOver60(customer_id)) {
         return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 60 dias." });
       }
     }
@@ -1929,7 +1934,7 @@ async function startServer() {
       const safeTotal = parseFloat(total);
       const safeLabor = parseFloat(labor_value) || 0;
       const safeCommission = parseFloat(commission) || 0;
-      const safePaidTotal = parseFloat(paid_total) || 0;
+      const safePaidTotal = payment_status === 'Pago' ? (parseFloat(paid_total) || safeTotal) : (parseFloat(paid_total) || 0);
       const safeKm = parseInt(motorcycle_km) || 0;
       const safeCustId = parseInt(customer_id) || null;
       const safeMechId = parseInt(mechanic_id) || null;
@@ -1942,22 +1947,29 @@ async function startServer() {
       // 1.5 Update Credit if needed
       if ((safeChargeType === 'credito_30_dias' || payment_method === 'Fiado' || payment_status === 'Pendente') && safeCustId) {
         const existingCredits = db.prepare("SELECT id FROM credit WHERE sale_id = ?").all(req.params.id) as any[];
+        const targetStatus = payment_status === 'Pago' ? 'Pago' : 'Pendente';
+
         if (existingCredits.length === 0) {
           const numInstallments = parseInt(req.body.installments) || 1;
           const baseValue = safeTotal / numInstallments;
           const roundedValue = Math.round(baseValue * 100) / 100;
           const remainder = Number((safeTotal - (roundedValue * numInstallments)).toFixed(2));
           
-          const [year, month, day] = due_date.split('T')[0].split('-').map(Number);
-          let currentDate = new Date(year, month - 1, day);
-          const originalDay = day;
+          let currentDate = new Date();
+          let originalDay = currentDate.getDate();
+          if (due_date) {
+            const parsed = parseDueDateToDate(due_date);
+            if (parsed) {
+              currentDate = parsed;
+              originalDay = currentDate.getDate();
+            }
+          }
 
           for (let i = 1; i <= numInstallments; i++) {
             const isLast = i === numInstallments;
             const parcelValue = isLast ? Number((roundedValue + remainder).toFixed(2)) : roundedValue;
-            const identifier = `VENDA-${req.params.id.substring(0, 8).toUpperCase()}-${i.toString().padStart(2, '0')}`;
+            const identifier = `VENDA-${String(req.params.id).substring(0, 8).toUpperCase()}-${i.toString().padStart(2, '0')}`;
             const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
-            const targetStatus = payment_status === 'Pago' ? 'Pago' : 'Pendente';
 
             db.prepare("INSERT INTO credit (user_id, customer_id, original_value, due_date, status, sale_id, parcel_number, total_parcels, identifier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
               .run(req.user!.id, safeCustId, parcelValue, dateStr, targetStatus, req.params.id, i, numInstallments, identifier);
@@ -1975,11 +1987,9 @@ async function startServer() {
             currentDate = nextDate;
           }
         } else if (existingCredits.length === 1) {
-          const targetStatus = payment_status === 'Pago' ? 'Pago' : 'Pendente';
           db.prepare("UPDATE credit SET customer_id = ?, original_value = ?, due_date = ?, status = ? WHERE sale_id = ?")
-            .run(safeCustId, safeTotal, due_date, targetStatus, req.params.id);
+            .run(safeCustId, safeTotal, due_date || new Date().toISOString(), targetStatus, req.params.id);
         } else {
-          const targetStatus = payment_status === 'Pago' ? 'Pago' : 'Pendente';
           db.prepare("UPDATE credit SET customer_id = ?, status = ? WHERE sale_id = ?")
             .run(safeCustId, targetStatus, req.params.id);
         }
@@ -1989,21 +1999,22 @@ async function startServer() {
         db.prepare("DELETE FROM credit WHERE sale_id = ?").run(req.params.id);
       }
       
-      // 2. Reversal logic for stock
-      const oldItems = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(req.params.id) as any[];
-      const updateStockAdd = db.prepare("UPDATE products SET stock = stock + ? WHERE id = ?");
-      for(const item of oldItems) {
-        if(item.product_id && (item.type === 'Peça' || !item.type)) {
-          updateStockAdd.run(item.quantity, item.product_id);
+      // 2. Reversal logic for stock ONLY if items/sale_items provided
+      const itemsToUpdate = Array.isArray(sale_items) ? sale_items : (Array.isArray(req.body.items) ? req.body.items : null);
+      if (itemsToUpdate !== null) {
+        const oldItems = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(req.params.id) as any[];
+        const updateStockAdd = db.prepare("UPDATE products SET stock = stock + ? WHERE id = ?");
+        for(const item of oldItems) {
+          if(item.product_id && (item.type === 'Peça' || !item.type)) {
+            updateStockAdd.run(item.quantity, item.product_id);
+          }
         }
-      }
 
-      db.prepare("DELETE FROM sale_items WHERE sale_id = ?").run(req.params.id);
+        db.prepare("DELETE FROM sale_items WHERE sale_id = ?").run(req.params.id);
 
-      if (sale_items) {
         const insertItem = db.prepare("INSERT INTO sale_items (sale_id, product_id, description, quantity, price, type) VALUES (?, ?, ?, ?, ?, ?)");
         const updateStockSub = db.prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
-        for (const item of sale_items) {
+        for (const item of itemsToUpdate) {
           const safePrice = parseFloat(item.price) || 0;
           const safeQty = parseInt(item.quantity) || 0;
           const safeProdId = item.product_id ? parseInt(item.product_id) : null;
@@ -2021,10 +2032,15 @@ async function startServer() {
 
     try {
       runTransaction();
+      if (payment_status === 'Pago') {
+        setTimeout(() => {
+          try { runCreditAutomationEngine(); } catch (e) { console.error(e); }
+        }, 100);
+      }
       res.json({ success: true });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      res.status(500).json({ error: "Erro ao atualizar venda" });
+      res.status(500).json({ error: "Erro ao atualizar venda: " + (err.message || err) });
     }
   });
 
@@ -2056,10 +2072,21 @@ async function startServer() {
   app.patch("/api/sales/:id/partial-payment", authenticateToken, (req, res) => {
     const { paid_total, payment_status, paid_date } = req.body;
     try {
-      db.prepare("UPDATE sales SET paid_total = ?, payment_status = ?, paid_date = ? WHERE id = ? AND user_id = ?")
-        .run(paid_total, payment_status, paid_date, req.params.id, req.user!.id);
+      if (paid_total !== undefined) {
+        db.prepare("UPDATE sales SET paid_total = ?, payment_status = ?, paid_date = ? WHERE id = ? AND user_id = ?")
+          .run(paid_total, payment_status, paid_date, req.params.id, req.user!.id);
+      } else if (payment_status === 'Pago') {
+        db.prepare("UPDATE sales SET paid_total = total, payment_status = ?, paid_date = ? WHERE id = ? AND user_id = ?")
+          .run(payment_status, paid_date, req.params.id, req.user!.id);
+      } else {
+        db.prepare("UPDATE sales SET payment_status = ?, paid_date = ? WHERE id = ? AND user_id = ?")
+          .run(payment_status, paid_date, req.params.id, req.user!.id);
+      }
       if (payment_status === 'Pago') {
         db.prepare("UPDATE credit SET status = 'Pago' WHERE sale_id = ?").run(req.params.id);
+        setTimeout(() => {
+          try { runCreditAutomationEngine(); } catch (e) { console.error(e); }
+        }, 100);
       }
       res.json({ success: true });
     } catch (err) {
