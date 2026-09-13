@@ -18,15 +18,18 @@ import { createAIInstructionsRouter } from "./server/modules/ai-instructions/ai-
 import { Jimp } from "jimp";
 import jsQR from "jsqr";
 import { readBarcodesFromImageFile } from "zxing-wasm";
+import crypto from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Test if DB is writable
+// Test if DB is writable and verify volume persistence
 try {
   const dbPathTest = process.env.DB_PATH || "./kombat_moto_backup.db";
-  fs.accessSync(path.dirname(path.resolve(dbPathTest)), fs.constants.W_OK);
-  console.log(`[DB] Database directory is writable: ${path.dirname(path.resolve(dbPathTest))}`);
+  const resolvedDbPath = path.resolve(dbPathTest);
+  fs.accessSync(path.dirname(resolvedDbPath), fs.constants.W_OK);
+  console.log(`[DB] Database path: ${resolvedDbPath}`);
+  console.log(`[DB] Persistent volume directory is writable: ${path.dirname(resolvedDbPath)}`);
 } catch (e) {
   console.error(`[DB] CRITICAL: Database directory is NOT writable!`, e);
 }
@@ -36,11 +39,56 @@ const JWT_SECRET = process.env.JWT_SECRET || "kombat-moto-secret-key-2024";
 const dbPath = process.env.DB_PATH || "./kombat_moto_backup.db";
 const db = new Database(dbPath);
 
-// Extend Express Request type to include user
+// App Roles & Granular Permissions System
+export type AppRole = 'ADMIN' | 'BALCAO' | 'MECANICO' | 'FINANCEIRO' | 'CONSULTA';
+
+export const normalizeRole = (role?: string): AppRole => {
+  if (!role) return 'CONSULTA';
+  const clean = role.trim().toUpperCase();
+  if (clean === 'ADMIN' || clean === 'ADMINISTRADOR') return 'ADMIN';
+  if (clean === 'BALCAO' || clean === 'ATENDENTE') return 'BALCAO';
+  if (clean === 'MECANICO' || clean === 'MECÂNICO') return 'MECANICO';
+  if (clean === 'FINANCEIRO') return 'FINANCEIRO';
+  if (clean === 'CONSULTA') return 'CONSULTA';
+  return 'CONSULTA';
+};
+
+export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
+  ADMIN: [
+    'sales:create', 'sales:cancel', 'sales:discount',
+    'receivables:collect', 'financial:manage', 'financial:view',
+    'os:create', 'os:update', 'os:cancel',
+    'stock:view', 'stock:adjust',
+    'customers:view_sensitive', 'users:manage'
+  ],
+  BALCAO: [
+    'sales:create', 'receivables:collect',
+    'os:create', 'stock:view', 'customers:view_sensitive'
+  ],
+  MECANICO: [
+    'os:create', 'os:update', 'stock:view'
+  ],
+  FINANCEIRO: [
+    'receivables:collect', 'financial:manage', 'financial:view',
+    'stock:view', 'stock:adjust', 'customers:view_sensitive'
+  ],
+  CONSULTA: [
+    'stock:view'
+  ]
+};
+
+export const hasPermission = (role: string | undefined, permission: string): boolean => {
+  const normRole = normalizeRole(role);
+  const permissions = ROLE_PERMISSIONS[normRole] || [];
+  return permissions.includes(permission);
+};
+
+// Extend Express Request type to include user with AppRole and correlationId
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: number; username: string; role?: string };
+      user?: { id: number; username: string; role: AppRole };
+      correlationId?: string;
     }
   }
 }
@@ -393,7 +441,121 @@ db.exec(`
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
+
+  -- Novas Tabelas de Auditoria, Segurança e Controle de Migrações
+  CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    applied_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    checksum TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS backup_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    backup_name TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    sha256_hash TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS login_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip_address TEXT UNIQUE NOT NULL,
+    attempts_count INTEGER DEFAULT 1,
+    locked_until TEXT,
+    last_attempt_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    correlation_id TEXT,
+    user_id INTEGER,
+    username TEXT,
+    role TEXT,
+    action TEXT NOT NULL,
+    module TEXT NOT NULL,
+    record_id TEXT,
+    before_state TEXT,
+    after_state TEXT,
+    reason TEXT,
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS single_use_tokens (
+    id TEXT PRIMARY KEY,
+    doc_type TEXT NOT NULL,
+    doc_id TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 `);
+
+// Helper to perform verifiable pre-migration backup
+function performPreMigrationBackup(version: number) {
+  try {
+    const activeDbPath = process.env.DB_PATH || "./kombat_moto_backup.db";
+    const resolvedPath = path.resolve(activeDbPath);
+    if (!fs.existsSync(resolvedPath)) return;
+
+    const backupDir = path.dirname(resolvedPath);
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupFileName = `kombat_backup_v${version}_${ts}.db`;
+    const backupFilePath = path.join(backupDir, backupFileName);
+
+    fs.copyFileSync(resolvedPath, backupFilePath);
+
+    const fileBuffer = fs.readFileSync(backupFilePath);
+    const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    const fileSize = fileBuffer.length;
+
+    db.prepare(`
+      INSERT INTO backup_logs (backup_name, file_size, sha256_hash, status)
+      VALUES (?, ?, ?, 'SUCCESS')
+    `).run(backupFileName, fileSize, hash);
+
+    console.log(`[BACKUP] Backup pré-migração v${version} criado: ${backupFileName} (${fileSize} bytes, SHA256: ${hash.substring(0, 16)}...)`);
+
+    // Rotação: manter até 5 cópias locais mais recentes
+    try {
+      const files = fs.readdirSync(backupDir).filter(f => f.startsWith('kombat_backup_v') && f.endsWith('.db'));
+      if (files.length > 5) {
+        files.sort().slice(0, files.length - 5).forEach(oldFile => {
+          try {
+            fs.unlinkSync(path.join(backupDir, oldFile));
+            console.log(`[BACKUP ROTATION] Removido backup excedente: ${oldFile}`);
+          } catch (e) {}
+        });
+      }
+    } catch (rotErr) {
+      console.error("[BACKUP ROTATION ERROR]", rotErr);
+    }
+  } catch (err) {
+    console.error("[BACKUP ERROR] Falha ao criar backup pré-migração:", err);
+  }
+}
+
+// Helper to safely create indices only if all columns exist
+function createIndexSafely(database: any, indexName: string, tableName: string, columns: string[]) {
+  try {
+    const tableExists = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(tableName);
+    if (!tableExists) return;
+    const tableInfo = database.prepare(`PRAGMA table_info(${tableName})`).all() as any[];
+    const colNames = tableInfo.map((c: any) => c.name);
+    const allColsExist = columns.every(col => colNames.includes(col));
+    if (allColsExist) {
+      database.exec(`CREATE INDEX IF NOT EXISTS ${indexName} ON ${tableName}(${columns.join(', ')});`);
+      console.log(`[DB INDEX] Índice ${indexName} validado em ${tableName}`);
+    } else {
+      console.warn(`[DB INDEX] Ignorando índice ${indexName}: Colunas faltantes em ${tableName} (Esperadas: ${columns.join(', ')} / Existentes: ${colNames.join(', ')})`);
+    }
+  } catch (e: any) {
+    console.error(`[DB INDEX ERROR] Erro ao criar índice ${indexName}:`, e.message);
+  }
+}
 
 // Migration scripts for missing columns
 const migrations = [
@@ -417,6 +579,9 @@ const migrations = [
   "ALTER TABLE sales ADD COLUMN motorcycle_id INTEGER",
   "ALTER TABLE sales ADD COLUMN motorcycle_km INTEGER",
   "ALTER TABLE sales ADD COLUMN whatsapp TEXT",
+  "ALTER TABLE sales ADD COLUMN cancelled_at TEXT",
+  "ALTER TABLE sales ADD COLUMN cancelled_by INTEGER",
+  "ALTER TABLE sales ADD COLUMN cancel_reason TEXT",
   "ALTER TABLE sale_items ADD COLUMN type TEXT DEFAULT 'Peça'",
   "ALTER TABLE users ADD COLUMN active BOOLEAN DEFAULT 1",
   "ALTER TABLE products ADD COLUMN image_url2 TEXT",
@@ -434,6 +599,9 @@ const migrations = [
   "ALTER TABLE quotes ADD COLUMN customer_id INTEGER",
   "ALTER TABLE quotes ADD COLUMN customer_name TEXT",
   "ALTER TABLE quotes ADD COLUMN items TEXT",
+  "ALTER TABLE quotes ADD COLUMN cancelled_at TEXT",
+  "ALTER TABLE quotes ADD COLUMN cancelled_by INTEGER",
+  "ALTER TABLE quotes ADD COLUMN cancel_reason TEXT",
   "ALTER TABLE leads ADD COLUMN company TEXT",
   "ALTER TABLE leads ADD COLUMN value REAL DEFAULT 0",
   "ALTER TABLE leads ADD COLUMN priority TEXT DEFAULT 'Média'",
@@ -445,18 +613,55 @@ const migrations = [
   "ALTER TABLE sales ADD COLUMN charge_type TEXT DEFAULT 'vista'",
   "ALTER TABLE quotes ADD COLUMN charge_type TEXT DEFAULT 'vista'",
   "ALTER TABLE orcamentos ADD COLUMN charge_type TEXT DEFAULT 'vista'",
+  "ALTER TABLE orcamentos ADD COLUMN cancelled_at TEXT",
+  "ALTER TABLE orcamentos ADD COLUMN cancelled_by INTEGER",
+  "ALTER TABLE orcamentos ADD COLUMN cancel_reason TEXT",
   "ALTER TABLE servicos_oficina ADD COLUMN charge_type TEXT DEFAULT 'vista'",
+  "ALTER TABLE servicos_oficina ADD COLUMN cancelled_at TEXT",
+  "ALTER TABLE servicos_oficina ADD COLUMN cancelled_by INTEGER",
+  "ALTER TABLE servicos_oficina ADD COLUMN cancel_reason TEXT",
+  "ALTER TABLE accounts_payable ADD COLUMN cancelled_at TEXT",
+  "ALTER TABLE accounts_payable ADD COLUMN cancelled_by INTEGER",
+  "ALTER TABLE accounts_payable ADD COLUMN cancel_reason TEXT",
   "ALTER TABLE credit ADD COLUMN sale_id TEXT",
   "ALTER TABLE credit ADD COLUMN os_id INTEGER",
   "ALTER TABLE credit ADD COLUMN parcel_number INTEGER DEFAULT 1",
   "ALTER TABLE credit ADD COLUMN total_parcels INTEGER DEFAULT 1",
   "ALTER TABLE credit ADD COLUMN identifier TEXT",
-  "ALTER TABLE products ADD COLUMN sale_price_wholesale REAL DEFAULT 0"
+  "ALTER TABLE products ADD COLUMN sale_price_wholesale REAL DEFAULT 0",
+  "ALTER TABLE cash_transactions ADD COLUMN reversed_from_id INTEGER",
+  "ALTER TABLE cash_transactions ADD COLUMN is_reversed BOOLEAN DEFAULT 0"
 ];
 
-migrations.forEach(m => {
-  try { db.exec(m); } catch (e) {}
-});
+// Check version 1 migration status
+try {
+  const migV1 = db.prepare("SELECT version FROM schema_migrations WHERE version = 1").get();
+  if (!migV1) {
+    performPreMigrationBackup(1);
+    migrations.forEach(m => {
+      try { db.exec(m); } catch (e) {}
+    });
+    db.prepare("INSERT INTO schema_migrations (version, name) VALUES (1, 'Initial Security and Soft-Delete Columns')").run();
+    console.log("[MIGRATION] Migração v1 aplicada com sucesso!");
+  } else {
+    // Already applied, run any safe missing column checks
+    migrations.forEach(m => {
+      try { db.exec(m); } catch (e) {}
+    });
+  }
+} catch (migErr) {
+  console.error("[MIGRATION ERROR]", migErr);
+}
+
+// Criação segura de índices inspecionando colunas reais via PRAGMA table_info
+createIndexSafely(db, "idx_sales_user_date", "sales", ["user_id", "date"]);
+createIndexSafely(db, "idx_sales_customer", "sales", ["customer_id"]);
+createIndexSafely(db, "idx_sale_items_sale", "sale_items", ["sale_id"]);
+createIndexSafely(db, "idx_credit_customer_status", "credit", ["customer_id", "status"]);
+createIndexSafely(db, "idx_products_user_desc", "products", ["user_id", "description"]);
+createIndexSafely(db, "idx_audit_logs_corr", "audit_logs", ["correlation_id"]);
+createIndexSafely(db, "idx_single_use_tokens", "single_use_tokens", ["id"]);
+
 try { db.exec("UPDATE leads SET name = customer_name WHERE name IS NULL"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN city TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_limit REAL DEFAULT 0"); } catch (e) {}
@@ -475,6 +680,7 @@ try {
   const missingCredits = db.prepare(`
     SELECT * FROM sales 
     WHERE payment_status = 'Pendente'
+      AND (payment_method = 'Fiado' OR charge_type = 'credito_30_dias')
       AND id NOT IN (SELECT sale_id FROM credit WHERE sale_id IS NOT NULL)
   `).all() as any[];
   
@@ -526,15 +732,16 @@ try { db.exec("ALTER TABLE credit ADD COLUMN paid_value REAL DEFAULT 0"); } catc
       reminder_days INTEGER DEFAULT 3,
       first_collection_days INTEGER DEFAULT 1,
       strong_collection_days INTEGER DEFAULT 15,
-      block_days INTEGER DEFAULT 60,
-      grave_days INTEGER DEFAULT 60,
-      admin_days INTEGER DEFAULT 90,
+      block_days INTEGER DEFAULT 30,
+      grave_days INTEGER DEFAULT 45,
+      admin_days INTEGER DEFAULT 60,
       default_fine REAL DEFAULT 2,
       default_interest REAL DEFAULT 1,
       auto_unblock INTEGER DEFAULT 1
     )
   `);
-  try { db.exec("UPDATE collection_settings SET block_days = 60 WHERE block_days <= 31"); } catch(e) {}
+  // Regra de crédito estrita da Kombat Moto Peças: bloqueio aos 30 dias (a partir do 31º dia)
+  try { db.exec("UPDATE collection_settings SET block_days = 30 WHERE block_days != 30"); } catch(e) {}
 
   // --- CRM Table Initializations ---
   db.exec(`
@@ -831,15 +1038,40 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 
-  app.use(cors());
+  app.set('trust proxy', 1);
+
+  // Security Headers Middleware
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    if (process.env.NODE_ENV === 'production') {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    next();
+  });
+
+  // Correlation ID Middleware
+  app.use((req, res, next) => {
+    const correlationId = (req.headers['x-correlation-id'] as string) || crypto.randomUUID();
+    (req as any).correlationId = correlationId;
+    res.setHeader('X-Correlation-ID', correlationId);
+    next();
+  });
+
+  app.use(cors({
+    origin: (origin, callback) => callback(null, true),
+    credentials: true
+  }));
   app.use(compression());
   app.use(express.json({ limit: "100mb" }));
   app.use(express.urlencoded({ limit: "100mb", extended: true }));
   app.use(cookieParser());
 
-  // Logging Middleware
+  // Logging Middleware com Correlation ID
   app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    const corr = (req as any).correlationId || '-';
+    console.log(`[${new Date().toISOString()}] [${corr}] ${req.method} ${req.url}`);
     next();
   });
 
@@ -851,9 +1083,9 @@ async function startServer() {
       if (str.includes('/')) {
         const parts = str.split('/');
         if (parts.length === 3) {
-          const d = parseInt(parts[0]);
-          const m = parseInt(parts[1]);
-          const y = parseInt(parts[2]);
+          const d = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10);
+          const y = parseInt(parts[2], 10);
           if (!isNaN(d) && !isNaN(m) && !isNaN(y)) return new Date(y, m - 1, d);
         }
       }
@@ -861,9 +1093,9 @@ async function startServer() {
       if (clean.includes('-')) {
         const parts = clean.split('-');
         if (parts.length === 3) {
-          const y = parseInt(parts[0]);
-          const m = parseInt(parts[1]);
-          const d = parseInt(parts[2]);
+          const y = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10);
+          const d = parseInt(parts[2], 10);
           if (!isNaN(y) && !isNaN(m) && !isNaN(d)) return new Date(y, m - 1, d);
         }
       }
@@ -874,10 +1106,10 @@ async function startServer() {
     }
   };
 
-  // Helper to check if a customer has debts overdue by MORE THAN 60 days
-  const checkIfCustomerHasOverdueOver60 = (customerId: number | string): boolean => {
+  // Helper to check if a customer has debts overdue by MORE THAN 30 days (Bloqueio automático a partir do 31º dia)
+  const checkIfCustomerHasOverdueOver30 = (customerId: number | string): boolean => {
     try {
-      const cid = parseInt(String(customerId));
+      const cid = parseInt(String(customerId), 10);
       if (!cid) return false;
 
       const today = new Date();
@@ -898,7 +1130,7 @@ async function startServer() {
         if (dueDate) {
           dueDate.setHours(0, 0, 0, 0);
           const diffDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (diffDays > 60) return true;
+          if (diffDays > 30) return true; // Bloqueia a partir do 31º dia
         }
       }
 
@@ -917,7 +1149,7 @@ async function startServer() {
         if (dueDate) {
           dueDate.setHours(0, 0, 0, 0);
           const diffDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (diffDays > 60) return true;
+          if (diffDays > 30) return true; // Bloqueia a partir do 31º dia
         }
       }
 
@@ -960,83 +1192,286 @@ async function startServer() {
     return { ...item, total_updated: item.original_value, fine: 0, interest: 0, days_late: 0 };
   };
 
-  // Authentication Middleware - Bypass for local standalone mode, but supports JWT decoding
-  const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
-    // For local standalone mode, we automatically ensure a default user
+  // Rate Limiting Persistente via SQLite
+  const checkLoginRateLimit = (ip: string): { allowed: boolean; retryAfter?: number } => {
     try {
-      const defaultAdmin = db.prepare("SELECT id FROM users WHERE id = 1").get() as any;
-      if (!defaultAdmin) {
-        const hashedPassword = bcrypt.hashSync("admin123", 10);
-        db.prepare("INSERT INTO users (id, username, password, role) VALUES (1, 'admin', ?, 'Administrador')").run(hashedPassword);
-        console.log("[AUTH] Default admin user created (ID 1)");
+      const now = new Date();
+      const record = db.prepare("SELECT * FROM login_attempts WHERE ip_address = ?").get(ip) as any;
+      if (record && record.locked_until) {
+        const lockedUntil = new Date(record.locked_until);
+        if (lockedUntil > now) {
+          const remainingSeconds = Math.ceil((lockedUntil.getTime() - now.getTime()) / 1000);
+          return { allowed: false, retryAfter: remainingSeconds };
+        }
       }
+      return { allowed: true };
     } catch (e) {
-      console.error("[AUTH] Error ensuring default user:", e);
+      return { allowed: true };
     }
-    
-    // Try to get token from header or cookie
+  };
+
+  const recordFailedLogin = (ip: string) => {
+    try {
+      const now = new Date();
+      const record = db.prepare("SELECT * FROM login_attempts WHERE ip_address = ?").get(ip) as any;
+      if (!record) {
+        db.prepare("INSERT INTO login_attempts (ip_address, attempts_count, last_attempt_at) VALUES (?, 1, ?)").run(ip, now.toISOString());
+      } else {
+        const newCount = (record.attempts_count || 0) + 1;
+        let lockedUntil: string | null = null;
+        if (newCount >= 5) {
+          // Bloqueia por 15 minutos (900s)
+          lockedUntil = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
+        }
+        db.prepare("UPDATE login_attempts SET attempts_count = ?, locked_until = ?, last_attempt_at = ? WHERE ip_address = ?").run(newCount, lockedUntil, now.toISOString(), ip);
+      }
+    } catch (e) {}
+  };
+
+  const resetLoginAttempts = (ip: string) => {
+    try {
+      db.prepare("DELETE FROM login_attempts WHERE ip_address = ?").run(ip);
+    } catch (e) {}
+  };
+
+  // Sanitizador de Auditoria: remove dados confidenciais (senhas, tokens, hashes)
+  const sanitizeAuditData = (obj: any): any => {
+    if (!obj || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(sanitizeAuditData);
+    const sensitiveKeys = ['password', 'token', 'secret', 'jwt', 'api_key', 'authorization', 'card_number', 'cvv'];
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (sensitiveKeys.some(s => key.toLowerCase().includes(s))) {
+        cleaned[key] = '[REDACTED]';
+      } else if (typeof value === 'object' && value !== null) {
+        cleaned[key] = sanitizeAuditData(value);
+      } else {
+        cleaned[key] = value;
+      }
+    }
+    return cleaned;
+  };
+
+  const logAudit = (params: {
+    correlation_id?: string;
+    user_id: number;
+    username: string;
+    role: string;
+    action: string;
+    module: string;
+    record_id?: string | number;
+    before_state?: any;
+    after_state?: any;
+    reason?: string;
+    ip_address?: string;
+    user_agent?: string;
+  }) => {
+    try {
+      db.prepare(`
+        INSERT INTO audit_logs (
+          correlation_id, user_id, username, role, action, module, record_id, 
+          before_state, after_state, reason, ip_address, user_agent
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        params.correlation_id || null,
+        params.user_id,
+        params.username,
+        params.role,
+        params.action,
+        params.module,
+        params.record_id ? String(params.record_id) : null,
+        params.before_state ? JSON.stringify(sanitizeAuditData(params.before_state)) : null,
+        params.after_state ? JSON.stringify(sanitizeAuditData(params.after_state)) : null,
+        params.reason || null,
+        params.ip_address || null,
+        params.user_agent || null
+      );
+    } catch (auditErr) {
+      console.error("[AUDIT LOG ERROR]", auditErr);
+    }
+  };
+
+  // Garantir Usuário Administrador Real no Banco
+  try {
+    const defaultAdmin = db.prepare("SELECT id, username FROM users WHERE id = 1 OR username = 'admin'").get() as any;
+    if (!defaultAdmin) {
+      const hashedPassword = bcrypt.hashSync("admin123", 10);
+      db.prepare("INSERT INTO users (id, username, password, role) VALUES (1, 'admin', ?, 'ADMIN')").run(hashedPassword);
+      console.log("[AUTH] Administrador padrão inicializado: admin / admin123 (Role: ADMIN)");
+    } else {
+      db.prepare("UPDATE users SET role = 'ADMIN' WHERE id = ?").run(defaultAdmin.id);
+    }
+  } catch (e) {
+    console.error("[AUTH] Erro ao garantir administrador padrão:", e);
+  }
+
+  // Middleware de Autenticação Estrita JWT (SEM BYPASS ANÔNIMO)
+  const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.headers['authorization'];
     const token = (authHeader && authHeader.split(' ')[1]) || req.cookies?.auth_token;
 
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET) as any;
-        const user = db.prepare("SELECT id, username, role FROM users WHERE id = ?").get(decoded.id) as any;
-        if (user) {
-          req.user = { id: user.id, username: user.username, role: user.role || 'Administrador' };
-          return next();
-        }
-      } catch (err) {
-        console.warn("[AUTH] Invalid token, falling back to default admin:", err);
-      }
+    if (!token) {
+      return res.status(401).json({ 
+        error: "Acesso não autorizado: Faça login para acessar o sistema.",
+        correlation_id: (req as any).correlationId
+      });
     }
 
     try {
-      const defaultUser = db.prepare("SELECT id, username, role FROM users WHERE id = 1").get() as any;
-      req.user = { id: 1, username: 'admin', role: (defaultUser && defaultUser.role) || 'Administrador' };
-    } catch (e) {
-      req.user = { id: 1, username: 'admin', role: 'Administrador' };
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      const user = db.prepare("SELECT id, username, role, active FROM users WHERE id = ?").get(decoded.id) as any;
+      if (!user || user.active === 0) {
+        return res.status(401).json({ 
+          error: "Usuário inativo ou inexistente.",
+          correlation_id: (req as any).correlationId
+        });
+      }
+      req.user = { 
+        id: user.id, 
+        username: user.username, 
+        role: normalizeRole(user.role) 
+      };
+      next();
+    } catch (err) {
+      return res.status(401).json({ 
+        error: "Sessão expirada ou token inválido. Por favor, faça login novamente.",
+        correlation_id: (req as any).correlationId
+      });
     }
-    next();
   };
 
-  // AI Router
+  // Middleware RBAC por Permissão Granular
+  const requirePermission = (permission: string) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+      if (!req.user) {
+        return res.status(401).json({ error: "Não autenticado", correlation_id: (req as any).correlationId });
+      }
+      if (!hasPermission(req.user.role, permission as any)) {
+        return res.status(403).json({ 
+          error: `Acesso negado: Perfil '${req.user.role}' não possui permissão '${permission}'.`,
+          correlation_id: (req as any).correlationId 
+        });
+      }
+      next();
+    };
+  };
+
+  // AI Router (Protegido por autenticação)
   app.use("/api/ai_assistant", authenticateToken, createAIRouter(db));
   app.use("/api/ai_instructions", authenticateToken, createAIInstructionsRouter(db));
 
-  // Auth Routes
+  // ==========================================
+  // AUTH ROUTES BLINDADAS
+  // ==========================================
+
+  // Cadastro de Usuários (Restrito a ADMIN autenticado; público apenas se banco vazio para primeiro setup)
   app.post("/api/auth/register", async (req, res) => {
-    const { username, password } = req.body;
+    const totalUsers = (db.prepare("SELECT COUNT(*) as count FROM users").get() as any).count;
+    if (totalUsers > 0) {
+      const authHeader = req.headers['authorization'];
+      const token = (authHeader && authHeader.split(' ')[1]) || req.cookies?.auth_token;
+      if (!token) {
+        return res.status(403).json({ error: "O cadastro público de usuários está desativado. Solicite a criação ao Administrador." });
+      }
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        const caller = db.prepare("SELECT role FROM users WHERE id = ?").get(decoded.id) as any;
+        if (!caller || normalizeRole(caller.role) !== 'ADMIN') {
+          return res.status(403).json({ error: "Apenas Administradores podem cadastrar novos usuários." });
+        }
+      } catch {
+        return res.status(403).json({ error: "Acesso negado: Sessão de administrador inválida." });
+      }
+    }
+
+    const { username, password, role } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Usuário e senha obrigatórios" });
 
     try {
       const hashedPassword = await bcrypt.hash(password, 10);
-      const info = db.prepare("INSERT INTO users (username, password, role) VALUES (?, ?, 'Administrador')").run(username, hashedPassword);
-      res.json({ id: info.lastInsertRowid });
+      const userRole = normalizeRole(role || 'BALCAO');
+      const info = db.prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)").run(username, hashedPassword, userRole);
+      
+      logAudit({
+        correlation_id: (req as any).correlationId,
+        user_id: req.user ? req.user.id : 1,
+        username: req.user ? req.user.username : 'bootstrap',
+        role: req.user ? req.user.role : 'ADMIN',
+        action: 'USER_CREATE',
+        module: 'Segurança/Usuários',
+        record_id: info.lastInsertRowid,
+        after_state: { username, role: userRole },
+        reason: 'Cadastro de novo usuário no sistema',
+        ip_address: req.ip
+      });
+
+      res.json({ id: info.lastInsertRowid, success: true });
     } catch (err: any) {
       if (err.code === 'SQLITE_CONSTRAINT') {
-        return res.status(400).json({ error: "Usuário já existe" });
+        return res.status(400).json({ error: "Nome de usuário já existe" });
       }
-      res.status(500).json({ error: "Erro ao registrar" });
+      res.status(500).json({ error: "Erro ao registrar usuário" });
     }
   });
 
+  // Login Seguro com Rate Limit e Cookie HttpOnly
   app.post("/api/auth/login", async (req, res) => {
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+
+    // Checagem de Rate Limit persistente
+    const rateCheck = checkLoginRateLimit(clientIp);
+    if (!rateCheck.allowed) {
+      res.setHeader('Retry-After', String(rateCheck.retryAfter || 900));
+      return res.status(429).json({
+        error: `Muitas tentativas incorretas. Acesso bloqueado por 15 minutos. Tente novamente em ${rateCheck.retryAfter} segundos.`
+      });
+    }
+
     const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: "Usuário e senha obrigatórios" });
+
     const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username) as any;
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
+      recordFailedLogin(clientIp);
       return res.status(401).json({ error: "Credenciais inválidas" });
     }
 
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: "7d" });
+    if (user.active === 0) {
+      return res.status(403).json({ error: "Usuário inativo. Contate o Administrador." });
+    }
+
+    // Sucesso: reset de tentativas
+    resetLoginAttempts(clientIp);
+
+    const normRole = normalizeRole(user.role);
+    const token = jwt.sign({ id: user.id, username: user.username, role: normRole }, JWT_SECRET, { expiresIn: "7d" });
+
     res.cookie("auth_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
-    res.json({ id: user.id, username: user.username, role: user.role || 'Administrador', token });
+
+    logAudit({
+      correlation_id: (req as any).correlationId,
+      user_id: user.id,
+      username: user.username,
+      role: normRole,
+      action: 'LOGIN_SUCCESS',
+      module: 'Segurança/Autenticação',
+      ip_address: req.ip,
+      user_agent: req.get('user-agent')
+    });
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      role: normRole,
+      permissions: ROLE_PERMISSIONS[normRole] || [],
+      token
+    });
   });
 
   app.post("/api/auth/logout", (req, res) => {
@@ -1045,7 +1480,13 @@ async function startServer() {
   });
 
   app.get("/api/auth/me", authenticateToken, (req, res) => {
-    res.json(req.user);
+    const normRole = normalizeRole(req.user!.role);
+    res.json({
+      id: req.user!.id,
+      username: req.user!.username,
+      role: normRole,
+      permissions: ROLE_PERMISSIONS[normRole] || []
+    });
   });
 
   // API Routes (Protected)
@@ -1484,10 +1925,10 @@ async function startServer() {
   app.get("/api/customers", authenticateToken, (req, res) => {
     const customers = db.prepare("SELECT * FROM customers WHERE user_id = ? ORDER BY name ASC").all(req.user!.id) as any[];
     
-    // Auto-correção dinâmica: garante que clientes sem atraso superior a 60 dias nunca sejam retornados como bloqueados
+    // Auto-correção dinâmica: garante que clientes sem atraso superior a 30 dias nunca sejam retornados como bloqueados
     for (const cust of customers) {
       if (cust.credit_status && cust.credit_status.includes('BLOQUEADO')) {
-        const isBlocked = checkIfCustomerHasOverdueOver60(cust.id);
+        const isBlocked = checkIfCustomerHasOverdueOver30(cust.id);
         if (!isBlocked) {
           cust.credit_status = 'LIBERADO';
           cust.credit_block_reason = null;
@@ -1496,6 +1937,17 @@ async function startServer() {
           } catch (e) {}
         }
       }
+    }
+
+    // Minimização de dados caso o perfil não tenha permissão de visualização sensível
+    const canViewSensitive = hasPermission(req.user!.role, 'customers:view_sensitive');
+    if (!canViewSensitive) {
+      return res.json(customers.map(c => ({
+        ...c,
+        cpf: c.cpf ? '***.***.***-**' : null,
+        credit_limit: 0,
+        address: c.neighborhood || c.city || ''
+      })));
     }
 
     res.json(customers);
@@ -1810,7 +2262,7 @@ async function startServer() {
       res.status(500).json({ error: err.message });
     }
   });
-  app.post("/api/sales", authenticateToken, (req, res) => {
+  app.post("/api/sales", authenticateToken, requirePermission('sales:create'), (req, res) => {
     const { id, customer_id, customer_name, labor_value, commission, mechanic_id, mechanic_name, total, payment_method, payment_status, due_date, paid_date, type, date, moto_details, service_description, status, sale_items, motorcycle_km, motorcycle_id, paid_total, charge_type } = req.body;
     
     // Server validation for credit
@@ -1819,9 +2271,9 @@ async function startServer() {
         throw new Error("Venda a crédito exige um cliente cadastrado.");
       }
 
-      // NOVO BLOQUEIO DE CRÉDITO NO BACKEND (> 60 dias)
-      if (checkIfCustomerHasOverdueOver60(customer_id)) {
-        return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 60 dias." });
+      // NOVO BLOQUEIO DE CRÉDITO NO BACKEND (> 30 dias de atraso / a partir do 31º dia)
+      if (checkIfCustomerHasOverdueOver30(customer_id)) {
+        return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 30 dias." });
       }
     }
 
@@ -1923,9 +2375,9 @@ async function startServer() {
       const currentSale = db.prepare("SELECT payment_method, payment_status, charge_type FROM sales WHERE id = ? AND user_id = ?").get(req.params.id, req.user!.id) as any;
       const wasAlreadyCredit = currentSale && (currentSale.payment_method === 'Fiado' || currentSale.charge_type === 'credito_30_dias');
 
-      // Only block if granting NEW credit to a customer with overdue > 60 days
-      if (!wasAlreadyCredit && checkIfCustomerHasOverdueOver60(customer_id)) {
-        return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 60 dias." });
+      // Only block if granting NEW credit to a customer with overdue > 30 days
+      if (!wasAlreadyCredit && checkIfCustomerHasOverdueOver30(customer_id)) {
+        return res.status(403).json({ error: "CRÉDITO BLOQUEADO: Cliente possui débito vencido há mais de 30 dias." });
       }
     }
 
@@ -2044,30 +2496,120 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/sales/:id", authenticateToken, (req, res) => {
-    const runTransaction = db.transaction(() => {
-      // 1. Reversal stock
-      const items = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(req.params.id) as any[];
-      const updateStock = db.prepare("UPDATE products SET stock = stock + ? WHERE id = ?");
-      for(const item of items) {
-        if(item.product_id && (item.type === 'Peça' || !item.type)) {
-          updateStock.run(item.quantity, item.product_id);
-        }
-      }
-      // 2. Delete
-      db.prepare("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id = ?)").run(req.params.id);
-      db.prepare("DELETE FROM credit WHERE sale_id = ?").run(req.params.id);
-      db.prepare("DELETE FROM sale_items WHERE sale_id = ?").run(req.params.id);
-      db.prepare("DELETE FROM sales WHERE id = ? AND user_id = ?").run(req.params.id, req.user!.id);
-    });
-    try {
-      runTransaction();
-      res.json({ success: true });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Erro ao excluir venda" });
+  // Cancelamento Idempotente, Atômico e Auditado de Vendas (Soft-delete com estorno de estoque, caixa e crédito)
+  const handleCancelSale = (req: Request, res: Response) => {
+    const saleId = req.params.id;
+    const reason = (req.body && req.body.reason) || req.query.reason || 'Cancelamento solicitado pelo usuário';
+    const correlationId = (req as any).correlationId;
+
+    const sale = db.prepare("SELECT * FROM sales WHERE id = ?").get(saleId) as any;
+    if (!sale) {
+      return res.status(404).json({ error: "Venda não encontrada", correlation_id: correlationId });
     }
-  });
+
+    if (sale.status === 'Cancelado' || sale.cancelled_at) {
+      return res.json({ 
+        success: true, 
+        message: "Venda já cancelada anteriormente.", 
+        alreadyCancelled: true,
+        cancelled_at: sale.cancelled_at,
+        correlation_id: correlationId 
+      });
+    }
+
+    try {
+      const cancelTx = db.transaction(() => {
+        // 1. Reverter estoque dos itens
+        const items = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(saleId) as any[];
+        const updateStock = db.prepare("UPDATE products SET stock = stock + ? WHERE id = ?");
+        for (const item of items) {
+          if (item.product_id && (item.type === 'Peça' || !item.type)) {
+            updateStock.run(item.quantity, item.product_id);
+          }
+        }
+
+        // 2. Estorno financeiro de caixa caso haja valor pago
+        const paidAmount = Number(sale.paid_total || 0) || (sale.payment_status === 'Pago' ? Number(sale.total || 0) : 0);
+        if (paidAmount > 0) {
+          const openSession = db.prepare("SELECT id FROM cash_sessions WHERE status = 'Aberto' AND user_id = ? ORDER BY opened_at DESC LIMIT 1").get(req.user!.id) as any;
+          db.prepare(`
+            INSERT INTO cash_transactions (user_id, session_id, type, amount, description, created_at)
+            VALUES (?, ?, 'Saída', ?, ?, CURRENT_TIMESTAMP)
+          `).run(
+            req.user!.id,
+            openSession ? openSession.id : null,
+            paidAmount,
+            `[ESTORNO AUTOMÁTICO] Cancelamento da Venda #${saleId}`
+          );
+        }
+
+        // 3. Cancelar crédito / cobrança associada
+        db.prepare("UPDATE credit SET status = 'Cancelado' WHERE sale_id = ?").run(saleId);
+        db.prepare(`
+          INSERT INTO collection_history (user_id, customer_id, credit_id, action_type, message)
+          SELECT user_id, customer_id, id, 'Cancelamento', 'Crédito cancelado devido ao cancelamento da venda ' || ?
+          FROM credit WHERE sale_id = ?
+        `).run(saleId, saleId);
+
+        // 4. Soft-delete da venda
+        const nowIso = new Date().toISOString();
+        db.prepare(`
+          UPDATE sales 
+          SET status = 'Cancelado', 
+              payment_status = 'Cancelado', 
+              cancelled_at = ?, 
+              cancelled_by = ?, 
+              cancel_reason = ? 
+          WHERE id = ?
+        `).run(nowIso, req.user!.id, String(reason), saleId);
+
+        // 5. Auditoria atômica
+        logAudit({
+          correlation_id: correlationId,
+          user_id: req.user!.id,
+          username: req.user!.username,
+          role: req.user!.role,
+          action: 'SALE_CANCEL',
+          module: 'Vendas/PDV',
+          record_id: saleId,
+          before_state: {
+            total: sale.total,
+            status: sale.status,
+            payment_status: sale.payment_status,
+            paid_total: sale.paid_total
+          },
+          after_state: {
+            status: 'Cancelado',
+            cancelled_at: nowIso,
+            cancelled_by: req.user!.id,
+            cancel_reason: reason,
+            items_returned: items.length
+          },
+          reason: String(reason),
+          ip_address: req.ip,
+          user_agent: req.get('user-agent')
+        });
+      });
+
+      cancelTx();
+
+      setTimeout(() => {
+        try { runCreditAutomationEngine(); } catch (e) {}
+      }, 100);
+
+      return res.json({ 
+        success: true, 
+        message: "Venda cancelada com sucesso. Estoque e financeiro devidamente estornados.",
+        correlation_id: correlationId
+      });
+    } catch (err: any) {
+      console.error("[CANCEL SALE ERROR]", err);
+      return res.status(500).json({ error: "Erro ao cancelar venda: " + (err.message || err), correlation_id: correlationId });
+    }
+  };
+
+  app.post("/api/sales/:id/cancel", authenticateToken, requirePermission('sales:cancel'), handleCancelSale);
+  app.delete("/api/sales/:id", authenticateToken, requirePermission('sales:cancel'), handleCancelSale);
 
   app.patch("/api/sales/:id/partial-payment", authenticateToken, (req, res) => {
     const { paid_total, payment_status, paid_date } = req.body;
@@ -2638,20 +3180,94 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/servicos_oficina/:id", authenticateToken, (req, res) => {
-    const userId = req.user!.id;
+  // Cancelamento Idempotente, Atômico e Auditado de Ordens de Serviço (Soft-delete com estorno de estoque)
+  const handleCancelServicoOficina = (req: Request, res: Response) => {
     const servicoId = req.params.id;
-    try {
-      const run = db.transaction(() => {
-        db.prepare("DELETE FROM servicos_oficina WHERE id = ? AND user_id = ?").run(servicoId, userId);
-        db.prepare("DELETE FROM servico_pecas WHERE servico_id = ?").run(servicoId);
-      });
-      run();
-      res.json({ success: true });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
+    const reason = (req.body && req.body.reason) || req.query.reason || 'Cancelamento de Ordem de Serviço';
+    const correlationId = (req as any).correlationId;
+
+    const servico = db.prepare("SELECT * FROM servicos_oficina WHERE id = ?").get(servicoId) as any;
+    if (!servico) {
+      return res.status(404).json({ error: "Ordem de serviço não encontrada", correlation_id: correlationId });
     }
-  });
+
+    if (servico.status === 'Cancelado' || servico.cancelled_at) {
+      return res.json({ 
+        success: true, 
+        message: "OS já cancelada anteriormente.", 
+        alreadyCancelled: true,
+        cancelled_at: servico.cancelled_at,
+        correlation_id: correlationId 
+      });
+    }
+
+    try {
+      const cancelTx = db.transaction(() => {
+        // 1. Reverter peças de volta ao estoque
+        const pecas = db.prepare("SELECT * FROM servico_pecas WHERE servico_id = ?").all(servicoId) as any[];
+        const updateStock = db.prepare("UPDATE products SET stock = stock + ? WHERE id = ?");
+        for (const p of pecas) {
+          if (p.product_id) {
+            updateStock.run(p.quantity, p.product_id);
+          }
+        }
+
+        // 2. Cancelar créditos vinculados a esta OS
+        db.prepare("UPDATE credit SET status = 'Cancelado' WHERE os_id = ?").run(servicoId);
+
+        // 3. Soft-delete da OS
+        const nowIso = new Date().toISOString();
+        db.prepare(`
+          UPDATE servicos_oficina 
+          SET status = 'Cancelado', 
+              cancelled_at = ?, 
+              cancelled_by = ?, 
+              cancel_reason = ? 
+          WHERE id = ?
+        `).run(nowIso, req.user!.id, String(reason), servicoId);
+
+        // 4. Auditoria atômica
+        logAudit({
+          correlation_id: correlationId,
+          user_id: req.user!.id,
+          username: req.user!.username,
+          role: req.user!.role,
+          action: 'OS_CANCEL',
+          module: 'Oficina/OS',
+          record_id: servicoId,
+          before_state: {
+            customer_name: servico.customer_name,
+            status: servico.status,
+            total_value: servico.total_value
+          },
+          after_state: {
+            status: 'Cancelado',
+            cancelled_at: nowIso,
+            cancelled_by: req.user!.id,
+            cancel_reason: reason,
+            parts_returned: pecas.length
+          },
+          reason: String(reason),
+          ip_address: req.ip,
+          user_agent: req.get('user-agent')
+        });
+      });
+
+      cancelTx();
+
+      return res.json({
+        success: true,
+        message: "Ordem de serviço cancelada com sucesso e peças estornadas ao estoque.",
+        correlation_id: correlationId
+      });
+    } catch (err: any) {
+      console.error("[CANCEL OS ERROR]", err);
+      return res.status(500).json({ error: "Erro ao cancelar OS: " + (err.message || err), correlation_id: correlationId });
+    }
+  };
+
+  app.post("/api/servicos_oficina/:id/cancel", authenticateToken, requirePermission('os:cancel'), handleCancelServicoOficina);
+  app.delete("/api/servicos_oficina/:id", authenticateToken, requirePermission('os:cancel'), handleCancelServicoOficina);
 
   // Mensagens Prontas
   app.get("/api/mensagens_prontas", authenticateToken, (req, res) => {
@@ -3767,14 +4383,79 @@ ${promptText}`,
     }
   });
 
-  app.delete("/api/accounts_payable/:id", authenticateToken, (req, res) => {
-    try {
-      db.prepare("DELETE FROM accounts_payable WHERE id = ? AND user_id = ?").run(req.params.id, req.user!.id);
-      res.json({ success: true });
-    } catch (err: any) {
-      res.status(500).json({ error: "Erro ao excluir conta a pagar: " + err.message });
+  // Cancelamento Idempotente, Atômico e Auditado de Contas a Pagar
+  const handleCancelAccountsPayable = (req: Request, res: Response) => {
+    const accountId = req.params.id;
+    const reason = (req.body && req.body.reason) || req.query.reason || 'Cancelamento de conta a pagar';
+    const correlationId = (req as any).correlationId;
+
+    const account = db.prepare("SELECT * FROM accounts_payable WHERE id = ?").get(accountId) as any;
+    if (!account) {
+      return res.status(404).json({ error: "Conta a pagar não encontrada", correlation_id: correlationId });
     }
-  });
+
+    if (account.status === 'Cancelado' || account.cancelled_at) {
+      return res.json({ 
+        success: true, 
+        message: "Conta já cancelada anteriormente.", 
+        alreadyCancelled: true,
+        cancelled_at: account.cancelled_at,
+        correlation_id: correlationId 
+      });
+    }
+
+    try {
+      const cancelTx = db.transaction(() => {
+        const nowIso = new Date().toISOString();
+        db.prepare(`
+          UPDATE accounts_payable 
+          SET status = 'Cancelado', 
+              cancelled_at = ?, 
+              cancelled_by = ?, 
+              cancel_reason = ? 
+          WHERE id = ?
+        `).run(nowIso, req.user!.id, String(reason), accountId);
+
+        logAudit({
+          correlation_id: correlationId,
+          user_id: req.user!.id,
+          username: req.user!.username,
+          role: req.user!.role,
+          action: 'PAYABLE_CANCEL',
+          module: 'Financeiro/ContasAPagar',
+          record_id: accountId,
+          before_state: {
+            fornecedor: account.fornecedor,
+            valor: account.valor,
+            status: account.status
+          },
+          after_state: {
+            status: 'Cancelado',
+            cancelled_at: nowIso,
+            cancelled_by: req.user!.id,
+            cancel_reason: reason
+          },
+          reason: String(reason),
+          ip_address: req.ip,
+          user_agent: req.get('user-agent')
+        });
+      });
+
+      cancelTx();
+
+      return res.json({
+        success: true,
+        message: "Conta a pagar cancelada com sucesso.",
+        correlation_id: correlationId
+      });
+    } catch (err: any) {
+      console.error("[CANCEL PAYABLE ERROR]", err);
+      return res.status(500).json({ error: "Erro ao cancelar conta a pagar: " + (err.message || err), correlation_id: correlationId });
+    }
+  };
+
+  app.post("/api/accounts_payable/:id/cancel", authenticateToken, requirePermission('financial:manage'), handleCancelAccountsPayable);
+  app.delete("/api/accounts_payable/:id", authenticateToken, requirePermission('financial:manage'), handleCancelAccountsPayable);
 
   // Helper to calculate module 10 checksum
   function modulo10(block: string) {
@@ -4198,29 +4879,29 @@ ${promptText}`,
             }
           }
 
-          // REGRA ESTRITA: Bloqueio SOMENTE se o cliente tiver dívida vencida há mais de 60 dias (> 60)
-          if (maxOverdueDays > 60) {
+          // REGRA ESTRITA: Bloqueio a partir do 31º dia de atraso (dívida vencida há mais de 30 dias: > 30)
+          if (maxOverdueDays > 30) {
             if (cust.credit_status !== 'BLOQUEADO_AUTOMATICAMENTE') {
-              const reason = `Débito com ${maxOverdueDays} dias de atraso (vencimento: ${oldestDueDateStr || 'superior a 60 dias'}).`;
+              const reason = `Débito com ${maxOverdueDays} dias de atraso (vencimento: ${oldestDueDateStr || 'superior a 30 dias'}).`;
               updateBlockStmt.run(reason, cust.id);
               historyStmt.run(cust.user_id, cust.id, 'Bloqueio Automático', `Sistema: Cliente bloqueado automaticamente por possuir dívida vencida há ${maxOverdueDays} dias.`);
-              console.log(`[Credit Engine] Bloqueado (+60d): ${cust.name} (ID: ${cust.id}, Atraso: ${maxOverdueDays} dias)`);
+              console.log(`[Credit Engine] Bloqueado (+30d): ${cust.name} (ID: ${cust.id}, Atraso: ${maxOverdueDays} dias)`);
               blockedCount++;
             }
           } else {
-            // Cliente NÃO possui débitos superiores a 60 dias (atraso <= 60 ou sem débitos)
-            // Se estava bloqueado (seja automático, manual ou antigo), DESBLOQUEIA IMEDIATAMENTE!
+            // Cliente NÃO possui débitos superiores a 30 dias (atraso <= 30 ou sem débitos)
+            // Se estava bloqueado (automático ou antigo), DESBLOQUEIA IMEDIATAMENTE!
             if (cust.credit_status && cust.credit_status.includes('BLOQUEADO')) {
               updateUnblockStmt.run(cust.id);
-              historyStmt.run(cust.user_id, cust.id, 'Liberação Automática', `Sistema: Cliente liberado automaticamente (sem débitos com mais de 60 dias de atraso). Maior atraso atual: ${maxOverdueDays} dias.`);
-              console.log(`[Credit Engine] Desbloqueado / Liberado: ${cust.name} (ID: ${cust.id}, Maior atraso: ${maxOverdueDays} dias <= 60 dias)`);
+              historyStmt.run(cust.user_id, cust.id, 'Liberação Automática', `Sistema: Cliente liberado automaticamente (sem débitos com mais de 30 dias de atraso). Maior atraso atual: ${maxOverdueDays} dias.`);
+              console.log(`[Credit Engine] Desbloqueado / Liberado: ${cust.name} (ID: ${cust.id}, Maior atraso: ${maxOverdueDays} dias <= 30 dias)`);
               unblockedCount++;
             }
           }
         }
       })();
 
-      console.log(`[Credit Engine] Revisão de todos os clientes concluída. Clientes desbloqueados: ${unblockedCount} | Clientes bloqueados (+60d): ${blockedCount}`);
+      console.log(`[Credit Engine] Revisão de todos os clientes concluída. Clientes desbloqueados: ${unblockedCount} | Clientes bloqueados (+30d): ${blockedCount}`);
     } catch (err) {
       console.error("[Credit Engine] Erro na automação de crédito:", err);
     }
@@ -4427,8 +5108,227 @@ ${promptText}`,
     }
   });
 
-  
-    // Serve frontend (MUST BE LAST ROUTE)
+  // ==========================================
+  // ESTORNO CONTÁBIL DE CAIXA (Idempotente e Auditado)
+  // ==========================================
+  app.post("/api/cash_transactions/:id/reverse", authenticateToken, requirePermission('financial:manage'), (req, res) => {
+    const txId = req.params.id;
+    const { reason } = req.body;
+    const correlationId = (req as any).correlationId;
+
+    const originalTx = db.prepare("SELECT * FROM cash_transactions WHERE id = ?").get(txId) as any;
+    if (!originalTx) {
+      return res.status(404).json({ error: "Lançamento de caixa não encontrado.", correlation_id: correlationId });
+    }
+
+    if (originalTx.is_reversed === 1) {
+      return res.status(400).json({ error: "Este lançamento já foi estornado anteriormente.", correlation_id: correlationId });
+    }
+
+    try {
+      let reversalId: any = null;
+      const oppositeType = originalTx.type === 'Entrada' ? 'Saída' : 'Entrada';
+      const reversalDesc = `[ESTORNO #${originalTx.id}] ${reason || originalTx.description || 'Estorno manual de caixa'}`;
+
+      const runTx = db.transaction(() => {
+        const insertResult = db.prepare(`
+          INSERT INTO cash_transactions (user_id, session_id, type, amount, description, reversed_from_id, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `).run(
+          req.user!.id,
+          originalTx.session_id,
+          oppositeType,
+          originalTx.amount,
+          reversalDesc,
+          originalTx.id
+        );
+        reversalId = insertResult.lastInsertRowid;
+
+        db.prepare("UPDATE cash_transactions SET is_reversed = 1 WHERE id = ?").run(originalTx.id);
+
+        logAudit({
+          correlation_id: correlationId,
+          user_id: req.user!.id,
+          username: req.user!.username,
+          role: req.user!.role,
+          action: 'CASH_REVERSAL',
+          module: 'Financeiro/Caixa',
+          record_id: txId,
+          before_state: {
+            type: originalTx.type,
+            amount: originalTx.amount,
+            description: originalTx.description
+          },
+          after_state: {
+            reversal_transaction_id: reversalId,
+            oppositeType,
+            amount: originalTx.amount,
+            reason
+          },
+          reason: String(reason || 'Estorno contábil de caixa'),
+          ip_address: req.ip,
+          user_agent: req.get('user-agent')
+        });
+      });
+
+      runTx();
+
+      res.json({ 
+        success: true, 
+        message: "Lançamento estornado com sucesso.", 
+        reversal_id: reversalId,
+        correlation_id: correlationId 
+      });
+    } catch (err: any) {
+      console.error("[CASH REVERSAL ERROR]", err);
+      res.status(500).json({ error: "Erro ao processar estorno de caixa: " + (err.message || err), correlation_id: correlationId });
+    }
+  });
+
+  // ==========================================
+  // TOKENS DE ACESSO DE USO ÚNICO (Boletos & Documentos)
+  // ==========================================
+  app.post("/api/boletos/generate-token", authenticateToken, (req, res) => {
+    const { doc_type, doc_id, validity_minutes } = req.body;
+    if (!doc_type || !doc_id) {
+      return res.status(400).json({ error: "doc_type e doc_id são obrigatórios" });
+    }
+
+    try {
+      const tokenId = crypto.randomUUID();
+      const minutes = parseInt(validity_minutes) || 120;
+      const expiresAt = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+
+      db.prepare(`
+        INSERT INTO single_use_tokens (id, doc_type, doc_id, expires_at)
+        VALUES (?, ?, ?, ?)
+      `).run(tokenId, String(doc_type), String(doc_id), expiresAt);
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const accessUrl = `${baseUrl}/api/public/doc-access/${tokenId}`;
+
+      res.json({
+        token: tokenId,
+        expires_at: expiresAt,
+        access_url: accessUrl
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: "Erro ao gerar token de visualização única: " + err.message });
+    }
+  });
+
+  app.get("/api/public/doc-access/:tokenId", (req, res) => {
+    const { tokenId } = req.params;
+    try {
+      const tokenRecord = db.prepare("SELECT * FROM single_use_tokens WHERE id = ?").get(tokenId) as any;
+      if (!tokenRecord) {
+        return res.status(404).json({ error: "Token de visualização não encontrado ou inválido." });
+      }
+
+      if (tokenRecord.used_at) {
+        return res.status(410).json({ 
+          error: "Acesso expirado: este link de uso único já foi utilizado anteriormente.",
+          used_at: tokenRecord.used_at
+        });
+      }
+
+      const now = new Date();
+      if (new Date(tokenRecord.expires_at) < now) {
+        return res.status(410).json({ error: "Acesso expirado: o tempo limite deste link de visualização esgotou." });
+      }
+
+      // Marcar uso atômico
+      db.prepare("UPDATE single_use_tokens SET used_at = ? WHERE id = ?").run(now.toISOString(), tokenId);
+
+      if (tokenRecord.doc_type === 'boleto' || tokenRecord.doc_type === 'payable') {
+        const doc = db.prepare("SELECT id, fornecedor, valor, due_date, linha_digitavel, codigo_pix, status FROM accounts_payable WHERE id = ?").get(tokenRecord.doc_id) as any;
+        if (!doc) return res.status(404).json({ error: "Documento não localizado." });
+        return res.json({ success: true, doc_type: tokenRecord.doc_type, data: doc });
+      } else if (tokenRecord.doc_type === 'sale') {
+        const sale = db.prepare("SELECT id, total, status, payment_method, date, due_date, customer_name FROM sales WHERE id = ?").get(tokenRecord.doc_id) as any;
+        const items = db.prepare("SELECT description, quantity, price, type FROM sale_items WHERE sale_id = ?").all(tokenRecord.doc_id);
+        if (!sale) return res.status(404).json({ error: "Venda não localizada." });
+        return res.json({ success: true, doc_type: 'sale', sale, items });
+      }
+
+      res.json({ success: true, message: "Token validado com sucesso.", doc_id: tokenRecord.doc_id });
+    } catch (err: any) {
+      res.status(500).json({ error: "Erro ao processar token de visualização: " + err.message });
+    }
+  });
+
+  // ==========================================
+  // AUDIT LOGS & BACKUP EXPORT (Apenas ADMIN)
+  // ==========================================
+  app.get("/api/audit-logs", authenticateToken, (req, res) => {
+    if (req.user!.role !== 'ADMIN') {
+      return res.status(403).json({ error: "Acesso restrito a Administradores." });
+    }
+    try {
+      const { limit = 50, offset = 0, module, correlation_id } = req.query as any;
+      let query = "SELECT * FROM audit_logs WHERE 1=1";
+      const params: any[] = [];
+      if (module) {
+        query += " AND module = ?";
+        params.push(module);
+      }
+      if (correlation_id) {
+        query += " AND correlation_id = ?";
+        params.push(correlation_id);
+      }
+      query += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+      params.push(Math.min(parseInt(limit) || 50, 200), parseInt(offset) || 0);
+
+      const logs = db.prepare(query).all(...params);
+      res.json(logs);
+    } catch (err: any) {
+      res.status(500).json({ error: "Erro ao consultar logs de auditoria: " + err.message });
+    }
+  });
+
+  app.get("/api/admin/backup/export", authenticateToken, (req, res) => {
+    if (req.user!.role !== 'ADMIN') {
+      return res.status(403).json({ error: "Acesso restrito a Administradores." });
+    }
+    try {
+      const activeDbPath = process.env.DB_PATH || "./kombat_moto_backup.db";
+      const resolvedPath = path.resolve(activeDbPath);
+      if (!fs.existsSync(resolvedPath)) {
+        return res.status(404).json({ error: "Arquivo de banco de dados não localizado." });
+      }
+
+      const dateStr = new Date().toISOString().split('T')[0];
+      const exportFileName = `kombat_backup_producao_${dateStr}.db`;
+
+      logAudit({
+        correlation_id: (req as any).correlationId,
+        user_id: req.user!.id,
+        username: req.user!.username,
+        role: req.user!.role,
+        action: 'BACKUP_EXPORT',
+        module: 'Segurança/Backup',
+        reason: 'Exportação manual de backup SQLite solicitada pelo Administrador para armazenamento externo',
+        ip_address: req.ip,
+        user_agent: req.get('user-agent')
+      });
+
+      res.download(resolvedPath, exportFileName);
+    } catch (err: any) {
+      res.status(500).json({ error: "Erro ao exportar backup: " + err.message });
+    }
+  });
+
+  // Global Error Handler Middleware
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    const correlationId = (req as any).correlationId || '-';
+    console.error(`[UNHANDLED ERROR] [${correlationId}]`, err);
+    res.status(500).json({
+      error: "Erro interno no servidor ao processar a solicitação.",
+      correlation_id: correlationId
+    });
+  });
+
+  // Serve frontend (MUST BE LAST ROUTE)
     if (process.env.NODE_ENV !== "production") {
       const vite = await createViteServer({
         server: { 

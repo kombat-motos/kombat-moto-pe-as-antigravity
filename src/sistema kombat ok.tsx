@@ -83,6 +83,11 @@ import Cliente360Modal from './components/crm/Cliente360Modal';
 import AIAssistant from './components/ai/AIAssistant';
 import CentralCobranca from './components/CentralCobranca';
 import PDVTab from './components/PDVTab';
+import { LoadingState } from './components/common/LoadingState';
+import { EmptyState } from './components/common/EmptyState';
+import { ConfirmModal } from './components/common/ConfirmModal';
+import { formatCurrencyBRL, formatDateBR } from './utils/formatters';
+import { hasPermission } from './types/auth';
 
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -377,15 +382,25 @@ const playBeep = () => {
 };
 
 const localApi = {
+  getHeaders: () => {
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
+  },
   get: async (route: string) => {
-    const res = await fetch(`/api/${route}`);
+    const res = await fetch(`/api/${route}`, {
+      headers: localApi.getHeaders(),
+      credentials: 'include'
+    });
     if (!res.ok) throw new Error(`Erro ao buscar ${route}`);
     return res.json();
   },
   post: async (route: string, data: any) => {
     const res = await fetch(`/api/${route}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: localApi.getHeaders(),
+      credentials: 'include',
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error(`Erro ao criar ${route}`);
@@ -401,7 +416,8 @@ const localApi = {
     }
     const res = await fetch(url, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: localApi.getHeaders(),
+      credentials: 'include',
       body: JSON.stringify(bodyData),
     });
     if (!res.ok) throw new Error(`Erro ao atualizar ${endpoint}`);
@@ -411,6 +427,8 @@ const localApi = {
     const url = id ? `/api/${endpoint}/${id}` : `/api/${endpoint}`;
     const res = await fetch(url, {
       method: 'DELETE',
+      headers: localApi.getHeaders(),
+      credentials: 'include'
     });
     if (!res.ok) throw new Error(`Erro ao excluir ${endpoint}`);
     return res.json();
@@ -603,7 +621,7 @@ const VendaCalculator = ({ initialCost, onApply, cardFees }: { initialCost: numb
 };
 
 export default function App() {
-  const [user, setUser] = useState<any>({ id: 'local-user', email: 'admin@sistema.local' });
+  const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
 
@@ -791,7 +809,8 @@ export default function App() {
     },
     get: async (route: string) => {
       const res = await fetch(`/api/${route}`, {
-        headers: localApi.getHeaders()
+        headers: localApi.getHeaders(),
+        credentials: 'include'
       });
       if (!res.ok) throw new Error(`Erro ao buscar ${route}`);
       return res.json();
@@ -800,6 +819,7 @@ export default function App() {
       const res = await fetch(`/api/${route}`, {
         method: 'POST',
         headers: localApi.getHeaders(),
+        credentials: 'include',
         body: JSON.stringify(body),
       });
       
@@ -822,6 +842,7 @@ export default function App() {
       const res = await fetch(`/api/${route}/${id}`, {
         method: 'PUT',
         headers: localApi.getHeaders(),
+        credentials: 'include',
         body: JSON.stringify(body),
       });
       
@@ -846,6 +867,7 @@ export default function App() {
       const res = await fetch(url, { 
         method: 'PATCH',
         headers: localApi.getHeaders(),
+        credentials: 'include',
         body: isAction ? (body ? JSON.stringify(body) : undefined) : JSON.stringify(actionOrBody)
       });
       
@@ -864,7 +886,8 @@ export default function App() {
       const url = id ? `/api/${route}/${id}` : `/api/${route}`;
       const res = await fetch(url, { 
         method: 'DELETE',
-        headers: localApi.getHeaders()
+        headers: localApi.getHeaders(),
+        credentials: 'include'
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro na operação');
@@ -874,6 +897,7 @@ export default function App() {
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: localApi.getHeaders(),
+        credentials: 'include',
         body: JSON.stringify({ fileName, fileContent })
       });
       return res.json();
@@ -1155,7 +1179,13 @@ export default function App() {
     
     try {
       const fetchTable = async (route: string) => {
-        const res = await fetch(`/api/${route}`);
+        const token = localStorage.getItem('token');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`/api/${route}`, {
+          headers,
+          credentials: 'include'
+        });
         if (!res.ok) throw new Error(`Erro ao buscar ${route}`);
         return res.json();
       };
@@ -1364,7 +1394,7 @@ export default function App() {
   const [companyLogo, setCompanyLogo] = useState<string | null>(localStorage.getItem('companyLogo'));
   const [partialPaymentAmount, setPartialPaymentAmount] = useState<string>('');
 
-  // Validação dinâmica e estrita: o cliente só é bloqueado se possuir débito vencido há MAIS DE 60 DIAS (> 60)
+  // Validação dinâmica e estrita: o cliente só é bloqueado se possuir débito vencido há MAIS DE 30 DIAS (> 30 / a partir do 31º dia)
   const isCustomerReallyBlocked = (c: Customer | any): boolean => {
     if (!c) return false;
     
@@ -1380,7 +1410,7 @@ export default function App() {
       return false;
     }
 
-    const hasDebtOver60Days = pendingSales.some(s => {
+    const hasDebtOver30Days = pendingSales.some(s => {
       if (!s.due_date) return false;
       let due: Date | null = null;
       const str = String(s.due_date).trim();
@@ -1397,10 +1427,10 @@ export default function App() {
       if (!due || isNaN(due.getTime())) return false;
       due.setHours(0, 0, 0, 0);
       const diffDays = Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
-      return diffDays > 60;
+      return diffDays > 30; // Bloqueio a partir do 31º dia de atraso
     });
 
-    return hasDebtOver60Days;
+    return hasDebtOver30Days;
   };
   const [payingSaleId, setPayingSaleId] = useState<string | null>(null);
   const [companyData, setCompanyData] = useState(() => {
@@ -1665,25 +1695,30 @@ export default function App() {
 
     // Check user authentication status on mount
     const checkAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const res = await fetch('/api/auth/me', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (res.ok) {
-            const userData = await res.json();
-            setUser(userData);
-          } else {
-            localStorage.removeItem('token');
-            setUser(null);
-          }
-        } catch (e) {
-          console.error("Error fetching user profile:", e);
+      try {
+        const token = localStorage.getItem('token');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch('/api/auth/me', {
+          headers,
+          credentials: 'include'
+        });
+
+        if (res.ok) {
+          const userData = await res.json();
+          setUser(userData);
+          fetchData();
+        } else {
+          localStorage.removeItem('token');
+          setUser(null);
         }
+      } catch (e) {
+        console.error("Error fetching user profile:", e);
+        setUser(null);
+      } finally {
+        setAuthChecking(false);
       }
-      fetchData();
-      setAuthChecking(false);
     };
 
     checkAuth();
@@ -1691,10 +1726,12 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      setUser(null);
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (error) {
       console.error('Erro ao sair', error);
+    } finally {
+      localStorage.removeItem('token');
+      setUser(null);
     }
   };
 
@@ -2173,7 +2210,7 @@ export default function App() {
       }
 
       if (isCustomerReallyBlocked(customer)) {
-        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 60 dias de atraso.'}`);
+        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
         return;
       }
 
@@ -2385,7 +2422,7 @@ export default function App() {
       }
 
       if (isCustomerReallyBlocked(customer)) {
-        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 60 dias de atraso.'}`);
+        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
         return;
       }
 
@@ -4788,16 +4825,19 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
     }
   };
 
-  const handleDeleteSale = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta venda? O estoque dos produtos será devolvido automaticamente. Esta ação não pode ser desfeita.')) {
-      try {
-        await localApi.delete('sales', id);
-        alert('Venda excluída e estoque devolvido com sucesso!');
-        fetchData();
-      } catch (error) {
-        console.error('Error deleting sale:', error);
-        alert('Erro ao excluir venda.');
-      }
+  const handleDeleteSale = async (id: string, reason?: string) => {
+    const cancelReason = reason || prompt('Motivo do cancelamento da venda (obrigatório para auditoria):');
+    if (!cancelReason || !cancelReason.trim()) {
+      alert('O cancelamento de venda exige um motivo justificado para auditoria.');
+      return;
+    }
+    try {
+      await localApi.post(`sales/${id}/cancel`, { reason: cancelReason.trim() });
+      alert('Venda cancelada com sucesso! Estoque e lançamentos financeiros foram devidamente estornados.');
+      fetchData();
+    } catch (error: any) {
+      console.error('Error cancelling sale:', error);
+      alert('Erro ao cancelar venda: ' + (error.message || error));
     }
   };
 
@@ -6657,11 +6697,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
   };
 
   if (authChecking) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center dark:bg-slate-900">
-        <div className="w-8 h-8 border-4 border-rose-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <LoadingState message="Verificando credenciais e segurança do sistema..." fullScreen />;
   }
 
   if (isCatalogPublicView) {
@@ -9251,7 +9287,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                       }
                       const selectedCust = customers.find(c => c.id === parseInt(cid));
                       if (selectedCust && isCustomerReallyBlocked(selectedCust)) {
-                        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${selectedCust.credit_block_reason || 'Débito superior a 60 dias de atraso.'}`);
+                        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${selectedCust.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
                       }
                       const customerMotos = motorcycles.filter(m => m.customer_id === parseInt(cid));
                       if (customerMotos.length > 0) {

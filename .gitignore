@@ -12,4 +12,8 @@ dist-server.js
 dist-server.js
 
 scratch/
-
+*.db
+*-DESKTOP-*.db
+*-DESKTOP-*.ts
+*-DESKTOP-*.tsx
+*-DESKTOP-*.json

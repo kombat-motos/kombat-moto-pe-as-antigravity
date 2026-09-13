@@ -292,14 +292,23 @@ export default function CRMTab({
   };
 
   const handleDeleteService = async (id: number) => {
+    const reason = prompt('Motivo do cancelamento desta ordem de serviço (obrigatório para auditoria):');
+    if (!reason || !reason.trim()) {
+      alert('O cancelamento de ordem de serviço exige um motivo justificado para auditoria.');
+      return;
+    }
     try {
-      await fetch(`/api/servicos_oficina/${id}`, {
-        method: 'DELETE',
-        headers: getHeaders()
+      await fetch(`/api/servicos_oficina/${id}/cancel`, {
+        method: 'POST',
+        headers: getHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ reason: reason.trim() })
       });
       fetchServices();
-    } catch (e) {
+      alert('Ordem de serviço cancelada e estoque estornado com sucesso!');
+    } catch (e: any) {
       console.error(e);
+      alert('Erro ao cancelar serviço: ' + (e.message || e));
     }
   };
 

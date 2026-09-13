@@ -275,13 +275,17 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
   };
 
   const handleDeletePayable = async (id: number) => {
-    if (!confirm('Confirmar exclusão desta conta?')) return;
+    const reason = prompt('Motivo do cancelamento desta conta a pagar (obrigatório para auditoria):');
+    if (!reason || !reason.trim()) {
+      alert('O cancelamento exige um motivo justificado para registro de auditoria.');
+      return;
+    }
     try {
-      await localApi.delete('accounts_payable', id);
+      await localApi.post(`accounts_payable/${id}/cancel`, { reason: reason.trim() });
       loadAccountsPayable();
-      alert('Conta excluída com sucesso!');
+      alert('Conta a pagar cancelada com sucesso!');
     } catch (err: any) {
-      alert('Erro ao excluir conta: ' + err.message);
+      alert('Erro ao cancelar conta: ' + (err.message || err));
     }
   };
 

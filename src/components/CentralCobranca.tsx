@@ -39,7 +39,7 @@ export default function CentralCobranca({
     let venceHoje = 0;
     let vence3Dias = 0;
     let vencidos = 0;
-    let atrasados60 = 0;
+    let atrasados30 = 0;
 
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -50,7 +50,7 @@ export default function CentralCobranca({
         if (cr.customer_id !== c.id) return false;
         if (cr.status !== 'Aberto' && cr.status !== 'Pendente' && cr.status !== 'Atrasado') return false;
         const due = parseDueDate(cr.due_date);
-        return due ? differenceInDays(due, today) < -60 : false;
+        return due ? differenceInDays(due, today) < -30 : false;
       });
     }).length;
 
@@ -67,13 +67,13 @@ export default function CentralCobranca({
           else if (diff > 0 && diff <= 3) vence3Dias += saldo;
           else if (diff < 0) {
             vencidos += saldo;
-            if (diff < -60) atrasados60 += saldo;
+            if (diff < -30) atrasados30 += saldo;
           }
         }
       }
     });
 
-    return { aReceber, venceHoje, vence3Dias, vencidos, atrasados60, bloqueados };
+    return { aReceber, venceHoje, vence3Dias, vencidos, atrasados30, bloqueados };
   }, [credits, customers]);
 
   const filteredCredits = useMemo(() => {
@@ -97,10 +97,10 @@ export default function CentralCobranca({
         const due = parseDueDate(c.due_date);
         return due ? differenceInDays(due, today) < 0 : false;
       });
-    } else if (filter === '+60 dias atraso') {
+    } else if (filter === '+30 dias atraso') {
       list = list.filter((c: any) => {
         const due = parseDueDate(c.due_date);
-        return due ? differenceInDays(due, today) < -60 : false;
+        return due ? differenceInDays(due, today) < -30 : false;
       });
     }
 
@@ -164,8 +164,8 @@ export default function CentralCobranca({
           <p className="text-lg font-black text-rose-700">R$ {stats.vencidos.toFixed(2)}</p>
         </div>
         <div className="bg-rose-100 p-4 rounded-xl border border-rose-300 shadow-sm">
-          <p className="text-[10px] uppercase font-black text-rose-800">+60 Dias Atraso</p>
-          <p className="text-lg font-black text-rose-900">R$ {stats.atrasados60.toFixed(2)}</p>
+          <p className="text-[10px] uppercase font-black text-rose-800">+30 Dias Atraso</p>
+          <p className="text-lg font-black text-rose-900">R$ {stats.atrasados30.toFixed(2)}</p>
         </div>
         <div className="bg-slate-800 p-4 rounded-xl border border-slate-900 shadow-sm">
           <p className="text-[10px] uppercase font-black text-slate-400">Créditos Bloqueados</p>
@@ -176,7 +176,7 @@ export default function CentralCobranca({
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[500px]">
          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
            <div className="flex gap-2 flex-wrap">
-             {['Todos', 'A vencer', 'Vence hoje', 'Vencidos', '+60 dias atraso'].map(f => (
+             {['Todos', 'A vencer', 'Vence hoje', 'Vencidos', '+30 dias atraso'].map(f => (
                <button
                  key={f}
                  onClick={() => setFilter(f)}
