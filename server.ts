@@ -1291,15 +1291,16 @@ async function startServer() {
     }
   };
 
-  // Garantir Usuário Administrador Real no Banco
+  // Garantir Usuário Administrador Real e Senha Padrão no Banco
   try {
-    const defaultAdmin = db.prepare("SELECT id, username FROM users WHERE id = 1 OR username = 'admin'").get() as any;
+    const hashedPassword = bcrypt.hashSync("admin123", 10);
+    const defaultAdmin = db.prepare("SELECT id, username FROM users WHERE username = 'admin' OR id = 1").get() as any;
     if (!defaultAdmin) {
-      const hashedPassword = bcrypt.hashSync("admin123", 10);
-      db.prepare("INSERT INTO users (id, username, password, role) VALUES (1, 'admin', ?, 'ADMIN')").run(hashedPassword);
+      db.prepare("INSERT INTO users (id, username, password, role, active) VALUES (1, 'admin', ?, 'ADMIN', 1)").run(hashedPassword);
       console.log("[AUTH] Administrador padrão inicializado: admin / admin123 (Role: ADMIN)");
     } else {
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE id = ?").run(defaultAdmin.id);
+      db.prepare("UPDATE users SET username = 'admin', password = ?, role = 'ADMIN', active = 1 WHERE id = ?").run(hashedPassword, defaultAdmin.id);
+      console.log("[AUTH] Administrador pronto para login: admin / admin123 (Role: ADMIN)");
     }
   } catch (e) {
     console.error("[AUTH] Erro ao garantir administrador padrão:", e);
