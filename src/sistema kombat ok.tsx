@@ -295,6 +295,15 @@ interface PurchaseOrder {
 }
 
 // --- Utils ---
+const safeJsonParse = <T,>(str: string | null | undefined, fallback: T): T => {
+  if (!str || str === 'undefined' || str === 'null') return fallback;
+  try {
+    return JSON.parse(str) as T;
+  } catch {
+    return fallback;
+  }
+};
+
 const formatBRL = (value: any) => {
   const num = typeof value === 'number' ? value : parseFloat(String(value || 0).replace(',', '.'));
   return new Intl.NumberFormat('pt-BR', {
@@ -1089,7 +1098,15 @@ export default function App() {
   
   const fetchFinancialSales = useCallback(async (currentGeneralSales?: any[]) => {
     try {
-      const res = await fetch(`/api/sales?startDate=${revenueStartDate}&endDate=${revenueEndDate}`);
+      const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+      const headers: Record<string, string> = {};
+      if (token && token !== 'undefined' && token !== 'null') {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch(`/api/sales?startDate=${revenueStartDate}&endDate=${revenueEndDate}`, {
+        headers,
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error('Erro ao buscar faturamento');
       const salesData = await res.json();
       if (Array.isArray(salesData)) {
@@ -1168,7 +1185,7 @@ export default function App() {
   const lastFetchTimeRef = useRef(0);
 
   async function fetchData(force = false) {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current && !force) return;
     const now = Date.now();
     if (!force && (now - lastFetchTimeRef.current < 1000)) return;
     
@@ -1176,23 +1193,40 @@ export default function App() {
     lastFetchTimeRef.current = now;
     setLoading(true);
     console.time('⏱️ Carregamento Total');
+
+    // Watchdog de segurança: garante que o loading NUNCA fique travado mais de 4 segundos
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+      isFetchingRef.current = false;
+    }, 4000);
     
     try {
       const fetchTable = async (route: string) => {
-        const token = localStorage.getItem('token');
+        const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
         const headers: Record<string, string> = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        const res = await fetch(`/api/${route}`, {
-          headers,
-          credentials: 'include'
-        });
-        if (!res.ok) throw new Error(`Erro ao buscar ${route}`);
-        return res.json();
+        if (token && token !== 'undefined' && token !== 'null') {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        try {
+          const res = await fetch(`/api/${route}`, {
+            headers,
+            credentials: 'include',
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          if (!res.ok) throw new Error(`Erro ao buscar ${route}`);
+          return await res.json();
+        } catch (e) {
+          clearTimeout(timeoutId);
+          console.warn(`Aviso ao buscar ${route}:`, e);
+          return [];
+        }
       };
 
       // ── Todas as requisições em PARALELO (Promise.all) ────────────────────
-      // Antes: sequencial (~14 round-trips encadeados)
-      // Agora: simultâneo (tempo = a requisição mais lenta, não a soma delas)
       const [
         productsData,
         customersData,
@@ -1210,48 +1244,54 @@ export default function App() {
         workshopPurchasesData,
         creditData,
       ] = await Promise.all([
-        fetchTable('products').catch(() => []),
-        fetchTable('customers').catch(() => []),
-        fetchTable('motorcycles').catch(() => []),
-        fetchTable('sales').catch(() => []),
-        fetchTable('leads').catch(() => []),
-        fetchTable('mechanics').catch(() => []),
-        fetchTable('fixed_services').catch(() => []),
-        fetchTable('distributors').catch(() => []),
-        fetchTable('purchase_orders').catch(() => []),
-        fetchTable('cash_sessions').catch(() => []),
-        fetchTable('cash_transactions').catch(() => []),
-        fetchTable('quotes').catch(() => []),
-        fetchTable('registered_services').catch(() => []),
-        fetchTable('workshop_purchases').catch(() => []),
-        fetchTable('credit').catch(() => []),
+        fetchTable('products'),
+        fetchTable('customers'),
+        fetchTable('motorcycles'),
+        fetchTable('sales'),
+        fetchTable('leads'),
+        fetchTable('mechanics'),
+        fetchTable('fixed_services'),
+        fetchTable('distributors'),
+        fetchTable('purchase_orders'),
+        fetchTable('cash_sessions'),
+        fetchTable('cash_transactions'),
+        fetchTable('quotes'),
+        fetchTable('registered_services'),
+        fetchTable('workshop_purchases'),
+        fetchTable('credit'),
       ]);
 
-      if (productsData) setProducts(productsData);
-      if (customersData) setCustomers(customersData);
-      if (motorcyclesData) setMotorcycles(motorcyclesData);
-      if (salesData) {
+      if (Array.isArray(productsData)) setProducts(productsData);
+      if (Array.isArray(customersData)) setCustomers(customersData);
+      if (Array.isArray(motorcyclesData)) setMotorcycles(motorcyclesData);
+      if (Array.isArray(salesData)) {
         setSales(salesData.map((s: any) => ({ ...s, items: s.sale_items || [] })));
       }
-      if (leadsData) setLeads(leadsData);
-      if (mechanicsData) setMechanics(mechanicsData);
-      if (fixedServicesData) setFixedServices(fixedServicesData);
-      if (distributorsData) {
+      if (Array.isArray(leadsData)) setLeads(leadsData);
+      if (Array.isArray(mechanicsData)) setMechanics(mechanicsData);
+      if (Array.isArray(fixedServicesData)) setFixedServices(fixedServicesData);
+      if (Array.isArray(distributorsData)) {
         setDistributors(distributorsData.map((d: any) => ({
           ...d,
           phone: d.whatsapp || d.phone,
           contact_person: d.contact || d.contact_person
         })));
       }
-      if (ordersData) setPurchaseOrders(ordersData);
-      if (quotesData) setQuotes(quotesData);
-      if (servicesData) setRegisteredServices(servicesData);
-      if (workshopPurchasesData) setWorkshopPurchases(workshopPurchasesData);
-      if (creditData) setCredit(creditData);
+      if (Array.isArray(ordersData)) setPurchaseOrders(ordersData);
+      if (Array.isArray(quotesData)) setQuotes(quotesData);
+      if (Array.isArray(servicesData)) setRegisteredServices(servicesData);
+      if (Array.isArray(workshopPurchasesData)) setWorkshopPurchases(workshopPurchasesData);
+      if (Array.isArray(creditData)) setCredit(creditData);
 
-      // Sync settings from localStorage
-      const savedFees = localStorage.getItem('cardFeesSettings');
-      if (savedFees) setCardFeesSettings(JSON.parse(savedFees));
+      // Sync settings from localStorage safely
+      try {
+        const savedFees = localStorage.getItem('cardFeesSettings');
+        if (savedFees && savedFees !== 'undefined' && savedFees !== 'null') {
+          setCardFeesSettings(JSON.parse(savedFees));
+        }
+      } catch (errFees) {
+        console.warn('Erro ao ler cardFeesSettings:', errFees);
+      }
 
       // Stats Robustos
       if (Array.isArray(salesData)) {
@@ -1261,16 +1301,21 @@ export default function App() {
       // LIBERA A UI AQUI
       setLoading(false);
       console.timeEnd('⏱️ Carregamento Total');
-
-      // --- Background: Resolução de Fotos (Não bloqueia o usuário) ---
-      // Movido para useEffect separado para maior eficiência
     } catch (error) {
       console.error('Erro no Servidor:', error);
     } finally {
+      clearTimeout(safetyTimer);
       setLoading(false);
       isFetchingRef.current = false;
     }
   };
+
+  // Garante carregamento automático dos dados assim que o usuário estiver autenticado
+  useEffect(() => {
+    if (user && user.id) {
+      fetchData(true);
+    }
+  }, [user?.id]);
 
 
   // Barcode quick search direct add (hybrid search/barcode scanner support)
@@ -1434,8 +1479,7 @@ export default function App() {
   };
   const [payingSaleId, setPayingSaleId] = useState<string | null>(null);
   const [companyData, setCompanyData] = useState(() => {
-    const saved = localStorage.getItem('companyData');
-    return saved ? JSON.parse(saved) : {
+    return safeJsonParse(typeof localStorage !== 'undefined' ? localStorage.getItem('companyData') : null, {
       razaoSocial: 'Kombat comercio de auto peças ltda',
       nomeFantasia: 'Kombat Moto Peças',
       cnpj: '12.802.931/0001-92',
@@ -1446,7 +1490,7 @@ export default function App() {
       cidade: 'Andirá',
       estado: 'Pr',
       cep: '86380-000'
-    };
+    });
   });
 
   useEffect(() => {
@@ -1455,12 +1499,11 @@ export default function App() {
 
   // --- Settings & Financial Props (Read-only for App, Managed by FinancialTab) ---
   const [cardFeesSettings, setCardFeesSettings] = useState<Record<number, number>>(() => {
-    const saved = localStorage.getItem('cardFeesSettings');
     const DEFAULT_CARD_FEES = {
       1: 3.05, 2: 4.3, 3: 5.25, 4: 6.20, 5: 7.15, 6: 8.01,
       7: 8.90, 8: 9.85, 9: 10.80, 10: 11.75, 11: 12.70, 12: 13.65
     };
-    return saved ? JSON.parse(saved) : DEFAULT_CARD_FEES;
+    return safeJsonParse(typeof localStorage !== 'undefined' ? localStorage.getItem('cardFeesSettings') : null, DEFAULT_CARD_FEES);
   });
 
   // Parts Order State
@@ -1696,9 +1739,11 @@ export default function App() {
     // Check user authentication status on mount
     const checkAuth = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
         const headers: Record<string, string> = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (token && token !== 'undefined' && token !== 'null') {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
 
         const res = await fetch('/api/auth/me', {
           headers,
@@ -1708,14 +1753,16 @@ export default function App() {
         if (res.ok) {
           const userData = await res.json();
           setUser(userData);
-          fetchData();
+          fetchData(true);
         } else {
           localStorage.removeItem('token');
           setUser(null);
+          setLoading(false);
         }
       } catch (e) {
         console.error("Error fetching user profile:", e);
         setUser(null);
+        setLoading(false);
       } finally {
         setAuthChecking(false);
       }
@@ -6714,7 +6761,14 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
   }
 
   if (!user) {
-    return <Auth onLogin={setUser} />;
+    return (
+      <Auth 
+        onLogin={(loggedUser) => {
+          setUser(loggedUser);
+          fetchData(true);
+        }} 
+      />
+    );
   }
 
   return (
@@ -6967,8 +7021,16 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
             className={activeTab === 'pdv' ? 'h-full w-full' : ''}
           >
             {loading ? (
-              <div className="flex items-center justify-center h-64">
+              <div className="flex flex-col items-center justify-center h-64 gap-3">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-600"></div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium animate-pulse">Carregando dados do sistema...</p>
+                <button
+                  type="button"
+                  onClick={() => setLoading(false)}
+                  className="text-[11px] text-rose-600 hover:text-rose-700 underline font-semibold transition-colors"
+                >
+                  Continuar mesmo assim
+                </button>
               </div>
             ) : (
               <>
