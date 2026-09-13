@@ -634,20 +634,36 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
 
-  const userRole = user?.role || 'Administrador';
+  const normalizeFrontendRole = (role?: string): string => {
+    if (!role) return 'ADMIN';
+    const r = String(role).trim().toUpperCase();
+    if (r === 'ADMIN' || r === 'ADMINISTRADOR') return 'ADMIN';
+    if (r === 'BALCAO' || r === 'ATENDENTE') return 'BALCAO';
+    if (r === 'MECANICO' || r === 'MECÂNICO') return 'MECANICO';
+    if (r === 'FINANCEIRO') return 'FINANCEIRO';
+    if (r === 'CONSULTA') return 'CONSULTA';
+    return r;
+  };
+
+  const userRole = normalizeFrontendRole(user?.role);
 
   const hasAccess = (allowedRoles: string[]) => {
-    return allowedRoles.includes(userRole);
+    // Se o usuário ainda não carregou ou for ADMIN, libera o acesso
+    if (!user || userRole === 'ADMIN') return true;
+
+    // Normaliza os papéis permitidos para comparar case-insensitively
+    const normalizedAllowed = allowedRoles.map(r => normalizeFrontendRole(r));
+    return normalizedAllowed.includes(userRole);
   };
 
   // Enforce role-based access control (RBAC) on activeTab
   React.useEffect(() => {
     if (!user) return;
-    if (userRole === 'Atendente' && !['customers', 'quotes', 'crm'].includes(activeTab)) {
+    if (userRole === 'BALCAO' && !['customers', 'quotes', 'crm'].includes(activeTab)) {
       setActiveTab('crm');
-    } else if (userRole === 'Mecânico' && !['dashboard', 'os'].includes(activeTab)) {
+    } else if (userRole === 'MECANICO' && !['dashboard', 'os'].includes(activeTab)) {
       setActiveTab('os');
-    } else if (userRole === 'Financeiro' && !['dashboard', 'financial'].includes(activeTab)) {
+    } else if (userRole === 'FINANCEIRO' && !['dashboard', 'financial'].includes(activeTab)) {
       setActiveTab('financial');
     }
   }, [userRole, activeTab, user]);

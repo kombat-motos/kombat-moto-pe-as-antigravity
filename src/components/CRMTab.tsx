@@ -397,7 +397,8 @@ export default function CRMTab({
       {/* Horizontal Submenu Bar */}
       <div className="flex overflow-x-auto gap-1 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-[10px] uppercase font-black tracking-wider scrollbar-none">
         {menuItems.map(item => {
-          if (item.roleRestrict && currentUser.role !== item.roleRestrict) return null;
+          const isUserAdmin = currentUser?.role?.toUpperCase() === 'ADMIN' || currentUser?.role?.toUpperCase() === 'ADMINISTRADOR';
+          if (item.roleRestrict && !isUserAdmin && currentUser.role !== item.roleRestrict) return null;
           const Icon = item.icon;
           const active = activeSubTab === item.id;
           return (
