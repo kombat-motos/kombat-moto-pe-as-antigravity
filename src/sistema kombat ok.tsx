@@ -4408,14 +4408,15 @@ export default function App() {
               gap: 2mm;
             }
             .label-large .title {
-              font-size: 9.5px;
+              font-size: 14px;
               font-weight: 900;
               text-transform: uppercase;
               text-align: left;
               line-height: 1.15;
-              max-height: 22px;
+              max-height: 34px;
               overflow: hidden;
               flex: 1;
+              letter-spacing: -0.2px;
             }
             .label-large .sku-badge {
               font-size: 11px;
@@ -4499,12 +4500,12 @@ export default function App() {
               border: 0.1mm solid transparent;
             }
             .label-standard .title {
-              font-size: 8px;
+              font-size: 10.5px;
               font-weight: 900;
               text-transform: uppercase;
               text-align: center;
-              line-height: 1.1;
-              max-height: 18px;
+              line-height: 1.15;
+              max-height: 24px;
               overflow: hidden;
             }
             .label-standard .sku {
@@ -11027,7 +11028,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '2mm' }}>
-                    <div style={{ fontSize: '9.5px', fontWeight: 900, textTransform: 'uppercase', textAlign: 'left', lineHeight: 1.15, maxHeight: '22px', overflow: 'hidden', flex: 1, color: '#000' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 900, textTransform: 'uppercase', textAlign: 'left', lineHeight: 1.15, maxHeight: '34px', overflow: 'hidden', flex: 1, color: '#000', letterSpacing: '-0.2px' }}>
                       {labelPreviewProduct.description}
                     </div>
                     <div style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '0.5px', whiteSpace: 'nowrap', border: '1px solid #000', padding: '1px 4px', borderRadius: '3px', color: '#000' }}>
@@ -11069,7 +11070,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     borderRadius: '4px'
                   }}
                 >
-                  <div style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.1, maxHeight: '18px', overflow: 'hidden', color: '#000' }}>
+                  <div style={{ fontSize: '10.5px', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.15, maxHeight: '24px', overflow: 'hidden', color: '#000' }}>
                     {labelPreviewProduct.description}
                   </div>
                   <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 900, letterSpacing: '0.5px', color: '#000' }}>
