@@ -39,6 +39,18 @@ const JWT_SECRET = process.env.JWT_SECRET || "kombat-moto-secret-key-2024";
 const dbPath = process.env.DB_PATH || "./kombat_moto_backup.db";
 const db = new Database(dbPath);
 
+// Otimizações de altíssima performance para SQLite
+try {
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
+  db.pragma('cache_size = -64000'); // 64 MB de cache em memória
+  db.pragma('temp_store = MEMORY');
+  db.pragma('mmap_size = 268435456'); // 256 MB memory-mapped I/O
+  console.log('[DB PERFORMANCE] Pragmas WAL, NORMAL e Cache aplicados com sucesso!');
+} catch (pragmaErr) {
+  console.warn('[DB PERFORMANCE] Erro ao aplicar pragmas:', pragmaErr);
+}
+
 // App Roles & Granular Permissions System
 export type AppRole = 'ADMIN' | 'BALCAO' | 'MECANICO' | 'FINANCEIRO' | 'CONSULTA';
 
@@ -659,8 +671,46 @@ createIndexSafely(db, "idx_sales_customer", "sales", ["customer_id"]);
 createIndexSafely(db, "idx_sale_items_sale", "sale_items", ["sale_id"]);
 createIndexSafely(db, "idx_credit_customer_status", "credit", ["customer_id", "status"]);
 createIndexSafely(db, "idx_products_user_desc", "products", ["user_id", "description"]);
+createIndexSafely(db, "idx_products_sku", "products", ["user_id", "sku"]);
+createIndexSafely(db, "idx_products_barcode", "products", ["user_id", "barcode"]);
+createIndexSafely(db, "idx_products_alt_code", "products", ["user_id", "alt_code"]);
 createIndexSafely(db, "idx_audit_logs_corr", "audit_logs", ["correlation_id"]);
 createIndexSafely(db, "idx_single_use_tokens", "single_use_tokens", ["id"]);
+
+// Migração rápida para desintoxicar produtos com Base64 gigante na tabela products
+try {
+  const heavyProducts = db.prepare("SELECT id, image_url, image_url2, image_url3, image_url4 FROM products WHERE (image_url LIKE 'data:%' AND LENGTH(image_url) > 500) OR (image_url2 LIKE 'data:%' AND LENGTH(image_url2) > 500) OR (image_url3 LIKE 'data:%' AND LENGTH(image_url3) > 500) OR (image_url4 LIKE 'data:%' AND LENGTH(image_url4) > 500)").all() as any[];
+  if (heavyProducts.length > 0) {
+    console.log(`[OPTIMIZATION] Encontrados ${heavyProducts.length} produtos com imagens pesadas. Migrando para short_links...`);
+    const insertShort = db.prepare("INSERT OR REPLACE INTO short_links (code, url) VALUES (?, ?)");
+    const updateProd = db.prepare("UPDATE products SET image_url = ?, image_url2 = ?, image_url3 = ?, image_url4 = ? WHERE id = ?");
+    
+    const migrateTransaction = db.transaction((prods: any[]) => {
+      for (const p of prods) {
+        const processField = (val: string | null) => {
+          if (val && val.startsWith('data:') && val.length > 500) {
+            const code = crypto.randomBytes(4).toString('hex');
+            insertShort.run(code, val);
+            return `/s/${code}`;
+          }
+          return val;
+        };
+
+        const u1 = processField(p.image_url);
+        const u2 = processField(p.image_url2);
+        const u3 = processField(p.image_url3);
+        const u4 = processField(p.image_url4);
+
+        updateProd.run(u1, u2, u3, u4, p.id);
+      }
+    });
+
+    migrateTransaction(heavyProducts);
+    console.log(`[OPTIMIZATION] Migração de imagens concluída com sucesso! Banco desintoxicado.`);
+  }
+} catch (migErr) {
+  console.error('[OPTIMIZATION ERROR] Erro na migração de imagens pesadas:', migErr);
+}
 
 try { db.exec("UPDATE leads SET name = customer_name WHERE name IS NULL"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN city TEXT"); } catch (e) {}
@@ -2049,11 +2099,29 @@ async function startServer() {
     }
   });
 
-    app.post("/api/products", authenticateToken, (req, res) => {
+  const sanitizeProductImage = (url: any) => {
+    if (typeof url === 'string' && url.startsWith('data:') && url.length > 500) {
       try {
-        const { description, sku, barcode, purchase_price, sale_price, sale_price_credit, sale_price_wholesale, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
-        const info = db.prepare("INSERT INTO products (user_id, description, sku, barcode, purchase_price, sale_price, sale_price_credit, sale_price_wholesale, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-          .run(req.user!.id, description, sku, barcode, purchase_price, sale_price, sale_price_credit || 0, sale_price_wholesale || 0, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code);
+        const code = crypto.randomBytes(4).toString('hex');
+        db.prepare("INSERT OR REPLACE INTO short_links (code, url) VALUES (?, ?)").run(code, url);
+        return `/s/${code}`;
+      } catch (err) {
+        console.error("Erro ao salvar link curto de imagem:", err);
+      }
+    }
+    return url || null;
+  };
+
+  app.post("/api/products", authenticateToken, (req, res) => {
+    try {
+      const { description, sku, barcode, purchase_price, sale_price, sale_price_credit, sale_price_wholesale, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
+      const finalImg1 = sanitizeProductImage(image_url);
+      const finalImg2 = sanitizeProductImage(image_url2);
+      const finalImg3 = sanitizeProductImage(image_url3);
+      const finalImg4 = sanitizeProductImage(image_url4);
+
+      const info = db.prepare("INSERT INTO products (user_id, description, sku, barcode, purchase_price, sale_price, sale_price_credit, sale_price_wholesale, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(req.user!.id, description, sku, barcode, purchase_price, sale_price, sale_price_credit || 0, sale_price_wholesale || 0, stock, unit, finalImg1, finalImg2, finalImg3, finalImg4, brand, application, category, location, distributor, alt_code);
       res.json({ id: parseInt(info.lastInsertRowid.toString()) });
     } catch (err: any) {
       console.error('ERRO AO SALVAR PRODUTO:', err);
@@ -2151,11 +2219,16 @@ async function startServer() {
     }
   });
 
-    app.put("/api/products/:id", authenticateToken, (req, res) => {
-      try {
-        const { description, sku, barcode, purchase_price, sale_price, sale_price_credit, sale_price_wholesale, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
-        db.prepare("UPDATE products SET description = ?, sku = ?, barcode = ?, purchase_price = ?, sale_price = ?, sale_price_credit = ?, sale_price_wholesale = ?, stock = ?, unit = ?, image_url = ?, image_url2 = ?, image_url3 = ?, image_url4 = ?, brand = ?, application = ?, category = ?, location = ?, distributor = ?, alt_code = ? WHERE id = ? AND user_id = ?")
-          .run(description, sku, barcode, purchase_price, sale_price, sale_price_credit || 0, sale_price_wholesale || 0, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code, req.params.id, req.user!.id);
+  app.put("/api/products/:id", authenticateToken, (req, res) => {
+    try {
+      const { description, sku, barcode, purchase_price, sale_price, sale_price_credit, sale_price_wholesale, stock, unit, image_url, image_url2, image_url3, image_url4, brand, application, category, location, distributor, alt_code } = req.body;
+      const finalImg1 = sanitizeProductImage(image_url);
+      const finalImg2 = sanitizeProductImage(image_url2);
+      const finalImg3 = sanitizeProductImage(image_url3);
+      const finalImg4 = sanitizeProductImage(image_url4);
+
+      db.prepare("UPDATE products SET description = ?, sku = ?, barcode = ?, purchase_price = ?, sale_price = ?, sale_price_credit = ?, sale_price_wholesale = ?, stock = ?, unit = ?, image_url = ?, image_url2 = ?, image_url3 = ?, image_url4 = ?, brand = ?, application = ?, category = ?, location = ?, distributor = ?, alt_code = ? WHERE id = ? AND user_id = ?")
+        .run(description, sku, barcode, purchase_price, sale_price, sale_price_credit || 0, sale_price_wholesale || 0, stock, unit, finalImg1, finalImg2, finalImg3, finalImg4, brand, application, category, location, distributor, alt_code, req.params.id, req.user!.id);
       res.json({ success: true });
     } catch (err: any) {
       console.error('ERRO AO EDITAR PRODUTO:', err);
@@ -4709,6 +4782,33 @@ ${promptText}`,
     db.prepare("INSERT INTO cash_transactions (id, user_id, session_id, type, amount, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .run(id, req.user!.id, session_id, type, amount, description, date);
     res.json({ success: true });
+  });
+
+  // Servir imagens / links curtos com altíssima performance e cache HTTP
+  app.get("/s/:code", (req, res) => {
+    try {
+      const code = req.params.code;
+      const data = db.prepare("SELECT url FROM short_links WHERE code = ?").get(code) as any;
+      if (!data || !data.url) {
+        return res.status(404).send("Imagem não encontrada");
+      }
+      
+      const url = data.url;
+      if (url.startsWith("data:")) {
+        const matches = url.match(/^data:([A-Za-z0-9\/\-+.]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          const contentType = matches[1];
+          const imgBuffer = Buffer.from(matches[2], 'base64');
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          return res.send(imgBuffer);
+        }
+      }
+      return res.redirect(url);
+    } catch (err: any) {
+      console.error("Erro ao servir /s/:code", err);
+      res.status(500).send("Erro interno");
+    }
   });
 
   // Short Links System

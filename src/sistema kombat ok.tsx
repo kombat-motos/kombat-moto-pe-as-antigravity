@@ -955,6 +955,8 @@ export default function App() {
   const [showQuoteCalculator, setShowQuoteCalculator] = useState(false);
   const [showOsCalculator, setShowOsCalculator] = useState(false);
   const [labelQuantity, setLabelQuantity] = useState(1);
+  const [labelSize, setLabelSize] = useState<'63.5x31' | '99.1x38.1'>('63.5x31');
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
 
   // Client 360 State
@@ -1701,29 +1703,93 @@ export default function App() {
     }
   };
 
+  // Utilitário de alta performance: Comprime imagens instantaneamente no navegador usando Canvas e WebP
+  const compressImage = (fileOrDataUrl: File | string, maxWidth = 800, maxHeight = 800, quality = 0.75): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxWidth || height > maxHeight) {
+          if (width / maxWidth > height / maxHeight) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, width);
+        canvas.height = Math.max(1, height);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(typeof fileOrDataUrl === 'string' ? fileOrDataUrl : '');
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        try {
+          let dataUrl = canvas.toDataURL('image/webp', quality);
+          if (!dataUrl.startsWith('data:image/webp')) {
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+          }
+          resolve(dataUrl);
+        } catch {
+          resolve(typeof fileOrDataUrl === 'string' ? fileOrDataUrl : '');
+        }
+      };
+      img.onerror = () => {
+        resolve(typeof fileOrDataUrl === 'string' ? fileOrDataUrl : '');
+      };
+
+      if (typeof fileOrDataUrl === 'string') {
+        img.src = fileOrDataUrl;
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          img.src = e.target?.result as string;
+        };
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(fileOrDataUrl);
+      }
+    });
+  };
+
+  // Sincronização silenciosa em background apenas para produtos (não trava a tela, sem loading)
+  const refreshProductsSilently = async () => {
+    try {
+      const data = await localApi.get('products');
+      if (Array.isArray(data)) {
+        setProducts(data);
+      }
+    } catch (err) {
+      console.warn('Erro ao atualizar lista de produtos em segundo plano:', err);
+    }
+  };
+
   const shortenUrl = async (url: string): Promise<string> => {
-    // Determine if it's "heavy" (Base64 is always heavy, URLs over 200 chars are heavy)
+    if (!url) return '';
+    if (url.startsWith('/s/')) return url;
+
+    // Determina se é imagem pesada (Base64 ou URL longa)
     const isHeavy = url.startsWith('data:') || url.length > 200;
-
-    // If not heavy and not already a short link, don't shorten for storage
-    if (!isHeavy && !url.includes('/s/')) return url;
-
-    // If it's already a short link, return as is
-    if (url.includes('/s/')) return url;
+    if (!isHeavy) return url;
 
     try {
-      // Create new short code
+      let payloadUrl = url;
+      // Se for base64 maior que 40KB, comprime antes de enviar para salvar em milissegundos
+      if (url.startsWith('data:') && url.length > 40000) {
+        payloadUrl = await compressImage(url, 800, 800, 0.75);
+      }
+
       const code = Math.random().toString(36).substring(2, 8);
-      
-      // Use a direct fetch to avoid localApi's automatic .json() move on potential HTML error
       const res = await fetch('/api/short_links', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, url })
+        body: JSON.stringify({ code, url: payloadUrl })
       });
       
-      if (!res.ok) return url; // If route is missing (404), just use original URL
-      
+      if (!res.ok) return payloadUrl;
       return `/s/${code}`;
     } catch (error) {
       console.error('Error shortening URL:', error);
@@ -4236,18 +4302,43 @@ export default function App() {
     }
   };
 
-  const handlePrintLabel = (product: Product, quantity: number = 1) => {
+  const handlePrintLabel = (product: Product, quantity: number = 1, size: '63.5x31' | '99.1x38.1' = '63.5x31') => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
     const barcodeValue = product.barcode || product.sku || product.id.toString();
     const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(barcodeValue)}&scale=2&height=5&includetext`;
 
+    const isLarge = size === '99.1x38.1';
+
     // Criar as etiquetas baseadas na quantidade
     let labelsHtml = '';
     for (let i = 0; i < quantity; i++) {
+      if (isLarge) {
         labelsHtml += `
-          <div class="label">
+          <div class="label label-large">
+            <div class="header">
+              <div class="title">${product.description}</div>
+              <div class="sku-badge">${product.sku || product.barcode || 'S/ SKU'}</div>
+            </div>
+            <div class="middle">
+              ${product.brand ? `<div class="brand">MARCA: <strong>${product.brand}</strong></div>` : ''}
+              ${product.application ? `<div class="app">APLICAÇÃO: ${product.application}</div>` : ''}
+            </div>
+            <div class="footer">
+              <div class="location-box">
+                <span class="loc-lbl">LOCALIZAÇÃO</span>
+                <span class="loc-val">${product.location || 'ESTOQUE PADRÃO'}</span>
+              </div>
+              <div class="barcode-box">
+                <img src="${barcodeUrl}" alt="Barcode" />
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        labelsHtml += `
+          <div class="label label-standard">
             <div class="title">${product.description}</div>
             <div class="sku">${product.sku || product.barcode || 'S/ SKU'}</div>
             <div class="footer">
@@ -4258,13 +4349,14 @@ export default function App() {
             </div>
           </div>
         `;
+      }
     }
 
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Imprimir Etiquetas - ${product.description}</title>
+          <title>Imprimir Etiquetas (${isLarge ? '99,1x38,1mm' : '63,5x31mm'}) - ${product.description}</title>
           <style>
             @media print {
               @page {
@@ -4275,6 +4367,7 @@ export default function App() {
                 margin: 0;
                 padding: 0;
                 -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
               }
             }
             body {
@@ -4283,7 +4376,108 @@ export default function App() {
               background: #fff;
               font-family: Arial, Helvetica, sans-serif;
               color: #000;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
+            ${isLarge ? `
+            /* Formato 99,1mm x 38,1mm (Pimaco 6182 / 6282 / 6082 - 14 etiquetas por folha A4: 2 colunas x 7 linhas) */
+            .a4-sheet {
+              width: 210mm;
+              display: grid;
+              grid-template-columns: repeat(2, 99.1mm);
+              grid-auto-rows: 38.1mm;
+              padding-top: 15.1mm;
+              padding-left: 5.9mm;
+              box-sizing: border-box;
+            }
+            .label-large {
+              width: 99.1mm;
+              height: 38.1mm;
+              padding: 3.5mm 4mm;
+              box-sizing: border-box;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              overflow: hidden;
+              border: 0.1mm solid transparent;
+            }
+            .label-large .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              gap: 2mm;
+            }
+            .label-large .title {
+              font-size: 9.5px;
+              font-weight: 900;
+              text-transform: uppercase;
+              text-align: left;
+              line-height: 1.15;
+              max-height: 22px;
+              overflow: hidden;
+              flex: 1;
+            }
+            .label-large .sku-badge {
+              font-size: 11px;
+              font-weight: 900;
+              letter-spacing: 0.5px;
+              white-space: nowrap;
+              border: 1px solid #000;
+              padding: 1px 4px;
+              border-radius: 3px;
+            }
+            .label-large .middle {
+              display: flex;
+              justify-content: space-between;
+              font-size: 7.5px;
+              color: #333;
+              line-height: 1.1;
+              margin-top: 1mm;
+              overflow: hidden;
+              max-height: 9px;
+            }
+            .label-large .middle .app {
+              text-overflow: ellipsis;
+              overflow: hidden;
+              white-space: nowrap;
+              max-width: 60%;
+            }
+            .label-large .footer {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              gap: 3mm;
+              margin-top: auto;
+            }
+            .label-large .location-box {
+              display: flex;
+              flex-direction: column;
+              max-width: 40%;
+            }
+            .label-large .loc-lbl {
+              font-size: 6px;
+              font-weight: 800;
+              color: #555;
+            }
+            .label-large .loc-val {
+              font-size: 8px;
+              font-weight: 900;
+              text-transform: uppercase;
+              line-height: 1.1;
+            }
+            .label-large .barcode-box {
+              max-width: 58%;
+              text-align: right;
+            }
+            .label-large .barcode-box img {
+              max-width: 100%;
+              height: auto;
+              max-height: 12mm;
+              display: block;
+              margin-left: auto;
+            }
+            ` : `
+            /* Formato Padrão 63,5mm x 31mm (21 etiquetas por folha A4: 3 colunas x 7 linhas) */
             .a4-sheet {
               width: 210mm;
               display: grid;
@@ -4293,7 +4487,7 @@ export default function App() {
               padding-left: 10mm;
               box-sizing: border-box;
             }
-            .label {
+            .label-standard {
               width: 63.5mm;
               height: 31mm;
               padding: 3mm;
@@ -4302,9 +4496,9 @@ export default function App() {
               flex-direction: column;
               justify-content: space-between;
               overflow: hidden;
-              border: 0.1mm solid transparent; /* Invisível mas ajuda no grid */
+              border: 0.1mm solid transparent;
             }
-            .title {
+            .label-standard .title {
               font-size: 8px;
               font-weight: 900;
               text-transform: uppercase;
@@ -4313,36 +4507,37 @@ export default function App() {
               max-height: 18px;
               overflow: hidden;
             }
-            .sku {
+            .label-standard .sku {
               text-align: center;
               font-size: 11px;
               font-weight: 900;
               letter-spacing: 0.5px;
             }
-            .footer {
+            .label-standard .footer {
               display: flex;
               justify-content: space-between;
               align-items: flex-end;
               gap: 2mm;
             }
-            .location {
+            .label-standard .location {
               font-size: 6px;
               font-weight: bold;
               text-transform: uppercase;
               max-width: 45%;
               line-height: 1.2;
             }
-            .barcode {
+            .label-standard .barcode {
               max-width: 50%;
               text-align: right;
             }
-            .barcode img {
+            .label-standard .barcode img {
               max-width: 100%;
               height: auto;
               max-height: 8mm;
               display: block;
               margin-left: auto;
             }
+            `}
           </style>
         </head>
         <body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
@@ -4554,22 +4749,24 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       return;
     }
 
+    setIsSavingProduct(true);
     try {
       let finalSku = (productForm.sku || '').trim();
       
       if (!finalSku) {
-        // Generate a unique SKU
+        // Gerar SKU único de forma segura sem estouro de pilha
         const numericSkus = products
           .map(p => parseInt(p.sku))
           .filter(val => !isNaN(val));
-        const maxSku = numericSkus.length > 0 ? Math.max(...numericSkus) : 1000;
+        const maxSku = numericSkus.length > 0 ? numericSkus.reduce((max, val) => val > max ? val : max, 1000) : 1000;
         let candidateSku = String(maxSku + 1);
-        while (products.some(p => p.sku === candidateSku)) {
+        const existingSkus = new Set(products.map(p => p.sku));
+        while (existingSkus.has(candidateSku)) {
           candidateSku = String(parseInt(candidateSku) + 1);
         }
         finalSku = candidateSku;
       } else {
-        // If user typed it, check if it duplicates an existing product
+        // Se digitado manualmente, verificar duplicidade
         const isDuplicate = products.some(p => p.sku === finalSku && (!editingProduct || p.id !== editingProduct.id));
         if (isDuplicate) {
           const proceed = window.confirm(`O SKU / Código Interno "${finalSku}" já está cadastrado em outro produto. Deseja que o sistema gere automaticamente o próximo sequencial disponível?`);
@@ -4580,20 +4777,37 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           const numericSkus = products
             .map(p => parseInt(p.sku))
             .filter(val => !isNaN(val));
-          const maxSku = numericSkus.length > 0 ? Math.max(...numericSkus) : 1000;
+          const maxSku = numericSkus.length > 0 ? numericSkus.reduce((max, val) => val > max ? val : max, 1000) : 1000;
           let candidateSku = String(maxSku + 1);
-          while (products.some(p => p.sku === candidateSku)) {
+          const existingSkus = new Set(products.map(p => p.sku));
+          while (existingSkus.has(candidateSku)) {
             candidateSku = String(parseInt(candidateSku) + 1);
           }
           finalSku = candidateSku;
         }
       }
 
-      let finalImageUrl = productForm.image_url;
-      if (finalImageUrl && (finalImageUrl.startsWith('http') || finalImageUrl.startsWith('/images/'))) {
-        const urlToShorten = finalImageUrl.startsWith('/') ? window.location.origin + finalImageUrl : finalImageUrl;
-        finalImageUrl = await shortenUrl(urlToShorten);
-      }
+      // Processar os 4 slots de fotos: comprimir e encurtar para tráfego em milissegundos
+      const processImageSlot = async (url: string) => {
+        if (!url) return '';
+        if (url.startsWith('/s/')) return url;
+        if (url.startsWith('data:')) {
+          const compressed = await compressImage(url, 800, 800, 0.75);
+          return await shortenUrl(compressed);
+        }
+        if (url.startsWith('http') || url.startsWith('/images/')) {
+          const urlToShorten = url.startsWith('/') ? window.location.origin + url : url;
+          return await shortenUrl(urlToShorten);
+        }
+        return url;
+      };
+
+      const [finalImg1, finalImg2, finalImg3, finalImg4] = await Promise.all([
+        processImageSlot(productForm.image_url),
+        processImageSlot(productForm.image_url2),
+        processImageSlot(productForm.image_url3),
+        processImageSlot(productForm.image_url4)
+      ]);
 
       const productData = {
         description: productForm.description,
@@ -4605,10 +4819,10 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         sale_price_wholesale: parseFloat((productForm.sale_price_wholesale || '').toString().replace(',', '.')) || 0,
         stock: parseInt(productForm.stock.toString()) || 0,
         unit: productForm.unit,
-        image_url: finalImageUrl,
-        image_url2: productForm.image_url2,
-        image_url3: productForm.image_url3,
-        image_url4: productForm.image_url4,
+        image_url: finalImg1,
+        image_url2: finalImg2,
+        image_url3: finalImg3,
+        image_url4: finalImg4,
         category: categorizeProduct(productForm.description),
         brand: productForm.brand,
         location: productForm.location,
@@ -4619,8 +4833,12 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
       if (editingProduct) {
         await localApi.put('products', editingProduct.id, productData);
+        // Atualização otimista imediata na lista de produtos
+        setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...productData, id: editingProduct.id } : p));
       } else {
-        await localApi.post('products', productData);
+        const res = await localApi.post('products', productData);
+        const newProd = { ...productData, id: res?.id || Date.now(), user_id: user.id } as Product;
+        setProducts(prev => [newProd, ...prev]);
       }
 
       setIsProductModalOpen(false);
@@ -4645,10 +4863,14 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         distributor: '',
         alt_code: ''
       });
-      fetchData();
+
+      // Sincroniza em segundo plano silenciosamente sem congelar o sistema
+      refreshProductsSilently();
     } catch (error: any) {
       console.error('Error adding/updating product:', error);
       alert('Erro ao salvar produto: ' + (error.message || 'Erro de conexão ou permissão.'));
+    } finally {
+      setIsSavingProduct(false);
     }
   };
 
@@ -4775,19 +4997,22 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
   const handleProductFormImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldKey: string = 'image_url') => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const originalUrl = reader.result as string;
-        try {
-          const finalUrl = await shortenUrl(originalUrl);
-          setProductForm(prev => ({ ...prev, [fieldKey]: finalUrl }));
-        } catch (err) {
-          console.error("Erro ao subir imagem", err);
-          setProductForm(prev => ({ ...prev, [fieldKey]: originalUrl }));
-        }
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    try {
+      // 1. Comprime instantaneamente para WebP leve (< 30ms, tamanho ~30KB)
+      const compressedDataUrl = await compressImage(file, 800, 800, 0.75);
+      
+      // 2. Exibe preview imediato na UI sem delay
+      setProductForm(prev => ({ ...prev, [fieldKey]: compressedDataUrl }));
+
+      // 3. Envia silenciosamente para short_links em background
+      const finalUrl = await shortenUrl(compressedDataUrl);
+      if (finalUrl && finalUrl.startsWith('/s/')) {
+        setProductForm(prev => ({ ...prev, [fieldKey]: finalUrl }));
+      }
+    } catch (err) {
+      console.error("Erro ao subir imagem", err);
     }
   };
 
@@ -8216,8 +8441,20 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   ))}
                 </div>
               </div>
-              <button type="submit" tabIndex={13} className="w-full py-2 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-md shadow-rose-100/50 dark:shadow-none mt-2">
-                {editingProduct ? "Salvar Alterações" : "Cadastrar Produto"}
+              <button 
+                type="submit" 
+                tabIndex={13} 
+                disabled={isSavingProduct}
+                className="w-full py-2 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-md shadow-rose-100/50 dark:shadow-none mt-2 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isSavingProduct ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Gravando...</span>
+                  </>
+                ) : (
+                  editingProduct ? "Salvar Alterações" : "Cadastrar Produto"
+                )}
               </button>
             </div>
           </form>
@@ -10728,83 +10965,196 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       <Modal
         isOpen={!!labelPreviewProduct}
         onClose={() => setLabelPreviewProduct(null)}
-        title="Prévia de Impressão da Etiqueta"
-        maxWidth="max-w-md"
+        title="Prévia e Impressão de Etiquetas"
+        maxWidth="max-w-lg"
       >
         {labelPreviewProduct && (
-          <div className="space-y-6">
-            <div className="bg-slate-100 p-8 rounded-2xl flex items-center justify-center dark:bg-slate-800">
-              <div className="bg-white dark:bg-slate-800" style={{ width: '63.5mm', height: '31mm', padding: '3mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '1px dashed #cbd5e1' }}>
-                <div style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.1, maxHeight: '18px', overflow: 'hidden', color: '#000' }}>
-                  {labelPreviewProduct.description}
-                </div>
-                <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 900, letterSpacing: '0.5px', color: '#000' }}>
-                  {labelPreviewProduct.sku || labelPreviewProduct.barcode || 'S/ SKU'}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '2mm' }}>
-                  <div style={{ fontSize: '6px', fontWeight: 'bold', textTransform: 'uppercase', maxWidth: '45%', lineHeight: 1.2, color: '#000' }}>
-                    LOC:<br />{labelPreviewProduct.location || 'ESTOQUE PADRÃO'}
-                  </div>
-                  <div style={{ maxWidth: '50%', textAlign: 'right' }}>
-                    <img 
-                      src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(labelPreviewProduct.barcode || labelPreviewProduct.sku || labelPreviewProduct.id.toString())}&scale=2&height=5&includetext`} 
-                      alt="Barcode" 
-                      style={{ maxWidth: '100%', height: 'auto', maxHeight: '8mm', display: 'block', marginLeft: 'auto' }} 
-                    />
-                  </div>
-                </div>
+          <div className="space-y-5">
+            {/* Seletor de Medida da Etiqueta */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-black text-slate-600 uppercase tracking-wider dark:text-slate-300">
+                Modelo / Medida da Etiqueta
+              </label>
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLabelSize('63.5x31');
+                    if (labelQuantity > 21) setLabelQuantity(21);
+                  }}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                    labelSize === '63.5x31'
+                      ? 'bg-white dark:bg-slate-900 text-rose-600 shadow-sm border border-slate-200 dark:border-slate-700'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span className="font-extrabold text-xs sm:text-sm">63,5 x 31 mm</span>
+                  <span className="text-[10px] opacity-80">Padrão (21 por folha A4)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLabelSize('99.1x38.1');
+                    if (labelQuantity > 14) setLabelQuantity(14);
+                  }}
+                  className={`py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                    labelSize === '99.1x38.1'
+                      ? 'bg-white dark:bg-slate-900 text-rose-600 shadow-sm border border-slate-200 dark:border-slate-700'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span className="font-extrabold text-xs sm:text-sm">99,1 x 38,1 mm</span>
+                  <span className="text-[10px] opacity-80">Pimaco 6182 (14 por folha A4)</span>
+                </button>
               </div>
             </div>
+
+            {/* Prévia Visual da Etiqueta Selecionada */}
+            <div className="bg-slate-100 p-6 rounded-2xl flex items-center justify-center dark:bg-slate-800 overflow-x-auto">
+              {labelSize === '99.1x38.1' ? (
+                <div 
+                  className="bg-white text-black shadow-md"
+                  style={{ 
+                    width: '99.1mm', 
+                    height: '38.1mm', 
+                    padding: '3.5mm 4mm', 
+                    boxSizing: 'border-box', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    justifyContent: 'space-between', 
+                    border: '1px dashed #94a3b8',
+                    borderRadius: '4px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '2mm' }}>
+                    <div style={{ fontSize: '9.5px', fontWeight: 900, textTransform: 'uppercase', textAlign: 'left', lineHeight: 1.15, maxHeight: '22px', overflow: 'hidden', flex: 1, color: '#000' }}>
+                      {labelPreviewProduct.description}
+                    </div>
+                    <div style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '0.5px', whiteSpace: 'nowrap', border: '1px solid #000', padding: '1px 4px', borderRadius: '3px', color: '#000' }}>
+                      {labelPreviewProduct.sku || labelPreviewProduct.barcode || 'S/ SKU'}
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7.5px', color: '#333', lineHeight: 1.1, marginTop: '1mm', overflow: 'hidden', maxHeight: '10px' }}>
+                    {labelPreviewProduct.brand && <span>MARCA: <strong>{labelPreviewProduct.brand}</strong></span>}
+                    {labelPreviewProduct.application && <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '60%' }}>APL: {labelPreviewProduct.application}</span>}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '3mm', marginTop: 'auto' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '40%' }}>
+                      <span style={{ fontSize: '6px', fontWeight: 800, color: '#555' }}>LOCALIZAÇÃO</span>
+                      <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', lineHeight: 1.1, color: '#000' }}>{labelPreviewProduct.location || 'ESTOQUE PADRÃO'}</span>
+                    </div>
+                    <div style={{ maxWidth: '58%', textAlign: 'right' }}>
+                      <img 
+                        src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(labelPreviewProduct.barcode || labelPreviewProduct.sku || labelPreviewProduct.id.toString())}&scale=2&height=6&includetext`} 
+                        alt="Barcode" 
+                        style={{ maxWidth: '100%', height: 'auto', maxHeight: '12mm', display: 'block', marginLeft: 'auto' }} 
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  className="bg-white text-black shadow-md"
+                  style={{ 
+                    width: '63.5mm', 
+                    height: '31mm', 
+                    padding: '3mm', 
+                    boxSizing: 'border-box', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    justifyContent: 'space-between', 
+                    border: '1px dashed #cbd5e1',
+                    borderRadius: '4px'
+                  }}
+                >
+                  <div style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.1, maxHeight: '18px', overflow: 'hidden', color: '#000' }}>
+                    {labelPreviewProduct.description}
+                  </div>
+                  <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 900, letterSpacing: '0.5px', color: '#000' }}>
+                    {labelPreviewProduct.sku || labelPreviewProduct.barcode || 'S/ SKU'}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '2mm' }}>
+                    <div style={{ fontSize: '6px', fontWeight: 'bold', textTransform: 'uppercase', maxWidth: '45%', lineHeight: 1.2, color: '#000' }}>
+                      LOC:<br />{labelPreviewProduct.location || 'ESTOQUE PADRÃO'}
+                    </div>
+                    <div style={{ maxWidth: '50%', textAlign: 'right' }}>
+                      <img 
+                        src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(labelPreviewProduct.barcode || labelPreviewProduct.sku || labelPreviewProduct.id.toString())}&scale=2&height=5&includetext`} 
+                        alt="Barcode" 
+                        style={{ maxWidth: '100%', height: 'auto', maxHeight: '8mm', display: 'block', marginLeft: 'auto' }} 
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             
-            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-sm text-indigo-800">
-              <p className="font-bold mb-1">Avisos de Impressão:</p>
+            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-sm text-indigo-800 dark:bg-indigo-950/40 dark:border-indigo-900 dark:text-indigo-200">
+              <p className="font-bold mb-1 flex items-center gap-1.5">
+                <Printer size={15} />
+                Avisos de Impressão:
+              </p>
               <ul className="list-disc pl-5 space-y-1 text-xs">
-                <li>O layout acima é uma prévia do conteúdo da etiqueta de <strong>63,5mm x 31mm</strong>.</li>
+                <li>Modelo ativo: <strong>{labelSize === '99.1x38.1' ? '99,1mm x 38,1mm (14 etiquetas por folha A4 - 2x7)' : '63,5mm x 31mm (21 etiquetas por folha A4 - 3x7)'}</strong>.</li>
                 <li>Ao clicar em imprimir, uma nova guia será aberta pronta para enviar à impressora.</li>
                 <li>Lembre-se de configurar a impressão para <strong>Tamanho A4</strong> e <strong>Margens zeradas / Sem margem</strong>.</li>
               </ul>
             </div>
 
-            <div className="p-4 bg-slate-50 border border-slate-400 rounded-xl dark:bg-slate-900 dark:border-slate-700">
-              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Quantidade de Etiquetas</label>
+            <div className="p-4 bg-slate-50 border border-slate-300 rounded-xl dark:bg-slate-900 dark:border-slate-700">
+              <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 dark:text-slate-400">Quantidade de Etiquetas</label>
               <div className="flex items-center gap-3">
                 <button 
+                  type="button"
                   onClick={() => setLabelQuantity(Math.max(1, labelQuantity - 1))}
-                  className="w-10 h-10 bg-white border border-slate-400 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                  className="w-10 h-10 bg-white border border-slate-300 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 cursor-pointer"
                 >
                   -
                 </button>
                 <input 
                   type="number" 
                   min="1"
-                  max="21"
+                  max={labelSize === '99.1x38.1' ? 14 : 21}
                   value={labelQuantity}
-                  onChange={(e) => setLabelQuantity(Math.min(21, Math.max(1, parseInt(e.target.value) || 1)))}
-                  className="flex-1 h-10 bg-white border border-slate-400 rounded-lg text-center font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
+                  onChange={(e) => {
+                    const maxAllowed = labelSize === '99.1x38.1' ? 14 : 21;
+                    setLabelQuantity(Math.min(maxAllowed, Math.max(1, parseInt(e.target.value) || 1)));
+                  }}
+                  className="flex-1 h-10 bg-white border border-slate-300 rounded-lg text-center font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
                 />
                 <button 
-                  onClick={() => setLabelQuantity(Math.min(21, labelQuantity + 1))}
-                  className="w-10 h-10 bg-white border border-slate-400 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                  type="button"
+                  onClick={() => {
+                    const maxAllowed = labelSize === '99.1x38.1' ? 14 : 21;
+                    setLabelQuantity(Math.min(maxAllowed, labelQuantity + 1));
+                  }}
+                  className="w-10 h-10 bg-white border border-slate-300 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 cursor-pointer"
                 >
                   +
                 </button>
               </div>
-              <p className="text-[10px] text-slate-400 mt-2 italic">* Máximo 21 etiquetas por folha (3 colunas x 7 linhas).</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 italic">
+                * Máximo de {labelSize === '99.1x38.1' ? '14 etiquetas por folha (2 colunas x 7 linhas)' : '21 etiquetas por folha (3 colunas x 7 linhas)'}.
+              </p>
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-3 pt-2">
               <button
+                type="button"
                 onClick={() => {
-                  handlePrintLabel(labelPreviewProduct, labelQuantity);
+                  handlePrintLabel(labelPreviewProduct, labelQuantity, labelSize);
                 }}
-                className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
               >
                 <Printer size={18} />
-                Confirmar Impressão
+                Confirmar Impressão ({labelQuantity} {labelQuantity === 1 ? 'Etiqueta' : 'Etiquetas'})
               </button>
               <button
+                type="button"
                 onClick={() => setLabelPreviewProduct(null)}
-                className="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-all dark:bg-slate-700 dark:text-slate-100"
+                className="py-3 px-6 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-all dark:bg-slate-700 dark:text-slate-100 cursor-pointer"
               >
                 Cancelar
               </button>
