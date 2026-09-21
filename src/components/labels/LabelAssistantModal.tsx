@@ -17,7 +17,9 @@ import {
   ArrowRight,
   RefreshCw,
   Save,
-  Check
+  Check,
+  DollarSign,
+  CreditCard
 } from 'lucide-react';
 import {
   LabelModel,
@@ -39,6 +41,8 @@ interface ProductLike {
   application?: string;
   location?: string;
   sale_price?: number;
+  sale_price_credit?: number;
+  sale_price_wholesale?: number;
 }
 
 interface LabelAssistantModalProps {
@@ -98,6 +102,57 @@ export default function LabelAssistantModal({
 
   // Mensagens de status/toast
   const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Configuração de exibição de preços na etiqueta (À Vista / A Prazo)
+  const [showCashPrice, setShowCashPrice] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kombat_label_show_cash_price');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const [showCreditPrice, setShowCreditPrice] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kombat_label_show_credit_price');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const [customCashPrice, setCustomCashPrice] = useState<string>('');
+  const [customCreditPrice, setCustomCreditPrice] = useState<string>('');
+
+  // Sincronizar preços do produto selecionado
+  useEffect(() => {
+    if (selectedProduct) {
+      if (selectedProduct.sale_price !== undefined && selectedProduct.sale_price !== null && Number(selectedProduct.sale_price) > 0) {
+        setCustomCashPrice(Number(selectedProduct.sale_price).toFixed(2));
+      } else {
+        setCustomCashPrice('');
+      }
+
+      if (selectedProduct.sale_price_credit !== undefined && selectedProduct.sale_price_credit !== null && Number(selectedProduct.sale_price_credit) > 0) {
+        setCustomCreditPrice(Number(selectedProduct.sale_price_credit).toFixed(2));
+      } else if (selectedProduct.sale_price && Number(selectedProduct.sale_price) > 0) {
+        // Cálculo sugerido para venda a prazo (+10%)
+        const suggested = Number(selectedProduct.sale_price) * 1.1;
+        setCustomCreditPrice(suggested.toFixed(2));
+      } else {
+        setCustomCreditPrice('');
+      }
+    }
+  }, [selectedProduct]);
+
+  // Função para formatar preço em Real BRL
+  const formatPriceDisplay = (val: string | number | undefined | null) => {
+    if (val === undefined || val === null || val === '') return '0,00';
+    const num = typeof val === 'string' ? parseFloat(val.replace(',', '.')) : Number(val);
+    if (isNaN(num)) return '0,00';
+    return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
 
   // Inicialização e carregamento persistente
   useEffect(() => {
@@ -580,6 +635,8 @@ export default function LabelAssistantModal({
 
     const barcodeValue = prod.barcode || prod.sku || 'KOMBAT';
     const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(barcodeValue)}&scale=2&height=6&includetext`;
+    const displayCash = formatPriceDisplay(customCashPrice);
+    const displayCredit = formatPriceDisplay(customCreditPrice);
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -617,6 +674,22 @@ export default function LabelAssistantModal({
                   ${prod.brand ? `<span class="large-brand">MARCA: <strong>${prod.brand}</strong></span>` : ''}
                   ${prod.application ? `<span class="large-app">APL: ${prod.application}</span>` : ''}
                 </div>
+                ${(showCashPrice || showCreditPrice) ? `
+                  <div class="large-prices">
+                    ${showCashPrice ? `
+                      <div class="large-price-item">
+                        <span class="large-price-lbl">À VISTA:</span>
+                        <span class="large-price-val">R$ ${displayCash}</span>
+                      </div>
+                    ` : ''}
+                    ${showCreditPrice ? `
+                      <div class="large-price-item">
+                        <span class="large-price-lbl">A PRAZO:</span>
+                        <span class="large-price-val credit">R$ ${displayCredit}</span>
+                      </div>
+                    ` : ''}
+                  </div>
+                ` : ''}
                 <div class="large-footer">
                   <div class="large-loc">
                     <span class="loc-lbl">LOCALIZAÇÃO</span>
@@ -640,6 +713,22 @@ export default function LabelAssistantModal({
               ">
                 <div class="std-title">${prod.description}</div>
                 <div class="std-sku">${prod.sku || prod.barcode || 'S/ SKU'}</div>
+                ${(showCashPrice || showCreditPrice) ? `
+                  <div class="std-prices">
+                    ${showCashPrice ? `
+                      <div class="std-price-item">
+                        <span class="std-price-lbl">À VISTA</span>
+                        <span class="std-price-val">R$ ${displayCash}</span>
+                      </div>
+                    ` : ''}
+                    ${showCreditPrice ? `
+                      <div class="std-price-item">
+                        <span class="std-price-lbl">A PRAZO</span>
+                        <span class="std-price-val credit">R$ ${displayCredit}</span>
+                      </div>
+                    ` : ''}
+                  </div>
+                ` : ''}
                 <div class="std-footer">
                   <div class="std-loc">LOC:<br/>${prod.location || 'ESTOQUE'}</div>
                   <div class="std-barcode">
@@ -752,6 +841,33 @@ export default function LabelAssistantModal({
               white-space: nowrap;
               max-width: 60%;
             }
+            .large-prices {
+              display: flex;
+              align-items: baseline;
+              gap: 4mm;
+              margin: 0.8mm 0;
+              padding: 0.4mm 0;
+              border-top: 0.15mm solid #000;
+              border-bottom: 0.15mm solid #000;
+            }
+            .large-price-item {
+              display: flex;
+              align-items: baseline;
+              gap: 1mm;
+            }
+            .large-price-lbl {
+              font-size: 7px;
+              font-weight: 800;
+              color: #222;
+            }
+            .large-price-val {
+              font-size: 11px;
+              font-weight: 900;
+              color: #000;
+            }
+            .large-price-val.credit {
+              font-size: 10px;
+            }
             .large-footer {
               display: flex;
               justify-content: space-between;
@@ -809,6 +925,35 @@ export default function LabelAssistantModal({
               font-size: 11px;
               font-weight: 900;
               letter-spacing: 0.5px;
+            }
+            .std-prices {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              gap: 2.5mm;
+              margin: 0.4mm 0;
+              padding: 0.3mm 0;
+              border-top: 0.15mm solid #000;
+              border-bottom: 0.15mm solid #000;
+            }
+            .std-price-item {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              line-height: 1;
+            }
+            .std-price-lbl {
+              font-size: 5.5px;
+              font-weight: 800;
+              color: #333;
+            }
+            .std-price-val {
+              font-size: 9.5px;
+              font-weight: 900;
+              color: #000;
+            }
+            .std-price-val.credit {
+              font-size: 8.5px;
             }
             .std-footer {
               display: flex;
@@ -1276,6 +1421,28 @@ export default function LabelAssistantModal({
                         <span className="truncate max-w-[55%]">APL: {selectedProduct.application || 'Geral'}</span>
                       </div>
 
+                      {/* Exibição de Preço na Prévia (se ativo) */}
+                      {(showCashPrice || showCreditPrice) && (
+                        <div className="flex items-center gap-3 my-0.5 py-0.5 border-y border-black/20">
+                          {showCashPrice && (
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-[6.5px] font-bold text-slate-600">À VISTA:</span>
+                              <span className="text-[11px] font-black text-black">
+                                R$ {formatPriceDisplay(customCashPrice)}
+                              </span>
+                            </div>
+                          )}
+                          {showCreditPrice && (
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-[6.5px] font-bold text-slate-600">A PRAZO:</span>
+                              <span className="text-[10px] font-black text-slate-800">
+                                R$ {formatPriceDisplay(customCreditPrice)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex justify-between items-end gap-2 pt-1">
                         <div className="flex flex-col">
                           <span className="text-[5.5px] font-extrabold text-slate-500">LOCALIZAÇÃO</span>
@@ -1307,6 +1474,29 @@ export default function LabelAssistantModal({
                       <div className="text-center text-[10.5px] font-black text-black">
                         {selectedProduct.sku || selectedProduct.barcode || 'S/ SKU'}
                       </div>
+
+                      {/* Exibição de Preço na Prévia (se ativo) */}
+                      {(showCashPrice || showCreditPrice) && (
+                        <div className="flex items-center justify-center gap-2.5 my-0.5 py-0.5 border-y border-black/15">
+                          {showCashPrice && (
+                            <div className="text-center leading-none">
+                              <span className="text-[5.5px] font-extrabold text-slate-500 block">À VISTA</span>
+                              <span className="text-[9.5px] font-black text-black">
+                                R$ {formatPriceDisplay(customCashPrice)}
+                              </span>
+                            </div>
+                          )}
+                          {showCreditPrice && (
+                            <div className="text-center leading-none">
+                              <span className="text-[5.5px] font-extrabold text-slate-500 block">A PRAZO</span>
+                              <span className="text-[9px] font-black text-slate-800">
+                                R$ {formatPriceDisplay(customCreditPrice)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex justify-between items-end gap-1 pt-1">
                         <div className="text-[5.5px] font-bold text-black leading-tight">
                           LOC:<br />{selectedProduct.location || 'ESTOQUE'}
@@ -1345,6 +1535,209 @@ export default function LabelAssistantModal({
                     <span>Ver Mapa</span>
                     <ArrowRight size={14} />
                   </button>
+                </div>
+
+                {/* Painel de Controle de Preço na Etiqueta (À Vista e A Prazo) */}
+                <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                        <DollarSign size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black uppercase text-slate-900 dark:text-white tracking-wide">
+                          Preço na Etiqueta
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Escolha se e quais preços saem impressos na etiqueta
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                      !showCashPrice && !showCreditPrice
+                        ? 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                    }`}>
+                      {!showCashPrice && !showCreditPrice
+                        ? 'Sem Preço'
+                        : (showCashPrice && showCreditPrice
+                          ? 'À Vista & A Prazo'
+                          : (showCashPrice ? 'Só À Vista' : 'Só A Prazo'))}
+                    </span>
+                  </div>
+
+                  {/* Botões de Seleção Interativos: À Vista e A Prazo */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Botão Preço À Vista */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !showCashPrice;
+                        setShowCashPrice(next);
+                        localStorage.setItem('kombat_label_show_cash_price', String(next));
+                      }}
+                      className={`p-3 rounded-xl border-2 flex items-center justify-between transition-all cursor-pointer ${
+                        showCashPrice
+                          ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-950 dark:text-emerald-100 shadow-sm'
+                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-black ${
+                          showCashPrice
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-200 dark:bg-slate-700 text-transparent'
+                        }`}>
+                          ✓
+                        </div>
+                        <div className="text-left">
+                          <div className="text-xs font-black">Preço À Vista</div>
+                          <div className="text-[10px] opacity-75">Dinheiro / Pix</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-mono font-black">
+                          R$ {formatPriceDisplay(customCashPrice)}
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Botão Preço A Prazo */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !showCreditPrice;
+                        setShowCreditPrice(next);
+                        localStorage.setItem('kombat_label_show_credit_price', String(next));
+                      }}
+                      className={`p-3 rounded-xl border-2 flex items-center justify-between transition-all cursor-pointer ${
+                        showCreditPrice
+                          ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 text-blue-950 dark:text-blue-100 shadow-sm'
+                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-black ${
+                          showCreditPrice
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-200 dark:bg-slate-700 text-transparent'
+                        }`}>
+                          ✓
+                        </div>
+                        <div className="text-left">
+                          <div className="text-xs font-black">Preço A Prazo</div>
+                          <div className="text-[10px] opacity-75">Cartão / 30D</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-mono font-black">
+                          R$ {formatPriceDisplay(customCreditPrice)}
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Atalhos Rápidos e Ajuste de Valor */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-slate-400">Atalhos:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCashPrice(false);
+                          setShowCreditPrice(false);
+                          localStorage.setItem('kombat_label_show_cash_price', 'false');
+                          localStorage.setItem('kombat_label_show_credit_price', 'false');
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                          !showCashPrice && !showCreditPrice
+                            ? 'bg-slate-700 text-white'
+                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        Sem Preço
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCashPrice(true);
+                          setShowCreditPrice(false);
+                          localStorage.setItem('kombat_label_show_cash_price', 'true');
+                          localStorage.setItem('kombat_label_show_credit_price', 'false');
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                          showCashPrice && !showCreditPrice
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950 dark:hover:bg-emerald-900 text-emerald-800 dark:text-emerald-300'
+                        }`}
+                      >
+                        Só À Vista
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCashPrice(false);
+                          setShowCreditPrice(true);
+                          localStorage.setItem('kombat_label_show_credit_price', 'true');
+                          localStorage.setItem('kombat_label_show_cash_price', 'false');
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                          !showCashPrice && showCreditPrice
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-950 dark:hover:bg-blue-900 text-blue-800 dark:text-blue-300'
+                        }`}
+                      >
+                        Só A Prazo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCashPrice(true);
+                          setShowCreditPrice(true);
+                          localStorage.setItem('kombat_label_show_cash_price', 'true');
+                          localStorage.setItem('kombat_label_show_credit_price', 'true');
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                          showCashPrice && showCreditPrice
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950 dark:hover:bg-indigo-900 text-indigo-800 dark:text-indigo-300'
+                        }`}
+                      >
+                        Ambos
+                      </button>
+                    </div>
+
+                    {/* Campos de ajuste fino do valor impresso */}
+                    {(showCashPrice || showCreditPrice) && (
+                      <div className="flex items-center gap-2">
+                        {showCashPrice && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">À Vista: R$</span>
+                            <input
+                              type="text"
+                              value={customCashPrice}
+                              onChange={(e) => setCustomCashPrice(e.target.value)}
+                              className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded text-slate-800 dark:text-slate-100 focus:ring-1 focus:ring-emerald-500 outline-none"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        )}
+                        {showCreditPrice && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">A Prazo: R$</span>
+                            <input
+                              type="text"
+                              value={customCreditPrice}
+                              onChange={(e) => setCustomCreditPrice(e.target.value)}
+                              className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded text-slate-800 dark:text-slate-100 focus:ring-1 focus:ring-blue-500 outline-none"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
