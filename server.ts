@@ -114,6 +114,13 @@ db.exec(`
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS label_configurations (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    config_json TEXT,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS customers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -2778,6 +2785,34 @@ async function startServer() {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(req.user!.id, customer_id, credit_id, action_type, message, channel, status, JSON.stringify(metadata || {}));
     res.json({ id: parseInt(info.lastInsertRowid.toString()), success: true });
+  });
+
+  app.get("/api/label-configs", authenticateToken, (req, res) => {
+    try {
+      const rows = db.prepare("SELECT * FROM label_configurations ORDER BY id ASC").all();
+      res.json(rows);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/label-configs", authenticateToken, (req, res) => {
+    try {
+      const { id, name, config_json } = req.body;
+      if (!id) return res.status(400).json({ error: "ID de configuração de etiqueta obrigatório" });
+      const stmt = db.prepare(`
+        INSERT INTO label_configurations (id, name, config_json, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          config_json = excluded.config_json,
+          updated_at = CURRENT_TIMESTAMP
+      `);
+      stmt.run(id, name || id, typeof config_json === 'string' ? config_json : JSON.stringify(config_json));
+      res.json({ success: true, id });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   app.put("/api/customers/:id/credit-status", authenticateToken, (req, res) => {

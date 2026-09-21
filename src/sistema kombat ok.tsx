@@ -83,6 +83,7 @@ import Cliente360Modal from './components/crm/Cliente360Modal';
 import AIAssistant from './components/ai/AIAssistant';
 import CentralCobranca from './components/CentralCobranca';
 import PDVTab from './components/PDVTab';
+import LabelAssistantModal from './components/labels/LabelAssistantModal';
 import { LoadingState } from './components/common/LoadingState';
 import { EmptyState } from './components/common/EmptyState';
 import { ConfirmModal } from './components/common/ConfirmModal';
@@ -974,6 +975,7 @@ export default function App() {
   const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
   const [labelPreviewProduct, setLabelPreviewProduct] = useState<Product | null>(null);
+  const [isLabelAssistantOpen, setIsLabelAssistantOpen] = useState(false);
   const [showPdvCalculator, setShowPdvCalculator] = useState(false);
   const [showQuoteCalculator, setShowQuoteCalculator] = useState(false);
   const [showOsCalculator, setShowOsCalculator] = useState(false);
@@ -7150,6 +7152,14 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               onClick={() => { setActiveTab('inventory'); setIsSidebarOpen(false); }}
             />
           )}
+          {hasAccess(['Administrador', 'Atendente']) && (
+            <SidebarItem
+              icon={Printer}
+              label="Assistente de Etiquetas"
+              active={isLabelAssistantOpen}
+              onClick={() => { setIsLabelAssistantOpen(true); setIsSidebarOpen(false); }}
+            />
+          )}
           {hasAccess(['Administrador']) && (
             <SidebarItem
               icon={ClipboardCheck}
@@ -11040,206 +11050,16 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         formatBRL={formatBRL}
       />
 
-      <Modal
-        isOpen={!!labelPreviewProduct}
-        onClose={() => setLabelPreviewProduct(null)}
-        title="Prévia e Impressão de Etiquetas"
-        maxWidth="max-w-lg"
-      >
-        {labelPreviewProduct && (
-          <div className="space-y-5">
-            {/* Seletor de Medida da Etiqueta */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-black text-slate-600 uppercase tracking-wider dark:text-slate-300">
-                Modelo / Medida da Etiqueta
-              </label>
-              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLabelSize('63.5x31');
-                    if (labelQuantity > 21) setLabelQuantity(21);
-                  }}
-                  className={`py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                    labelSize === '63.5x31'
-                      ? 'bg-white dark:bg-slate-900 text-rose-600 shadow-sm border border-slate-200 dark:border-slate-700'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <span className="font-extrabold text-xs sm:text-sm">63,5 x 31 mm</span>
-                  <span className="text-[10px] opacity-80">Padrão (21 por folha A4)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLabelSize('99.1x38.1');
-                    if (labelQuantity > 14) setLabelQuantity(14);
-                  }}
-                  className={`py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                    labelSize === '99.1x38.1'
-                      ? 'bg-white dark:bg-slate-900 text-rose-600 shadow-sm border border-slate-200 dark:border-slate-700'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <span className="font-extrabold text-xs sm:text-sm">99,1 x 38,1 mm</span>
-                  <span className="text-[10px] opacity-80">Pimaco 6182 (14 por folha A4)</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Prévia Visual da Etiqueta Selecionada */}
-            <div className="bg-slate-100 p-6 rounded-2xl flex items-center justify-center dark:bg-slate-800 overflow-x-auto">
-              {labelSize === '99.1x38.1' ? (
-                <div 
-                  className="bg-white text-black shadow-md"
-                  style={{ 
-                    width: '99.1mm', 
-                    height: '38.1mm', 
-                    padding: '3.5mm 4mm', 
-                    boxSizing: 'border-box', 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    justifyContent: 'space-between', 
-                    border: '1px dashed #94a3b8',
-                    borderRadius: '4px'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '2mm' }}>
-                    <div style={{ fontSize: '14px', fontWeight: 900, textTransform: 'uppercase', textAlign: 'left', lineHeight: 1.15, maxHeight: '34px', overflow: 'hidden', flex: 1, color: '#000', letterSpacing: '-0.2px' }}>
-                      {labelPreviewProduct.description}
-                    </div>
-                    <div style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '0.5px', whiteSpace: 'nowrap', border: '1px solid #000', padding: '1px 4px', borderRadius: '3px', color: '#000' }}>
-                      {labelPreviewProduct.sku || labelPreviewProduct.barcode || 'S/ SKU'}
-                    </div>
-                  </div>
-                  
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7.5px', color: '#333', lineHeight: 1.1, marginTop: '1mm', overflow: 'hidden', maxHeight: '10px' }}>
-                    {labelPreviewProduct.brand && <span>MARCA: <strong>{labelPreviewProduct.brand}</strong></span>}
-                    {labelPreviewProduct.application && <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '60%' }}>APL: {labelPreviewProduct.application}</span>}
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '3mm', marginTop: 'auto' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '40%' }}>
-                      <span style={{ fontSize: '6px', fontWeight: 800, color: '#555' }}>LOCALIZAÇÃO</span>
-                      <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', lineHeight: 1.1, color: '#000' }}>{labelPreviewProduct.location || 'ESTOQUE PADRÃO'}</span>
-                    </div>
-                    <div style={{ maxWidth: '58%', textAlign: 'right' }}>
-                      <img 
-                        src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(labelPreviewProduct.barcode || labelPreviewProduct.sku || labelPreviewProduct.id.toString())}&scale=2&height=6&includetext`} 
-                        alt="Barcode" 
-                        style={{ maxWidth: '100%', height: 'auto', maxHeight: '12mm', display: 'block', marginLeft: 'auto' }} 
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div 
-                  className="bg-white text-black shadow-md"
-                  style={{ 
-                    width: '63.5mm', 
-                    height: '31mm', 
-                    padding: '3mm', 
-                    boxSizing: 'border-box', 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    justifyContent: 'space-between', 
-                    border: '1px dashed #cbd5e1',
-                    borderRadius: '4px'
-                  }}
-                >
-                  <div style={{ fontSize: '10.5px', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', lineHeight: 1.15, maxHeight: '24px', overflow: 'hidden', color: '#000' }}>
-                    {labelPreviewProduct.description}
-                  </div>
-                  <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 900, letterSpacing: '0.5px', color: '#000' }}>
-                    {labelPreviewProduct.sku || labelPreviewProduct.barcode || 'S/ SKU'}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '2mm' }}>
-                    <div style={{ fontSize: '6px', fontWeight: 'bold', textTransform: 'uppercase', maxWidth: '45%', lineHeight: 1.2, color: '#000' }}>
-                      LOC:<br />{labelPreviewProduct.location || 'ESTOQUE PADRÃO'}
-                    </div>
-                    <div style={{ maxWidth: '50%', textAlign: 'right' }}>
-                      <img 
-                        src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(labelPreviewProduct.barcode || labelPreviewProduct.sku || labelPreviewProduct.id.toString())}&scale=2&height=5&includetext`} 
-                        alt="Barcode" 
-                        style={{ maxWidth: '100%', height: 'auto', maxHeight: '8mm', display: 'block', marginLeft: 'auto' }} 
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl text-sm text-indigo-800 dark:bg-indigo-950/40 dark:border-indigo-900 dark:text-indigo-200">
-              <p className="font-bold mb-1 flex items-center gap-1.5">
-                <Printer size={15} />
-                Avisos de Impressão:
-              </p>
-              <ul className="list-disc pl-5 space-y-1 text-xs">
-                <li>Modelo ativo: <strong>{labelSize === '99.1x38.1' ? '99,1mm x 38,1mm (14 etiquetas por folha A4 - 2x7)' : '63,5mm x 31mm (21 etiquetas por folha A4 - 3x7)'}</strong>.</li>
-                <li>Ao clicar em imprimir, uma nova guia será aberta pronta para enviar à impressora.</li>
-                <li>Lembre-se de configurar a impressão para <strong>Tamanho A4</strong> e <strong>Margens zeradas / Sem margem</strong>.</li>
-              </ul>
-            </div>
-
-            <div className="p-4 bg-slate-50 border border-slate-300 rounded-xl dark:bg-slate-900 dark:border-slate-700">
-              <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 dark:text-slate-400">Quantidade de Etiquetas</label>
-              <div className="flex items-center gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setLabelQuantity(Math.max(1, labelQuantity - 1))}
-                  className="w-10 h-10 bg-white border border-slate-300 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 cursor-pointer"
-                >
-                  -
-                </button>
-                <input 
-                  type="number" 
-                  min="1"
-                  max={labelSize === '99.1x38.1' ? 14 : 21}
-                  value={labelQuantity}
-                  onChange={(e) => {
-                    const maxAllowed = labelSize === '99.1x38.1' ? 14 : 21;
-                    setLabelQuantity(Math.min(maxAllowed, Math.max(1, parseInt(e.target.value) || 1)));
-                  }}
-                  className="flex-1 h-10 bg-white border border-slate-300 rounded-lg text-center font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-500/20 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-                />
-                <button 
-                  type="button"
-                  onClick={() => {
-                    const maxAllowed = labelSize === '99.1x38.1' ? 14 : 21;
-                    setLabelQuantity(Math.min(maxAllowed, labelQuantity + 1));
-                  }}
-                  className="w-10 h-10 bg-white border border-slate-300 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 cursor-pointer"
-                >
-                  +
-                </button>
-              </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 italic">
-                * Máximo de {labelSize === '99.1x38.1' ? '14 etiquetas por folha (2 colunas x 7 linhas)' : '21 etiquetas por folha (3 colunas x 7 linhas)'}.
-              </p>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  handlePrintLabel(labelPreviewProduct, labelQuantity, labelSize);
-                }}
-                className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
-              >
-                <Printer size={18} />
-                Confirmar Impressão ({labelQuantity} {labelQuantity === 1 ? 'Etiqueta' : 'Etiquetas'})
-              </button>
-              <button
-                type="button"
-                onClick={() => setLabelPreviewProduct(null)}
-                className="py-3 px-6 bg-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-300 transition-all dark:bg-slate-700 dark:text-slate-100 cursor-pointer"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* Módulo Profissional: Assistente de Etiquetas Kombat */}
+      <LabelAssistantModal
+        isOpen={isLabelAssistantOpen || !!labelPreviewProduct}
+        onClose={() => {
+          setIsLabelAssistantOpen(false);
+          setLabelPreviewProduct(null);
+        }}
+        product={labelPreviewProduct}
+        products={products}
+      />
 
       {/* Quick Inventory Modal */}
       <Modal
