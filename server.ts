@@ -1496,13 +1496,13 @@ async function startServer() {
     resetLoginAttempts(clientIp);
 
     const normRole = normalizeRole(user.role);
-    const token = jwt.sign({ id: user.id, username: user.username, role: normRole }, JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: user.id, username: user.username, role: normRole }, JWT_SECRET, { expiresIn: "90d" });
 
     res.cookie("auth_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      maxAge: 90 * 24 * 60 * 60 * 1000
     });
 
     logAudit({

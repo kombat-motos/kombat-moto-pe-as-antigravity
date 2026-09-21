@@ -402,6 +402,9 @@ const localApi = {
       headers: localApi.getHeaders(),
       credentials: 'include'
     });
+    if (res.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('kombat:session-expired'));
+    }
     if (!res.ok) throw new Error(`Erro ao buscar ${route}`);
     return res.json();
   },
@@ -412,6 +415,9 @@ const localApi = {
       credentials: 'include',
       body: JSON.stringify(data),
     });
+    if (res.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('kombat:session-expired'));
+    }
     if (!res.ok) throw new Error(`Erro ao criar ${route}`);
     return res.json();
   },
@@ -429,6 +435,9 @@ const localApi = {
       credentials: 'include',
       body: JSON.stringify(bodyData),
     });
+    if (res.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('kombat:session-expired'));
+    }
     if (!res.ok) throw new Error(`Erro ao atualizar ${endpoint}`);
     return res.json();
   },
@@ -439,6 +448,9 @@ const localApi = {
       headers: localApi.getHeaders(),
       credentials: 'include'
     });
+    if (res.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('kombat:session-expired'));
+    }
     if (!res.ok) throw new Error(`Erro ao excluir ${endpoint}`);
     return res.json();
   }
@@ -832,11 +844,17 @@ export default function App() {
         'Authorization': `Bearer ${token}`
       };
     },
+    notifyIfExpired: (res: Response) => {
+      if (res.status === 401 && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kombat:session-expired'));
+      }
+    },
     get: async (route: string) => {
       const res = await fetch(`/api/${route}`, {
         headers: localApi.getHeaders(),
         credentials: 'include'
       });
+      localApi.notifyIfExpired(res);
       if (!res.ok) throw new Error(`Erro ao buscar ${route}`);
       return res.json();
     },
@@ -847,6 +865,7 @@ export default function App() {
         credentials: 'include',
         body: JSON.stringify(body),
       });
+      localApi.notifyIfExpired(res);
       
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -870,6 +889,7 @@ export default function App() {
         credentials: 'include',
         body: JSON.stringify(body),
       });
+      localApi.notifyIfExpired(res);
       
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -895,6 +915,7 @@ export default function App() {
         credentials: 'include',
         body: isAction ? (body ? JSON.stringify(body) : undefined) : JSON.stringify(actionOrBody)
       });
+      localApi.notifyIfExpired(res);
       
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
@@ -914,6 +935,7 @@ export default function App() {
         headers: localApi.getHeaders(),
         credentials: 'include'
       });
+      localApi.notifyIfExpired(res);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro na operação');
       return data;
@@ -925,6 +947,7 @@ export default function App() {
         credentials: 'include',
         body: JSON.stringify({ fileName, fileContent })
       });
+      localApi.notifyIfExpired(res);
       return res.json();
     }
   };
@@ -958,6 +981,13 @@ export default function App() {
   const [labelSize, setLabelSize] = useState<'63.5x31' | '99.1x38.1'>('63.5x31');
   const [isSavingProduct, setIsSavingProduct] = useState(false);
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
+
+  // Re-authentication on expired session
+  const [isReauthModalOpen, setIsReauthModalOpen] = useState(false);
+  const [reauthUsername, setReauthUsername] = useState('admin');
+  const [reauthPassword, setReauthPassword] = useState('');
+  const [reauthError, setReauthError] = useState('');
+  const [reauthLoading, setReauthLoading] = useState(false);
 
   // Client 360 State
   const [activeCliente360Id, setActiveCliente360Id] = useState<number | null>(null);
@@ -1862,6 +1892,53 @@ export default function App() {
       localStorage.removeItem('token');
       setUser(null);
     }
+  };
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      if (user?.username) {
+        setReauthUsername(user.username);
+      }
+      setReauthError('');
+      setIsReauthModalOpen(true);
+    };
+    window.addEventListener('kombat:session-expired', handleSessionExpired);
+    return () => window.removeEventListener('kombat:session-expired', handleSessionExpired);
+  }, [user]);
+
+  const handleReauthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setReauthError('');
+    setReauthLoading(true);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username: reauthUsername.trim(), password: reauthPassword })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Credenciais inválidas. Tente novamente.');
+      }
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      setUser(data.user || data);
+      setReauthPassword('');
+      setIsReauthModalOpen(false);
+      alert('Sessão reautenticada com sucesso! Você já pode salvar suas alterações normalmente.');
+    } catch (err: any) {
+      setReauthError(err.message || 'Erro ao reconectar sessão.');
+    } finally {
+      setReauthLoading(false);
+    }
+  };
+
+  const handleReauthLogout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+    setIsReauthModalOpen(false);
   };
 
 
@@ -11974,6 +12051,76 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
         </div>
       )}
       <AIAssistant />
+
+      {/* Modal de Reautenticação de Sessão Expirada sem Perda de Dados */}
+      {isReauthModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[99999] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-md w-full p-6 border border-rose-200 dark:border-rose-900 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-3 mb-4 text-rose-600">
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 rounded-2xl">
+                <ShieldAlert size={28} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">Sessão Expirada</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Revalide seu login para continuar sem perder seus dados</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+              Sua sessão de segurança expirou no servidor. Digite sua senha para reconectar. Os dados digitados nesta tela <strong>não serão perdidos</strong>!
+            </p>
+
+            {reauthError && (
+              <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs rounded-xl font-bold">
+                {reauthError}
+              </div>
+            )}
+
+            <form onSubmit={handleReauthSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Usuário</label>
+                <input
+                  type="text"
+                  value={reauthUsername}
+                  onChange={(e) => setReauthUsername(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-medium text-sm focus:ring-2 focus:ring-rose-500 outline-none"
+                  placeholder="Usuário (ex: admin)"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Senha</label>
+                <input
+                  type="password"
+                  value={reauthPassword}
+                  onChange={(e) => setReauthPassword(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-medium text-sm focus:ring-2 focus:ring-rose-500 outline-none"
+                  placeholder="Sua senha"
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleReauthLogout}
+                  className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs uppercase transition-all"
+                >
+                  Sair para Login
+                </button>
+                <button
+                  type="submit"
+                  disabled={reauthLoading}
+                  className="flex-1 px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs uppercase shadow-lg shadow-rose-200 dark:shadow-none transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {reauthLoading ? 'Reconectando...' : 'Reconectar Sessão'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

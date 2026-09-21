@@ -349,12 +349,12 @@ async function startServer() {
     if (!user || !await bcrypt.compare(password, user.password)) {
       return res.status(401).json({ error: "Credenciais inv\xE1lidas" });
     }
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: "90d" });
     res.cookie("auth_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1e3
+      maxAge: 90 * 24 * 60 * 60 * 1e3
     });
     res.json({ id: user.id, username: user.username });
   });
