@@ -167,7 +167,15 @@ export default function LabelAssistantModal({
     try {
       const savedCalibsStr = localStorage.getItem('kombat_labels_calibrations');
       if (savedCalibsStr) {
-        setCalibrations(JSON.parse(savedCalibsStr));
+        const parsedCalibs = JSON.parse(savedCalibsStr);
+        // Sanitizar modelo kombat-63x31 se ainda contiver a margem de 15mm da antiga versão de 21 un
+        if (parsedCalibs['kombat-63x31'] && parsedCalibs['kombat-63x31'].marginTopMm === 15.0) {
+          parsedCalibs['kombat-63x31'].marginTopMm = 9.0;
+          parsedCalibs['kombat-63x31'].marginBottomMm = 9.0;
+          parsedCalibs['kombat-63x31'].marginLeftMm = 9.75;
+          parsedCalibs['kombat-63x31'].marginRightMm = 9.75;
+        }
+        setCalibrations(parsedCalibs);
       }
       const savedSheetsStr = localStorage.getItem('kombat_labels_sheet_trackers');
       if (savedSheetsStr) {
@@ -177,6 +185,8 @@ export default function LabelAssistantModal({
       if (customModelsStr) {
         const customModels = JSON.parse(customModelsStr);
         setModels([...KOMBAT_LABEL_MODELS, ...customModels]);
+      } else {
+        setModels(KOMBAT_LABEL_MODELS);
       }
     } catch (e) {
       console.warn('Erro ao carregar configurações locais de etiquetas:', e);
@@ -1098,7 +1108,7 @@ export default function LabelAssistantModal({
               }`}
             >
               <span>⭐ 63,5 × 31 mm</span>
-              <span className="text-[10px] opacity-80">(21 un)</span>
+              <span className="text-[10px] opacity-80">(27 un)</span>
             </button>
 
             {/* Dropdown Outros tamanhos */}
