@@ -49,20 +49,29 @@ export interface SheetTrackerState {
 
 export interface GeometryValidationResult {
   valid: boolean;
-  widthUsedMm: number;
-  heightUsedMm: number;
-  widthAvailableMm: number;
-  heightAvailableMm: number;
-  widthDifferenceMm: number; // >0 significa que ultrapassou
-  heightDifferenceMm: number;// >0 significa que ultrapassou
+  gridWidthMm: number;        // (colunas * largura) + ((colunas - 1) * gapH)
+  gridHeightMm: number;       // (linhas * altura) + ((linhas - 1) * gapV)
+  widthUsedMm: number;        // margemEsquerda + gridWidthMm (posição final horizontal ocupada)
+  heightUsedMm: number;       // margemSuperior + gridHeightMm (posição final vertical ocupada)
+  remainingRightMm: number;   // larguraPapel - widthUsedMm
+  remainingBottomMm: number;  // alturaPapel - heightUsedMm
+  widthAvailableMm: number;   // 210 mm para A4
+  heightAvailableMm: number;  // 297 mm para A4
+  widthDifferenceMm: number;  // excesso (> 0 significa que ultrapassou)
+  heightDifferenceMm: number; // excesso (> 0 significa que ultrapassou)
   errors: string[];
 }
 
 /**
- * Validador Estrito de Geometria Matemática da Folha
- * Regra:
- * largura_utilizada = margem_esquerda + (colunas * largura_etiqueta) + ((colunas - 1) * gap_horizontal) + margem_direita <= 210mm
- * altura_utilizada = margem_superior + (linhas * altura_etiqueta) + ((linhas - 1) * gap_vertical) + margem_inferior <= 297mm
+ * Validador Estrito e Centralizado de Geometria Matemática da Folha
+ * Regra Matemática:
+ * 1. larguraGrade = (colunas * larguraEtiqueta) + (Math.max(0, colunas - 1) * gapHorizontal)
+ * 2. alturaGrade = (linhas * alturaEtiqueta) + (Math.max(0, linhas - 1) * gapVertical)
+ * 3. larguraOcupada = margemEsquerda + larguraGrade
+ * 4. alturaOcupada = margemSuperior + alturaGrade
+ * 5. margemDireitaRestante = larguraPapel - larguraOcupada
+ * 6. margemInferiorRestante = alturaPapel - alturaOcupada
+ * 7. VÁLIDA se: larguraOcupada <= larguraPapel E alturaOcupada <= alturaPapel
  */
 export function validateGeometry(params: {
   paperWidthMm?: number;
@@ -72,48 +81,57 @@ export function validateGeometry(params: {
   columns: number;
   rows: number;
   marginLeftMm: number;
-  marginRightMm: number;
+  marginRightMm?: number;
   marginTopMm: number;
-  marginBottomMm: number;
-  gapHorizontalMm: number;
-  gapVerticalMm: number;
+  marginBottomMm?: number;
+  gapHorizontalMm?: number;
+  gapVerticalMm?: number;
 }): GeometryValidationResult {
-  const paperWidth = params.paperWidthMm || 210.0;
-  const paperHeight = params.paperHeightMm || 297.0;
+  const paperWidth = Number(params.paperWidthMm) || 210.0;
+  const paperHeight = Number(params.paperHeightMm) || 297.0;
 
-  const cols = Math.max(1, params.columns);
-  const rows = Math.max(1, params.rows);
+  const labelWidth = Number(params.labelWidthMm) || 0;
+  const labelHeight = Number(params.labelHeightMm) || 0;
+  const cols = Math.max(1, Number(params.columns) || 1);
+  const rows = Math.max(1, Number(params.rows) || 1);
+  const marginLeft = Number(params.marginLeftMm) || 0;
+  const marginTop = Number(params.marginTopMm) || 0;
+  const gapH = Number(params.gapHorizontalMm) || 0;
+  const gapV = Number(params.gapVerticalMm) || 0;
 
-  const widthUsed = Number((
-    params.marginLeftMm +
-    (cols * params.labelWidthMm) +
-    ((cols - 1) * params.gapHorizontalMm) +
-    params.marginRightMm
-  ).toFixed(2));
+  // 1. Dimensões da Grade (matriz física das etiquetas)
+  const gridWidth = (cols * labelWidth) + (Math.max(0, cols - 1) * gapH);
+  const gridHeight = (rows * labelHeight) + (Math.max(0, rows - 1) * gapV);
 
-  const heightUsed = Number((
-    params.marginTopMm +
-    (rows * params.labelHeightMm) +
-    ((rows - 1) * params.gapVerticalMm) +
-    params.marginBottomMm
-  ).toFixed(2));
+  // 2. Posição Final Ocupada (da margem inicial até a borda externa da última etiqueta)
+  const usedWidth = marginLeft + gridWidth;
+  const usedHeight = marginTop + gridHeight;
+
+  // 3. Margens Restantes no Papel
+  const remainingRight = paperWidth - usedWidth;
+  const remainingBottom = paperHeight - usedHeight;
+
+  // Tolerância de 0.05 mm para lidar com arredondamentos de ponto flutuante IEEE-754
+  const widthDiff = Number((usedWidth - paperWidth).toFixed(2));
+  const heightDiff = Number((usedHeight - paperHeight).toFixed(2));
 
   const errors: string[] = [];
-
-  const widthDiff = Number((widthUsed - paperWidth).toFixed(2));
   if (widthDiff > 0.05) {
-    errors.push(`Largura total utilizada (${widthUsed} mm) ultrapassa os ${paperWidth} mm do papel A4 por ${widthDiff} mm.`);
+    errors.push(`Largura total ocupada (${Number(usedWidth.toFixed(2))} mm) ultrapassa os ${paperWidth} mm do papel A4 por ${widthDiff} mm.`);
   }
 
-  const heightDiff = Number((heightUsed - paperHeight).toFixed(2));
   if (heightDiff > 0.05) {
-    errors.push(`Altura total utilizada (${heightUsed} mm) ultrapassa os ${paperHeight} mm do papel A4 por ${heightDiff} mm.`);
+    errors.push(`Altura total ocupada (${Number(usedHeight.toFixed(2))} mm) ultrapassa os ${paperHeight} mm do papel A4 por ${heightDiff} mm.`);
   }
 
   return {
     valid: errors.length === 0,
-    widthUsedMm: widthUsed,
-    heightUsedMm: heightUsed,
+    gridWidthMm: Number(gridWidth.toFixed(2)),
+    gridHeightMm: Number(gridHeight.toFixed(2)),
+    widthUsedMm: Number(usedWidth.toFixed(2)),
+    heightUsedMm: Number(usedHeight.toFixed(2)),
+    remainingRightMm: Number(remainingRight.toFixed(2)),
+    remainingBottomMm: Number(remainingBottom.toFixed(2)),
     widthAvailableMm: paperWidth,
     heightAvailableMm: paperHeight,
     widthDifferenceMm: widthDiff,

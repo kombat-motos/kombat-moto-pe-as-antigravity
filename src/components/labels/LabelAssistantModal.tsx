@@ -85,17 +85,15 @@ export default function LabelAssistantModal({
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [lastPrintedPositions, setLastPrintedPositions] = useState<number[]>([]);
 
-  // Formulário do Assistente "Configurar Minha Folha"
+  // Formulário do Assistente "Configurar Minha Folha" / "Medidor de Folha Real"
   const [customForm, setCustomForm] = useState({
     name: 'Minha Etiqueta Personalizada',
-    labelWidthMm: 99.1,
-    labelHeightMm: 38.1,
-    columns: 2,
-    rows: 7,
-    marginLeftMm: 5.9,
-    marginRightMm: 5.9,
-    marginTopMm: 15.1,
-    marginBottomMm: 15.1,
+    labelWidthMm: 63.5,
+    labelHeightMm: 31.0,
+    columns: 3,
+    rows: 9,
+    marginLeftMm: 9.75,
+    marginTopMm: 9.0,
     gapHorizontalMm: 0.0,
     gapVerticalMm: 0.0
   });
@@ -260,25 +258,22 @@ export default function LabelAssistantModal({
       columns: currentModel.columns,
       rows: currentModel.rows,
       marginLeftMm: currentCalibration.marginLeftMm,
-      marginRightMm: currentCalibration.marginRightMm,
       marginTopMm: currentCalibration.marginTopMm,
-      marginBottomMm: currentCalibration.marginBottomMm,
       gapHorizontalMm: currentCalibration.gapHorizontalMm,
       gapVerticalMm: currentCalibration.gapVerticalMm
     });
   }, [currentModel, currentCalibration]);
 
-  // Validação em tempo real do formulário customizado
+  // Validação em tempo real do formulário customizado ("Medidor de Folha Real")
+  // Derivado exclusivamente dos 8 campos físicos medidos na régua
   const customFormValidation = useMemo(() => {
     return validateGeometry({
-      labelWidthMm: Number(customForm.labelWidthMm) || 1,
-      labelHeightMm: Number(customForm.labelHeightMm) || 1,
+      labelWidthMm: Number(customForm.labelWidthMm) || 0,
+      labelHeightMm: Number(customForm.labelHeightMm) || 0,
       columns: Number(customForm.columns) || 1,
       rows: Number(customForm.rows) || 1,
       marginLeftMm: Number(customForm.marginLeftMm) || 0,
-      marginRightMm: Number(customForm.marginRightMm) || 0,
       marginTopMm: Number(customForm.marginTopMm) || 0,
-      marginBottomMm: Number(customForm.marginBottomMm) || 0,
       gapHorizontalMm: Number(customForm.gapHorizontalMm) || 0,
       gapVerticalMm: Number(customForm.gapVerticalMm) || 0
     });
@@ -442,9 +437,9 @@ export default function LabelAssistantModal({
       rows: Number(customForm.rows),
       totalPerSheet: Number(customForm.columns) * Number(customForm.rows),
       marginLeftMm: Number(customForm.marginLeftMm),
-      marginRightMm: Number(customForm.marginRightMm),
+      marginRightMm: Number(customFormValidation.remainingRightMm >= 0 ? customFormValidation.remainingRightMm : 0),
       marginTopMm: Number(customForm.marginTopMm),
-      marginBottomMm: Number(customForm.marginBottomMm),
+      marginBottomMm: Number(customFormValidation.remainingBottomMm >= 0 ? customFormValidation.remainingBottomMm : 0),
       gapHorizontalMm: Number(customForm.gapHorizontalMm),
       gapVerticalMm: Number(customForm.gapVerticalMm),
       printerName: 'Epson EcoTank L3250',
@@ -2150,31 +2145,43 @@ export default function LabelAssistantModal({
                   </h4>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                    <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl">
+                    <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-1">
                       <span className="block text-[10px] text-slate-400 font-bold uppercase">Total de Etiquetas</span>
-                      <span className="text-lg font-black text-slate-800 dark:text-slate-100">
+                      <span className="text-lg font-black text-slate-800 dark:text-slate-100 block">
                         {customForm.columns * customForm.rows} por folha
                       </span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-mono">
+                        Grade: {customFormValidation.gridWidthMm} × {customFormValidation.gridHeightMm} mm
+                      </span>
                     </div>
 
-                    <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl">
+                    <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-1">
                       <span className="block text-[10px] text-slate-400 font-bold uppercase">Largura Ocupada</span>
-                      <span className="text-lg font-black text-slate-800 dark:text-slate-100">
+                      <span className="text-lg font-black text-slate-800 dark:text-slate-100 block">
                         {customFormValidation.widthUsedMm} / 210 mm
                       </span>
-                    </div>
-
-                    <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl">
-                      <span className="block text-[10px] text-slate-400 font-bold uppercase">Altura Ocupada</span>
-                      <span className="text-lg font-black text-slate-800 dark:text-slate-100">
-                        {customFormValidation.heightUsedMm} / 297 mm
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-mono">
+                        Margem direita restante: {customFormValidation.remainingRightMm >= 0 ? customFormValidation.remainingRightMm : 0} mm
                       </span>
                     </div>
 
-                    <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl">
+                    <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-1">
+                      <span className="block text-[10px] text-slate-400 font-bold uppercase">Altura Ocupada</span>
+                      <span className="text-lg font-black text-slate-800 dark:text-slate-100 block">
+                        {customFormValidation.heightUsedMm} / 297 mm
+                      </span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-mono">
+                        Margem inferior restante: {customFormValidation.remainingBottomMm >= 0 ? customFormValidation.remainingBottomMm : 0} mm
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl space-y-1">
                       <span className="block text-[10px] text-slate-400 font-bold uppercase">Status Geométrico</span>
-                      <span className={`text-xs font-black uppercase ${customFormValidation.valid ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {customFormValidation.valid ? '✅ Geometria Válida' : '⚠️ Inválida'}
+                      <span className={`text-base font-black uppercase flex items-center gap-1 ${customFormValidation.valid ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                        {customFormValidation.valid ? '✅ VÁLIDA' : '⚠️ INVÁLIDA'}
+                      </span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
+                        {customFormValidation.valid ? 'Cabe perfeitamente no A4' : 'Ultrapassa o papel A4'}
                       </span>
                     </div>
                   </div>
