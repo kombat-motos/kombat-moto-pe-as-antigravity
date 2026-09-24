@@ -21,7 +21,7 @@ interface StockCardViewProps {
   formatBRL: (val: number) => string;
 }
 
-export const StockCardView: React.FC<StockCardViewProps> = ({
+const StockCardViewComponent: React.FC<StockCardViewProps> = ({
   products,
   selectedProductIds,
   onToggleSelectProduct,
@@ -32,6 +32,13 @@ export const StockCardView: React.FC<StockCardViewProps> = ({
   formatBRL
 }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [displayCount, setDisplayCount] = useState(60);
+
+  React.useEffect(() => {
+    setDisplayCount(60);
+  }, [products.length]);
+
+  const visibleProducts = products.slice(0, displayCount);
 
   const handleCopy = (e: React.MouseEvent, text: string) => {
     e.stopPropagation();
@@ -50,7 +57,7 @@ export const StockCardView: React.FC<StockCardViewProps> = ({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {products.map(product => {
+      {visibleProducts.map(product => {
         const isSelected = selectedProductIds.includes(product.id);
         const stockVal = Number(product.stock) || 0;
 
@@ -283,6 +290,30 @@ export const StockCardView: React.FC<StockCardViewProps> = ({
           </div>
         );
       })}
+      {products.length > 60 && (
+        <div className="py-6 flex flex-col sm:flex-row items-center justify-center gap-3 text-xs col-span-full">
+          {displayCount < products.length && (
+            <>
+              <button
+                type="button"
+                onClick={() => setDisplayCount(prev => Math.min(prev + 60, products.length))}
+                className="px-5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl font-bold text-slate-800 dark:text-slate-200 transition-all shadow-sm cursor-pointer"
+              >
+                Carregar mais 60 produtos ({visibleProducts.length} de {products.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayCount(products.length)}
+                className="px-4 py-2 text-rose-600 dark:text-rose-400 hover:underline font-bold transition-all cursor-pointer"
+              >
+                Mostrar todos ({products.length})
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };
+
+export const StockCardView = React.memo(StockCardViewComponent);

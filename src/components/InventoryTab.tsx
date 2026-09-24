@@ -346,4 +346,4 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
   );
 };
 
-export default InventoryTab;
+export default React.memo(InventoryTab);

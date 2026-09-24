@@ -1144,6 +1144,13 @@ export default function App() {
   const html5QrCodeRef = useRef<any>(null);
   const isScanningRef = useRef(false);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  const [localCustomerSearch, setLocalCustomerSearch] = useState('');
+  const customerDebounceRef = useRef<any>(null);
+
+  const [localQuoteSearch, setLocalQuoteSearch] = useState('');
+  const quoteDebounceRef = useRef<any>(null);
+
+  const [customerDisplayCount, setCustomerDisplayCount] = useState(60);
   const [quoteCustomerSearchTerm, setQuoteCustomerSearchTerm] = useState('');
   
   const fetchFinancialSales = useCallback(async (currentGeneralSales?: any[]) => {
@@ -1583,6 +1590,44 @@ export default function App() {
   const sortedCustomers = useMemo(() => {
     return [...customers].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [customers]);
+
+  const customerOverdueMap = useMemo(() => {
+    const set = new Set<number>();
+    const now = new Date();
+    for (let i = 0; i < sales.length; i++) {
+      const s = sales[i];
+      if (s.customer_id && s.payment_status === 'Pendente' && s.due_date) {
+        if (new Date(s.due_date) < now) {
+          set.add(s.customer_id);
+        }
+      }
+    }
+    return set;
+  }, [sales]);
+
+  const customerMotorcycleCountMap = useMemo(() => {
+    const map = new Map<number, number>();
+    for (let i = 0; i < motorcycles.length; i++) {
+      const m = motorcycles[i];
+      if (m.customer_id) {
+        map.set(m.customer_id, (map.get(m.customer_id) || 0) + 1);
+      }
+    }
+    return map;
+  }, [motorcycles]);
+
+  const filteredCustomersList = useMemo(() => {
+    const search = (d_customerSearchTerm.trim() || d_globalSearchTerm.trim()).toLowerCase();
+    if (!search) return sortedCustomers;
+    return sortedCustomers.filter(c => 
+      (c.name || '').toLowerCase().includes(search) ||
+      (c.nickname || '').toLowerCase().includes(search) ||
+      (c.cpf || '').toLowerCase().includes(search) ||
+      (c.whatsapp || '').toLowerCase().includes(search) ||
+      (c.cnpj || '').toLowerCase().includes(search) ||
+      (c.city || '').toLowerCase().includes(search)
+    );
+  }, [sortedCustomers, d_customerSearchTerm, d_globalSearchTerm]);
 
   const sortedRegisteredServices = useMemo(() => {
     return [...registeredServices].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
@@ -3040,14 +3085,26 @@ export default function App() {
       .reduce((acc, sale) => acc + sale.commission, 0);
   };
 
-  const getCustomerRemainingCredit = (customerId: number) => {
-    const customer = customers.find(c => c.id === customerId);
-    if (!customer) return 0;
-    const pendingDebt = sales
-      .filter(s => s.customer_id === customerId && s.payment_status === 'Pendente')
-      .reduce((acc, s) => acc + s.total, 0);
-    return Math.max(0, (customer.credit_limit || 0) - pendingDebt);
-  };
+  const customerRemainingCreditMap = useMemo(() => {
+    const debtByCustomer = new Map<number, number>();
+    for (let i = 0; i < sales.length; i++) {
+      const s = sales[i];
+      if (s.customer_id && s.payment_status === 'Pendente') {
+        debtByCustomer.set(s.customer_id, (debtByCustomer.get(s.customer_id) || 0) + (s.total || 0));
+      }
+    }
+    const map = new Map<number, number>();
+    for (let i = 0; i < customers.length; i++) {
+      const c = customers[i];
+      const debt = debtByCustomer.get(c.id) || 0;
+      map.set(c.id, Math.max(0, (c.credit_limit || 0) - debt));
+    }
+    return map;
+  }, [sales, customers]);
+
+  const getCustomerRemainingCredit = useCallback((customerId: number) => {
+    return customerRemainingCreditMap.get(customerId) || 0;
+  }, [customerRemainingCreditMap]);
 
   const FiadoModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
     const pendingFiadoSales = sales.filter(sale => sale.payment_status === 'Pendente');
@@ -3441,8 +3498,21 @@ export default function App() {
               type="text"
               placeholder="Pesquisar orçamento..."
               className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64 dark:bg-slate-800 dark:border-slate-700"
-              value={quoteSearchTerm}
-              onChange={e => setQuoteSearchTerm(e.target.value)}
+              value={localQuoteSearch}
+              onChange={e => {
+                const val = e.target.value;
+                setLocalQuoteSearch(val);
+                if (quoteDebounceRef.current) clearTimeout(quoteDebounceRef.current);
+                quoteDebounceRef.current = setTimeout(() => {
+                  setQuoteSearchTerm(val);
+                }, 200);
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  if (quoteDebounceRef.current) clearTimeout(quoteDebounceRef.current);
+                  setQuoteSearchTerm(localQuoteSearch);
+                }
+              }}
             />
           </div>
           <button
@@ -5784,8 +5854,21 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               type="text"
               placeholder="Pesquisar clientes..."
               className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all w-64 dark:bg-slate-800 dark:border-slate-700"
-              value={customerSearchTerm}
-              onChange={e => setCustomerSearchTerm(e.target.value)}
+              value={localCustomerSearch}
+              onChange={e => {
+                const val = e.target.value;
+                setLocalCustomerSearch(val);
+                if (customerDebounceRef.current) clearTimeout(customerDebounceRef.current);
+                customerDebounceRef.current = setTimeout(() => {
+                  setCustomerSearchTerm(val);
+                }, 200);
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  if (customerDebounceRef.current) clearTimeout(customerDebounceRef.current);
+                  setCustomerSearchTerm(localCustomerSearch);
+                }
+              }}
             />
           </div>
           <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium cursor-pointer">
@@ -5821,17 +5904,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
       {customerViewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedCustomers.filter(c => {
-            const search = (customerSearchTerm || globalSearchTerm).toLowerCase();
-            return (
-              (c.name || '').toLowerCase().includes(search) ||
-              (c.nickname || '').toLowerCase().includes(search) ||
-              (c.cpf || '').toLowerCase().includes(search) ||
-              (c.whatsapp || '').toLowerCase().includes(search) ||
-              (c.cnpj || '').toLowerCase().includes(search) ||
-              (c.city || '').toLowerCase().includes(search)
-            );
-          }).map(c => (
+          {filteredCustomersList.slice(0, customerDisplayCount).map(c => (
             <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-400 hover:shadow-md transition-shadow dark:bg-slate-800 dark:border-slate-700">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
@@ -5850,7 +5923,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                         {formatBRL(getCustomerRemainingCredit(c.id))}
                       </span>
                     </div>
-                    {sales.some(s => s.customer_id === c.id && s.payment_status === 'Pendente' && s.due_date && new Date(s.due_date) < new Date()) && (
+                    {customerOverdueMap.has(c.id) && (
                       <div className="flex items-center gap-1 mt-1 px-2 py-1 bg-rose-100 text-rose-700 rounded w-fit border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50">
                         <AlertTriangle size={12} className="shrink-0" />
                         <span className="text-[10px] font-black uppercase tracking-widest">Conta Vencida</span>
@@ -5945,6 +6018,24 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               </div>
             </div>
           ))}
+          {customerDisplayCount < filteredCustomersList.length && (
+            <div className="col-span-full py-4 flex flex-col sm:flex-row items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCustomerDisplayCount(prev => Math.min(prev + 60, filteredCustomersList.length))}
+                className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl font-bold text-xs text-slate-800 dark:text-slate-200 shadow-sm cursor-pointer"
+              >
+                Carregar mais clientes ({Math.min(customerDisplayCount, filteredCustomersList.length)} de {filteredCustomersList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustomerDisplayCount(filteredCustomersList.length)}
+                className="px-3 py-1.5 text-rose-600 dark:text-rose-400 hover:underline font-bold text-xs cursor-pointer"
+              >
+                Mostrar todos
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-3xl shadow-sm border border-slate-400 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
@@ -5959,22 +6050,12 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 </tr>
               </thead>
               <tbody>
-                {sortedCustomers.filter(c => {
-                  const search = (customerSearchTerm || globalSearchTerm).toLowerCase();
-                  return (
-                    (c.name || '').toLowerCase().includes(search) ||
-                    (c.nickname || '').toLowerCase().includes(search) ||
-                    (c.cpf || '').toLowerCase().includes(search) ||
-                    (c.whatsapp || '').toLowerCase().includes(search) ||
-                    (c.cnpj || '').toLowerCase().includes(search) ||
-                    (c.city || '').toLowerCase().includes(search)
-                  );
-                }).map(c => (
+                {filteredCustomersList.slice(0, customerDisplayCount).map(c => (
                   <tr key={c.id} className="border-b border-slate-400 hover:bg-slate-50/50 transition-colors dark:border-slate-700">
                     <td className="px-6 py-4">
                       <p className="font-bold text-slate-900 dark:text-slate-100">{c.name}</p>
                       {c.nickname && <p className="text-[10px] font-bold text-rose-600 uppercase tracking-tighter">{c.nickname}</p>}
-                      <p className="text-[10px] text-slate-400">{motorcycles.filter(m => m.customer_id === c.id).length} moto(s) cadastrada(s)</p>
+                      <p className="text-[10px] text-slate-400">{customerMotorcycleCountMap.get(c.id) || 0} moto(s) cadastrada(s)</p>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-slate-700 font-bold dark:text-slate-100">{c.whatsapp}</p>
@@ -5992,7 +6073,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                             style={{ width: `${Math.max(0, Math.min(100, (getCustomerRemainingCredit(c.id) / (c.credit_limit || 1)) * 100))}%` }}
                           />
                         </div>
-                        {sales.some(s => s.customer_id === c.id && s.payment_status === 'Pendente' && s.due_date && new Date(s.due_date) < new Date()) && (
+                        {customerOverdueMap.has(c.id) && (
                           <div className="flex items-center gap-1 mt-1 px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded w-fit border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50">
                             <AlertTriangle size={10} className="shrink-0" />
                             <span className="text-[9px] font-black uppercase tracking-widest">Conta Vencida</span>
@@ -6050,6 +6131,29 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               </tbody>
             </table>
           </div>
+          {customerDisplayCount < filteredCustomersList.length && (
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <span className="text-slate-500 dark:text-slate-400 font-medium">
+                Exibindo <strong className="text-slate-900 dark:text-slate-100">{Math.min(customerDisplayCount, filteredCustomersList.length)}</strong> de <strong className="text-slate-900 dark:text-slate-100">{filteredCustomersList.length}</strong> clientes
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCustomerDisplayCount(prev => Math.min(prev + 60, filteredCustomersList.length))}
+                  className="px-3.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl font-bold text-slate-700 dark:text-slate-200 transition-all shadow-xs cursor-pointer"
+                >
+                  Carregar mais 60 clientes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCustomerDisplayCount(filteredCustomersList.length)}
+                  className="px-3 py-1.5 text-rose-600 dark:text-rose-400 hover:underline font-bold transition-all cursor-pointer"
+                >
+                  Mostrar todos ({filteredCustomersList.length})
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

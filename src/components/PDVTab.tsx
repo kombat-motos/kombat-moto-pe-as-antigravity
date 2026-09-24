@@ -137,7 +137,7 @@ export interface PDVTabProps {
   };
 }
 
-export const PDVTab: React.FC<PDVTabProps> = ({
+const PDVTabComponent: React.FC<PDVTabProps> = ({
   pdvState,
   pdvActions,
   data,
@@ -170,6 +170,33 @@ export const PDVTab: React.FC<PDVTabProps> = ({
   const { formatBRL, getCustomerRemainingCredit } = helpers;
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [localSearch, setLocalSearch] = React.useState(searchProduct);
+  const debounceTimerRef = React.useRef<any>(null);
+
+  React.useEffect(() => {
+    setLocalSearch(searchProduct);
+  }, [searchProduct]);
+
+  const handleSearchInputChange = (val: string) => {
+    setLocalSearch(val);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      onSearchChange(val);
+    }, 200);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      onSearchChange(localSearch);
+    }
+  };
+
+  const [displayLimit, setDisplayLimit] = React.useState(48);
+
+  React.useEffect(() => {
+    setDisplayLimit(48);
+  }, [searchProduct, selectedCategory]);
 
   // Foco automático na busca ao abrir o PDV
   useEffect(() => {
@@ -198,6 +225,10 @@ export const PDVTab: React.FC<PDVTabProps> = ({
       return matchesSearch && matchesCategory;
     });
   }, [sortedProducts, searchProduct, selectedCategory]);
+
+  const visibleFilteredProducts = useMemo(() => {
+    return filteredProducts.slice(0, displayLimit);
+  }, [filteredProducts, displayLimit]);
 
   // Subtotal e Total Geral
   const cartTotal = useMemo(() => {
@@ -309,8 +340,9 @@ export const PDVTab: React.FC<PDVTabProps> = ({
                 ref={searchInputRef}
                 type="text"
                 placeholder="Buscar produto, código, SKU, marca ou código de barras..."
-                value={searchProduct}
-                onChange={e => onSearchChange(e.target.value)}
+                value={localSearch}
+                onChange={e => handleSearchInputChange(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 className="w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none text-xs sm:text-sm text-slate-100 font-bold placeholder-slate-500 transition-all shadow-inner"
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-slate-500">
@@ -406,7 +438,7 @@ export const PDVTab: React.FC<PDVTabProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 pb-2">
-                {filteredProducts.map(product => {
+                {visibleFilteredProducts.map(product => {
                   const displayPrice = getDisplayPrice(product);
                   const isOutOfStock = product.stock <= 0;
                   const isLowStock = product.stock > 0 && product.stock <= 2;
@@ -496,6 +528,24 @@ export const PDVTab: React.FC<PDVTabProps> = ({
                     </div>
                   );
                 })}
+                {displayLimit < filteredProducts.length && (
+                  <div className="col-span-full py-4 flex flex-col sm:flex-row items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDisplayLimit(prev => Math.min(prev + 48, filteredProducts.length))}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                    >
+                      Carregar mais produtos ({visibleFilteredProducts.length} de {filteredProducts.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDisplayLimit(filteredProducts.length)}
+                      className="px-3 py-1.5 text-rose-400 hover:underline text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Mostrar todos
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -727,4 +777,5 @@ export const PDVTab: React.FC<PDVTabProps> = ({
   );
 };
 
+export const PDVTab = React.memo(PDVTabComponent);
 export default PDVTab;

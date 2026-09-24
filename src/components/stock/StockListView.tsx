@@ -29,7 +29,7 @@ interface StockListViewProps {
   onSortChange: (field: SortField) => void;
 }
 
-export const StockListView: React.FC<StockListViewProps> = ({
+const StockListViewComponent: React.FC<StockListViewProps> = ({
   products,
   selectedProductIds,
   onToggleSelectProduct,
@@ -43,8 +43,15 @@ export const StockListView: React.FC<StockListViewProps> = ({
   sortField,
   sortDirection,
   onSortChange
-}) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [displayCount, setDisplayCount] = useState(60);
+
+  React.useEffect(() => {
+    setDisplayCount(60);
+  }, [products.length]);
+
+  const visibleProducts = products.slice(0, displayCount);
+  const allVisibleSelected = visibleProducts.length > 0 && visibleProducts.every(p => selectedProductIds.includes(p.id));
 
   const handleCopy = (e: React.MouseEvent, text: string) => {
     e.stopPropagation();
@@ -61,8 +68,6 @@ export const StockListView: React.FC<StockListViewProps> = ({
       ? <ArrowUp size={12} className="text-rose-600 dark:text-rose-400" />
       : <ArrowDown size={12} className="text-rose-600 dark:text-rose-400" />;
   };
-
-  const allVisibleSelected = products.length > 0 && products.every(p => selectedProductIds.includes(p.id));
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
@@ -178,7 +183,7 @@ export const StockListView: React.FC<StockListViewProps> = ({
                 </td>
               </tr>
             ) : (
-              products.map(product => {
+              visibleProducts.map(product => {
                 const isSelected = selectedProductIds.includes(product.id);
                 const stockVal = Number(product.stock) || 0;
                 
@@ -422,6 +427,37 @@ export const StockListView: React.FC<StockListViewProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Barra de Paginação / Carregamento Progressivo ERP */}
+      {products.length > 60 && (
+        <div className="p-3 bg-slate-50/90 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <span className="text-slate-500 dark:text-slate-400 font-medium">
+            Exibindo <strong className="text-slate-900 dark:text-slate-100">{visibleProducts.length}</strong> de <strong className="text-slate-900 dark:text-slate-100">{products.length}</strong> produtos
+          </span>
+          <div className="flex items-center gap-2">
+            {displayCount < products.length && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setDisplayCount(prev => Math.min(prev + 60, products.length))}
+                  className="px-3.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 rounded-xl font-bold text-slate-700 dark:text-slate-200 transition-all shadow-xs cursor-pointer"
+                >
+                  Carregar mais 60 produtos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDisplayCount(products.length)}
+                  className="px-3 py-1.5 text-rose-600 dark:text-rose-400 hover:underline font-bold transition-all cursor-pointer"
+                >
+                  Mostrar todos ({products.length})
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export const StockListView = React.memo(StockListViewComponent);

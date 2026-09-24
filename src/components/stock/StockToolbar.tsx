@@ -83,6 +83,39 @@ export const StockToolbar: React.FC<StockToolbarProps> = ({
   totalFiltered
 }) => {
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false);
+  const [localSearch, setLocalSearch] = useState(searchTerm);
+  const debounceTimerRef = React.useRef<any>(null);
+
+  React.useEffect(() => {
+    setLocalSearch(searchTerm);
+  }, [searchTerm]);
+
+  const handleSearchChange = (val: string) => {
+    setLocalSearch(val);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      onSearchTermChange(val);
+    }, 250);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      onSearchTermChange(localSearch);
+    }
+  };
+
+  const handleClearSearch = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    setLocalSearch('');
+    onSearchTermChange('');
+  };
 
   const activeAdvancedCount = [
     advancedFilters.brand,
@@ -116,15 +149,16 @@ export const StockToolbar: React.FC<StockToolbarProps> = ({
               type="text"
               id="stock-search-input"
               placeholder="Buscar por produto, SKU, código, EAN, marca, aplicação ou localização..."
-              value={searchTerm}
-              onChange={e => onSearchTermChange(e.target.value)}
+              value={localSearch}
+              onChange={e => handleSearchChange(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               className="w-full h-10 pl-10 pr-10 text-sm font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
             />
-            {searchTerm && (
+            {localSearch && (
               <button
                 type="button"
-                onClick={() => onSearchTermChange('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                onClick={handleClearSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                 title="Limpar pesquisa"
               >
                 <X size={16} />

@@ -78,6 +78,20 @@ const OSTab: React.FC<OSTabProps> = ({
   handleUpdateOSStatus
 }) => {
   const osSales = sales.filter(s => s.type === 'Oficina');
+  const [localSearch, setLocalSearch] = React.useState(salesSearchTerm);
+  const debounceTimerRef = React.useRef<any>(null);
+
+  React.useEffect(() => {
+    setLocalSearch(salesSearchTerm);
+  }, [salesSearchTerm]);
+
+  const handleSearchChange = (val: string) => {
+    setLocalSearch(val);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      setSalesSearchTerm(val);
+    }, 200);
+  };
 
   return (
     <div className="space-y-6">
@@ -93,8 +107,14 @@ const OSTab: React.FC<OSTabProps> = ({
               type="text"
               placeholder="Buscar O.S..."
               className="pl-10 pr-4 py-2 bg-white border border-slate-400 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none w-64 dark:bg-slate-800 dark:border-slate-700"
-              value={salesSearchTerm}
-              onChange={e => setSalesSearchTerm(e.target.value)}
+              value={localSearch}
+              onChange={e => handleSearchChange(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+                  setSalesSearchTerm(localSearch);
+                }
+              }}
             />
           </div>
           <button
@@ -292,4 +312,4 @@ const OSTab: React.FC<OSTabProps> = ({
   );
 };
 
-export default OSTab;
+export default React.memo(OSTab);
