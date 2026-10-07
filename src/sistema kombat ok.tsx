@@ -5378,17 +5378,25 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       width: 100% !important;
       background: #ffffff !important;
       font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-      font-size: 12.5px;
-      line-height: 1.25;
+      font-size: 10.5px;
+      line-height: 1.15;
       font-weight: bold;
+      height: auto !important;
+    }
+    p, h1, h2, h3, h4, h5, h6 {
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: 1.15;
     }
     #${elementId}, .client-receipt, .internal-receipt {
       width: 100% !important;
       max-width: 76mm !important;
       margin: 0 auto !important;
-      padding: 2mm 1.5mm 4mm 1.5mm !important;
+      padding: 1mm 1mm 2mm 1mm !important;
       background: #ffffff !important;
       display: block !important;
+      height: auto !important;
+      min-height: 0 !important;
     }
     .no-print {
       display: none !important;
@@ -5396,9 +5404,11 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
     table {
       border-collapse: collapse;
       width: 100% !important;
+      margin: 0 !important;
     }
     td, th {
-      padding: 2px 0 !important;
+      padding: 1px 0 !important;
+      line-height: 1.15;
     }
   </style>
 </head>
@@ -9258,7 +9268,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           maxWidth="max-w-lg"
         >
           {selectedSaleForReceipt && (
-            <div id="receipt-content" className="bg-white p-2 text-[12.5px] leading-snug text-black w-full max-w-[76mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800 print-receipt" style={{ fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif' }}>
+            <div id="receipt-content" className="bg-white p-2 text-[10.5px] leading-[1.15] text-black w-full max-w-[76mm] mx-auto overflow-visible print:p-0 font-bold dark:bg-slate-800 print-receipt" style={{ fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif' }}>
               <style>{`
                 @media print {
                   @page {
@@ -9275,7 +9285,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
                     color: black !important;
-                    font-size: 12.5px !important;
+                    font-size: 10.5px !important;
+                    line-height: 1.15 !important;
                   }
                   .no-print { display: none !important; }
                   
@@ -9284,13 +9295,35 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     width: 100% !important;
                     max-width: 76mm !important;
                     margin: 0 auto !important;
-                    padding: 0 !important;
+                    padding: 1mm 1mm 2mm 1mm !important;
                     display: block !important;
                     background: white !important;
                     color: black !important;
+                    height: auto !important;
+                    min-height: 0 !important;
                   }
                   #receipt-content * {
                     color: black !important;
+                    box-sizing: border-box !important;
+                  }
+                  #receipt-content p,
+                  #receipt-content h1,
+                  #receipt-content h2,
+                  #receipt-content h3,
+                  #receipt-content h4 {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    line-height: 1.15 !important;
+                  }
+                  #receipt-content table {
+                    margin: 0 !important;
+                    border-collapse: collapse !important;
+                    width: 100% !important;
+                  }
+                  #receipt-content td,
+                  #receipt-content th {
+                    padding: 1px 0 !important;
+                    line-height: 1.15 !important;
                   }
                 }
               `}</style>
@@ -9298,74 +9331,136 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               {/* ================================================== */}
               {/* CLIENT RECEIPT */}
               {/* ================================================== */}
-              <div className="client-receipt">
-                <div style={{ textAlign: 'center', marginBottom: '4px', fontWeight: 'bold' }}>
-                  <h4 style={{ fontWeight: '900', fontSize: '15px', margin: '0' }}>KOMBAT MOTO PECAS</h4>
-                  <p style={{ margin: '0', fontSize: '11px' }}>CNPJ: 12.802.931/0001-92</p>
-                  <p style={{ margin: '0', fontSize: '11px' }}>R PARANA, 342 - CENTRO, Andirá / PR</p>
-                  <p style={{ margin: '0', fontSize: '11px' }}>Tel (43) 3538-4537 | Email: kombatpecas@gmail.com</p>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '13px', fontWeight: '900', textDecoration: 'underline' }}>RECIBO DO CLIENTE</p>
+              <div className="client-receipt" style={{ height: 'auto', minHeight: '0', padding: '0' }}>
+                <div style={{ textAlign: 'center', marginBottom: '2px', fontWeight: 'bold', lineHeight: '1.15' }}>
+                  <h4 style={{ fontWeight: '900', fontSize: '13.5px', margin: '0', lineHeight: '1.1' }}>KOMBAT MOTO PECAS</h4>
+                  <p style={{ margin: '1px 0 0 0', fontSize: '9.5px', lineHeight: '1.1' }}>CNPJ: 12.802.931/0001-92</p>
+                  <p style={{ margin: '0', fontSize: '9.5px', lineHeight: '1.1' }}>R PARANA, 342 - CENTRO, Andirá / PR</p>
+                  <p style={{ margin: '0', fontSize: '9.5px', lineHeight: '1.1' }}>Tel (43) 3538-4537 | Email: kombatpecas@gmail.com</p>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '11.5px', fontWeight: '900', textDecoration: 'underline', lineHeight: '1.1' }}>RECIBO DO CLIENTE</p>
                 </div>
 
                 <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
 
-                <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
+                <table style={{ width: '100%', fontSize: '10.5px', fontWeight: 'bold', margin: '0', lineHeight: '1.15' }}>
                   <tbody>
                     <tr>
-                      <td>Venda: {selectedSaleForReceipt.id}</td>
-                      <td style={{ textAlign: 'center' }}>Data: {new Date(selectedSaleForReceipt.date).toLocaleDateString('pt-BR')}</td>
-                      <td style={{ textAlign: 'right' }}>Hora: {new Date(selectedSaleForReceipt.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td style={{ padding: '0', textAlign: 'left' }}>Venda: {selectedSaleForReceipt.id}</td>
+                      <td style={{ padding: '0', textAlign: 'center' }}>Data: {new Date(selectedSaleForReceipt.date).toLocaleDateString('pt-BR')}</td>
+                      <td style={{ padding: '0', textAlign: 'right' }}>Hora: {new Date(selectedSaleForReceipt.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
                     </tr>
                   </tbody>
                 </table>
 
                 <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
 
-                {/* Customer Info */}
-                <div style={{ padding: '2px 0' }}>
-                  <p style={{ fontWeight: 'bold' }}>Cliente: {selectedSaleForReceipt.customer_id || '---'} - {(selectedSaleForReceipt.customer_name || 'Consumidor Final').toUpperCase()}</p>
-                  {(() => {
-                    const customer = customers.find(c => c.id === selectedSaleForReceipt.customer_id);
-                    if (customer) {
-                      return (
-                        <div style={{ fontSize: '12px', fontWeight: 'bold' }}>
-                          <p>TEL: {customer.whatsapp || '---'} | {customer.cpf ? `CPF: ${customer.cpf}` : (customer.cnpj ? `CNPJ: ${customer.cnpj}` : '')}</p>
-                          <p>End: {customer.address || ''} {customer.neighborhood ? ` - ${customer.neighborhood}` : ''}</p>
-                          <p>Cidade: {customer.city || 'Andirá'} / PR</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-                <div className="border-t border-dashed border-black my-1"></div>
+                {/* Customer & Vehicle Info - Extremamente compacto, sem linhas vazias */}
+                {(() => {
+                  const customer = customers.find(c => c.id === selectedSaleForReceipt.customer_id);
+                  const clientName = (selectedSaleForReceipt.customer_name || customer?.name || 'Consumidor Final').toUpperCase();
+                  const clientId = selectedSaleForReceipt.customer_id;
+                  const clientDisplay = clientId ? `${clientId} - ${clientName}` : clientName;
 
-                {/* Vehicle Info */}
-                <div style={{ padding: '4px 0', fontSize: '12px', fontWeight: 'bold' }}>
-                  {selectedSaleForReceipt.moto_details ? (
-                    <div>
-                      <p style={{ fontWeight: '900' }}>Placa: {selectedSaleForReceipt.moto_details.match(/\((.*?)\)/)?.[1] || '-'}</p>
-                      <p>Veículo: {selectedSaleForReceipt.moto_details.split('(')[0] || '-'}</p>
+                  const phone = (customer?.whatsapp || customer?.phone || selectedSaleForReceipt.whatsapp || '').trim();
+                  const doc = customer?.cpf ? `CPF: ${customer.cpf}` : (customer?.cnpj ? `CNPJ: ${customer.cnpj}` : '');
+                  const email = (customer?.email || '').trim();
+
+                  const address = (customer?.address || '').trim();
+                  const neighborhood = (customer?.neighborhood || '').trim();
+                  const fullAddress = `${address}${neighborhood ? ` - ${neighborhood}` : ''}`.trim();
+                  const city = (customer?.city || 'Andirá').trim();
+                  const state = (customer?.state || 'PR').trim();
+                  const cityFormatted = `${city}/${state}`;
+
+                  // Parse inteligente de veículo, placa e KM
+                  const rawMoto = (selectedSaleForReceipt.moto_details || '').trim();
+                  
+                  let plate = '';
+                  const plateMatch = rawMoto.match(/\((.*?)\)/);
+                  if (plateMatch && plateMatch[1]) {
+                    plate = plateMatch[1].trim();
+                  } else {
+                    const pMatch = rawMoto.match(/placa:\s*([^.\s,]+)/i);
+                    if (pMatch && pMatch[1]) plate = pMatch[1].trim();
+                  }
+                  if (plate.toUpperCase() === 'N/A' || plate === '-' || plate.toLowerCase() === 'não informada') {
+                    plate = '';
+                  }
+
+                  let vehicle = '';
+                  if (rawMoto) {
+                    if (rawMoto.includes('(')) {
+                      vehicle = rawMoto.split('(')[0].trim();
+                    } else if (/placa:\s*n\/a\s*\.?\s*km:\s*0/i.test(rawMoto)) {
+                      vehicle = '';
+                    } else {
+                      vehicle = rawMoto.replace(/placa:\s*[^.]*/i, '').replace(/km:\s*.*$/i, '').trim();
+                    }
+                  }
+                  if (vehicle.toUpperCase() === 'N/A' || vehicle === '-' || vehicle.toLowerCase() === 'não informado') {
+                    vehicle = '';
+                  }
+
+                  let kmVal = '';
+                  if (selectedSaleForReceipt.km && String(selectedSaleForReceipt.km).trim() !== '0') {
+                    kmVal = String(selectedSaleForReceipt.km).trim();
+                  } else {
+                    const kMatch = rawMoto.match(/km:\s*([^\s,]+)/i);
+                    if (kMatch && kMatch[1] && kMatch[1] !== '0' && kMatch[1].toUpperCase() !== 'N/A' && kMatch[1] !== '-') {
+                      kmVal = kMatch[1].trim();
+                    }
+                  }
+
+                  return (
+                    <div style={{ padding: '1px 0', height: 'auto', minHeight: '0', fontSize: '10.5px', lineHeight: '1.15', fontWeight: 'bold' }}>
+                      <p style={{ margin: '1px 0', fontWeight: '900' }}>CLIENTE: {clientDisplay}</p>
+                      {phone && (
+                        <p style={{ margin: '1px 0' }}>
+                          TEL: {phone}{doc ? ` | ${doc}` : ''}
+                        </p>
+                      )}
+                      {email && email !== '---' && (
+                        <p style={{ margin: '1px 0' }}>E-MAIL: {email}</p>
+                      )}
+                      {fullAddress && (
+                        <p style={{ margin: '1px 0' }}>END: {fullAddress}</p>
+                      )}
+                      <p style={{ margin: '1px 0' }}>CIDADE: {cityFormatted}</p>
+
+                      {(plate || vehicle) && (
+                        <p style={{ margin: '1px 0' }}>
+                          {plate && vehicle ? (
+                            <>PLACA: {plate} &nbsp;&nbsp; VEÍCULO: {vehicle}</>
+                          ) : plate ? (
+                            <>PLACA: {plate}</>
+                          ) : (
+                            <>VEÍCULO: {vehicle}</>
+                          )}
+                        </p>
+                      )}
+
+                      {kmVal && (
+                        <p style={{ margin: '1px 0' }}>KM ATUAL: {kmVal}</p>
+                      )}
                     </div>
-                  ) : (
-                    <p>Veículo: Não informado</p>
-                  )}
-                  <p>KM Atual: {selectedSaleForReceipt.km || selectedSaleForReceipt.moto_details?.split('KM: ')?.[1] || '-'}</p>
-                </div>
-                <div className="border-t border-dashed border-black my-1"></div>
+                  );
+                })()}
+
+                <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
 
                 {/* Observations */}
                 {selectedSaleForReceipt.service_description && (
-                  <div style={{ padding: '2px 0' }}>
-                    <p style={{ fontWeight: 'bold' }}>Observações:</p>
-                    <p style={{ fontSize: '10px', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{selectedSaleForReceipt.service_description}</p>
-                  </div>
+                  <>
+                    <div style={{ padding: '1px 0', lineHeight: '1.15', fontSize: '9.5px' }}>
+                      <p style={{ fontWeight: '900', margin: '0' }}>OBSERVAÇÕES:</p>
+                      <p style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', margin: '0' }}>{selectedSaleForReceipt.service_description}</p>
+                    </div>
+                    <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
+                  </>
                 )}
-                {selectedSaleForReceipt.service_description && <div className="border-t border-dashed border-black my-1"></div>}
 
-                {/* Items Section */}
-                <div className="py-1">
-                  {/* Filter items for client (exclude Adicional Interno) */}
+                {/* Items Section - Compacto com código, quantidade, preço unitário e total */}
+                <div style={{ padding: '1px 0' }}>
                   {(() => {
                     const clientItems = (selectedSaleForReceipt.items || selectedSaleForReceipt.sale_items || []).filter(i => i.type !== 'Adicional Interno');
                     const principalService = clientItems.find(i => i.type === 'Serviço Principal') || {
@@ -9385,103 +9480,86 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                       <>
                         {/* Principal Service */}
                         {principalService.price > 0 && (
-                          <div style={{ marginBottom: '4px' }}>
-                            <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>SERVIÇO REALIZADO</p>
-                            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
-                              <tbody>
-                                <tr>
-                                  <td style={{ paddingTop: '2px' }}>- Serviço principal: {principalService.description.toUpperCase()}</td>
-                                </tr>
-                                <tr style={{ borderBottom: '1px dotted black' }}>
-                                  <td style={{ textAlign: 'right', fontWeight: '900' }}>
-                                    Valor da mão de obra: R$ {principalService.price.toFixed(2)}
-                                  </td>
-                                </tr>
-                              </tbody>
-                            </table>
+                          <div style={{ marginBottom: '2px' }}>
+                            <p style={{ fontSize: '9.5px', fontWeight: '900', borderBottom: '1px solid black', margin: '1px 0', textTransform: 'uppercase' }}>SERVIÇO PRINCIPAL</p>
+                            <div style={{ padding: '1px 0', lineHeight: '1.15', fontSize: '10.5px', fontWeight: 'bold' }}>
+                              <div style={{ wordBreak: 'break-word' }}>- {principalService.description.toUpperCase()}</div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '8px' }}>
+                                <span>1 x R$ {principalService.price.toFixed(2)}</span>
+                                <span style={{ fontWeight: '900' }}>R$ {principalService.price.toFixed(2)}</span>
+                              </div>
+                            </div>
                           </div>
                         )}
 
                         {/* Other Services */}
                         {otherServices.length > 0 && (
-                          <div style={{ marginBottom: '4px', marginTop: '4px' }}>
-                            <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>OUTROS SERVIÇOS</p>
-                            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
-                              <tbody>
-                                {otherServices.map((item, idx) => (
-                                  <React.Fragment key={idx}>
-                                    <tr>
-                                      <td style={{ paddingTop: '2px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
-                                    </tr>
-                                    <tr style={{ borderBottom: '1px dotted black' }}>
-                                      <td style={{ textAlign: 'left', paddingLeft: '8px' }}>{item.quantity}</td>
-                                      <td style={{ textAlign: 'left' }}>x R$ {(item.price || 0).toFixed(2)} =</td>
-                                      <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
-                                    </tr>
-                                  </React.Fragment>
-                                ))}
-                              </tbody>
-                            </table>
+                          <div style={{ marginBottom: '2px', marginTop: '2px' }}>
+                            <p style={{ fontSize: '9.5px', fontWeight: '900', borderBottom: '1px solid black', margin: '1px 0', textTransform: 'uppercase' }}>OUTROS SERVIÇOS</p>
+                            {otherServices.map((item, idx) => (
+                              <div key={idx} style={{ padding: '1px 0', lineHeight: '1.15', fontSize: '10.5px', fontWeight: 'bold' }}>
+                                <div style={{ wordBreak: 'break-word' }}>{(item.description || '').toUpperCase()}</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '8px' }}>
+                                  <span>{item.quantity} x R$ {(item.price || 0).toFixed(2)}</span>
+                                  <span style={{ fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</span>
+                                </div>
+                                {idx < otherServices.length - 1 && <div style={{ borderBottom: '1px dotted #888', margin: '1px 0' }}></div>}
+                              </div>
+                            ))}
                           </div>
                         )}
 
                         {/* Parts & Products */}
                         {partsItems.length > 0 && (
-                          <div style={{ marginBottom: '4px', marginTop: '4px' }}>
-                            <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>PEÇAS E PRODUTOS</p>
-                            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
-                              <tbody>
-                                {partsItems.map((item, idx) => (
-                                  <React.Fragment key={idx}>
-                                    <tr>
-                                      <td style={{ paddingTop: '2px', width: '20%' }}>{item.product_id || '---'}</td>
-                                      <td style={{ paddingTop: '2px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
-                                    </tr>
-                                    <tr style={{ borderBottom: '1px dotted black' }}>
-                                      <td style={{ textAlign: 'left', paddingLeft: '8px' }}>{item.quantity}</td>
-                                      <td style={{ textAlign: 'left' }}>x R$ {(item.price || 0).toFixed(2)} =</td>
-                                      <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
-                                    </tr>
-                                  </React.Fragment>
-                                ))}
-                              </tbody>
-                            </table>
+                          <div style={{ marginBottom: '2px', marginTop: '2px' }}>
+                            <p style={{ fontSize: '9.5px', fontWeight: '900', borderBottom: '1px solid black', margin: '1px 0', textTransform: 'uppercase' }}>PEÇAS E PRODUTOS</p>
+                            {partsItems.map((item, idx) => (
+                              <div key={idx} style={{ padding: '1px 0', lineHeight: '1.15', fontSize: '10.5px', fontWeight: 'bold' }}>
+                                <div style={{ display: 'flex', gap: '5px', alignItems: 'flex-start' }}>
+                                  {item.product_id ? (
+                                    <span style={{ flexShrink: 0, minWidth: '40px' }}>{item.product_id}</span>
+                                  ) : null}
+                                  <span style={{ flex: 1, wordBreak: 'break-word' }}>{(item.description || '').toUpperCase()}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '12px' }}>
+                                  <span>{item.quantity} x R$ {(item.price || 0).toFixed(2)}</span>
+                                  <span style={{ fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</span>
+                                </div>
+                                {idx < partsItems.length - 1 && <div style={{ borderBottom: '1px dotted #888', margin: '1px 0' }}></div>}
+                              </div>
+                            ))}
                           </div>
                         )}
 
                         {/* Fees / Adjustments */}
                         {feesItems.length > 0 && (
-                          <div style={{ marginBottom: '4px', marginTop: '4px' }}>
-                            <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '4px' }}>TAXAS / AJUSTES</p>
-                            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
-                              <tbody>
-                                {feesItems.map((item, idx) => (
-                                  <tr key={idx} style={{ borderBottom: '1px dotted black' }}>
-                                    <td style={{ paddingTop: '2px', fontWeight: 'bold' }}>{(item.description || '').toUpperCase()}</td>
-                                    <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                          <div style={{ marginBottom: '2px', marginTop: '2px' }}>
+                            <p style={{ fontSize: '9.5px', fontWeight: '900', borderBottom: '1px solid black', margin: '1px 0', textTransform: 'uppercase' }}>TAXAS / AJUSTES</p>
+                            {feesItems.map((item, idx) => (
+                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0', lineHeight: '1.15', fontSize: '10.5px', fontWeight: 'bold' }}>
+                                <span style={{ flex: 1, wordBreak: 'break-word' }}>{(item.description || '').toUpperCase()}</span>
+                                <span style={{ fontWeight: '900' }}>R$ {((item.price || 0) * (item.quantity || 0)).toFixed(2)}</span>
+                              </div>
+                            ))}
                           </div>
                         )}
 
-                        <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
+                        <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
 
-                        {/* Totals table */}
-                        <table style={{ width: '100%', fontSize: '11px', fontWeight: 'bold' }}>
+                        {/* Totals Section */}
+                        <table style={{ width: '100%', fontSize: '10.5px', fontWeight: 'bold', lineHeight: '1.15', margin: '0' }}>
                           <tbody>
                             <tr>
-                              <td style={{ textAlign: 'left' }}>Total de mão de obra:</td>
-                              <td style={{ textAlign: 'right' }}>R$ {totalLabor.toFixed(2)}</td>
+                              <td style={{ padding: '0', textAlign: 'left' }}>TOTAL PEÇAS:</td>
+                              <td style={{ padding: '0', textAlign: 'right' }}>R$ {(totalParts + totalFeesVal).toFixed(2)}</td>
                             </tr>
                             <tr>
-                              <td style={{ textAlign: 'left' }}>Total de peças/produtos:</td>
-                              <td style={{ textAlign: 'right' }}>R$ {(totalParts + totalFeesVal).toFixed(2)}</td>
+                              <td style={{ padding: '0', textAlign: 'left' }}>MÃO DE OBRA:</td>
+                              <td style={{ padding: '0', textAlign: 'right' }}>R$ {totalLabor.toFixed(2)}</td>
                             </tr>
-                            <tr style={{ borderTop: '1.5px solid black', fontWeight: '900', fontSize: '16px' }}>
-                              <td style={{ textAlign: 'left', paddingTop: '4px', textDecoration: 'underline' }}>TOTAL A PAGAR:</td>
-                              <td style={{ textAlign: 'right', paddingTop: '4px', textDecoration: 'underline' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                            <tr style={{ borderTop: '1.5px solid black', fontWeight: '900', fontSize: '13px' }}>
+                              <td style={{ padding: '2px 0 1px 0', textAlign: 'left', textDecoration: 'underline' }}>TOTAL A PAGAR:</td>
+                              <td style={{ padding: '2px 0 1px 0', textAlign: 'right', textDecoration: 'underline' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
                             </tr>
                           </tbody>
                         </table>
@@ -9490,104 +9568,94 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   })()}
                 </div>
 
-                {/* Payment Info */}
-                <div style={{ marginTop: '6px', paddingTop: '2px', borderTop: '1px dashed black' }}>
-                  <table style={{ width: '100%', fontSize: '11px', fontWeight: '900', borderBottom: '1.5px solid black', marginBottom: '4px' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ textAlign: 'left' }}>Vencimento</th>
-                        <th style={{ textAlign: 'center' }}>Forma Pagto</th>
-                        <th style={{ textAlign: 'right' }}>Valor</th>
-                      </tr>
-                    </thead>
-                    <tbody style={{ fontSize: '12px' }}>
-                      <tr>
-                        <td style={{ textAlign: 'left' }}>{selectedSaleForReceipt.due_date ? new Date(selectedSaleForReceipt.due_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          {(selectedSaleForReceipt.payment_method === 'Fiado' ? 'CREDITO KOMBAT' : (selectedSaleForReceipt.payment_method || '')).toUpperCase()}
-                          {selectedSaleForReceipt.charge_type === 'credito_30_dias' && <span style={{display: 'block', fontSize: '9px'}}>TABELA 30 DIAS</span>}
-                          {selectedSaleForReceipt.charge_type === 'atacado' && <span style={{display: 'block', fontSize: '9px'}}>TABELA ATACADO</span>}
-                        </td>
-                        <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
 
-                {selectedSaleForReceipt.payment_method === 'Fiado' && (
-                  <table style={{ width: '100%', marginTop: '4px' }}>
-                    <tbody>
-                      <tr style={{ fontSize: '11px', fontWeight: '900' }}>
-                        <td colSpan={2} style={{ paddingTop: '4px', borderTop: '1.5px solid black' }}>REGRA DE PAGAMENTO (FIADO):</td>
-                      </tr>
-                      <tr style={{ fontSize: '13px', fontWeight: '900' }}>
-                        <td style={{ textAlign: 'left' }}>VALOR NORMAL (ATÉ 30 DIAS):</td>
-                        <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
-                      </tr>
-                      <tr style={{ fontSize: '13px', fontWeight: '900', color: 'red' }}>
-                        <td style={{ textAlign: 'left' }}>VALOR APÓS 30 DIAS (+15%):</td>
-                        <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total * 1.15).toFixed(2)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                )}
-
-                <table style={{ width: '100%', marginTop: '4px' }}>
+                {/* Payment, Due Date and Credit Rules */}
+                <table style={{ width: '100%', fontSize: '10.5px', fontWeight: 'bold', lineHeight: '1.15', margin: '0' }}>
                   <tbody>
-                    <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '1px dashed black' }}>
-                      <td style={{ textAlign: 'left', paddingTop: '2px' }}>TOTAL PAGO:</td>
-                      <td style={{ textAlign: 'right', paddingTop: '2px' }}>R$ {(selectedSaleForReceipt.paid_total || (selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0) : 0)).toFixed(2)}</td>
+                    <tr>
+                      <td style={{ padding: '0', textAlign: 'left' }}>VENCIMENTO:</td>
+                      <td style={{ padding: '0', textAlign: 'right' }}>
+                        {selectedSaleForReceipt.due_date ? new Date(selectedSaleForReceipt.due_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '0', textAlign: 'left' }}>FORMA PAGTO:</td>
+                      <td style={{ padding: '0', textAlign: 'right', fontWeight: '900' }}>
+                        {(selectedSaleForReceipt.payment_method === 'Fiado' ? 'CRÉDITO KOMBAT' : (selectedSaleForReceipt.payment_method || '')).toUpperCase()}
+                        {selectedSaleForReceipt.charge_type === 'credito_30_dias' && ' (30 DIAS)'}
+                        {selectedSaleForReceipt.charge_type === 'atacado' && ' (ATACADO)'}
+                      </td>
                     </tr>
                     {selectedSaleForReceipt.payment_method === 'Fiado' && (
-                      <tr style={{ fontWeight: '900', fontSize: '14px', color: 'red' }}>
-                        <td style={{ textAlign: 'left', paddingTop: '2px' }}>RESTANTE DEVIDO:</td>
-                        <td style={{ textAlign: 'right', paddingTop: '2px' }}>R$ {(selectedSaleForReceipt.total - (selectedSaleForReceipt.paid_total || 0)).toFixed(2)}</td>
+                      <>
+                        <tr>
+                          <td style={{ padding: '0', textAlign: 'left' }}>VALOR NORMAL (ATÉ 30 DIAS):</td>
+                          <td style={{ padding: '0', textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                        </tr>
+                        <tr style={{ color: 'red' }}>
+                          <td style={{ padding: '0', textAlign: 'left' }}>VALOR APÓS 30 DIAS (+15%):</td>
+                          <td style={{ padding: '0', textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total * 1.15).toFixed(2)}</td>
+                        </tr>
+                      </>
+                    )}
+                    <tr style={{ borderTop: '1px dotted #888' }}>
+                      <td style={{ padding: '1px 0 0 0', textAlign: 'left' }}>TOTAL PAGO:</td>
+                      <td style={{ padding: '1px 0 0 0', textAlign: 'right' }}>R$ {(selectedSaleForReceipt.paid_total || (selectedSaleForReceipt.payment_status === 'Pago' ? (selectedSaleForReceipt.total || 0) : 0)).toFixed(2)}</td>
+                    </tr>
+                    {selectedSaleForReceipt.payment_method === 'Fiado' && (
+                      <tr style={{ color: 'red' }}>
+                        <td style={{ padding: '0', textAlign: 'left' }}>RESTANTE DEVIDO:</td>
+                        <td style={{ padding: '0', textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total - (selectedSaleForReceipt.paid_total || 0)).toFixed(2)}</td>
                       </tr>
                     )}
                     {selectedSaleForReceipt.customer_id && (
-                      <tr style={{ fontWeight: '900', fontSize: '14px', borderTop: '2.5px solid black' }}>
-                        <td style={{ textAlign: 'left', paddingTop: '4px' }}>SALDO LIMITE:</td>
-                        <td style={{ textAlign: 'right', paddingTop: '4px', color: 'red' }}>R$ {getCustomerRemainingCredit(selectedSaleForReceipt.customer_id).toFixed(2)}</td>
+                      <tr style={{ borderTop: '1.5px solid black' }}>
+                        <td style={{ padding: '1px 0 0 0', textAlign: 'left' }}>SALDO LIMITE:</td>
+                        <td style={{ padding: '1px 0 0 0', textAlign: 'right', color: 'red' }}>R$ {getCustomerRemainingCredit(selectedSaleForReceipt.customer_id).toFixed(2)}</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
 
-                <div style={{ textAlign: 'center', marginTop: '14px', paddingBottom: '2px' }}>
-                  <div style={{ borderTop: '1.5px solid black', width: '220px', margin: '0 auto' }}></div>
-                  <p style={{ fontSize: '11px', marginTop: '3px', fontWeight: '900' }}>ASSINATURA DO CLIENTE</p>
+                {/* Signature & Disclaimer */}
+                <div style={{ textAlign: 'center', marginTop: '8px', paddingBottom: '2px', lineHeight: '1.1' }}>
+                  <div style={{ borderTop: '1px solid black', width: '180px', margin: '0 auto' }}></div>
+                  <p style={{ fontSize: '9.5px', marginTop: '2px', fontWeight: '900', letterSpacing: '0.5px' }}>ASSINATURA DO CLIENTE</p>
                 </div>
 
-                <div style={{ textAlign: 'center', marginTop: '8px', paddingTop: '4px', borderTop: '1px dashed black' }}>
-                  <p style={{ fontWeight: '900', fontSize: '10px', textTransform: 'uppercase' }}>Esse cupom não é um documento fiscal</p>
+                <div style={{ textAlign: 'center', marginTop: '4px', paddingTop: '2px', borderTop: '1px dashed black' }}>
+                  <p style={{ fontWeight: '900', fontSize: '9px', textTransform: 'uppercase', margin: '0' }}>Esse cupom não é um documento fiscal</p>
                 </div>
                 <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
-                <div style={{ textAlign: 'center', fontSize: '11.5px', fontWeight: '900' }}>Obrigado pela preferência!<br />Kombat Moto Peças</div>
+                <div style={{ textAlign: 'center', fontSize: '10.5px', fontWeight: '900', lineHeight: '1.15' }}>
+                  Obrigado pela preferência!<br />Kombat Moto Peças
+                </div>
               </div>
 
               {/* ================================================== */}
               {/* DUAL DIVISION & INTERNAL OFFICE RECEIPT */}
               {/* ================================================== */}
               {selectedSaleForReceipt.mechanic_id && (
-                <div className="internal-receipt" style={{ marginTop: '30px', borderTop: '3px dashed black', paddingTop: '30px' }}>
+                <div className="internal-receipt" style={{ marginTop: '16px', borderTop: '2px dashed black', paddingTop: '10px', height: 'auto', minHeight: '0', padding: '0' }}>
                   {/* print-only divider to separate sheets if printing on continuous roll */}
-                  <div className="text-center font-black text-lg no-print" style={{ margin: '15px 0', borderBottom: '1px dashed #666', borderTop: '1px dashed #666', padding: '5px 0' }}>
+                  <div className="text-center font-black text-sm no-print" style={{ margin: '8px 0', borderBottom: '1px dashed #666', borderTop: '1px dashed #666', padding: '3px 0' }}>
                     ====================================
                   </div>
                   
-                  <div style={{ textAlign: 'center', marginBottom: '4px', fontWeight: 'bold' }}>
-                    <h4 style={{ fontWeight: '900', fontSize: '14px', margin: '0' }}>KOMBAT MOTO PEÇAS</h4>
-                    <p style={{ margin: '0', fontSize: '12px', fontWeight: '900', textTransform: 'uppercase' }}>RECIBO INTERNO DA OFICINA</p>
-                    <p style={{ margin: '0', fontSize: '10px', fontWeight: '900' }}>CONTROLE INTERNO DE COMISSÕES</p>
+                  <div style={{ textAlign: 'center', marginBottom: '2px', fontWeight: 'bold', lineHeight: '1.15' }}>
+                    <h4 style={{ fontWeight: '900', fontSize: '13px', margin: '0', lineHeight: '1.1' }}>KOMBAT MOTO PECAS</h4>
+                    <p style={{ margin: '1px 0 0 0', fontSize: '10.5px', fontWeight: '900', textTransform: 'uppercase' }}>RECIBO INTERNO DA OFICINA</p>
+                    <p style={{ margin: '0', fontSize: '9px', fontWeight: '900' }}>CONTROLE INTERNO DE COMISSÕES</p>
                   </div>
 
                   <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
 
-                  <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
+                  <table style={{ width: '100%', fontSize: '10.5px', fontWeight: 'bold', lineHeight: '1.15', margin: '0' }}>
                     <tbody>
                       <tr>
-                        <td>Venda: {selectedSaleForReceipt.id}</td>
-                        <td style={{ textAlign: 'right' }}>Data: {new Date(selectedSaleForReceipt.date).toLocaleDateString('pt-BR')}</td>
+                        <td style={{ padding: '0', textAlign: 'left' }}>Venda: {selectedSaleForReceipt.id}</td>
+                        <td style={{ padding: '0', textAlign: 'right' }}>Data: {new Date(selectedSaleForReceipt.date).toLocaleDateString('pt-BR')}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -9595,10 +9663,12 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
 
                   {/* Internal Info */}
-                  <div style={{ fontSize: '12px', padding: '2px 0' }}>
-                    <p>Cliente: {(selectedSaleForReceipt.customer_name || 'Consumidor Final').toUpperCase()}</p>
-                    <p>Moto: {selectedSaleForReceipt.moto_details ? selectedSaleForReceipt.moto_details.split('(')[0] : 'Não informado'}</p>
-                    <p style={{ fontWeight: '900', fontSize: '13px', marginTop: '2px' }}>Mecânico responsável: {selectedSaleForReceipt.mechanic_name?.toUpperCase()}</p>
+                  <div style={{ fontSize: '10.5px', padding: '1px 0', lineHeight: '1.15', fontWeight: 'bold' }}>
+                    <p style={{ margin: '1px 0' }}>Cliente: {(selectedSaleForReceipt.customer_name || 'Consumidor Final').toUpperCase()}</p>
+                    {selectedSaleForReceipt.moto_details && (
+                      <p style={{ margin: '1px 0' }}>Moto: {selectedSaleForReceipt.moto_details.split('(')[0]}</p>
+                    )}
+                    <p style={{ fontWeight: '900', fontSize: '11px', margin: '1px 0' }}>Mecânico: {selectedSaleForReceipt.mechanic_name?.toUpperCase()}</p>
                   </div>
 
                   <div style={{ borderTop: '1px dashed black', margin: '2px 0' }}></div>
@@ -9614,79 +9684,79 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
                     return (
                       <>
-                        <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
+                        <table style={{ width: '100%', fontSize: '10.5px', fontWeight: 'bold', lineHeight: '1.15', margin: '0' }}>
                           <tbody>
                             <tr>
-                              <td>Mão de obra principal cobrada do cliente:</td>
-                              <td style={{ textAlign: 'right' }}>R$ {financials.laborTotal.toFixed(2)}</td>
+                              <td style={{ padding: '0', textAlign: 'left' }}>Mão de obra cobrada:</td>
+                              <td style={{ padding: '0', textAlign: 'right' }}>R$ {financials.laborTotal.toFixed(2)}</td>
                             </tr>
                             <tr style={{ borderBottom: '1px dotted black' }}>
-                              <td style={{ color: '#000', fontWeight: '900' }}>Comissão 50% sobre mão de obra principal:</td>
-                              <td style={{ textAlign: 'right', fontWeight: '900' }}>R$ {financials.commission.toFixed(2)}</td>
+                              <td style={{ padding: '0', color: '#000', fontWeight: '900', textAlign: 'left' }}>Comissão 50% mão de obra:</td>
+                              <td style={{ padding: '0', textAlign: 'right', fontWeight: '900' }}>R$ {financials.commission.toFixed(2)}</td>
                             </tr>
                           </tbody>
                         </table>
 
                         {/* Internal Services List */}
                         {internalServices.length > 0 ? (
-                          <div style={{ marginTop: '6px' }}>
-                            <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', marginBottom: '2px' }}>SERVIÇOS ADICIONAIS INTERNOS</p>
-                            <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', fontWeight: 'bold' }}>
+                          <div style={{ marginTop: '2px' }}>
+                            <p style={{ fontSize: '9px', fontStyle: 'italic', fontWeight: '900', borderBottom: '1px solid black', margin: '1px 0' }}>SERVIÇOS ADICIONAIS INTERNOS</p>
+                            <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse', fontWeight: 'bold', margin: '0' }}>
                               <tbody>
                                 {internalServices.map((item, idx) => (
                                   <tr key={idx} style={{ borderBottom: '1px dotted black' }}>
-                                    <td>- {item.description.toUpperCase()}</td>
-                                    <td style={{ textAlign: 'right' }}>R$ {item.price.toFixed(2)}</td>
+                                    <td style={{ padding: '1px 0' }}>- {item.description.toUpperCase()}</td>
+                                    <td style={{ padding: '1px 0', textAlign: 'right' }}>R$ {item.price.toFixed(2)}</td>
                                   </tr>
                                 ))}
                                 <tr style={{ fontWeight: '900' }}>
-                                  <td style={{ paddingTop: '2px' }}>Total de serviços adicionais internos:</td>
-                                  <td style={{ textAlign: 'right', paddingTop: '2px' }}>R$ {totalAdicionais.toFixed(2)}</td>
+                                  <td style={{ padding: '1px 0' }}>Total adicionais internos:</td>
+                                  <td style={{ padding: '1px 0', textAlign: 'right' }}>R$ {totalAdicionais.toFixed(2)}</td>
                                 </tr>
                               </tbody>
                             </table>
                           </div>
                         ) : (
-                          <div style={{ marginTop: '4px', fontSize: '11px', fontStyle: 'italic' }}>
+                          <div style={{ margin: '2px 0', fontSize: '9.5px', fontStyle: 'italic' }}>
                             Sem serviços adicionais internos.
                           </div>
                         )}
 
-                        <div style={{ borderTop: '1.5px solid black', margin: '6px 0' }}></div>
+                        <div style={{ borderTop: '1px solid black', margin: '3px 0' }}></div>
 
                         {/* TOTAL TO MECHANIC */}
-                        <div style={{ background: '#f3f4f6', padding: '4px', borderRadius: '4px', border: '1px solid black' }}>
-                          <p style={{ fontSize: '11px', fontWeight: '900', margin: '0' }}>TOTAL A PAGAR AO MECÂNICO:</p>
-                          <p style={{ fontSize: '10px', margin: '0 0 4px 0' }}>Comissão 50% + serviços adicionais internos</p>
-                          <p style={{ fontSize: '18px', fontWeight: '900', margin: '0', textAlign: 'right', textDecoration: 'underline' }}>
+                        <div style={{ background: '#f3f4f6', padding: '3px 6px', borderRadius: '4px', border: '1px solid black', lineHeight: '1.15' }}>
+                          <p style={{ fontSize: '10px', fontWeight: '900', margin: '0' }}>TOTAL A PAGAR AO MECÂNICO:</p>
+                          <p style={{ fontSize: '9px', margin: '0' }}>Comissão 50% + serviços adicionais internos</p>
+                          <p style={{ fontSize: '14px', fontWeight: '900', margin: '1px 0 0 0', textAlign: 'right', textDecoration: 'underline' }}>
                             R$ {totalPagarMecanico.toFixed(2)}
                           </p>
                         </div>
 
-                        <div style={{ borderTop: '1px dashed black', margin: '8px 0' }}></div>
+                        <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
 
                         {/* FINANCIAL SUMMARY */}
-                        <p style={{ fontSize: '11px', fontWeight: '900', margin: '0 0 2px 0' }}>Resumo financeiro interno:</p>
-                        <table style={{ width: '100%', fontSize: '12px', fontWeight: 'bold' }}>
+                        <p style={{ fontSize: '10px', fontWeight: '900', margin: '0 0 1px 0' }}>Resumo financeiro interno:</p>
+                        <table style={{ width: '100%', fontSize: '10.5px', fontWeight: 'bold', lineHeight: '1.15', margin: '0' }}>
                           <tbody>
                             <tr>
-                              <td>Total cobrado do cliente:</td>
-                              <td style={{ textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
+                              <td style={{ padding: '0', textAlign: 'left' }}>Total cobrado do cliente:</td>
+                              <td style={{ padding: '0', textAlign: 'right' }}>R$ {(selectedSaleForReceipt.total || 0).toFixed(2)}</td>
                             </tr>
                             <tr>
-                              <td>Total pago ao mecânico:</td>
-                              <td style={{ textAlign: 'right' }}>R$ {totalPagarMecanico.toFixed(2)}</td>
+                              <td style={{ padding: '0', textAlign: 'left' }}>Total pago ao mecânico:</td>
+                              <td style={{ padding: '0', textAlign: 'right' }}>R$ {totalPagarMecanico.toFixed(2)}</td>
                             </tr>
-                            <tr style={{ borderTop: '1.5px solid black', fontWeight: '900', fontSize: '13px' }}>
-                              <td>Valor restante para oficina:</td>
-                              <td style={{ textAlign: 'right' }}>R$ {sobraOficina.toFixed(2)}</td>
+                            <tr style={{ borderTop: '1px solid black', fontWeight: '900', fontSize: '11px' }}>
+                              <td style={{ padding: '1px 0 0 0', textAlign: 'left' }}>Valor restante oficina:</td>
+                              <td style={{ padding: '1px 0 0 0', textAlign: 'right' }}>R$ {sobraOficina.toFixed(2)}</td>
                             </tr>
                           </tbody>
                         </table>
 
-                        <div style={{ borderTop: '1px dashed black', margin: '6px 0' }}></div>
+                        <div style={{ borderTop: '1px dashed black', margin: '3px 0' }}></div>
 
-                        <p style={{ fontSize: '10px', fontStyle: 'italic', fontWeight: '900', textAlign: 'center', margin: '0' }}>
+                        <p style={{ fontSize: '9px', fontStyle: 'italic', fontWeight: '900', textAlign: 'center', margin: '0', lineHeight: '1.15' }}>
                           Observação interna:<br />
                           Os serviços adicionais são valores internos para pagamento do mecânico e não foram cobrados do cliente.
                         </p>
@@ -9694,7 +9764,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     );
                   })()}
                   
-                  <div style={{ borderTop: '1px dashed black', margin: '4px 0' }}></div>
+                  <div style={{ borderTop: '1px dashed black', margin: '3px 0' }}></div>
                 </div>
               )}
               
