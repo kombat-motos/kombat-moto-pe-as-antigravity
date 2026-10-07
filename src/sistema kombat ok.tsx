@@ -9380,7 +9380,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   if (plateMatch && plateMatch[1]) {
                     plate = plateMatch[1].trim();
                   } else {
-                    const pMatch = rawMoto.match(/placa:\s*([^.\s,]+)/i);
+                    const pMatch = rawMoto.match(/placa:\s*([^.\n]+?)(?:\s*[-–.]\s*km|\s*km|$)/i);
                     if (pMatch && pMatch[1]) plate = pMatch[1].trim();
                   }
                   if (plate.toUpperCase() === 'N/A' || plate === '-' || plate.toLowerCase() === 'não informada') {
@@ -9391,7 +9391,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   if (rawMoto) {
                     if (rawMoto.includes('(')) {
                       vehicle = rawMoto.split('(')[0].trim();
-                    } else if (/placa:\s*n\/a\s*\.?\s*km:\s*0/i.test(rawMoto)) {
+                    } else if (/^placa:/i.test(rawMoto.trim())) {
+                      // Se começa com Placa:, não há modelo de veículo cadastrado
                       vehicle = '';
                     } else {
                       vehicle = rawMoto.replace(/placa:\s*[^.]*/i, '').replace(/km:\s*.*$/i, '').trim();

@@ -43,6 +43,7 @@ const StockListViewComponent: React.FC<StockListViewProps> = ({
   sortField,
   sortDirection,
   onSortChange
+}) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [displayCount, setDisplayCount] = useState(60);
 
