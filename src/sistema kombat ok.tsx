@@ -1120,6 +1120,10 @@ export default function App() {
   const [pdvSearchProduct, setPdvSearchProduct] = useState('');
   const [osSearchProduct, setOsSearchProduct] = useState('');
   const [osSearchService, setOsSearchService] = useState('');
+  const [osCustomerSearch, setOsCustomerSearch] = useState('');
+  const [isOsCustomerDropdownOpen, setIsOsCustomerDropdownOpen] = useState(false);
+  const osCustomerContainerRef = useRef<HTMLDivElement>(null);
+  const osCustomerInputRef = useRef<HTMLInputElement>(null);
   const [serviceSearchTerm, setServiceSearchTerm] = useState('');
   const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<Sale | null>(null);
   const [selectedSaleForOS, setSelectedSaleForOS] = useState<Sale | null>(null);
@@ -1590,6 +1594,68 @@ export default function App() {
   const sortedCustomers = useMemo(() => {
     return [...customers].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [customers]);
+
+  const normalizeCustomerSearch = useCallback((text: string) => {
+    return (text || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ');
+  }, []);
+
+  const filteredOsCustomers = useMemo(() => {
+    const query = normalizeCustomerSearch(osCustomerSearch);
+    if (query.length < 2) return [];
+
+    // Se o cliente já está selecionado e o texto digitado for exatamente o nome dele, não abre lista
+    if (osForm.customer_id) {
+      const selectedCust = customers.find(c => c.id === parseInt(osForm.customer_id));
+      if (selectedCust && normalizeCustomerSearch(selectedCust.name) === query) {
+        return [];
+      }
+    }
+
+    // 1. Prioriza pelo início do nome (startsWith)
+    const startsWithMatches = sortedCustomers.filter(c =>
+      normalizeCustomerSearch(c.name).startsWith(query)
+    );
+
+    // 2. Secundariamente, inclui os que contêm no nome ou apelido
+    const otherMatches = sortedCustomers.filter(c =>
+      !normalizeCustomerSearch(c.name).startsWith(query) &&
+      (normalizeCustomerSearch(c.name).includes(query) || (c.nickname && normalizeCustomerSearch(c.nickname).includes(query)))
+    );
+
+    return [...startsWithMatches, ...otherMatches].slice(0, 10);
+  }, [osCustomerSearch, sortedCustomers, osForm.customer_id, customers, normalizeCustomerSearch]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (osCustomerContainerRef.current && !osCustomerContainerRef.current.contains(event.target as Node)) {
+        setIsOsCustomerDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isOsModalOpen) {
+      if (osForm.customer_id) {
+        const cust = customers.find(c => c.id === parseInt(osForm.customer_id));
+        setOsCustomerSearch(cust ? cust.name : '');
+      } else {
+        setOsCustomerSearch('');
+      }
+      setIsOsCustomerDropdownOpen(false);
+    } else {
+      setOsCustomerSearch('');
+      setIsOsCustomerDropdownOpen(false);
+    }
+  }, [isOsModalOpen, editingOS]);
 
   const customerOverdueMap = useMemo(() => {
     const set = new Set<number>();
@@ -9814,6 +9880,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               km: ''
             });
             setOsSearchProduct('');
+            setOsCustomerSearch('');
+            setIsOsCustomerDropdownOpen(false);
           }}
           title={editingOS ? "Editar Ordem de Serviço" : "Nova Ordem de Serviço"}
           fullScreen={true}
@@ -9852,32 +9920,107 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 </div>
 
                 {/* 1. Cliente */}
-                <div className="col-span-1 md:col-span-1 lg:col-span-1">
+                <div className="col-span-1 md:col-span-1 lg:col-span-1 relative" ref={osCustomerContainerRef}>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Users size={12}/> Cliente</label>
-                  <select
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
-                    value={osForm.customer_id}
-                    onChange={e => {
-                      const cid = e.target.value;
-                      if (!cid) {
-                        setOsForm({ ...osForm, customer_id: '', motorcycle_id: '', motorcycle_plate: '', km: '' });
-                        return;
-                      }
-                      const selectedCust = customers.find(c => c.id === parseInt(cid));
-                      if (selectedCust && isCustomerReallyBlocked(selectedCust)) {
-                        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${selectedCust.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
-                      }
-                      const customerMotos = motorcycles.filter(m => m.customer_id === parseInt(cid));
-                      if (customerMotos.length > 0) {
-                        setOsForm({ ...osForm, customer_id: cid, motorcycle_id: customerMotos[0].id.toString(), motorcycle_plate: customerMotos[0].plate, km: customerMotos[0].current_km || '' });
-                      } else {
-                        setOsForm({ ...osForm, customer_id: cid, motorcycle_id: '', motorcycle_plate: '', km: '' });
-                      }
-                    }}
-                  >
-                    <option value="">Selecione o Cliente...</option>
-                    {sortedCustomers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <div className="relative">
+                    <input
+                      ref={osCustomerInputRef}
+                      type="text"
+                      className="w-full px-3 py-2 pr-8 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 h-[38px]"
+                      placeholder="Digite o nome do cliente..."
+                      value={osCustomerSearch}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setOsCustomerSearch(val);
+                        setIsOsCustomerDropdownOpen(true);
+                        if (!val.trim() && osForm.customer_id) {
+                          setOsForm(prev => ({ ...prev, customer_id: '', motorcycle_id: '', motorcycle_plate: '', km: '' }));
+                        }
+                      }}
+                      onFocus={() => {
+                        const clean = normalizeCustomerSearch(osCustomerSearch);
+                        if (clean.length >= 2) {
+                          setIsOsCustomerDropdownOpen(true);
+                        }
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Escape') {
+                          setIsOsCustomerDropdownOpen(false);
+                        }
+                      }}
+                    />
+                    {(osCustomerSearch || osForm.customer_id) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOsCustomerSearch('');
+                          setIsOsCustomerDropdownOpen(false);
+                          setOsForm(prev => ({ ...prev, customer_id: '', motorcycle_id: '', motorcycle_plate: '', km: '' }));
+                          osCustomerInputRef.current?.focus();
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors"
+                        title="Limpar cliente"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+
+                    {/* Dropdown com os resultados da busca */}
+                    {isOsCustomerDropdownOpen && normalizeCustomerSearch(osCustomerSearch).length >= 2 && (
+                      <div className="absolute left-0 top-full mt-1 w-full min-w-[280px] z-[120] bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto dark:bg-slate-800 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700/60">
+                        {filteredOsCustomers.length > 0 ? (
+                          filteredOsCustomers.map(c => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setOsCustomerSearch(c.name);
+                                setIsOsCustomerDropdownOpen(false);
+                                if (isCustomerReallyBlocked(c)) {
+                                  alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${c.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
+                                }
+                                const customerMotos = motorcycles.filter(m => m.customer_id === c.id);
+                                if (customerMotos.length > 0) {
+                                  setOsForm(prev => ({
+                                    ...prev,
+                                    customer_id: c.id.toString(),
+                                    motorcycle_id: customerMotos[0].id.toString(),
+                                    motorcycle_plate: customerMotos[0].plate,
+                                    km: customerMotos[0].current_km || ''
+                                  }));
+                                } else {
+                                  setOsForm(prev => ({
+                                    ...prev,
+                                    customer_id: c.id.toString(),
+                                    motorcycle_id: '',
+                                    motorcycle_plate: '',
+                                    km: ''
+                                  }));
+                                }
+                              }}
+                              className="w-full px-3 py-2.5 text-left hover:bg-rose-50/80 dark:hover:bg-slate-700/70 transition-colors flex items-center justify-between group cursor-pointer"
+                            >
+                              <div className="min-w-0 flex-1 pr-2">
+                                <p className="text-xs font-bold text-slate-800 uppercase dark:text-slate-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors truncate">
+                                  {c.name}
+                                </p>
+                                {(c.nickname || c.phone || c.whatsapp) && (
+                                  <p className="text-[10px] text-slate-400 font-medium truncate">
+                                    {c.nickname ? `${c.nickname} • ` : ''}
+                                    {c.phone || c.whatsapp || ''}
+                                  </p>
+                                )}
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-3 py-3 text-xs font-bold text-slate-400 dark:text-slate-500 text-center">
+                            Nenhum cliente encontrado
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {osForm.customer_id && (
                     <div className="mt-1 flex justify-between items-center px-1">
                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Crédito:</span>
