@@ -16,7 +16,8 @@ import {
   Percent,
   CheckCircle2,
   Layers,
-  ArrowRight
+  ArrowRight,
+  X
 } from 'lucide-react';
 
 export interface SaleItem {
@@ -202,6 +203,70 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
   useEffect(() => {
     searchInputRef.current?.focus();
   }, []);
+
+  // Estados e controle de busca inteligente de cliente
+  const [customerSearch, setCustomerSearch] = React.useState('');
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = React.useState(false);
+  const customerInputRef = useRef<HTMLInputElement>(null);
+  const customerContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sincroniza o texto do input com o cliente selecionado
+  useEffect(() => {
+    if (form.customer_id) {
+      const selectedCust = sortedCustomers.find(c => c.id.toString() === form.customer_id);
+      setCustomerSearch(selectedCust ? selectedCust.name : '');
+    } else {
+      setCustomerSearch('');
+    }
+  }, [form.customer_id, sortedCustomers]);
+
+  // Click outside para fechar o dropdown de clientes
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (customerContainerRef.current && !customerContainerRef.current.contains(event.target as Node)) {
+        setIsCustomerDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const normalizeCustomerSearch = (text: string) => {
+    return (text || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ');
+  };
+
+  const filteredCustomers = useMemo(() => {
+    const query = normalizeCustomerSearch(customerSearch);
+    if (query.length < 2) return [];
+
+    // Se o cliente já está selecionado e o termo na busca é exatamente o nome dele, não abre lista
+    if (form.customer_id) {
+      const selectedCust = sortedCustomers.find(c => c.id.toString() === form.customer_id);
+      if (selectedCust && normalizeCustomerSearch(selectedCust.name) === query) {
+        return [];
+      }
+    }
+
+    // 1. Prioriza pelo início do nome (startsWith)
+    const startsWithMatches = sortedCustomers.filter(c =>
+      normalizeCustomerSearch(c.name).startsWith(query)
+    );
+
+    // 2. Secundariamente, inclui os que contêm no nome ou apelido
+    const otherMatches = sortedCustomers.filter(c =>
+      !normalizeCustomerSearch(c.name).startsWith(query) &&
+      (normalizeCustomerSearch(c.name).includes(query) || (c.nickname && normalizeCustomerSearch(c.nickname).includes(query)))
+    );
+
+    return [...startsWithMatches, ...otherMatches].slice(0, 10);
+  }, [customerSearch, sortedCustomers, form.customer_id]);
 
   // Lista de categorias únicas dos produtos
   const categories = useMemo(() => {
@@ -568,25 +633,91 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              {/* Seletor de Cliente */}
-              <div>
+              {/* Seletor de Cliente com Busca Inteligente */}
+              <div className="relative" ref={customerContainerRef}>
                 <label className="block text-[9px] uppercase font-black text-slate-400 mb-1 tracking-wider">
                   Cliente
                 </label>
                 <div className="relative">
-                  <select
-                    className="w-full pl-2.5 pr-6 py-1.5 bg-slate-900 border border-slate-700/80 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-rose-500 text-slate-100 transition-all appearance-none cursor-pointer"
-                    value={form.customer_id}
-                    onChange={e => onCustomerChange(e.target.value)}
-                  >
-                    <option value="">Consumidor Final</option>
-                    {sortedCustomers.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}{c.nickname ? ` (${c.nickname})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <User size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    ref={customerInputRef}
+                    type="text"
+                    className="w-full pl-2.5 pr-7 py-1.5 bg-slate-900 border border-slate-700/80 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-rose-500 text-slate-100 transition-all placeholder:text-slate-500"
+                    placeholder="Consumidor Final"
+                    value={customerSearch}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setCustomerSearch(val);
+                      setIsCustomerDropdownOpen(true);
+                      if (!val.trim() && form.customer_id) {
+                        onCustomerChange('');
+                      }
+                    }}
+                    onFocus={() => {
+                      const clean = normalizeCustomerSearch(customerSearch);
+                      if (clean.length >= 2) {
+                        setIsCustomerDropdownOpen(true);
+                      }
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Escape') {
+                        setIsCustomerDropdownOpen(false);
+                      }
+                    }}
+                  />
+                  {(customerSearch || form.customer_id) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomerSearch('');
+                        setIsCustomerDropdownOpen(false);
+                        onCustomerChange('');
+                        customerInputRef.current?.focus();
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-0.5 rounded-full hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Voltar para Consumidor Final"
+                    >
+                      <X size={12} />
+                    </button>
+                  ) : (
+                    <User size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  )}
+
+                  {/* Dropdown de Resultados da Busca */}
+                  {isCustomerDropdownOpen && normalizeCustomerSearch(customerSearch).length >= 2 && (
+                    <div className="absolute left-0 top-full mt-1 w-full min-w-[260px] z-[120] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-800/80">
+                      {filteredCustomers.length > 0 ? (
+                        filteredCustomers.map(c => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setCustomerSearch(c.name);
+                              setIsCustomerDropdownOpen(false);
+                              onCustomerChange(c.id.toString());
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-slate-800 transition-colors flex items-center justify-between group cursor-pointer"
+                          >
+                            <div className="min-w-0 flex-1 pr-2">
+                              <p className="text-xs font-bold text-slate-100 group-hover:text-rose-400 uppercase truncate">
+                                {c.name}
+                              </p>
+                              {(c.nickname || c.phone || c.whatsapp) && (
+                                <p className="text-[10px] text-slate-400 font-medium truncate">
+                                  {c.nickname ? `${c.nickname} • ` : ''}
+                                  {c.phone || c.whatsapp || ''}
+                                </p>
+                              )}
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-3 text-xs font-bold text-slate-400 text-center">
+                          Nenhum cliente encontrado
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
