@@ -62,7 +62,11 @@ import {
   AlertCircle,
   ExternalLink,
   ShieldAlert,
-  BrainCircuit
+  BrainCircuit,
+  Phone,
+  Check,
+  Info,
+  Share2
 } from 'lucide-react';
 import PurchasesTab from './components/PurchasesTab';
 import InventoryTab from './components/InventoryTab';
@@ -1010,6 +1014,12 @@ export default function App() {
     items: []
   });
   const [isPrintingQuote, setIsPrintingQuote] = useState<Quote | null>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  const [whatsAppQuote, setWhatsAppQuote] = useState<Quote | null>(null);
+  const [whatsAppRecipientPhone, setWhatsAppRecipientPhone] = useState('');
+  const [whatsAppMessage, setWhatsAppMessage] = useState('');
+  const [whatsAppCopySuccess, setWhatsAppCopySuccess] = useState(false);
   const [isStockSelectorOpen, setIsStockSelectorOpen] = useState(false);
   const [activeQuoteManualType, setActiveQuoteManualType] = useState<'Peça' | 'Serviço' | null>(null);
   const [manualQuoteItem, setManualQuoteItem] = useState({ description: '', quantity: '1', price: '' });
@@ -3395,106 +3405,199 @@ export default function App() {
     }
   };
 
-  const handleShareQuoteWhatsApp = (quote: Quote) => {
-    const customer = customers.find(c => c.id === quote.customer_id);
-    const phone = customer?.whatsapp || '';
-
-    let message = `*ORÇAMENTO PROFISSIONAL - ${companyData.nomeFantasia || 'Kombat Moto Peças'}*\n\n`;
-    message += `*Cliente:* ${quote.customer_name}\n`;
-    message += `*Veículo:* ${quote.motorcycle_details || 'Não informado'}\n`;
-    message += `*Data:* ${new Date(quote.created_at).toLocaleDateString('pt-BR')}\n\n`;
-
-    message += `*ITENS DO ORÇAMENTO:*\n`;
-    quote.items.forEach(item => {
-      message += `- ${item.quantity}x ${item.description}: ${formatBRL(item.total)}\n`;
-    });
-
-    message += `\n*VALOR TOTAL: ${formatBRL(quote.total_value)}*\n\n`;
-    message += `_Validade: ${quote.validity_days} dias._\n`;
-    message += `_Observações: ${quote.observations || 'N/A'}_`;
-
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodedMessage}`;
-    window.open(whatsappUrl, '_blank');
+  // Normaliza telefone para o WhatsApp (55 + DDD + dígitos, evitando duplicar 55)
+  const cleanWhatsAppPhone = (phone: string): string => {
+    let digits = phone.replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.length === 10 || digits.length === 11) {
+      digits = '55' + digits;
+    }
+    if (digits.startsWith('5555') && digits.length >= 14) {
+      digits = digits.substring(2);
+    }
+    return digits;
   };
 
-  const handleShareQuotePDF = async (quote: Quote) => {
+  // Gerador de PDF Profissional e Leve (< 1MB, normalmente 150-250KB, multi-página sem distorção)
+  const generateQuotePDFBlob = async (quote: Quote): Promise<{ blob: Blob; fileName: string } | null> => {
+    // Garante que o elemento do orçamento está renderizado
+    if (!isPrintingQuote || isPrintingQuote.id !== quote.id) {
+      setIsPrintingQuote(quote);
+      await new Promise(resolve => setTimeout(resolve, 350));
+    }
+
     const element = document.getElementById('quote-capture-area');
-    if (!element) return;
+    if (!element) {
+      throw new Error('Elemento do orçamento não encontrado para captura.');
+    }
 
-    try {
-      // Add a small delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+    // Pequena pausa para garantir renderização de SVGs e tipografia
+    await new Promise(resolve => setTimeout(resolve, 200));
 
-      // Capture at a wider resolution to prevent column clipping
-      const dataUrl = await htmlToImage.toPng(element, {
-        quality: 0.95,
-        backgroundColor: '#ffffff',
-        pixelRatio: 2,
-        width: 1024, // Wider capture
-        style: {
-          width: '1024px',
-          height: 'auto'
-        }
-      });
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      const imgProps = pdf.getImageProperties(dataUrl);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      const margin = 10;
-      const drawableWidth = pdfWidth - (margin * 2);
-      const drawableHeight = pdfHeight - (margin * 2);
-
-      // Fit content to a single page
-      let imgWidth = drawableWidth;
-      let imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-
-      // If content is too long, shrink it further to stay on one page
-      if (imgHeight > drawableHeight) {
-        const ratio = drawableHeight / imgHeight;
-        imgHeight = drawableHeight;
-        imgWidth = imgWidth * ratio;
+    // Renderiza canvas com resolução nítida (1.5x) e formato JPEG otimizado
+    const fullCanvas = await htmlToImage.toCanvas(element, {
+      backgroundColor: '#ffffff',
+      pixelRatio: 1.5,
+      style: {
+        transform: 'none',
+        boxShadow: 'none',
+        margin: '0',
+        padding: '24px'
       }
+    });
 
-      // Center horizontally if shrunk
-      const xOffset = margin + (drawableWidth - imgWidth) / 2;
+    const a4WidthMm = 210;
+    const a4HeightMm = 297;
+    const marginMm = 10;
+    const drawableWidthMm = a4WidthMm - (marginMm * 2); // 190mm
+    const drawableHeightMm = a4HeightMm - (marginMm * 2); // 277mm
 
-      pdf.addImage(dataUrl, 'PNG', xOffset, margin, imgWidth, imgHeight);
+    // Altura proporcional em pixels para uma página A4
+    const pageCanvasHeight = Math.floor((drawableHeightMm / drawableWidthMm) * fullCanvas.width);
 
-      const pdfBlob = pdf.output('blob');
-      const fileName = `Orcamento_${quote.customer_name.replace(/\s+/g, '_')}.pdf`;
-      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true
+    });
 
+    const qNum = String(quote.id).replace(/\D/g, '') ? String(quote.id).padStart(4, '0') : String(quote.id).slice(0, 8);
+    const cleanCustomer = (quote.customer_name || 'CLIENTE').trim().toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    const fileName = `Orcamento_${qNum}_${cleanCustomer}_Kombat.pdf`;
+
+    if (fullCanvas.height <= pageCanvasHeight + 30) {
+      // Orçamento curto (ex: similar ao nº 78): 1 página única perfeita
+      const imgData = fullCanvas.toDataURL('image/jpeg', 0.85);
+      const renderedHeightMm = (fullCanvas.height * drawableWidthMm) / fullCanvas.width;
+      pdf.addImage(imgData, 'JPEG', marginMm, marginMm, drawableWidthMm, renderedHeightMm, undefined, 'FAST');
+    } else {
+      // Orçamento longo: divide em páginas respeitando limites A4 sem achatar o conteúdo
+      let currentY = 0;
+      let pageNum = 0;
+
+      while (currentY < fullCanvas.height) {
+        if (pageNum > 0) {
+          pdf.addPage();
+        }
+        const chunkHeight = Math.min(pageCanvasHeight, fullCanvas.height - currentY);
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = fullCanvas.width;
+        pageCanvas.height = chunkHeight;
+        const ctx = pageCanvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          ctx.drawImage(
+            fullCanvas,
+            0, currentY, fullCanvas.width, chunkHeight,
+            0, 0, fullCanvas.width, chunkHeight
+          );
+          const chunkData = pageCanvas.toDataURL('image/jpeg', 0.85);
+          const chunkHeightMm = (chunkHeight * drawableWidthMm) / fullCanvas.width;
+          pdf.addImage(chunkData, 'JPEG', marginMm, marginMm, drawableWidthMm, chunkHeightMm, undefined, 'FAST');
+        }
+        currentY += chunkHeight;
+        pageNum++;
+      }
+    }
+
+    const pdfBlob = pdf.output('blob');
+    return { blob: pdfBlob, fileName };
+  };
+
+  const handleDownloadQuotePDF = async (quote: Quote) => {
+    if (isGeneratingPDF) return;
+    setIsGeneratingPDF(true);
+    try {
+      const result = await generateQuotePDFBlob(quote);
+      if (result) {
+        saveAs(result.blob, result.fileName);
+      }
+    } catch (err: any) {
+      console.error('Erro ao gerar PDF:', err);
+      alert(`Não foi possível gerar o PDF: ${err?.message || 'Erro desconhecido'}. Tente novamente.`);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const handleOpenWhatsAppModal = (quote: Quote) => {
+    setWhatsAppQuote(quote);
+    const customer = customers.find(c => c.id === quote.customer_id);
+    const rawPhone = customer?.whatsapp || '';
+    setWhatsAppRecipientPhone(rawPhone);
+
+    const qNum = String(quote.id).replace(/\D/g, '') ? String(quote.id).padStart(4, '0') : String(quote.id).slice(0, 8);
+    const compName = companyData.nomeFantasia || 'Kombat Moto Peças';
+    const clientPart = quote.customer_name ? `Olá, ${quote.customer_name}.` : 'Olá!';
+    const motoPart = quote.motorcycle_details ? ` referente à ${quote.motorcycle_details}` : '';
+    const validityPart = quote.validity_days ? ` Validade: ${quote.validity_days} dias.` : '';
+    
+    // Mensagem inicial sugerida omitindo trechos não preenchidos
+    const msg = `${clientPart} Segue o orçamento nº ${qNum} da ${compName}${motoPart}. Total: ${formatBRL(quote.total_value)}.${validityPart} Para aprovar ou tirar dúvidas, responda por aqui.`;
+
+    setWhatsAppMessage(msg);
+    setWhatsAppCopySuccess(false);
+    setIsWhatsAppModalOpen(true);
+  };
+
+  const handleOpenWhatsAppChat = () => {
+    if (!whatsAppQuote) return;
+    const digits = cleanWhatsAppPhone(whatsAppRecipientPhone);
+    if (!digits || digits.length < 10) {
+      alert('Por favor, informe um número de telefone com DDD válido para abrir o WhatsApp.');
+      return;
+    }
+    const encodedText = encodeURIComponent(whatsAppMessage);
+    const waUrl = `https://wa.me/${digits}?text=${encodedText}`;
+    window.open(waUrl, '_blank');
+  };
+
+  const handleCopyWhatsAppMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(whatsAppMessage);
+      setWhatsAppCopySuccess(true);
+      setTimeout(() => setWhatsAppCopySuccess(false), 2500);
+    } catch (err) {
+      console.error('Erro ao copiar mensagem:', err);
+    }
+  };
+
+  const handleNativeShareQuotePDF = async () => {
+    if (!whatsAppQuote) return;
+    try {
+      setIsGeneratingPDF(true);
+      const result = await generateQuotePDFBlob(whatsAppQuote);
+      if (!result) return;
+      const file = new File([result.blob], result.fileName, { type: 'application/pdf' });
       // @ts-ignore
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: 'Orçamento',
-          text: `Segue orçamento em PDF para ${quote.customer_name}`
+          title: `Orçamento Kombat - ${whatsAppQuote.customer_name}`,
+          text: whatsAppMessage
         });
       } else {
-        // Fallback: Download and explain
-        saveAs(pdfBlob, fileName);
-        alert('O PDF foi baixado. Agora você pode anexá-lo manualmente no WhatsApp do cliente.');
-        const customer = customers.find(c => c.id === quote.customer_id);
-        const phone = customer?.whatsapp || '';
-        if (phone) {
-          window.open(`https://wa.me/${phone.replace(/\D/g, '')}`, '_blank');
-        }
+        saveAs(result.blob, result.fileName);
+        alert('Seu dispositivo não suporta o compartilhamento nativo. O PDF foi baixado.');
       }
-    } catch (err) {
-      console.error('Error generating PDF:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      alert(`Erro ao gerar PDF: ${errorMessage}\nTente usar a função de imprimir.`);
+    } catch (err: any) {
+      // Cancelar o compartilhamento não deve aparecer como falha de geração
+      if (err?.name === 'AbortError') {
+        console.log('Compartilhamento cancelado pelo usuário.');
+        return;
+      }
+      console.error('Erro no compartilhamento:', err);
+      alert(`Erro no compartilhamento: ${err?.message || 'Erro desconhecido'}`);
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
+
+  // Mantém retrocompatibilidade de chamadores diretos
+  const handleShareQuoteWhatsApp = (quote: Quote) => handleOpenWhatsAppModal(quote);
+  const handleShareQuotePDF = async (quote: Quote) => handleDownloadQuotePDF(quote);
 
   const handleSaveWorkshopPurchase = async (purchaseData: any) => {
     try {
@@ -3635,7 +3738,7 @@ export default function App() {
               </p>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-slate-400">Total Geral:</span>
-                <span className="font-black text-rose-600">R$ {q.total_value.toFixed(2)}</span>
+                <span className="font-black text-rose-600">{formatBRL(q.total_value)}</span>
               </div>
             </div>
             <div className="flex gap-2 pt-4 border-t border-slate-400 dark:border-slate-700">
@@ -3646,9 +3749,9 @@ export default function App() {
                 <Printer size={14} /> Imprimir / PDF
               </button>
               <button
-                onClick={() => handleShareQuoteWhatsApp(q)}
+                onClick={() => handleOpenWhatsAppModal(q)}
                 className="p-2 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                title="Compartilhar no WhatsApp"
+                title="Enviar orçamento"
               >
                 <MessageCircle size={16} />
               </button>
@@ -11863,86 +11966,75 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
       {/* Quote Print View / High Resolution Layout */}
       {isPrintingQuote && (
-        <div className="fixed inset-0 bg-white z-[999] overflow-y-auto p-8 print:relative print:p-0 print:overflow-visible print:z-0 dark:bg-slate-800 print-quote-wrapper print-a4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[999] overflow-y-auto p-4 sm:p-8 print:relative print:p-0 print:overflow-visible print:z-0 print:bg-white print-quote-wrapper">
           <style>{`
             @media print {
               @page {
-                size: A4;
-                margin: 10mm !important;
+                size: A4 portrait;
+                margin: 12mm 15mm 15mm 15mm !important;
               }
-              body {
-                page: a4-page !important;
-                background: white !important;
+              html, body {
+                background: #ffffff !important;
+                color: #000000 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                min-height: 0 !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
-                color: black !important;
               }
-              .no-print {
+              * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .no-print,
+              .no-print * {
                 display: none !important;
+                visibility: hidden !important;
               }
-              /* Force text colors in print for dark mode fixes */
-              #quote-capture-area .dark\:text-slate-100,
-              #quote-capture-area .dark\:text-slate-400,
-              #quote-capture-area .text-slate-800,
-              #quote-capture-area .text-slate-700,
-              #quote-capture-area .text-slate-500,
-              #quote-capture-area .text-slate-400 {
-                color: black !important;
-              }
-              #quote-capture-area .text-slate-400 {
-                color: #333 !important; /* Slightly lighter for subheaders */
-              }
-              #quote-capture-area .bg-slate-900.text-white p,
-              #quote-capture-area .bg-black.text-white p,
-              #quote-capture-area h3.bg-black.text-white,
-              #quote-capture-area h3.bg-rose-600.text-white {
-                color: white !important;
-              }
-              /* Hide EVERYTHING by default during print */
               .main-layout-root {
                 display: none !important;
               }
-              
               .print-quote-wrapper {
-                page: a4-page !important;
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 100vw !important;
+                position: static !important;
+                left: auto !important;
+                top: auto !important;
+                width: 100% !important;
                 height: auto !important;
                 min-height: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
+                background: #ffffff !important;
+                overflow: visible !important;
               }
-
-              /* Show ONLY the print modal and its contents */
               .print-modal-container {
-                position: relative !important;
-                width: 800px !important;
-                max-width: 800px !important;
-                margin: 0 auto !important;
-                height: auto !important;
-                z-index: 9999 !important;
-                background: white !important;
-                visibility: visible !important;
-              }
-              .print-modal-container * {
-                visibility: visible !important;
-              }
-              .print-modal-container .no-print,
-              .print-modal-container .no-print *,
-              .print-modal-container button,
-              .print-modal-container .no-print button {
-                display: none !important;
-                visibility: hidden !important;
-              }
-
-              .max-w-4xl {
-                max-width: 800px !important;
-                width: 800px !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
                 box-shadow: none !important;
                 border: none !important;
-                margin: 0 auto !important;
+                background: #ffffff !important;
+              }
+              #quote-capture-area {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                color: #0f172a !important;
+                box-shadow: none !important;
+                border: none !important;
+              }
+              
+              /* Garante repetição de cabeçalho da tabela e quebras limpas */
+              table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+              }
+              thead {
+                display: table-header-group !important;
               }
               tr {
                 page-break-inside: avoid !important;
@@ -11952,239 +12044,416 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
               }
-              table {
-                width: 100% !important;
-                table-layout: fixed !important;
-              }
-              .overflow-hidden {
-                overflow: visible !important;
-              }
-
-              /* Compress layout for single A4 page */
-              #quote-capture-area {
-                padding: 0px !important;
-              }
-              #quote-capture-area .border-b-4 {
-                padding-bottom: 4px !important;
-                margin-bottom: 6px !important;
-                border-bottom-width: 2px !important;
-              }
-              #quote-capture-area .w-24.h-24 {
-                width: 48px !important;
-                height: 48px !important;
-              }
-              #quote-capture-area h1.text-3xl {
-                font-size: 16px !important;
-              }
-              #quote-capture-area .text-slate-500.font-bold.text-sm {
-                font-size: 10px !important;
-              }
-              #quote-capture-area .mt-2.text-xs {
-                margin-top: 2px !important;
-                font-size: 9px !important;
-              }
-              #quote-capture-area .bg-slate-900.text-white.p-4 {
-                padding: 6px !important;
-                margin-bottom: 6px !important;
-                border-radius: 6px !important;
-                gap: 8px !important;
-              }
-              #quote-capture-area .bg-slate-900.text-white.p-4 p {
-                font-size: 10px !important;
-              }
-              #quote-capture-area .space-y-6 {
-                margin-top: 2px !important;
-                margin-bottom: 2px !important;
-              }
-              #quote-capture-area .space-y-6 > * + * {
-                margin-top: 4px !important;
-              }
-              #quote-capture-area h3 {
-                margin-bottom: 2px !important;
-                font-size: 9.5px !important;
-                padding: 2px 6px !important;
-              }
-              #quote-capture-area td,
-              #quote-capture-area th {
-                padding-top: 2px !important;
-                padding-bottom: 2px !important;
-                font-size: 9.5px !important;
-              }
-              #quote-capture-area .mt-8.grid {
-                margin-top: 4px !important;
-                gap: 6px !important;
-              }
-              #quote-capture-area .space-y-4 > * + * {
-                margin-top: 4px !important;
-              }
-              #quote-capture-area .p-4.rounded-xl {
-                padding: 6px !important;
-                border-radius: 6px !important;
-              }
-              #quote-capture-area .p-4.rounded-xl p {
-                font-size: 9.5px !important;
-                line-height: 1.2 !important;
-              }
-              #quote-capture-area .bg-black.text-white.p-6 {
-                padding: 6px !important;
-                border-radius: 8px !important;
-              }
-              #quote-capture-area p.text-4xl {
-                font-size: 18px !important;
-              }
-              #quote-capture-area .mt-12.pt-6 {
-                margin-top: 6px !important;
-                padding-top: 4px !important;
-              }
-              #quote-capture-area .w-64 {
-                width: 150px !important;
-                margin-bottom: 2px !important;
+              
+              /* Mantém Observações à esquerda e Totais à direita na impressão */
+              .quote-two-cols {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 24px !important;
               }
             }
           `}</style>
-          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-10 print:shadow-none print:p-0 border border-slate-400 relative print-modal-container dark:bg-slate-800 dark:border-slate-700">
-            <div id="quote-capture-area" className="p-10 bg-white print:p-0 dark:bg-slate-800 print:text-black">
-              <div className="flex justify-between items-start border-b-4 border-rose-600 pb-6 mb-6">
-                <div className="flex gap-6 items-center">
-                  <div className="w-24 h-24 bg-black rounded-2xl flex items-center justify-center overflow-hidden">
+
+          <div className="max-w-4xl mx-auto bg-white shadow-2xl p-6 sm:p-10 print:shadow-none print:p-0 print:border-none border border-slate-300 relative print-modal-container rounded-2xl">
+            <div id="quote-capture-area" className="p-4 sm:p-8 bg-white print:p-0 text-slate-900">
+              {/* Header com Identidade da Loja e Dados do Orçamento */}
+              <div className="flex justify-between items-start border-b-4 border-rose-600 pb-5 mb-6 gap-4">
+                <div className="flex gap-4 sm:gap-6 items-center">
+                  <div className="w-20 h-20 bg-black rounded-2xl flex items-center justify-center overflow-hidden border border-black relative shrink-0">
                     {companyLogo ? (
-                      <img src={companyLogo} alt="Logo" className="w-full h-full object-contain" />
+                      <img src={companyLogo} alt="Logo Kombat" className="w-full h-full object-contain" />
                     ) : (
-                      <Bike size={48} className="text-white" />
+                      <div className="relative w-full h-full flex items-center justify-center">
+                        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 80 80">
+                          <rect width="80" height="80" rx="16" fill="#000000" />
+                        </svg>
+                        <Bike size={44} className="text-white relative z-10" />
+                      </div>
                     )}
                   </div>
                   <div>
-                    <h1 className="text-3xl font-black text-black tracking-tighter uppercase">{companyData.nomeFantasia || 'Kombat Moto Peças'}</h1>
-                    <p className="text-slate-500 font-bold text-sm dark:text-slate-400">Oficina Mecânica Multimarcas & Acessórios</p>
-                    <div className="mt-2 text-xs text-slate-400 font-medium">
-                      <p>{companyData.endereco}, {companyData.bairro}</p>
-                      <p>Andirá - PR | {companyData.cep}</p>
-                      <p className="text-black font-bold">Contato: {companyData.telefone}</p>
+                    <h1 className="text-2xl sm:text-3xl font-black text-black tracking-tighter uppercase leading-none">
+                      {companyData.nomeFantasia || 'KOMBAT MOTO PEÇAS'}
+                    </h1>
+                    <p className="text-slate-500 font-bold text-xs sm:text-sm mt-1">
+                      Oficina Mecânica Multimarcas & Acessórios
+                    </p>
+                    <div className="mt-2 text-xs text-slate-500 font-medium leading-tight">
+                      <p>{companyData.endereco || 'Rua Paraná, 432'}, {companyData.bairro || 'Centro'}</p>
+                      <p>{companyData.cidade || 'Andirá'} - {companyData.estado || 'PR'} | {companyData.cep || '86380-000'}</p>
+                      <p className="text-black font-bold">Contato: {companyData.telefone || '433538-4537'}</p>
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="bg-black text-white px-4 py-2 rounded-lg font-black text-sm uppercase mb-2">Orçamento #{String(isPrintingQuote.id).slice(0, 8)}</div>
-                  <p className="text-slate-400 text-xs font-bold uppercase">Data: {new Date(isPrintingQuote.created_at).toLocaleDateString('pt-BR')}</p>
-                  <p className="text-rose-600 text-xs font-black uppercase">Válido por {isPrintingQuote.validity_days} dias</p>
+
+                <div className="text-right shrink-0">
+                  <div className="relative inline-flex items-center justify-center px-4 py-2 rounded-lg overflow-hidden border border-black mb-2">
+                    <div className="absolute inset-0 bg-black -z-10">
+                      <svg className="w-full h-full" preserveAspectRatio="none"><rect width="100%" height="100%" fill="#000000" /></svg>
+                    </div>
+                    <span className="font-black text-xs sm:text-sm text-white uppercase tracking-wider relative z-10">
+                      ORÇAMENTO #{String(isPrintingQuote.id).replace(/\D/g, '') ? String(isPrintingQuote.id).padStart(4, '0') : String(isPrintingQuote.id).slice(0, 8)}
+                    </span>
+                  </div>
+                  <p className="text-slate-500 text-xs font-bold uppercase">
+                    DATA: {formatDateBR(isPrintingQuote.created_at)}
+                  </p>
+                  <p className="text-rose-600 text-xs font-black uppercase">
+                    VÁLIDO POR {isPrintingQuote.validity_days || 7} DIAS
+                  </p>
                 </div>
               </div>
 
-              <div className="bg-slate-900 text-white p-4 rounded-xl mb-6 flex flex-col md:flex-row justify-between gap-4 avoid-break">
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Cliente</p>
-                  <p className="font-bold uppercase">{isPrintingQuote.customer_name || 'Cliente não identificado'}</p>
+              {/* Bloco Cliente e Motocicleta (com fundo vetorial para legibilidade mesmo com fundos desativados) */}
+              <div className="relative rounded-xl p-4 mb-6 border-2 border-slate-900 overflow-hidden avoid-break quote-client-card">
+                <div className="absolute inset-0 -z-10">
+                  <svg className="w-full h-full" preserveAspectRatio="none">
+                    <rect width="100%" height="100%" fill="#0f172a" />
+                  </svg>
                 </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Motocicleta / Detalhes</p>
-                  <p className="font-bold uppercase">{isPrintingQuote.motorcycle_details || '--'}</p>
+                <div className="flex flex-col sm:flex-row justify-between gap-4 relative z-10 text-white">
+                  <div className="flex-1">
+                    <p className="text-[10px] text-slate-300 uppercase font-black tracking-widest mb-0.5">Cliente</p>
+                    <p className="font-black text-base uppercase text-white tracking-wide">
+                      {isPrintingQuote.customer_name || 'Cliente não identificado'}
+                    </p>
+                  </div>
+                  <div className="text-left sm:text-right flex-1">
+                    <p className="text-[10px] text-slate-300 uppercase font-black tracking-widest mb-0.5">Motocicleta / Detalhes</p>
+                    <p className="font-black text-base uppercase text-white tracking-wide">
+                      {isPrintingQuote.motorcycle_details || '--'}
+                    </p>
+                  </div>
                 </div>
               </div>
 
+              {/* Tabelas de Peças e Serviços */}
               <div className="space-y-6">
-                <div className="overflow-hidden print:overflow-visible">
-                  <h3 className="text-xs font-black bg-black text-white px-3 py-1 inline-block uppercase mb-2 tracking-widest">Descrição de Peças e Acessórios</h3>
-                  <table className="w-full text-left border-collapse table-fixed print:table-auto">
+                {/* Peças e Acessórios */}
+                <div className="overflow-visible">
+                  <div className="relative inline-block mb-2 overflow-hidden rounded border border-black">
+                    <div className="absolute inset-0 bg-black -z-10">
+                      <svg className="w-full h-full" preserveAspectRatio="none"><rect width="100%" height="100%" fill="#000000" /></svg>
+                    </div>
+                    <h3 className="text-xs font-black text-white px-3 py-1 uppercase tracking-widest relative z-10">
+                      Descrição de Peças e Acessórios
+                    </h3>
+                  </div>
+                  <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b-2 border-slate-900">
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 w-[40px]">Qtd</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400">Descrição do Item</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Valor Unit.</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Subtotal</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-500 w-[50px]">Qtd</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-500">Descrição do Item</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-500 text-right w-[110px]">Valor Unit.</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-500 text-right w-[110px]">Subtotal</th>
                       </tr>
                     </thead>
                     <tbody>
                       {isPrintingQuote.items.filter(i => i.type === 'Peça').map((item, idx) => (
-                        <tr key={idx} className="border-b border-slate-400 hover:bg-slate-50 dark:border-slate-700">
-                          <td className="py-2 font-bold text-slate-800 text-[11px] align-top dark:text-slate-100">{item.quantity}</td>
-                          <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4 dark:text-slate-100">{item.description}</td>
-                          <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top dark:text-slate-100">R$ {item.price.toFixed(2)}</td>
-                          <td className="py-2 font-black text-black text-[11px] text-right align-top">R$ {item.total.toFixed(2)}</td>
+                        <tr key={idx} className="border-b border-slate-200">
+                          <td className="py-2.5 font-bold text-slate-800 text-[11px] align-top">{item.quantity}</td>
+                          <td className="py-2.5 font-bold text-slate-800 text-[11px] uppercase break-words pr-4">{item.description}</td>
+                          <td className="py-2.5 font-bold text-slate-800 text-[11px] text-right pr-2 align-top">{formatBRL(item.price)}</td>
+                          <td className="py-2.5 font-black text-black text-[11px] text-right align-top">{formatBRL(item.total)}</td>
                         </tr>
                       ))}
                       {isPrintingQuote.items.filter(i => i.type === 'Peça').length === 0 && (
-                        <tr><td colSpan={4} className="py-4 text-center text-slate-300 text-xs italic">Nenhuma peça relacionada.</td></tr>
+                        <tr>
+                          <td colSpan={4} className="py-3 text-center text-slate-400 text-xs italic">
+                            Nenhuma peça relacionada.
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
                 </div>
 
-                <div className="overflow-hidden print:overflow-visible">
-                  <h3 className="text-xs font-black bg-rose-600 text-white px-3 py-1 inline-block uppercase mb-2 tracking-widest">Serviços / Mão de Obra</h3>
-                  <table className="w-full text-left border-collapse table-fixed print:table-auto">
+                {/* Serviços / Mão de Obra */}
+                <div className="overflow-visible">
+                  <div className="relative inline-block mb-2 overflow-hidden rounded border border-rose-600">
+                    <div className="absolute inset-0 bg-rose-600 -z-10">
+                      <svg className="w-full h-full" preserveAspectRatio="none"><rect width="100%" height="100%" fill="#e11d48" /></svg>
+                    </div>
+                    <h3 className="text-xs font-black text-white px-3 py-1 uppercase tracking-widest relative z-10">
+                      Serviços / Mão de Obra
+                    </h3>
+                  </div>
+                  <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b-2 border-slate-900">
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 w-[40px]">Qtd</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400">Descrição do Serviço</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Valor Unit.</th>
-                        <th className="py-2 text-[10px] font-black uppercase text-slate-400 text-right w-[100px]">Subtotal</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-500 w-[50px]">Qtd</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-500">Descrição do Serviço</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-500 text-right w-[110px]">Valor Unit.</th>
+                        <th className="py-2 text-[10px] font-black uppercase text-slate-500 text-right w-[110px]">Subtotal</th>
                       </tr>
                     </thead>
                     <tbody>
                       {isPrintingQuote.items.filter(i => i.type === 'Serviço').map((item, idx) => (
-                        <tr key={idx} className="border-b border-slate-400 hover:bg-slate-50 dark:border-slate-700">
-                          <td className="py-2 font-bold text-slate-800 text-[11px] align-top dark:text-slate-100">{item.quantity}</td>
-                          <td className="py-2 font-bold text-slate-800 text-[11px] uppercase break-words pr-4 dark:text-slate-100">{item.description}</td>
-                          <td className="py-2 font-bold text-slate-800 text-[11px] text-right pr-2 align-top dark:text-slate-100">R$ {item.price.toFixed(2)}</td>
-                          <td className="py-2 font-black text-rose-600 text-[11px] text-right align-top">R$ {item.total.toFixed(2)}</td>
+                        <tr key={idx} className="border-b border-slate-200">
+                          <td className="py-2.5 font-bold text-slate-800 text-[11px] align-top">{item.quantity}</td>
+                          <td className="py-2.5 font-bold text-slate-800 text-[11px] uppercase break-words pr-4">{item.description}</td>
+                          <td className="py-2.5 font-bold text-slate-800 text-[11px] text-right pr-2 align-top">{formatBRL(item.price)}</td>
+                          <td className="py-2.5 font-black text-rose-600 text-[11px] text-right align-top">{formatBRL(item.total)}</td>
                         </tr>
                       ))}
                       {isPrintingQuote.items.filter(i => i.type === 'Serviço').length === 0 && (
-                        <tr><td colSpan={4} className="py-4 text-center text-slate-300 text-xs italic">Nenhum serviço relacionado.</td></tr>
+                        <tr>
+                          <td colSpan={4} className="py-3 text-center text-slate-400 text-xs italic">
+                            Nenhum serviço relacionado.
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 avoid-break">
+              {/* Rodapé: Observações à esquerda e Totais à direita */}
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 avoid-break quote-two-cols">
                 <div className="space-y-4">
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
-                    <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Observações Técnicas</p>
-                    <p className="text-xs text-slate-700 leading-relaxed italic dark:text-slate-100">{isPrintingQuote.observations || 'Nenhuma observação técnica.'}</p>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-300">
+                    <p className="text-[10px] font-black uppercase text-slate-500 mb-1.5 tracking-widest">Observações Técnicas</p>
+                    <p className="text-xs text-slate-800 leading-relaxed italic whitespace-pre-wrap">
+                      {isPrintingQuote.observations || 'Nenhuma observação técnica.'}
+                    </p>
                   </div>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
-                    <p className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Termos de Garantia</p>
-                    <p className="text-[10px] text-slate-600 leading-tight dark:text-slate-400">{isPrintingQuote.warranty_terms}</p>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-300">
+                    <p className="text-[10px] font-black uppercase text-slate-500 mb-1.5 tracking-widest">Termos de Garantia</p>
+                    <p className="text-[10px] text-slate-600 leading-tight whitespace-pre-wrap">
+                      {isPrintingQuote.warranty_terms || 'Garantia de 90 dias conforme CDC sobre os itens relacionados.'}
+                    </p>
                   </div>
                 </div>
+
                 <div className="flex flex-col justify-end items-end space-y-4">
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total das Peças</p>
-                    <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2 dark:text-slate-100 dark:border-slate-700">R$ {isPrintingQuote.items.filter(i => i.type === 'Peça').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
+                  <div className="text-right w-full sm:w-auto">
+                    <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Valor Total das Peças</p>
+                    <p className="text-xl font-bold text-slate-900 border-b border-slate-300 pb-1.5">
+                      {formatBRL(isPrintingQuote.items.filter(i => i.type === 'Peça').reduce((acc, i) => acc + i.total, 0))}
+                    </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Total dos Serviços</p>
-                    <p className="text-xl font-bold text-slate-900 border-b border-slate-400 pb-2 dark:text-slate-100 dark:border-slate-700">R$ {isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0).toFixed(2)}</p>
+                  <div className="text-right w-full sm:w-auto">
+                    <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Valor Total dos Serviços</p>
+                    <p className="text-xl font-bold text-slate-900 border-b border-slate-300 pb-1.5">
+                      {formatBRL(isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0))}
+                    </p>
                   </div>
-                  <div className="bg-black text-white p-6 rounded-2xl text-right w-full print:bg-transparent print:border-2 print:border-black print:text-black print:p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.2em] mb-2 print:text-black">Total Geral do Orçamento</p>
-                    <p className="text-4xl font-black text-rose-500 print:text-black">R$ {isPrintingQuote.total_value.toFixed(2)}</p>
+                  <div className="relative rounded-2xl p-5 text-right w-full overflow-hidden border-2 border-slate-900 avoid-break quote-total-card">
+                    <div className="absolute inset-0 -z-10">
+                      <svg className="w-full h-full" preserveAspectRatio="none">
+                        <rect width="100%" height="100%" fill="#000000" />
+                      </svg>
+                    </div>
+                    <p className="text-xs font-black uppercase tracking-[0.2em] mb-1.5 text-white">
+                      Total Geral do Orçamento
+                    </p>
+                    <p className="text-3xl font-black text-rose-500">
+                      {formatBRL(isPrintingQuote.total_value)}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-12 pt-6 border-t border-slate-400 flex flex-col items-center avoid-break dark:border-slate-700">
-                <div className="w-64 border-b border-slate-900 mb-2"></div>
-                <p className="text-xs font-black uppercase text-black tracking-widest">{isPrintingQuote.customer_name}</p>
-                <p className="text-[10px] text-slate-400 uppercase font-bold text-center">Autorização de Execução / Cliente</p>
+              {/* Linha de Assinatura */}
+              <div className="mt-10 pt-6 border-t border-slate-300 flex flex-col items-center avoid-break">
+                <div className="w-64 border-b-2 border-slate-900 mb-2"></div>
+                <p className="text-xs font-black uppercase text-slate-900 tracking-widest">
+                  {isPrintingQuote.customer_name || 'Cliente'}
+                </p>
+                <p className="text-[10px] text-slate-500 uppercase font-bold text-center">
+                  Autorização de Execução / Cliente
+                </p>
               </div>
-            </div> {/* End of quote-capture-area */}
+            </div> {/* Fim de quote-capture-area */}
 
-            <div className="mt-8 flex justify-center gap-4 no-print flex-wrap pb-10">
-              <button onClick={() => window.print()} className="px-8 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 shadow-lg shadow-rose-100 transition-all flex items-center gap-2">
-                <Printer size={20} /> Imprimir Orçamento
+            {/* Ações fora da área imprimível: Imprimir | Baixar PDF | Enviar orçamento | Fechar */}
+            <div className="mt-8 flex justify-center gap-4 no-print flex-wrap pb-4">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-sm transition-all shadow-md shadow-rose-200 flex items-center justify-center gap-2"
+              >
+                <Printer size={18} /> Imprimir
               </button>
-              <button onClick={() => handleShareQuotePDF(isPrintingQuote!)} className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all flex items-center gap-2">
-                <FileText size={20} /> Enviar PDF WhatsApp
+              <button
+                type="button"
+                onClick={() => handleDownloadQuotePDF(isPrintingQuote!)}
+                disabled={isGeneratingPDF}
+                className="px-6 py-3 bg-slate-900 hover:bg-black disabled:bg-slate-600 text-white rounded-xl font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2"
+              >
+                {isGeneratingPDF ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Gerando PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download size={18} /> Baixar PDF
+                  </>
+                )}
               </button>
-              <button onClick={() => handleShareQuoteWhatsApp(isPrintingQuote!)} className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center gap-2">
-                <MessageCircle size={20} /> Enviar Texto WhatsApp
+              <button
+                type="button"
+                onClick={() => handleOpenWhatsAppModal(isPrintingQuote!)}
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-all shadow-md shadow-emerald-200 flex items-center justify-center gap-2"
+              >
+                <Send size={18} /> Enviar orçamento
               </button>
-              <button onClick={() => setIsPrintingQuote(null)} className="px-8 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all dark:bg-slate-800 dark:text-slate-400">
-                Fechar Visualização
+              <button
+                type="button"
+                onClick={() => setIsPrintingQuote(null)}
+                className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-all dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 flex items-center justify-center gap-2"
+              >
+                <X size={18} /> Fechar
               </button>
             </div>
+
+            <div className="no-print pb-6 text-center text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              💡 <strong>Dica de impressão:</strong> Para remover a data, título e URL do rodapé na impressão pelo navegador, desmarque a opção <em>"Cabeçalhos e rodapés"</em> nas configurações de impressão.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Interno de Envio do Orçamento por WhatsApp */}
+      {isWhatsAppModalOpen && whatsAppQuote && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-200">
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                  <MessageCircle size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">Enviar Orçamento</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Envio para WhatsApp do Cliente</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWhatsAppModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors dark:hover:bg-slate-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Resumo do Orçamento */}
+            <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 flex justify-between items-center">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Orçamento</span>
+                <p className="text-base font-black text-slate-900 dark:text-white">
+                  #{String(whatsAppQuote.id).replace(/\D/g, '') ? String(whatsAppQuote.id).padStart(4, '0') : String(whatsAppQuote.id).slice(0, 8)}
+                </p>
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 truncate max-w-[200px]">
+                  {whatsAppQuote.customer_name || 'Cliente não identificado'}
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Geral</span>
+                <p className="text-xl font-black text-rose-600">
+                  {formatBRL(whatsAppQuote.total_value)}
+                </p>
+              </div>
+            </div>
+
+            {/* Campo Destinatário / Telefone */}
+            <div className="mt-4">
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
+                WhatsApp / Telefone de Destino
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input
+                  type="text"
+                  value={whatsAppRecipientPhone}
+                  onChange={(e) => setWhatsAppRecipientPhone(e.target.value)}
+                  placeholder="(43) 99999-9999"
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Você pode corrigir o número para este envio se necessário (inclua DDD).
+              </p>
+            </div>
+
+            {/* Prévia da Mensagem (Editável) */}
+            <div className="mt-4">
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                  Prévia da Mensagem (Editável)
+                </label>
+                <button
+                  type="button"
+                  onClick={handleCopyWhatsAppMessage}
+                  className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors"
+                >
+                  {whatsAppCopySuccess ? <Check size={14} /> : <Copy size={14} />}
+                  {whatsAppCopySuccess ? 'Copiada!' : 'Copiar mensagem'}
+                </button>
+              </div>
+              <textarea
+                rows={4}
+                value={whatsAppMessage}
+                onChange={(e) => setWhatsAppMessage(e.target.value)}
+                className="w-full p-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-medium leading-relaxed focus:ring-2 focus:ring-emerald-500 outline-none resize-none"
+              />
+            </div>
+
+            {/* Orientação ao Usuário */}
+            <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl text-[11px] text-amber-800 dark:text-amber-200 flex items-start gap-2">
+              <Info size={16} className="shrink-0 mt-0.5 text-amber-600" />
+              <div>
+                <strong>Como enviar com o arquivo:</strong>
+                <ol className="list-decimal list-inside mt-0.5 space-y-0.5">
+                  <li>Clique em <strong>Baixar PDF</strong> para salvar o documento em seu aparelho.</li>
+                  <li>Clique em <strong>Abrir WhatsApp</strong> e anexe o PDF baixado na conversa aberta.</li>
+                </ol>
+              </div>
+            </div>
+
+            {/* Ações do Modal: Baixar PDF | Abrir WhatsApp */}
+            <div className="mt-5 flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={() => handleDownloadQuotePDF(whatsAppQuote)}
+                disabled={isGeneratingPDF}
+                className="flex-1 py-3 px-4 bg-slate-900 hover:bg-black disabled:bg-slate-600 text-white rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 transition-all shadow-md dark:bg-slate-700 dark:hover:bg-slate-600"
+              >
+                {isGeneratingPDF ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Gerando PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download size={16} /> Baixar PDF
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenWhatsAppChat}
+                className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-200 dark:shadow-none"
+              >
+                <ExternalLink size={16} /> Abrir WhatsApp
+              </button>
+            </div>
+
+            {/* Compartilhamento nativo secundário opcional */}
+            {typeof navigator !== 'undefined' && !!navigator.share && (
+              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/60 text-center">
+                <button
+                  type="button"
+                  onClick={handleNativeShareQuotePDF}
+                  className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-semibold inline-flex items-center gap-1.5"
+                >
+                  <Share2 size={13} /> Compartilhamento direto pelo dispositivo (opcional)
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
