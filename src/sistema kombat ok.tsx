@@ -12051,6 +12051,50 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 grid-template-columns: 1fr 1fr !important;
                 gap: 24px !important;
               }
+
+              /* Regras de alta legibilidade para impressão */
+              .quote-client-card {
+                background-color: #f1f5f9 !important;
+                border: 2px solid #0f172a !important;
+              }
+              .quote-client-card p,
+              .quote-client-card span,
+              .quote-client-card .customer-name-val,
+              .quote-client-card .moto-details-val {
+                color: #0f172a !important;
+              }
+              .quote-client-card .label-muted {
+                color: #475569 !important;
+              }
+
+              .quote-badge {
+                background-color: #f8fafc !important;
+                border: 1.5px solid #000000 !important;
+                color: #000000 !important;
+              }
+
+              .quote-section-badge-parts {
+                background-color: #f8fafc !important;
+                border: 1.5px solid #000000 !important;
+                color: #000000 !important;
+              }
+
+              .quote-section-badge-services {
+                background-color: #fff1f2 !important;
+                border: 1.5px solid #e11d48 !important;
+                color: #e11d48 !important;
+              }
+
+              .quote-total-card {
+                background-color: #f8fafc !important;
+                border: 2px solid #000000 !important;
+              }
+              .quote-total-card .quote-total-label {
+                color: #000000 !important;
+              }
+              .quote-total-card .quote-total-value {
+                color: #e11d48 !important;
+              }
             }
           `}</style>
 
@@ -12063,11 +12107,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     {companyLogo ? (
                       <img src={companyLogo} alt="Logo Kombat" className="w-full h-full object-contain" />
                     ) : (
-                      <div className="relative w-full h-full flex items-center justify-center">
-                        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 80 80">
-                          <rect width="80" height="80" rx="16" fill="#000000" />
-                        </svg>
-                        <Bike size={44} className="text-white relative z-10" />
+                      <div className="w-full h-full flex items-center justify-center bg-black">
+                        <Bike size={44} className="text-white" />
                       </div>
                     )}
                   </div>
@@ -12087,13 +12128,8 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 </div>
 
                 <div className="text-right shrink-0">
-                  <div className="relative inline-flex items-center justify-center px-4 py-2 rounded-lg overflow-hidden border border-black mb-2">
-                    <div className="absolute inset-0 bg-black -z-10">
-                      <svg className="w-full h-full" preserveAspectRatio="none"><rect width="100%" height="100%" fill="#000000" /></svg>
-                    </div>
-                    <span className="font-black text-xs sm:text-sm text-white uppercase tracking-wider relative z-10">
-                      ORÇAMENTO #{String(isPrintingQuote.id).replace(/\D/g, '') ? String(isPrintingQuote.id).padStart(4, '0') : String(isPrintingQuote.id).slice(0, 8)}
-                    </span>
+                  <div className="quote-badge bg-black text-white px-4 py-2 rounded-lg font-black text-xs sm:text-sm uppercase tracking-wider mb-2 border border-black inline-block">
+                    ORÇAMENTO #{String(isPrintingQuote.id).replace(/\D/g, '') ? String(isPrintingQuote.id).padStart(4, '0') : String(isPrintingQuote.id).slice(0, 8)}
                   </div>
                   <p className="text-slate-500 text-xs font-bold uppercase">
                     DATA: {formatDateBR(isPrintingQuote.created_at)}
@@ -12104,26 +12140,19 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 </div>
               </div>
 
-              {/* Bloco Cliente e Motocicleta (com fundo vetorial para legibilidade mesmo com fundos desativados) */}
-              <div className="relative rounded-xl p-4 mb-6 border-2 border-slate-900 overflow-hidden avoid-break quote-client-card">
-                <div className="absolute inset-0 -z-10">
-                  <svg className="w-full h-full" preserveAspectRatio="none">
-                    <rect width="100%" height="100%" fill="#0f172a" />
-                  </svg>
+              {/* Bloco Cliente e Motocicleta */}
+              <div className="quote-client-card bg-slate-900 text-white rounded-xl p-4 mb-6 border-2 border-slate-900 avoid-break flex flex-col sm:flex-row justify-between gap-4">
+                <div className="flex-1">
+                  <p className="label-muted text-[10px] text-slate-300 uppercase font-black tracking-widest mb-0.5">Cliente</p>
+                  <p className="customer-name-val font-black text-base uppercase text-white tracking-wide">
+                    {isPrintingQuote.customer_name || 'Cliente não identificado'}
+                  </p>
                 </div>
-                <div className="flex flex-col sm:flex-row justify-between gap-4 relative z-10 text-white">
-                  <div className="flex-1">
-                    <p className="text-[10px] text-slate-300 uppercase font-black tracking-widest mb-0.5">Cliente</p>
-                    <p className="font-black text-base uppercase text-white tracking-wide">
-                      {isPrintingQuote.customer_name || 'Cliente não identificado'}
-                    </p>
-                  </div>
-                  <div className="text-left sm:text-right flex-1">
-                    <p className="text-[10px] text-slate-300 uppercase font-black tracking-widest mb-0.5">Motocicleta / Detalhes</p>
-                    <p className="font-black text-base uppercase text-white tracking-wide">
-                      {isPrintingQuote.motorcycle_details || '--'}
-                    </p>
-                  </div>
+                <div className="text-left sm:text-right flex-1">
+                  <p className="label-muted text-[10px] text-slate-300 uppercase font-black tracking-widest mb-0.5">Motocicleta / Detalhes</p>
+                  <p className="moto-details-val font-black text-base uppercase text-white tracking-wide">
+                    {isPrintingQuote.motorcycle_details || '--'}
+                  </p>
                 </div>
               </div>
 
@@ -12131,14 +12160,9 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               <div className="space-y-6">
                 {/* Peças e Acessórios */}
                 <div className="overflow-visible">
-                  <div className="relative inline-block mb-2 overflow-hidden rounded border border-black">
-                    <div className="absolute inset-0 bg-black -z-10">
-                      <svg className="w-full h-full" preserveAspectRatio="none"><rect width="100%" height="100%" fill="#000000" /></svg>
-                    </div>
-                    <h3 className="text-xs font-black text-white px-3 py-1 uppercase tracking-widest relative z-10">
-                      Descrição de Peças e Acessórios
-                    </h3>
-                  </div>
+                  <h3 className="quote-section-badge-parts text-xs font-black bg-black text-white px-3 py-1 inline-block uppercase tracking-widest mb-2 rounded border border-black">
+                    Descrição de Peças e Acessórios
+                  </h3>
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b-2 border-slate-900">
@@ -12170,14 +12194,9 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
                 {/* Serviços / Mão de Obra */}
                 <div className="overflow-visible">
-                  <div className="relative inline-block mb-2 overflow-hidden rounded border border-rose-600">
-                    <div className="absolute inset-0 bg-rose-600 -z-10">
-                      <svg className="w-full h-full" preserveAspectRatio="none"><rect width="100%" height="100%" fill="#e11d48" /></svg>
-                    </div>
-                    <h3 className="text-xs font-black text-white px-3 py-1 uppercase tracking-widest relative z-10">
-                      Serviços / Mão de Obra
-                    </h3>
-                  </div>
+                  <h3 className="quote-section-badge-services text-xs font-black bg-rose-600 text-white px-3 py-1 inline-block uppercase tracking-widest mb-2 rounded border border-rose-600">
+                    Serviços / Mão de Obra
+                  </h3>
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b-2 border-slate-900">
@@ -12238,16 +12257,11 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                       {formatBRL(isPrintingQuote.items.filter(i => i.type === 'Serviço').reduce((acc, i) => acc + i.total, 0))}
                     </p>
                   </div>
-                  <div className="relative rounded-2xl p-5 text-right w-full overflow-hidden border-2 border-slate-900 avoid-break quote-total-card">
-                    <div className="absolute inset-0 -z-10">
-                      <svg className="w-full h-full" preserveAspectRatio="none">
-                        <rect width="100%" height="100%" fill="#000000" />
-                      </svg>
-                    </div>
-                    <p className="text-xs font-black uppercase tracking-[0.2em] mb-1.5 text-white">
+                  <div className="quote-total-card bg-black text-white rounded-2xl p-5 text-right w-full border-2 border-slate-900 avoid-break">
+                    <p className="quote-total-label text-xs font-black uppercase tracking-[0.2em] mb-1.5 text-white">
                       Total Geral do Orçamento
                     </p>
-                    <p className="text-3xl font-black text-rose-500">
+                    <p className="quote-total-value text-3xl font-black text-rose-500">
                       {formatBRL(isPrintingQuote.total_value)}
                     </p>
                   </div>
