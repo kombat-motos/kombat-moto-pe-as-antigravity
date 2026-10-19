@@ -767,6 +767,38 @@ try { db.exec("ALTER TABLE credit ADD COLUMN fine_applied REAL DEFAULT 0"); } ca
 try { db.exec("ALTER TABLE credit ADD COLUMN discount_applied REAL DEFAULT 0"); } catch (e) {}
 try { db.exec("ALTER TABLE credit ADD COLUMN paid_value REAL DEFAULT 0"); } catch (e) {}
 
+// Migrations for purchase_orders and purchase_order_items
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN order_number TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN distributor_name TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN representative_name TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN whatsapp TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN delivery_forecast TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN payment_terms TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN notes TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN subtotal REAL DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN discount REAL DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN shipping REAL DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN total_items INTEGER DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN total_units REAL DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN has_unquoted_items INTEGER DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN cancelled_at TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN cancelled_reason TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_orders ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP"); } catch (e) {}
+
+try { db.exec("ALTER TABLE purchase_order_items ADD COLUMN product_id INTEGER"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_order_items ADD COLUMN code TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_order_items ADD COLUMN brand TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_order_items ADD COLUMN application TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_order_items ADD COLUMN unit TEXT DEFAULT 'UN'"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_order_items ADD COLUMN item_notes TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_order_items ADD COLUMN is_manual INTEGER DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_order_items ADD COLUMN subtotal REAL"); } catch (e) {}
+try { db.exec("ALTER TABLE purchase_order_items ADD COLUMN item_order INTEGER DEFAULT 0"); } catch (e) {}
+
+try {
+  db.exec("UPDATE purchase_orders SET order_number = printf('%06d', id) WHERE order_number IS NULL OR order_number = ''");
+} catch (e) {}
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS collection_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -4273,51 +4305,458 @@ ${promptText}`,
     res.json({ success: true });
   });
 
-  // Purchase Orders
+  // Purchase Orders - Professional Module
   app.get("/api/purchase_orders", authenticateToken, (req, res) => {
-    const orders = db.prepare(`
-      SELECT o.*, d.name as distributor_name, o.created_at as date 
-      FROM purchase_orders o 
-      LEFT JOIN distributors d ON o.distributor_id = d.id 
-      WHERE o.user_id = ? 
-      ORDER BY o.created_at DESC
-    `).all(req.user!.id) as any[];
-    res.json(orders.map(o => ({ 
-      ...o, 
-      items: db.prepare("SELECT * FROM purchase_order_items WHERE purchase_order_id = ?").all(o.id) 
-    })));
+    try {
+      const orders = db.prepare(`
+        SELECT o.*, 
+          COALESCE(NULLIF(o.distributor_name, ''), d.name, 'Distribuidor não especificado') as distributor_name,
+          COALESCE(NULLIF(o.whatsapp, ''), d.whatsapp, '') as whatsapp,
+          COALESCE(NULLIF(o.representative_name, ''), d.contact, '') as representative_name,
+          o.created_at as date 
+        FROM purchase_orders o 
+        LEFT JOIN distributors d ON o.distributor_id = d.id 
+        WHERE o.user_id = ? 
+        ORDER BY o.created_at DESC
+      `).all(req.user!.id) as any[];
+
+      const itemsStmt = db.prepare(`
+        SELECT * FROM purchase_order_items 
+        WHERE purchase_order_id = ? 
+        ORDER BY COALESCE(item_order, id) ASC
+      `);
+
+      res.json(orders.map(o => {
+        const items = itemsStmt.all(o.id) as any[];
+        const formattedOrderNumber = o.order_number || String(o.id).padStart(6, '0');
+        return { 
+          ...o, 
+          order_number: formattedOrderNumber,
+          items: items.map(it => ({
+            id: it.id,
+            product_id: it.product_id || null,
+            description: it.description || '',
+            code: it.code || '',
+            brand: it.brand || '',
+            application: it.application || '',
+            quantity: Number(it.quantity) || 1,
+            unit: it.unit || 'UN',
+            price: it.price !== null && it.price !== undefined ? Number(it.price) : null,
+            subtotal: it.subtotal !== null && it.subtotal !== undefined ? Number(it.subtotal) : (it.price !== null && it.price !== undefined ? Number(it.quantity) * Number(it.price) : null),
+            item_notes: it.item_notes || '',
+            is_manual: Boolean(it.is_manual)
+          }))
+        };
+      }));
+    } catch (err: any) {
+      console.error("Error in GET /api/purchase_orders:", err);
+      res.status(500).json({ error: "Erro ao buscar pedidos de compra: " + err.message });
+    }
   });
+
   app.post("/api/purchase_orders", authenticateToken, (req, res) => {
-    const { distributor_id, items } = req.body;
-    const insertOrder = db.transaction((distId, orderItems) => {
-      const info = db.prepare("INSERT INTO purchase_orders (user_id, distributor_id, status) VALUES (?, ?, ?)").run(req.user!.id, distId, 'Pendente');
-      const orderId = info.lastInsertRowid;
-      const insertItem = db.prepare("INSERT INTO purchase_order_items (purchase_order_id, description, quantity, price) VALUES (?, ?, ?, ?)");
-      for (const item of orderItems) insertItem.run(orderId, item.description, item.quantity, item.price || 0);
-      return orderId;
-    });
-    res.json({ id: parseInt(insertOrder(distributor_id, items).toString()) });
+    const { 
+      distributor_id, 
+      distributor_name, 
+      representative_name, 
+      whatsapp, 
+      delivery_forecast, 
+      payment_terms, 
+      notes, 
+      discount, 
+      shipping, 
+      status, 
+      items 
+    } = req.body;
+
+    const orderStatus = status === 'Rascunho' ? 'Rascunho' : (status || 'Pendente');
+
+    // Validation: if not Rascunho, require distributor and at least 1 valid item
+    if (orderStatus !== 'Rascunho') {
+      if (!distributor_id && (!distributor_name || !distributor_name.trim())) {
+        return res.status(400).json({ error: 'Distribuidor é obrigatório para salvar o pedido.' });
+      }
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'Adicione pelo menos um item ao pedido.' });
+      }
+    }
+
+    const orderItems = Array.isArray(items) ? items : [];
+
+    // Numerical calculations and validations
+    let subtotal = 0;
+    let totalUnits = 0;
+    let hasUnquoted = false;
+
+    for (const item of orderItems) {
+      const qty = Number(item.quantity) || 0;
+      if (qty <= 0 && orderStatus !== 'Rascunho') {
+        return res.status(400).json({ error: `Quantidade inválida (deve ser maior que zero) para: ${item.description || 'Item'}` });
+      }
+      totalUnits += qty;
+
+      if (item.price !== null && item.price !== undefined && item.price !== '') {
+        const p = Number(item.price);
+        if (p < 0) {
+          return res.status(400).json({ error: `Valor unitário negativo não permitido para: ${item.description || 'Item'}` });
+        }
+        subtotal += Math.round(qty * p * 100) / 100;
+      } else {
+        hasUnquoted = true;
+      }
+    }
+
+    subtotal = Math.round(subtotal * 100) / 100;
+    const numDiscount = Math.max(0, Math.round((Number(discount) || 0) * 100) / 100);
+    const numShipping = Math.max(0, Math.round((Number(shipping) || 0) * 100) / 100);
+
+    if (numDiscount > subtotal && subtotal > 0) {
+      return res.status(400).json({ error: 'O desconto não pode ser maior que o subtotal dos itens precificados.' });
+    }
+
+    const totalValue = Math.max(0, Math.round((subtotal - numDiscount + numShipping) * 100) / 100);
+
+    try {
+      const insertOrder = db.transaction(() => {
+        let resolvedDistName = (distributor_name || '').trim();
+        let resolvedWhatsapp = (whatsapp || '').trim();
+        let resolvedRep = (representative_name || '').trim();
+
+        if (distributor_id && (!resolvedDistName || !resolvedWhatsapp)) {
+          const distRow = db.prepare("SELECT name, contact, whatsapp FROM distributors WHERE id = ?").get(distributor_id) as any;
+          if (distRow) {
+            resolvedDistName = resolvedDistName || distRow.name || '';
+            resolvedWhatsapp = resolvedWhatsapp || distRow.whatsapp || '';
+            resolvedRep = resolvedRep || distRow.contact || '';
+          }
+        }
+
+        const info = db.prepare(`
+          INSERT INTO purchase_orders (
+            user_id, distributor_id, distributor_name, representative_name, whatsapp,
+            delivery_forecast, payment_terms, notes, subtotal, discount, shipping,
+            total_value, total_items, total_units, has_unquoted_items, status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          req.user!.id,
+          distributor_id || null,
+          resolvedDistName,
+          resolvedRep,
+          resolvedWhatsapp,
+          delivery_forecast || null,
+          payment_terms || null,
+          notes || null,
+          subtotal,
+          numDiscount,
+          numShipping,
+          totalValue,
+          orderItems.length,
+          totalUnits,
+          hasUnquoted ? 1 : 0,
+          orderStatus
+        );
+
+        const orderId = Number(info.lastInsertRowid);
+        const formattedNumber = String(orderId).padStart(6, '0');
+        db.prepare("UPDATE purchase_orders SET order_number = ? WHERE id = ?").run(formattedNumber, orderId);
+
+        const insertItem = db.prepare(`
+          INSERT INTO purchase_order_items (
+            purchase_order_id, product_id, description, code, brand, application,
+            quantity, unit, price, subtotal, item_notes, is_manual, item_order
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        orderItems.forEach((it: any, idx: number) => {
+          const qty = Number(it.quantity) || 1;
+          const hasPrice = it.price !== null && it.price !== undefined && it.price !== '';
+          const price = hasPrice ? Number(it.price) : null;
+          const itemSubtotal = hasPrice ? Math.round(qty * (price as number) * 100) / 100 : null;
+
+          insertItem.run(
+            orderId,
+            it.product_id || null,
+            (it.description || '').trim(),
+            it.code || it.sku || it.alt_code || null,
+            it.brand || null,
+            it.application || null,
+            qty,
+            it.unit || 'UN',
+            price,
+            itemSubtotal,
+            it.item_notes || it.notes || null,
+            it.is_manual ? 1 : 0,
+            idx
+          );
+        });
+
+        return { id: orderId, order_number: formattedNumber };
+      });
+
+      const result = insertOrder();
+      res.json(result);
+    } catch (err: any) {
+      console.error("Error creating purchase order:", err);
+      res.status(500).json({ error: "Erro ao criar pedido de compra: " + err.message });
+    }
   });
 
   app.put("/api/purchase_orders/:id", authenticateToken, (req, res) => {
-    const { distributor_id, items, status } = req.body;
-    const updateOrder = db.transaction((orderId, distId, orderStatus, orderItems) => {
-      if (distId) db.prepare("UPDATE purchase_orders SET distributor_id = ? WHERE id = ? AND user_id = ?").run(distId, orderId, req.user!.id);
-      if (orderStatus) db.prepare("UPDATE purchase_orders SET status = ? WHERE id = ? AND user_id = ?").run(orderStatus, orderId, req.user!.id);
-      
-      if (orderItems) {
-        db.prepare("DELETE FROM purchase_order_items WHERE purchase_order_id = ?").run(orderId);
-        const insertItem = db.prepare("INSERT INTO purchase_order_items (purchase_order_id, description, quantity, price) VALUES (?, ?, ?, ?)");
-        for (const item of orderItems) insertItem.run(orderId, item.description, item.quantity, item.price || 0);
+    const { 
+      distributor_id, 
+      distributor_name, 
+      representative_name, 
+      whatsapp, 
+      delivery_forecast, 
+      payment_terms, 
+      notes, 
+      discount, 
+      shipping, 
+      status, 
+      items 
+    } = req.body;
+
+    const orderId = req.params.id;
+    const existing = db.prepare("SELECT * FROM purchase_orders WHERE id = ? AND user_id = ?").get(orderId, req.user!.id) as any;
+    if (!existing) {
+      return res.status(404).json({ error: "Pedido não encontrado" });
+    }
+
+    const orderStatus = status || existing.status || 'Pendente';
+
+    // Validation: if not Rascunho, require distributor and at least 1 valid item
+    if (orderStatus !== 'Rascunho') {
+      if (!distributor_id && (!distributor_name || !distributor_name.trim())) {
+        return res.status(400).json({ error: 'Distribuidor é obrigatório para salvar o pedido.' });
       }
-    });
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'Adicione pelo menos um item ao pedido.' });
+      }
+    }
+
+    const orderItems = Array.isArray(items) ? items : [];
+
+    let subtotal = 0;
+    let totalUnits = 0;
+    let hasUnquoted = false;
+
+    for (const item of orderItems) {
+      const qty = Number(item.quantity) || 0;
+      if (qty <= 0 && orderStatus !== 'Rascunho') {
+        return res.status(400).json({ error: `Quantidade inválida (deve ser maior que zero) para: ${item.description || 'Item'}` });
+      }
+      totalUnits += qty;
+
+      if (item.price !== null && item.price !== undefined && item.price !== '') {
+        const p = Number(item.price);
+        if (p < 0) {
+          return res.status(400).json({ error: `Valor unitário negativo não permitido para: ${item.description || 'Item'}` });
+        }
+        subtotal += Math.round(qty * p * 100) / 100;
+      } else {
+        hasUnquoted = true;
+      }
+    }
+
+    subtotal = Math.round(subtotal * 100) / 100;
+    const numDiscount = Math.max(0, Math.round((Number(discount) || 0) * 100) / 100);
+    const numShipping = Math.max(0, Math.round((Number(shipping) || 0) * 100) / 100);
+
+    if (numDiscount > subtotal && subtotal > 0) {
+      return res.status(400).json({ error: 'O desconto não pode ser maior que o subtotal dos itens precificados.' });
+    }
+
+    const totalValue = Math.max(0, Math.round((subtotal - numDiscount + numShipping) * 100) / 100);
 
     try {
-      updateOrder(req.params.id, distributor_id, status, items);
+      const updateOrder = db.transaction(() => {
+        let resolvedDistName = (distributor_name || '').trim();
+        let resolvedWhatsapp = (whatsapp || '').trim();
+        let resolvedRep = (representative_name || '').trim();
+
+        if (distributor_id && (!resolvedDistName || !resolvedWhatsapp)) {
+          const distRow = db.prepare("SELECT name, contact, whatsapp FROM distributors WHERE id = ?").get(distributor_id) as any;
+          if (distRow) {
+            resolvedDistName = resolvedDistName || distRow.name || '';
+            resolvedWhatsapp = resolvedWhatsapp || distRow.whatsapp || '';
+            resolvedRep = resolvedRep || distRow.contact || '';
+          }
+        }
+
+        db.prepare(`
+          UPDATE purchase_orders SET 
+            distributor_id = ?,
+            distributor_name = ?,
+            representative_name = ?,
+            whatsapp = ?,
+            delivery_forecast = ?,
+            payment_terms = ?,
+            notes = ?,
+            subtotal = ?,
+            discount = ?,
+            shipping = ?,
+            total_value = ?,
+            total_items = ?,
+            total_units = ?,
+            has_unquoted_items = ?,
+            status = ?,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = ? AND user_id = ?
+        `).run(
+          distributor_id || null,
+          resolvedDistName,
+          resolvedRep,
+          resolvedWhatsapp,
+          delivery_forecast || null,
+          payment_terms || null,
+          notes || null,
+          subtotal,
+          numDiscount,
+          numShipping,
+          totalValue,
+          orderItems.length,
+          totalUnits,
+          hasUnquoted ? 1 : 0,
+          orderStatus,
+          orderId,
+          req.user!.id
+        );
+
+        // Replace items
+        db.prepare("DELETE FROM purchase_order_items WHERE purchase_order_id = ?").run(orderId);
+
+        const insertItem = db.prepare(`
+          INSERT INTO purchase_order_items (
+            purchase_order_id, product_id, description, code, brand, application,
+            quantity, unit, price, subtotal, item_notes, is_manual, item_order
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        orderItems.forEach((it: any, idx: number) => {
+          const qty = Number(it.quantity) || 1;
+          const hasPrice = it.price !== null && it.price !== undefined && it.price !== '';
+          const price = hasPrice ? Number(it.price) : null;
+          const itemSubtotal = hasPrice ? Math.round(qty * (price as number) * 100) / 100 : null;
+
+          insertItem.run(
+            orderId,
+            it.product_id || null,
+            (it.description || '').trim(),
+            it.code || it.sku || it.alt_code || null,
+            it.brand || null,
+            it.application || null,
+            qty,
+            it.unit || 'UN',
+            price,
+            itemSubtotal,
+            it.item_notes || it.notes || null,
+            it.is_manual ? 1 : 0,
+            idx
+          );
+        });
+      });
+
+      updateOrder();
       res.json({ success: true });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Erro ao atualizar pedido" });
+    } catch (err: any) {
+      console.error("Error updating purchase order:", err);
+      res.status(500).json({ error: "Erro ao atualizar pedido: " + err.message });
+    }
+  });
+
+  app.patch("/api/purchase_orders/:id/status", authenticateToken, (req, res) => {
+    const { status, cancelled_reason } = req.body;
+    try {
+      if (status === 'Cancelado') {
+        db.prepare(`
+          UPDATE purchase_orders 
+          SET status = ?, cancelled_at = CURRENT_TIMESTAMP, cancelled_reason = ?, updated_at = CURRENT_TIMESTAMP 
+          WHERE id = ? AND user_id = ?
+        `).run(status, cancelled_reason || 'Cancelado pelo usuário', req.params.id, req.user!.id);
+      } else {
+        db.prepare(`
+          UPDATE purchase_orders 
+          SET status = ?, updated_at = CURRENT_TIMESTAMP 
+          WHERE id = ? AND user_id = ?
+        `).run(status, req.params.id, req.user!.id);
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Error updating status:", err);
+      res.status(500).json({ error: "Erro ao atualizar status do pedido" });
+    }
+  });
+
+  app.post("/api/purchase_orders/:id/duplicate", authenticateToken, (req, res) => {
+    try {
+      const order = db.prepare("SELECT * FROM purchase_orders WHERE id = ? AND user_id = ?").get(req.params.id, req.user!.id) as any;
+      if (!order) return res.status(404).json({ error: "Pedido original não encontrado" });
+
+      const items = db.prepare("SELECT * FROM purchase_order_items WHERE purchase_order_id = ? ORDER BY COALESCE(item_order, id) ASC").all(order.id) as any[];
+
+      const cloneOrder = db.transaction(() => {
+        const info = db.prepare(`
+          INSERT INTO purchase_orders (
+            user_id, distributor_id, distributor_name, representative_name, whatsapp,
+            delivery_forecast, payment_terms, notes, subtotal, discount, shipping,
+            total_value, total_items, total_units, has_unquoted_items, status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Rascunho')
+        `).run(
+          req.user!.id,
+          order.distributor_id,
+          order.distributor_name,
+          order.representative_name,
+          order.whatsapp,
+          null, // reset delivery forecast for new order
+          order.payment_terms,
+          order.notes,
+          order.subtotal,
+          order.discount,
+          order.shipping,
+          order.total_value,
+          order.total_items,
+          order.total_units,
+          order.has_unquoted_items,
+          'Rascunho'
+        );
+
+        const newId = Number(info.lastInsertRowid);
+        const formattedNumber = String(newId).padStart(6, '0');
+        db.prepare("UPDATE purchase_orders SET order_number = ? WHERE id = ?").run(formattedNumber, newId);
+
+        const insertItem = db.prepare(`
+          INSERT INTO purchase_order_items (
+            purchase_order_id, product_id, description, code, brand, application,
+            quantity, unit, price, subtotal, item_notes, is_manual, item_order
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        items.forEach((it: any, idx: number) => {
+          insertItem.run(
+            newId,
+            it.product_id,
+            it.description,
+            it.code,
+            it.brand,
+            it.application,
+            it.quantity,
+            it.unit,
+            it.price,
+            it.subtotal,
+            it.item_notes,
+            it.is_manual,
+            idx
+          );
+        });
+
+        return { id: newId, order_number: formattedNumber };
+      });
+
+      const result = cloneOrder();
+      res.json(result);
+    } catch (err: any) {
+      console.error("Error duplicating order:", err);
+      res.status(500).json({ error: "Erro ao duplicar pedido: " + err.message });
     }
   });
 
