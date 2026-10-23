@@ -92,8 +92,8 @@ import LabelAssistantModal from './components/labels/LabelAssistantModal';
 import { LoadingState } from './components/common/LoadingState';
 import { EmptyState } from './components/common/EmptyState';
 import { ConfirmModal } from './components/common/ConfirmModal';
-import { formatCurrencyBRL, formatDateBR } from './utils/formatters';
-import { hasPermission } from './types/auth';
+import { hasPermission, normalizeRole, isAdmin, canViewCostPrice } from './types/auth';
+import UserManagementModule from './components/UserManagementModule';
 
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -652,13 +652,16 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
 
+  const [settingsActiveSection, setSettingsActiveSection] = useState<'usuarios' | 'empresa' | 'backup'>('usuarios');
+
   const normalizeFrontendRole = (role?: string): string => {
     if (!role) return 'ADMIN';
     const r = String(role).trim().toUpperCase();
     if (r === 'ADMIN' || r === 'ADMINISTRADOR') return 'ADMIN';
-    if (r === 'BALCAO' || r === 'ATENDENTE') return 'BALCAO';
+    if (r === 'GERENTE') return 'GERENTE';
+    if (r === 'VENDEDOR' || r === 'BALCAO' || r === 'ATENDENTE') return 'VENDEDOR';
     if (r === 'MECANICO' || r === 'MECÂNICO') return 'MECANICO';
-    if (r === 'FINANCEIRO') return 'FINANCEIRO';
+    if (r === 'FINANCEIRO') return 'GERENTE';
     if (r === 'CONSULTA') return 'CONSULTA';
     return r;
   };
@@ -677,12 +680,13 @@ export default function App() {
   // Enforce role-based access control (RBAC) on activeTab
   React.useEffect(() => {
     if (!user) return;
-    if (userRole === 'BALCAO' && !['customers', 'quotes', 'crm'].includes(activeTab)) {
-      setActiveTab('crm');
-    } else if (userRole === 'MECANICO' && !['dashboard', 'os'].includes(activeTab)) {
+    if (userRole === 'ADMIN' || userRole === 'GERENTE') return; // Acesso completo/amplo
+    if (userRole === 'VENDEDOR' && !['dashboard', 'customers', 'quotes', 'crm', 'pdv', 'inventory', 'agendamentos', 'manual_inventory'].includes(activeTab)) {
+      setActiveTab('pdv');
+    } else if (userRole === 'MECANICO' && !['dashboard', 'os', 'agendamentos', 'mechanics', 'services'].includes(activeTab)) {
       setActiveTab('os');
-    } else if (userRole === 'FINANCEIRO' && !['dashboard', 'financial'].includes(activeTab)) {
-      setActiveTab('financial');
+    } else if (userRole === 'CONSULTA' && ['settings', 'pdv'].includes(activeTab)) {
+      setActiveTab('dashboard');
     }
   }, [userRole, activeTab, user]);
 
@@ -6719,7 +6723,54 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       ? (totalAtrasado / (totalAtrasado + totalVencer + totalPago)) * 100 : 0;
 
     return (
-    <div className="max-w-4xl space-y-8">
+    <div className="max-w-5xl space-y-6 animate-fadeIn">
+      {/* Submenu de Seções de Configurações */}
+      <div className="flex flex-wrap gap-2 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-black uppercase tracking-wider">
+        <button
+          onClick={() => setSettingsActiveSection('usuarios')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+            settingsActiveSection === 'usuarios'
+              ? 'bg-rose-600 text-white shadow-md shadow-rose-200 dark:shadow-none'
+              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+          }`}
+        >
+          <ShieldCheck size={16} />
+          <span>Usuários e Permissões</span>
+        </button>
+
+        <button
+          onClick={() => setSettingsActiveSection('empresa')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+            settingsActiveSection === 'empresa'
+              ? 'bg-rose-600 text-white shadow-md shadow-rose-200 dark:shadow-none'
+              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Building2 size={16} />
+          <span>Dados da Empresa & Logo</span>
+        </button>
+
+        <button
+          onClick={() => setSettingsActiveSection('backup')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${
+            settingsActiveSection === 'backup'
+              ? 'bg-rose-600 text-white shadow-md shadow-rose-200 dark:shadow-none'
+              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Settings size={16} />
+          <span>Backup & Cache</span>
+        </button>
+      </div>
+
+      {/* 1. Gestão Completa de Usuários e Permissões (RBAC) */}
+      {settingsActiveSection === 'usuarios' && (
+        <UserManagementModule currentUser={user} onUserUpdated={fetchData} />
+      )}
+
+      {/* 2. Dados da Empresa e Logo */}
+      {settingsActiveSection === 'empresa' && (
+        <div className="space-y-8 animate-fadeIn">
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
         <div className="flex items-center gap-4 mb-8">
           <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
@@ -6954,33 +7005,38 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           ))}
         </div>
       </div>
+        </div>
+      )}
 
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-3 bg-blue-100 text-blue-600 rounded-2xl">
-            <Settings size={24} />
+      {/* 3. Backup e Limpeza de Cache */}
+      {settingsActiveSection === 'backup' && (
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-400 dark:bg-slate-800 dark:border-slate-700 animate-fadeIn">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-blue-100 text-blue-600 rounded-2xl">
+              <Settings size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Backup e Dados</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Gerencie a segurança das suas informações</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Backup e Dados</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Gerencie a segurança das suas informações</p>
+          <div className="flex flex-wrap gap-4">
+            <button 
+              onClick={handleExportBackup}
+              className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm flex items-center gap-2 dark:bg-slate-800 dark:text-slate-100"
+            >
+              <Download size={18} />
+              Exportar Backup (JSON)
+            </button>
+            <button 
+              onClick={handleClearCache}
+              className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm dark:bg-slate-800 dark:text-slate-100"
+            >
+              Limpar Cache do Sistema
+            </button>
           </div>
         </div>
-        <div className="flex gap-4">
-          <button 
-            onClick={handleExportBackup}
-            className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm flex items-center gap-2 dark:bg-slate-800 dark:text-slate-100"
-          >
-            <Download size={18} />
-            Exportar Backup (JSON)
-          </button>
-          <button 
-            onClick={handleClearCache}
-            className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all text-sm dark:bg-slate-800 dark:text-slate-100"
-          >
-            Limpar Cache do Sistema
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
   };
@@ -7487,12 +7543,28 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               onClick={() => { setActiveTab('ai_instructions'); setIsSidebarOpen(false); }}
             />
           )}
+          {hasAccess(['Administrador', 'GERENTE']) && (
+            <SidebarItem
+              icon={ShieldCheck}
+              label="Usuários e Permissões"
+              active={activeTab === 'settings' && settingsActiveSection === 'usuarios'}
+              onClick={() => { 
+                setActiveTab('settings'); 
+                setSettingsActiveSection('usuarios'); 
+                setIsSidebarOpen(false); 
+              }}
+            />
+          )}
           {hasAccess(['Administrador']) && (
             <SidebarItem
               icon={Settings}
               label="Configurações"
-              active={activeTab === 'settings'}
-              onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
+              active={activeTab === 'settings' && settingsActiveSection !== 'usuarios'}
+              onClick={() => { 
+                setActiveTab('settings'); 
+                setSettingsActiveSection('empresa'); 
+                setIsSidebarOpen(false); 
+              }}
             />
           )}
         </nav>
@@ -7539,7 +7611,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                 {activeTab === 'purchases' && 'Entrada de Compras (Oficina)'}
                 {activeTab === 'mechanics' && 'Gestão de Mecânicos'}
                 {activeTab === 'quotes' && 'Orçamentos Profissionais'}
-                {activeTab === 'settings' && 'Configurações do Sistema'}
+                {activeTab === 'settings' && (settingsActiveSection === 'usuarios' ? 'Usuários e Permissões' : 'Configurações do Sistema')}
                 {activeTab === 'ai_instructions' && 'Central de Instruções da IA'}
               </h2>
               <p className="text-slate-500 dark:text-slate-400">
@@ -7617,6 +7689,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     setSelectedProductDetail={setSelectedProductDetail}
                     setLabelPreviewProduct={setLabelPreviewProduct}
                     formatBRL={formatBRL}
+                    canViewCost={canViewCostPrice(user)}
                   />
                 )}
                 {activeTab === 'manual_inventory' && renderManualInventory()}

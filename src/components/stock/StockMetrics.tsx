@@ -16,13 +16,15 @@ interface StockMetricsProps {
   formatBRL: (val: number) => string;
   activeQuickFilter: QuickFilterType;
   onSelectQuickFilter: (filter: QuickFilterType) => void;
+  canViewCost?: boolean;
 }
 
 export const StockMetrics: React.FC<StockMetricsProps> = ({
   products,
   formatBRL,
   activeQuickFilter,
-  onSelectQuickFilter
+  onSelectQuickFilter,
+  canViewCost = true
 }) => {
   const metrics = useMemo(() => {
     let totalItems = products.length;
@@ -124,8 +126,8 @@ export const StockMetrics: React.FC<StockMetricsProps> = ({
     {
       id: 'ALL', // Filtro neutro, apenas métrica financeira
       label: 'VALOR DO ESTOQUE A CUSTO',
-      sublabel: 'Custo total (qtd × compra)',
-      value: formatBRL(metrics.totalCostValue),
+      sublabel: canViewCost ? 'Custo total (qtd × compra)' : 'Acesso restrito (Administrador)',
+      value: canViewCost ? formatBRL(metrics.totalCostValue) : '••••••',
       icon: <DollarSign size={20} />,
       color: 'text-indigo-700 bg-indigo-50 dark:bg-indigo-950/40 dark:text-indigo-300',
       activeBorder: 'border-indigo-600 dark:border-indigo-400 ring-2 ring-indigo-500/20'

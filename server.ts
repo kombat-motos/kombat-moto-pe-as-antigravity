@@ -52,15 +52,16 @@ try {
 }
 
 // App Roles & Granular Permissions System
-export type AppRole = 'ADMIN' | 'BALCAO' | 'MECANICO' | 'FINANCEIRO' | 'CONSULTA';
+export type AppRole = 'ADMIN' | 'GERENTE' | 'VENDEDOR' | 'MECANICO' | 'CONSULTA';
 
-export const normalizeRole = (role?: string): AppRole => {
+export const normalizeRole = (role?: any): AppRole => {
   if (!role) return 'CONSULTA';
-  const clean = role.trim().toUpperCase();
+  const clean = String(role).trim().toUpperCase();
   if (clean === 'ADMIN' || clean === 'ADMINISTRADOR') return 'ADMIN';
-  if (clean === 'BALCAO' || clean === 'ATENDENTE') return 'BALCAO';
+  if (clean === 'GERENTE') return 'GERENTE';
+  if (clean === 'VENDEDOR' || clean === 'BALCAO' || clean === 'ATENDENTE') return 'VENDEDOR';
   if (clean === 'MECANICO' || clean === 'MECÂNICO') return 'MECANICO';
-  if (clean === 'FINANCEIRO') return 'FINANCEIRO';
+  if (clean === 'FINANCEIRO') return 'GERENTE';
   if (clean === 'CONSULTA') return 'CONSULTA';
   return 'CONSULTA';
 };
@@ -70,27 +71,49 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
     'sales:create', 'sales:cancel', 'sales:discount',
     'receivables:collect', 'financial:manage', 'financial:view',
     'os:create', 'os:update', 'os:cancel',
-    'stock:view', 'stock:adjust',
-    'customers:view_sensitive', 'users:manage'
+    'stock:view', 'stock:adjust', 'stock:view_cost',
+    'customers:view_sensitive', 'users:manage', 'settings:manage'
   ],
-  BALCAO: [
-    'sales:create', 'receivables:collect',
-    'os:create', 'stock:view', 'customers:view_sensitive'
+  GERENTE: [
+    'sales:create', 'sales:cancel', 'sales:discount',
+    'receivables:collect', 'financial:manage', 'financial:view',
+    'os:create', 'os:update',
+    'stock:view', 'stock:adjust', 'stock:view_cost',
+    'customers:view_sensitive'
+  ],
+  VENDEDOR: [
+    'sales:create', 'sales:discount',
+    'receivables:collect',
+    'os:create',
+    'stock:view',
+    'customers:view_sensitive'
   ],
   MECANICO: [
-    'os:create', 'os:update', 'stock:view'
-  ],
-  FINANCEIRO: [
-    'receivables:collect', 'financial:manage', 'financial:view',
-    'stock:view', 'stock:adjust', 'customers:view_sensitive'
+    'os:create', 'os:update',
+    'stock:view'
   ],
   CONSULTA: [
     'stock:view'
   ]
 };
 
-export const hasPermission = (role: string | undefined, permission: string): boolean => {
+export const hasPermission = (userOrRole: any, permission: string): boolean => {
+  if (!userOrRole) return false;
+  const role = typeof userOrRole === 'string' ? userOrRole : userOrRole?.role;
   const normRole = normalizeRole(role);
+  if (normRole === 'ADMIN') return true;
+
+  if (typeof userOrRole === 'object' && userOrRole !== null) {
+    try {
+      const custom = typeof userOrRole.custom_permissions === 'string'
+        ? JSON.parse(userOrRole.custom_permissions)
+        : userOrRole.custom_permissions;
+      if (custom && custom[permission] !== undefined) {
+        return !!custom[permission];
+      }
+    } catch (e) {}
+  }
+
   const permissions = ROLE_PERMISSIONS[normRole] || [];
   return permissions.includes(permission);
 };
@@ -99,7 +122,13 @@ export const hasPermission = (role: string | undefined, permission: string): boo
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: number; username: string; role: AppRole };
+      user?: { 
+        id: number; 
+        username: string; 
+        name?: string; 
+        role: AppRole; 
+        custom_permissions?: any;
+      };
       correlationId?: string;
     }
   }
@@ -725,6 +754,32 @@ try { db.exec("ALTER TABLE customers ADD COLUMN credit_limit REAL DEFAULT 0"); }
 try { db.exec("ALTER TABLE customers ADD COLUMN fine_rate REAL DEFAULT 2"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN interest_rate REAL DEFAULT 1"); } catch (e) {}
 try { db.exec("ALTER TABLE mechanics ADD COLUMN commission_rate REAL DEFAULT 50"); } catch (e) {}
+
+// Migrações e Integridade da Tabela users (RBAC Granular & Segurança)
+try { db.exec("ALTER TABLE users ADD COLUMN name TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN email TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN phone TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'VENDEDOR'"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN active BOOLEAN DEFAULT 1"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN custom_permissions TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN session_version INTEGER DEFAULT 1"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN last_login_at TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN created_by INTEGER"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN updated_at TEXT"); } catch (e) {}
+
+try {
+  db.exec(`
+    UPDATE users SET role = 'ADMIN' WHERE UPPER(role) IN ('ADMINISTRADOR', 'ADMIN');
+    UPDATE users SET role = 'GERENTE' WHERE UPPER(role) = 'GERENTE';
+    UPDATE users SET role = 'VENDEDOR' WHERE UPPER(role) IN ('VENDEDOR', 'BALCAO', 'ATENDENTE');
+    UPDATE users SET role = 'MECANICO' WHERE UPPER(role) IN ('MECANICO', 'MECÂNICO');
+    UPDATE users SET role = 'CONSULTA' WHERE UPPER(role) = 'CONSULTA';
+    UPDATE users SET role = 'ADMIN' WHERE role IS NULL OR role = '';
+    UPDATE users SET active = 1 WHERE active IS NULL;
+    UPDATE users SET name = username WHERE name IS NULL OR name = '';
+    UPDATE users SET session_version = 1 WHERE session_version IS NULL;
+  `);
+} catch (e) {}
 
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_status TEXT DEFAULT 'LIBERADO'"); } catch (e) {}
 try { db.exec("UPDATE credit SET status = 'Pago' WHERE sale_id IN (SELECT id FROM sales WHERE payment_status = 'Pago') AND status != 'Pago'"); } catch (e) {}
@@ -1380,19 +1435,29 @@ async function startServer() {
     }
   };
 
-  // Garantir Usuário Administrador Real e Senha Padrão no Banco
+  // Garantir Usuário Administrador no Banco com Integridade e Segurança
   try {
-    const hashedPassword = bcrypt.hashSync("admin123", 10);
-    const defaultAdmin = db.prepare("SELECT id, username FROM users WHERE username = 'admin' OR id = 1").get() as any;
-    if (!defaultAdmin) {
-      db.prepare("INSERT INTO users (id, username, password, role, active) VALUES (1, 'admin', ?, 'ADMIN', 1)").run(hashedPassword);
-      console.log("[AUTH] Administrador padrão inicializado: admin / admin123 (Role: ADMIN)");
-    } else {
-      db.prepare("UPDATE users SET username = 'admin', password = ?, role = 'ADMIN', active = 1 WHERE id = ?").run(hashedPassword, defaultAdmin.id);
-      console.log("[AUTH] Administrador pronto para login: admin / admin123 (Role: ADMIN)");
+    const totalUsers = (db.prepare("SELECT COUNT(*) as count FROM users").get() as any)?.count || 0;
+    const activeAdmins = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'ADMIN' AND active = 1").get() as any)?.count || 0;
+
+    if (totalUsers === 0) {
+      // Se a base estiver limpa/nova, inicializa a conta administradora de bootstrap
+      const hashedPassword = bcrypt.hashSync("admin123", 10);
+      db.prepare(`
+        INSERT INTO users (id, name, username, password, role, active, session_version)
+        VALUES (1, 'Administrador Geral', 'admin', ?, 'ADMIN', 1, 1)
+      `).run(hashedPassword);
+      console.log("[AUTH] Administrador inicial bootstrap criado: admin / admin123 (Role: ADMIN)");
+    } else if (activeAdmins === 0) {
+      // Preserva integridade: se não há administradores ativos, assegura o primeiro usuário como ADMIN sem tocar em sua senha
+      const firstUser = db.prepare("SELECT id, username FROM users ORDER BY id ASC LIMIT 1").get() as any;
+      if (firstUser) {
+        db.prepare("UPDATE users SET role = 'ADMIN', active = 1 WHERE id = ?").run(firstUser.id);
+        console.log(`[AUTH] Conta ${firstUser.username} (ID: ${firstUser.id}) assegurada como Administrador.`);
+      }
     }
   } catch (e) {
-    console.error("[AUTH] Erro ao garantir administrador padrão:", e);
+    console.error("[AUTH] Erro ao assegurar integridade do administrador:", e);
   }
 
   // Middleware de Autenticação Estrita JWT (SEM BYPASS ANÔNIMO)
@@ -1409,17 +1474,33 @@ async function startServer() {
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
-      const user = db.prepare("SELECT id, username, role, active FROM users WHERE id = ?").get(decoded.id) as any;
+      const user = db.prepare(`
+        SELECT id, name, username, email, phone, role, active, custom_permissions, session_version 
+        FROM users 
+        WHERE id = ?
+      `).get(decoded.id) as any;
+
       if (!user || user.active === 0) {
         return res.status(401).json({ 
           error: "Usuário inativo ou inexistente.",
           correlation_id: (req as any).correlationId
         });
       }
+
+      // Invalidação de sessão quando credenciais ou permissões foram alteradas
+      if (decoded.sv && user.session_version && decoded.sv < user.session_version) {
+        return res.status(401).json({
+          error: "Sessão expirada devido à atualização de permissões ou credenciais. Por favor, realize login novamente.",
+          correlation_id: (req as any).correlationId
+        });
+      }
+
       req.user = { 
         id: user.id, 
-        username: user.username, 
-        role: normalizeRole(user.role) 
+        username: user.username,
+        name: user.name || user.username,
+        role: normalizeRole(user.role),
+        custom_permissions: user.custom_permissions
       };
       next();
     } catch (err) {
@@ -1430,13 +1511,28 @@ async function startServer() {
     }
   };
 
+  // Middleware Restrito Exclusivo para Administradores
+  const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Não autenticado", correlation_id: (req as any).correlationId });
+    }
+    const norm = normalizeRole(req.user.role);
+    if (norm !== 'ADMIN') {
+      return res.status(403).json({ 
+        error: "ACESSO RESTRITO: Apenas usuários com perfil de Administrador têm permissão para acessar esta área.",
+        correlation_id: (req as any).correlationId
+      });
+    }
+    next();
+  };
+
   // Middleware RBAC por Permissão Granular
   const requirePermission = (permission: string) => {
     return (req: Request, res: Response, next: NextFunction) => {
       if (!req.user) {
         return res.status(401).json({ error: "Não autenticado", correlation_id: (req as any).correlationId });
       }
-      if (!hasPermission(req.user.role, permission as any)) {
+      if (!hasPermission(req.user, permission)) {
         return res.status(403).json({ 
           error: `Acesso negado: Perfil '${req.user.role}' não possui permissão '${permission}'.`,
           correlation_id: (req as any).correlationId 
@@ -1535,7 +1631,16 @@ async function startServer() {
     resetLoginAttempts(clientIp);
 
     const normRole = normalizeRole(user.role);
-    const token = jwt.sign({ id: user.id, username: user.username, role: normRole }, JWT_SECRET, { expiresIn: "90d" });
+    const sessionVersion = user.session_version || 1;
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: normRole, sv: sessionVersion }, 
+      JWT_SECRET, 
+      { expiresIn: "90d" }
+    );
+
+    try {
+      db.prepare("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?").run(user.id);
+    } catch (e) {}
 
     res.cookie("auth_token", token, {
       httpOnly: true,
@@ -1555,10 +1660,24 @@ async function startServer() {
       user_agent: req.get('user-agent')
     });
 
+    let customPerms = null;
+    try {
+      if (user.custom_permissions) {
+        customPerms = typeof user.custom_permissions === 'string' 
+          ? JSON.parse(user.custom_permissions) 
+          : user.custom_permissions;
+      }
+    } catch (e) {}
+
     res.json({
       id: user.id,
+      name: user.name || user.username,
       username: user.username,
+      email: user.email || '',
+      phone: user.phone || '',
       role: normRole,
+      active: !!user.active,
+      custom_permissions: customPerms,
       permissions: ROLE_PERMISSIONS[normRole] || [],
       token
     });
@@ -1570,13 +1689,43 @@ async function startServer() {
   });
 
   app.get("/api/auth/me", authenticateToken, (req, res) => {
-    const normRole = normalizeRole(req.user!.role);
-    res.json({
-      id: req.user!.id,
-      username: req.user!.username,
-      role: normRole,
-      permissions: ROLE_PERMISSIONS[normRole] || []
-    });
+    try {
+      const user = db.prepare(`
+        SELECT id, name, username, email, phone, role, active, custom_permissions, last_login_at, created_at 
+        FROM users 
+        WHERE id = ?
+      `).get(req.user!.id) as any;
+
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não localizado." });
+      }
+
+      const normRole = normalizeRole(user.role);
+      let customPerms = null;
+      try {
+        if (user.custom_permissions) {
+          customPerms = typeof user.custom_permissions === 'string' 
+            ? JSON.parse(user.custom_permissions) 
+            : user.custom_permissions;
+        }
+      } catch (e) {}
+
+      res.json({
+        id: user.id,
+        name: user.name || user.username,
+        username: user.username,
+        email: user.email || '',
+        phone: user.phone || '',
+        role: normRole,
+        active: !!user.active,
+        custom_permissions: customPerms,
+        permissions: ROLE_PERMISSIONS[normRole] || [],
+        last_login_at: user.last_login_at,
+        created_at: user.created_at
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: "Erro ao consultar sessão: " + err.message });
+    }
   });
 
   // API Routes (Protected)
@@ -3623,44 +3772,438 @@ async function startServer() {
     }
   });
 
-  // Gestão de Usuários
+  // ==========================================
+  // GESTÃO DE USUÁRIOS, COLABORADORES E PERMISSÕES (RBAC)
+  // ==========================================
+
+  // Listagem de colaboradores (Exclusivo para ADMIN)
   app.get("/api/usuarios", authenticateToken, (req, res) => {
     try {
-      const user = db.prepare("SELECT role FROM users WHERE id = ?").get(req.user!.id) as any;
-      if (!user || user.role !== 'Administrador') {
-        return res.status(403).json({ error: "Apenas Administradores podem acessar a gestão de usuários." });
+      const currentRole = normalizeRole(req.user!.role);
+      if (currentRole !== 'ADMIN') {
+        return res.status(403).json({ 
+          error: "ACESSO RESTRITO: Apenas usuários com perfil de Administrador têm permissão para acessar a gestão de colaboradores." 
+        });
       }
-      const allUsers = db.prepare("SELECT id, username, role, created_at FROM users").all();
+
+      const rawUsers = db.prepare(`
+        SELECT id, name, username, email, phone, role, active, custom_permissions, 
+               session_version, last_login_at, created_at, created_by
+        FROM users
+        ORDER BY 
+          CASE WHEN UPPER(role) = 'ADMIN' THEN 0 ELSE 1 END,
+          active DESC,
+          username ASC
+      `).all() as any[];
+
+      const allUsers = rawUsers.map(u => {
+        let perms = null;
+        try {
+          if (u.custom_permissions) {
+            perms = typeof u.custom_permissions === 'string' ? JSON.parse(u.custom_permissions) : u.custom_permissions;
+          }
+        } catch (e) {}
+
+        return {
+          id: u.id,
+          name: u.name || u.username,
+          username: u.username,
+          email: u.email || '',
+          phone: u.phone || '',
+          role: normalizeRole(u.role),
+          active: u.active === 1 || u.active === true || u.active === '1',
+          custom_permissions: perms,
+          last_login_at: u.last_login_at,
+          created_at: u.created_at
+        };
+      });
+
       res.json(allUsers);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      console.error("[USUARIOS GET ERROR]", e);
+      res.status(500).json({ error: "Erro ao consultar colaboradores: " + e.message });
     }
   });
 
-  app.put("/api/usuarios/:id/role", authenticateToken, (req, res) => {
+  // Cadastro de novo colaborador
+  app.post("/api/usuarios", authenticateToken, requireAdmin, async (req, res) => {
     try {
-      const user = db.prepare("SELECT role FROM users WHERE id = ?").get(req.user!.id) as any;
-      if (!user || user.role !== 'Administrador') {
-        return res.status(403).json({ error: "Apenas Administradores podem alterar permissões." });
+      const { name, username, password, email, phone, role, custom_permissions } = req.body;
+
+      if (!username || username.trim().length < 3) {
+        return res.status(400).json({ error: "O nome de login (usuário) deve conter pelo menos 3 caracteres." });
       }
+
+      if (!password || password.length < 4) {
+        return res.status(400).json({ error: "A senha inicial deve conter pelo menos 4 caracteres." });
+      }
+
+      const cleanUsername = username.trim().toLowerCase();
+
+      // Verificar unicidade de login
+      const existing = db.prepare("SELECT id FROM users WHERE LOWER(username) = ?").get(cleanUsername);
+      if (existing) {
+        return res.status(400).json({ error: `O nome de usuário '${cleanUsername}' já está em uso por outro colaborador.` });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const normRole = normalizeRole(role || 'VENDEDOR');
+      const permsJson = custom_permissions ? JSON.stringify(custom_permissions) : null;
+
+      const info = db.prepare(`
+        INSERT INTO users (name, username, password, email, phone, role, active, custom_permissions, session_version, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, 1, ?, 1, ?)
+      `).run(
+        (name || cleanUsername).trim(),
+        cleanUsername,
+        hashedPassword,
+        email ? email.trim() : null,
+        phone ? phone.trim() : null,
+        normRole,
+        permsJson,
+        req.user!.id
+      );
+
+      logAudit({
+        correlation_id: (req as any).correlationId,
+        user_id: req.user!.id,
+        username: req.user!.username,
+        role: req.user!.role,
+        action: 'USER_CREATE',
+        module: 'Segurança/Usuários',
+        record_id: info.lastInsertRowid,
+        after_state: { name: name || cleanUsername, username: cleanUsername, role: normRole, email, phone },
+        reason: `Cadastro de colaborador '${cleanUsername}' por ${req.user!.username}`,
+        ip_address: req.ip
+      });
+
+      res.json({
+        success: true,
+        id: info.lastInsertRowid,
+        message: "Colaborador cadastrado com sucesso!"
+      });
+    } catch (e: any) {
+      console.error("[USUARIOS POST ERROR]", e);
+      res.status(500).json({ error: "Erro ao cadastrar colaborador: " + e.message });
+    }
+  });
+
+  // Atualização cadastral e permissões do colaborador
+  app.put("/api/usuarios/:id", authenticateToken, requireAdmin, async (req, res) => {
+    try {
+      const targetId = parseInt(req.params.id);
+      if (isNaN(targetId)) return res.status(400).json({ error: "ID de usuário inválido." });
+
+      const targetUser = db.prepare("SELECT * FROM users WHERE id = ?").get(targetId) as any;
+      if (!targetUser) return res.status(404).json({ error: "Colaborador não localizado." });
+
+      const { name, username, email, phone, role, active, custom_permissions } = req.body;
+      const normRole = normalizeRole(role || targetUser.role);
+      const newActive = active !== undefined ? (active ? 1 : 0) : targetUser.active;
+
+      // PROTEÇÃO DO ÚLTIMO ADMINISTRADOR (Last Admin Protection)
+      const targetIsAdmin = normalizeRole(targetUser.role) === 'ADMIN';
+      if (targetIsAdmin && (normRole !== 'ADMIN' || newActive === 0)) {
+        const otherAdmins = db.prepare(`
+          SELECT COUNT(*) as count 
+          FROM users 
+          WHERE role = 'ADMIN' AND active = 1 AND id != ?
+        `).get(targetId) as any;
+
+        if (!otherAdmins || otherAdmins.count === 0) {
+          return res.status(400).json({ 
+            error: "Operação bloqueada: Não é permitido desativar ou rebaixar o único Administrador ativo do sistema Kombat." 
+          });
+        }
+      }
+
+      // Validar username se modificado
+      let cleanUsername = targetUser.username;
+      if (username && username.trim().toLowerCase() !== targetUser.username.toLowerCase()) {
+        cleanUsername = username.trim().toLowerCase();
+        const conflict = db.prepare("SELECT id FROM users WHERE LOWER(username) = ? AND id != ?").get(cleanUsername, targetId);
+        if (conflict) {
+          return res.status(400).json({ error: `O login '${cleanUsername}' já pertence a outro colaborador.` });
+        }
+      }
+
+      const permsJson = custom_permissions !== undefined 
+        ? (custom_permissions ? JSON.stringify(custom_permissions) : null) 
+        : targetUser.custom_permissions;
+
+      // Invalida sessões existentes aumentando session_version se status ou role mudar
+      const shouldInvalidateSession = normRole !== targetUser.role || newActive !== targetUser.active;
+      const nextSessionVersion = shouldInvalidateSession ? (targetUser.session_version || 1) + 1 : (targetUser.session_version || 1);
+
+      db.prepare(`
+        UPDATE users 
+        SET name = ?, username = ?, email = ?, phone = ?, role = ?, active = ?, 
+            custom_permissions = ?, session_version = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(
+        (name || cleanUsername).trim(),
+        cleanUsername,
+        email ? email.trim() : null,
+        phone ? phone.trim() : null,
+        normRole,
+        newActive,
+        permsJson,
+        nextSessionVersion,
+        targetId
+      );
+
+      logAudit({
+        correlation_id: (req as any).correlationId,
+        user_id: req.user!.id,
+        username: req.user!.username,
+        role: req.user!.role,
+        action: 'USER_UPDATE',
+        module: 'Segurança/Usuários',
+        record_id: targetId,
+        before_state: { name: targetUser.name, role: targetUser.role, active: targetUser.active },
+        after_state: { name, role: normRole, active: newActive },
+        reason: `Atualização do colaborador '${cleanUsername}'`,
+        ip_address: req.ip
+      });
+
+      res.json({ success: true, message: "Colaborador atualizado com sucesso!" });
+    } catch (e: any) {
+      console.error("[USUARIOS PUT ERROR]", e);
+      res.status(500).json({ error: "Erro ao atualizar colaborador: " + e.message });
+    }
+  });
+
+  // Atualização rápida de função (compatibilidade)
+  app.put("/api/usuarios/:id/role", authenticateToken, requireAdmin, (req, res) => {
+    try {
+      const targetId = parseInt(req.params.id);
       const { role } = req.body;
-      db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, req.params.id);
-      res.json({ success: true });
+      const normRole = normalizeRole(role);
+
+      const targetUser = db.prepare("SELECT * FROM users WHERE id = ?").get(targetId) as any;
+      if (!targetUser) return res.status(404).json({ error: "Usuário não localizado." });
+
+      // Proteção do último administrador
+      if (normalizeRole(targetUser.role) === 'ADMIN' && normRole !== 'ADMIN') {
+        const otherAdmins = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'ADMIN' AND active = 1 AND id != ?").get(targetId) as any)?.count || 0;
+        if (otherAdmins === 0) {
+          return res.status(400).json({ error: "Não é permitido alterar a função do único Administrador ativo." });
+        }
+      }
+
+      db.prepare("UPDATE users SET role = ?, session_version = session_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(normRole, targetId);
+      res.json({ success: true, role: normRole });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });
 
-  app.delete("/api/usuarios/:id", authenticateToken, (req, res) => {
+  // Redefinição de senha segura com bcrypt
+  app.put("/api/usuarios/:id/password", authenticateToken, requireAdmin, async (req, res) => {
     try {
-      const user = db.prepare("SELECT role FROM users WHERE id = ?").get(req.user!.id) as any;
-      if (!user || user.role !== 'Administrador') {
-        return res.status(403).json({ error: "Apenas Administradores podem excluir usuários." });
+      const targetId = parseInt(req.params.id);
+      const { newPassword } = req.body;
+
+      if (!newPassword || newPassword.length < 4) {
+        return res.status(400).json({ error: "A nova senha deve possuir pelo menos 4 caracteres." });
       }
-      db.prepare("DELETE FROM users WHERE id = ?").run(req.params.id);
-      res.json({ success: true });
+
+      const targetUser = db.prepare("SELECT id, username FROM users WHERE id = ?").get(targetId) as any;
+      if (!targetUser) return res.status(404).json({ error: "Colaborador não localizado." });
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Incrementa session_version para derrubar sessões ativas com a senha antiga
+      db.prepare(`
+        UPDATE users 
+        SET password = ?, session_version = session_version + 1, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+      `).run(hashedPassword, targetId);
+
+      logAudit({
+        correlation_id: (req as any).correlationId,
+        user_id: req.user!.id,
+        username: req.user!.username,
+        role: req.user!.role,
+        action: 'PASSWORD_RESET',
+        module: 'Segurança/Usuários',
+        record_id: targetId,
+        reason: `Redefinição de senha do usuário '${targetUser.username}' pelo administrador '${req.user!.username}'`,
+        ip_address: req.ip
+      });
+
+      res.json({ success: true, message: "Senha redefinida com sucesso!" });
+    } catch (e: any) {
+      console.error("[USUARIOS PASSWORD RESET ERROR]", e);
+      res.status(500).json({ error: "Erro ao redefinir senha: " + e.message });
+    }
+  });
+
+  // Bloquear ou Reativar colaborador
+  app.patch("/api/usuarios/:id/status", authenticateToken, requireAdmin, (req, res) => {
+    try {
+      const targetId = parseInt(req.params.id);
+      const { active } = req.body;
+      const targetUser = db.prepare("SELECT * FROM users WHERE id = ?").get(targetId) as any;
+      if (!targetUser) return res.status(404).json({ error: "Colaborador não localizado." });
+
+      const newStatus = active ? 1 : 0;
+
+      // Proteção de bloqueio do próprio usuário logado e do último administrador
+      if (newStatus === 0) {
+        if (targetId === req.user!.id) {
+          return res.status(400).json({ error: "Você não pode bloquear a sua própria conta logada." });
+        }
+        if (normalizeRole(targetUser.role) === 'ADMIN') {
+          const otherAdmins = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'ADMIN' AND active = 1 AND id != ?").get(targetId) as any)?.count || 0;
+          if (otherAdmins === 0) {
+            return res.status(400).json({ error: "Não é permitido bloquear o único Administrador ativo do sistema." });
+          }
+        }
+      }
+
+      db.prepare("UPDATE users SET active = ?, session_version = session_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(newStatus, targetId);
+
+      logAudit({
+        correlation_id: (req as any).correlationId,
+        user_id: req.user!.id,
+        username: req.user!.username,
+        role: req.user!.role,
+        action: newStatus === 1 ? 'USER_REACTIVATE' : 'USER_BLOCK',
+        module: 'Segurança/Usuários',
+        record_id: targetId,
+        reason: `${newStatus === 1 ? 'Reativação' : 'Bloqueio'} do colaborador '${targetUser.username}'`,
+        ip_address: req.ip
+      });
+
+      res.json({ 
+        success: true, 
+        active: !!newStatus, 
+        message: newStatus === 1 ? "Colaborador reativado com sucesso!" : "Acesso do colaborador bloqueado!" 
+      });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Exclusão segura de colaborador
+  app.delete("/api/usuarios/:id", authenticateToken, requireAdmin, (req, res) => {
+    try {
+      const targetId = parseInt(req.params.id);
+      if (targetId === req.user!.id) {
+        return res.status(400).json({ error: "Você não pode excluir a sua própria conta administradora ativa!" });
+      }
+
+      const targetUser = db.prepare("SELECT * FROM users WHERE id = ?").get(targetId) as any;
+      if (!targetUser) return res.status(404).json({ error: "Colaborador não encontrado." });
+
+      // Proteção do último administrador
+      if (normalizeRole(targetUser.role) === 'ADMIN') {
+        const otherAdmins = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'ADMIN' AND active = 1 AND id != ?").get(targetId) as any)?.count || 0;
+        if (otherAdmins === 0) {
+          return res.status(400).json({ error: "Operação bloqueada: Não é permitido excluir o único Administrador do sistema." });
+        }
+      }
+
+      // Verificação de registros vinculados para deleção segura (Soft-delete automático se houver histórico)
+      const hasSales = (db.prepare("SELECT COUNT(*) as count FROM sales WHERE user_id = ?").get(targetId) as any)?.count || 0;
+      const hasOS = (db.prepare("SELECT COUNT(*) as count FROM servicos_oficina WHERE user_id = ?").get(targetId) as any)?.count || 0;
+
+      if (hasSales > 0 || hasOS > 0) {
+        // Desativação segura para preservar integridade de vendas e ordens de serviço
+        db.prepare("UPDATE users SET active = 0, session_version = session_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(targetId);
+        logAudit({
+          correlation_id: (req as any).correlationId,
+          user_id: req.user!.id,
+          username: req.user!.username,
+          role: req.user!.role,
+          action: 'USER_DEACTIVATE_PRESERVE',
+          module: 'Segurança/Usuários',
+          record_id: targetId,
+          reason: `Usuário '${targetUser.username}' inativado para preservação de histórico financeiro/oficina`,
+          ip_address: req.ip
+        });
+        return res.json({ 
+          success: true, 
+          message: "Como o colaborador possui vendas ou serviços vinculados, seu acesso foi permanentemente bloqueado para preservar o histórico contábil." 
+        });
+      }
+
+      db.prepare("DELETE FROM users WHERE id = ?").run(targetId);
+
+      logAudit({
+        correlation_id: (req as any).correlationId,
+        user_id: req.user!.id,
+        username: req.user!.username,
+        role: req.user!.role,
+        action: 'USER_DELETE',
+        module: 'Segurança/Usuários',
+        record_id: targetId,
+        reason: `Exclusão permanente do usuário '${targetUser.username}'`,
+        ip_address: req.ip
+      });
+
+      res.json({ success: true, message: "Colaborador removido com sucesso!" });
+    } catch (e: any) {
+      console.error("[USUARIOS DELETE ERROR]", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Histórico de atividades / auditoria do colaborador
+  app.get("/api/usuarios/:id/history", authenticateToken, requireAdmin, (req, res) => {
+    try {
+      const targetId = parseInt(req.params.id);
+      const logs = db.prepare(`
+        SELECT id, action, module, record_id, before_state, after_state, reason, ip_address, created_at
+        FROM audit_logs
+        WHERE user_id = ? OR (module = 'Segurança/Usuários' AND record_id = ?)
+        ORDER BY created_at DESC
+        LIMIT 50
+      `).all(targetId, String(targetId));
+
+      res.json(logs);
+    } catch (e: any) {
+      res.status(500).json({ error: "Erro ao consultar histórico: " + e.message });
+    }
+  });
+
+  // Procedimento seguro para recuperar titularidade de Administrador
+  app.post("/api/usuarios/claim-owner", authenticateToken, (req, res) => {
+    try {
+      const activeAdmins = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'ADMIN' AND active = 1").get() as any)?.count || 0;
+      const { recoveryKey } = req.body;
+
+      // Se não há nenhum administrador ativo no sistema, o usuário atual tem permissão para assumir a titularidade
+      const canClaim = activeAdmins === 0 || (recoveryKey && recoveryKey === JWT_SECRET);
+
+      if (!canClaim) {
+        return res.status(403).json({ 
+          error: "A verificação de titularidade requer a chave de segurança mestra ou estado de emergência sem administradores." 
+        });
+      }
+
+      db.prepare("UPDATE users SET role = 'ADMIN', active = 1, session_version = session_version + 1 WHERE id = ?").run(req.user!.id);
+
+      logAudit({
+        correlation_id: (req as any).correlationId,
+        user_id: req.user!.id,
+        username: req.user!.username,
+        role: 'ADMIN',
+        action: 'OWNER_CLAIMED',
+        module: 'Segurança/Titularidade',
+        record_id: req.user!.id,
+        reason: `Titularidade de Administrador confirmada para '${req.user!.username}'`,
+        ip_address: req.ip
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Perfil de Administrador confirmado e atribuído com sucesso à sua conta!",
+        role: 'ADMIN'
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: "Erro ao validar titularidade: " + e.message });
     }
   });
 

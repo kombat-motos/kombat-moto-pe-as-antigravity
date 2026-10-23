@@ -36,6 +36,7 @@ interface InventoryTabProps {
   setSelectedProductDetail?: (product: Product | null) => void;
   setLabelPreviewProduct?: (product: Product | null) => void;
   formatBRL: (val: number) => string;
+  canViewCost?: boolean;
 }
 
 /**
@@ -94,7 +95,8 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
   onAddProduct,
   setSelectedProductDetail,
   setLabelPreviewProduct,
-  formatBRL
+  formatBRL,
+  canViewCost = true
 }) => {
   // ── Estados Locais de Busca e Filtro (Zero Latência e Ultra Rápido) ──
   const [searchTerm, setSearchTerm] = useState(inventorySearchTerm || '');
@@ -447,6 +449,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
         formatBRL={formatBRL}
         activeQuickFilter={activeQuickFilter}
         onSelectQuickFilter={setActiveQuickFilter}
+        canViewCost={canViewCost}
       />
 
       {/* ── 2. Toolbar Profissional (Busca, Filtros, Alternador e Ações) ── */}
