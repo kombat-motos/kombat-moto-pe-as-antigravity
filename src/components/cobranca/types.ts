@@ -27,6 +27,7 @@ export interface CreditNote {
 export interface CustomerDebtGroup {
   customer_id: number;
   customer_name: string;
+  nickname?: string;
   whatsapp: string;
   phone: string;
   cpf: string;

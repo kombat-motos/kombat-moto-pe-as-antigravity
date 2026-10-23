@@ -3127,14 +3127,17 @@ async function startServer() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      const userRole = (req.user?.role || '').toUpperCase();
+      const isAdminOrGerente = userRole === 'ADMIN' || userRole === 'GERENTE';
+
       const credits = db.prepare(`
         SELECT cr.*, c.name as customer_name, c.credit_status
         FROM credit cr
         JOIN customers c ON cr.customer_id = c.id
-        WHERE cr.user_id = ?
-      `).all(req.user!.id) as any[];
+        WHERE (cr.user_id = ? OR ? = 1)
+      `).all(req.user!.id, isAdminOrGerente ? 1 : 0) as any[];
 
-      const customers = db.prepare("SELECT * FROM customers WHERE user_id = ?").all(req.user!.id) as any[];
+      const customers = db.prepare("SELECT * FROM customers WHERE (user_id = ? OR ? = 1)").all(req.user!.id, isAdminOrGerente ? 1 : 0) as any[];
 
       const openCredits = credits.filter(c => c.status === 'Aberto' || c.status === 'Pendente' || c.status === 'Atrasado');
 
@@ -3248,16 +3251,20 @@ async function startServer() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      const userRole = (req.user?.role || '').toUpperCase();
+      const isAdminOrGerente = userRole === 'ADMIN' || userRole === 'GERENTE';
+
       const credits = db.prepare(`
         SELECT cr.*, 
-               c.name as customer_name, c.whatsapp, c.phone, c.cpf, c.cpf_cnpj, c.address, c.neighborhood, c.city, c.credit_status, c.credit_limit, c.credit_block_reason,
+               c.name as customer_name, c.nickname, c.whatsapp, c.cpf, c.cnpj, 
+               c.address, c.neighborhood, c.city, c.credit_status, c.credit_limit, c.credit_block_reason,
                s.date as sale_date, s.moto_details, s.type as sale_type
         FROM credit cr
         JOIN customers c ON cr.customer_id = c.id
         LEFT JOIN sales s ON cr.sale_id = s.id
-        WHERE cr.user_id = ?
+        WHERE (cr.user_id = ? OR ? = 1)
         ORDER BY cr.due_date ASC
-      `).all(req.user!.id) as any[];
+      `).all(req.user!.id, isAdminOrGerente ? 1 : 0) as any[];
 
       const customerMap = new Map<number, any>();
 
@@ -3302,9 +3309,10 @@ async function startServer() {
           customerMap.set(cr.customer_id, {
             customer_id: cr.customer_id,
             customer_name: cr.customer_name,
+            nickname: cr.nickname || '',
             whatsapp: cr.whatsapp || '',
-            phone: cr.phone || '',
-            cpf: cr.cpf || cr.cpf_cnpj || '',
+            phone: cr.whatsapp || '',
+            cpf: cr.cpf || cr.cnpj || '',
             address: cr.address || '',
             neighborhood: cr.neighborhood || '',
             city: cr.city || 'Andirá - PR',

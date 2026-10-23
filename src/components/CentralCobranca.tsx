@@ -28,6 +28,238 @@ import { HistoricoCobrancaModal } from './cobranca/HistoricoCobrancaModal';
 import { CobrancaLoteModal } from './cobranca/CobrancaLoteModal';
 import { ConfiguracoesCobrancaModal } from './cobranca/ConfiguracoesCobrancaModal';
 
+const normalizeSearch = (str: string) => {
+  return (str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+};
+
+const cleanDigits = (str: string) => (str || '').replace(/\D/g, '');
+
+const ALIAS_MAP: Record<string, string[]> = {
+  'juninho': ['junior', 'júnior', 'jr'],
+  'junior': ['juninho', 'jr'],
+  'ze': ['jose', 'josé'],
+  'jose': ['ze', 'zé'],
+  'beto': ['roberto'],
+  'roberto': ['beto'],
+  'chico': ['francisco'],
+  'francisco': ['chico'],
+  'tonho': ['antonio', 'antônio'],
+  'antonio': ['tonho'],
+  'neto': ['netto']
+};
+
+function buildGroupedFromProps(credits: any[], customers: any[], sales: any[]): CustomerDebtGroup[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const customerMap = new Map<number, CustomerDebtGroup>();
+  const customerById = new Map<number, any>();
+  (customers || []).forEach(c => {
+    if (c.id) customerById.set(Number(c.id), c);
+  });
+
+  const salesById = new Map<string, any>();
+  (sales || []).forEach(s => {
+    if (s.id) salesById.set(String(s.id), s);
+  });
+
+  (credits || []).forEach(cr => {
+    const cust = customerById.get(Number(cr.customer_id)) || {};
+    const sale = cr.sale_id ? salesById.get(String(cr.sale_id)) : null;
+
+    const originalVal = Number(cr.original_value || 0);
+    const paidVal = Number(cr.paid_value || 0);
+    const balance = Math.max(0, Number((originalVal - paidVal).toFixed(2)));
+
+    let diffDays = 0;
+    let isOverdue = false;
+    let isDueToday = false;
+    if (cr.due_date) {
+      const parts = String(cr.due_date).split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        d.setHours(0, 0, 0, 0);
+        diffDays = Math.floor((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+        isOverdue = diffDays > 0;
+        isDueToday = diffDays === 0;
+      }
+    }
+
+    const noteObj: CreditNote = {
+      id: cr.id,
+      sale_id: cr.sale_id,
+      identifier: cr.identifier || `NOTA-${cr.id}`,
+      original_value: originalVal,
+      paid_value: paidVal,
+      balance: balance,
+      due_date: cr.due_date,
+      sale_date: cr.sale_date || (sale ? sale.date : '') || cr.created_at,
+      status: cr.status || 'Pendente',
+      collection_status: cr.collection_status || 'PENDENTE',
+      last_collection_at: cr.last_collection_at,
+      next_collection_at: cr.next_collection_at,
+      promise_date: cr.promise_date,
+      promise_amount: cr.promise_amount,
+      parcel_number: cr.parcel_number || 1,
+      total_parcels: cr.total_parcels || 1,
+      moto_details: cr.moto_details || (sale ? sale.moto_details : '') || '',
+      days_overdue: diffDays,
+      is_overdue: isOverdue,
+      is_due_today: isDueToday
+    };
+
+    const cId = Number(cr.customer_id);
+    if (!cId) return;
+
+    if (!customerMap.has(cId)) {
+      customerMap.set(cId, {
+        customer_id: cId,
+        customer_name: cr.customer_name || cust.name || 'Cliente Sem Nome',
+        nickname: cust.nickname || '',
+        whatsapp: cust.whatsapp || cr.whatsapp || '',
+        phone: cust.whatsapp || cr.whatsapp || '',
+        cpf: cust.cpf || cust.cnpj || cr.cpf || '',
+        address: cust.address || '',
+        neighborhood: cust.neighborhood || cr.neighborhood || '',
+        city: cust.city || 'Andirá - PR',
+        credit_status: cust.credit_status || 'LIBERADO',
+        credit_limit: cust.credit_limit || 0,
+        credit_block_reason: cust.credit_block_reason || '',
+        notes: [],
+        total_original: 0,
+        total_paid: 0,
+        total_balance: 0,
+        total_overdue: 0,
+        total_upcoming: 0,
+        max_overdue_days: 0,
+        has_overdue: false,
+        open_notes_count: 0
+      });
+    }
+
+    const cGroup = customerMap.get(cId)!;
+    cGroup.notes.push(noteObj);
+
+    if (cr.status === 'Aberto' || cr.status === 'Pendente' || cr.status === 'Atrasado') {
+      cGroup.total_original += originalVal;
+      cGroup.total_paid += paidVal;
+      cGroup.total_balance += balance;
+      cGroup.open_notes_count++;
+
+      if (isOverdue) {
+        cGroup.total_overdue += balance;
+        cGroup.has_overdue = true;
+        if (diffDays > cGroup.max_overdue_days) {
+          cGroup.max_overdue_days = diffDays;
+        }
+      } else {
+        cGroup.total_upcoming += balance;
+      }
+    }
+  });
+
+  // Also include sales that are fiado/pendente but not yet in credits
+  const existingSaleIds = new Set<string>();
+  (credits || []).forEach(cr => {
+    if (cr.sale_id) existingSaleIds.add(String(cr.sale_id));
+  });
+
+  (sales || []).forEach(s => {
+    if (s.id && !existingSaleIds.has(String(s.id))) {
+      const isPending = s.payment_status === 'Pendente' || s.payment_method === 'Fiado' || s.charge_type === 'credito_30_dias';
+      const bal = Number((s.total || 0) - (s.paid_total || 0));
+      if (isPending && bal > 0 && s.customer_id) {
+        const cust = customerById.get(Number(s.customer_id)) || {};
+        let diffDays = 0;
+        let isOverdue = false;
+        let isDueToday = false;
+        if (s.due_date) {
+          const parts = String(s.due_date).split('-');
+          if (parts.length === 3) {
+            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            d.setHours(0, 0, 0, 0);
+            diffDays = Math.floor((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+            isOverdue = diffDays > 0;
+            isDueToday = diffDays === 0;
+          }
+        }
+
+        const noteObj: CreditNote = {
+          id: -Math.abs(Number(String(s.id).replace(/\D/g, '') || Math.floor(Math.random() * 100000))),
+          sale_id: String(s.id),
+          identifier: `VENDA-${String(s.id).substring(0, 8).toUpperCase()}`,
+          original_value: Number(s.total || 0),
+          paid_value: Number(s.paid_total || 0),
+          balance: bal,
+          due_date: s.due_date || new Date().toISOString().split('T')[0],
+          sale_date: s.date || '',
+          status: 'Pendente',
+          collection_status: 'PENDENTE',
+          parcel_number: 1,
+          total_parcels: 1,
+          moto_details: s.moto_details || '',
+          days_overdue: diffDays,
+          is_overdue: isOverdue,
+          is_due_today: isDueToday
+        };
+
+        const cId = Number(s.customer_id);
+        if (!customerMap.has(cId)) {
+          customerMap.set(cId, {
+            customer_id: cId,
+            customer_name: s.customer_name || cust.name || 'Cliente Sem Nome',
+            nickname: cust.nickname || '',
+            whatsapp: cust.whatsapp || s.whatsapp || '',
+            phone: cust.whatsapp || s.whatsapp || '',
+            cpf: cust.cpf || cust.cnpj || '',
+            address: cust.address || '',
+            neighborhood: cust.neighborhood || '',
+            city: cust.city || 'Andirá - PR',
+            credit_status: cust.credit_status || 'LIBERADO',
+            credit_limit: cust.credit_limit || 0,
+            credit_block_reason: cust.credit_block_reason || '',
+            notes: [],
+            total_original: 0,
+            total_paid: 0,
+            total_balance: 0,
+            total_overdue: 0,
+            total_upcoming: 0,
+            max_overdue_days: 0,
+            has_overdue: false,
+            open_notes_count: 0
+          });
+        }
+        const cGroup = customerMap.get(cId)!;
+        cGroup.notes.push(noteObj);
+        cGroup.total_original += Number(s.total || 0);
+        cGroup.total_paid += Number(s.paid_total || 0);
+        cGroup.total_balance += bal;
+        cGroup.open_notes_count++;
+        if (isOverdue) {
+          cGroup.total_overdue += bal;
+          cGroup.has_overdue = true;
+          if (diffDays > cGroup.max_overdue_days) cGroup.max_overdue_days = diffDays;
+        } else {
+          cGroup.total_upcoming += bal;
+        }
+      }
+    }
+  });
+
+  return Array.from(customerMap.values()).map(g => ({
+    ...g,
+    total_original: Number(g.total_original.toFixed(2)),
+    total_paid: Number(g.total_paid.toFixed(2)),
+    total_balance: Number(g.total_balance.toFixed(2)),
+    total_overdue: Number(g.total_overdue.toFixed(2)),
+    total_upcoming: Number(g.total_upcoming.toFixed(2))
+  }));
+}
+
 interface CentralCobrancaProps {
   customers: any[];
   credits: any[];
@@ -88,6 +320,46 @@ export default function CentralCobranca({
   const userRole = (currentUser?.role || '').toUpperCase();
   const isMecanico = userRole === 'MECANICO' || userRole === 'MECÂNICO';
 
+  // Fallback / Unified customer debts list
+  const effectiveCustomers = useMemo(() => {
+    if (groupedCustomers && groupedCustomers.length > 0) {
+      return groupedCustomers;
+    }
+    return buildGroupedFromProps(credits, customers, sales);
+  }, [groupedCustomers, credits, customers, sales]);
+
+  // Fallback / Unified dashboard stats
+  const effectiveStats = useMemo<CobrancaDashboardStats>(() => {
+    if (dashboardStats) return dashboardStats;
+
+    let totalReceivable = 0;
+    let totalOverdue = 0;
+    let totalUpcoming = 0;
+    let overdueCount = 0;
+    let blockedCount = 0;
+
+    effectiveCustomers.forEach(c => {
+      totalReceivable += c.total_balance;
+      totalOverdue += c.total_overdue;
+      totalUpcoming += c.total_upcoming;
+      if (c.has_overdue && c.total_overdue > 0) overdueCount++;
+      if (c.credit_status?.includes('BLOQUEADO')) blockedCount++;
+    });
+
+    return {
+      totalReceivable: Number(totalReceivable.toFixed(2)),
+      totalOverdue: Number(totalOverdue.toFixed(2)),
+      totalUpcoming: Number(totalUpcoming.toFixed(2)),
+      totalMonthReceived: 0,
+      overdueCustomersCount: overdueCount,
+      collectionsSentCount: 0,
+      recoveredAmount: 0,
+      blockedCustomersCount: blockedCount,
+      recoveryRate: 0,
+      aging: { d1_15: 0, d16_30: 0, d31_60: 0, d60_plus: 0 }
+    };
+  }, [dashboardStats, effectiveCustomers]);
+
   // Fetch updated data from Cobrança V4.0 backend
   const loadCobrancaData = async () => {
     try {
@@ -95,7 +367,7 @@ export default function CentralCobranca({
       const token = localStorage.getItem('token');
       const headers = { 'Authorization': `Bearer ${token}` };
 
-      // 1. Dashboard stats
+      // 1. Dashboard stats & Grouped list
       const [statsRes, groupedRes, settingsRes] = await Promise.all([
         fetch('/api/collections/dashboard-v4', { headers }),
         fetch('/api/collections/grouped', { headers }),
@@ -109,7 +381,9 @@ export default function CentralCobranca({
 
       if (groupedRes.ok) {
         const groupedData = await groupedRes.json();
-        setGroupedCustomers(groupedData);
+        if (Array.isArray(groupedData) && groupedData.length > 0) {
+          setGroupedCustomers(groupedData);
+        }
       }
 
       if (settingsRes.ok) {
@@ -143,17 +417,17 @@ export default function CentralCobranca({
   // Flattened notes list for individual note view
   const allNotesList = useMemo(() => {
     const list: { note: CreditNote; customer: CustomerDebtGroup }[] = [];
-    groupedCustomers.forEach(cust => {
+    effectiveCustomers.forEach(cust => {
       cust.notes.forEach(note => {
         list.push({ note, customer: cust });
       });
     });
     return list;
-  }, [groupedCustomers]);
+  }, [effectiveCustomers]);
 
   // Filtered customers (Grouped View)
   const filteredCustomers = useMemo(() => {
-    let list = [...groupedCustomers];
+    let list = [...effectiveCustomers];
 
     // Filter pill
     if (filter === 'VENCIDOS') {
@@ -172,16 +446,51 @@ export default function CentralCobranca({
       list = list.filter(c => c.credit_status?.includes('BLOQUEADO'));
     }
 
-    // Search term
+    // Search term with diacritic-insensitivity and alias matching
     if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      list = list.filter(c => 
-        (c.customer_name || '').toLowerCase().includes(term) ||
-        (c.cpf || '').toLowerCase().includes(term) ||
-        (c.whatsapp || '').toLowerCase().includes(term) ||
-        (c.phone || '').toLowerCase().includes(term) ||
-        c.notes.some(n => (n.identifier || '').toLowerCase().includes(term))
-      );
+      const term = normalizeSearch(searchTerm);
+      const digits = cleanDigits(searchTerm);
+
+      const searchTerms = [term];
+      if (ALIAS_MAP[term]) {
+        searchTerms.push(...ALIAS_MAP[term].map(normalizeSearch));
+      }
+      term.split(/\s+/).forEach(word => {
+        if (ALIAS_MAP[word]) {
+          ALIAS_MAP[word].forEach(alias => searchTerms.push(normalizeSearch(alias)));
+        }
+      });
+
+      list = list.filter(c => {
+        const custName = normalizeSearch(c.customer_name);
+        const custNick = normalizeSearch(c.nickname);
+        const custAddress = normalizeSearch(c.address);
+        const custNeigh = normalizeSearch(c.neighborhood);
+        const custCity = normalizeSearch(c.city);
+        const custCpf = cleanDigits(c.cpf);
+        const custPhone = cleanDigits(c.whatsapp || c.phone);
+
+        const matchesNameOrNick = searchTerms.some(st => 
+          custName.includes(st) || 
+          custNick.includes(st) ||
+          custAddress.includes(st) ||
+          custNeigh.includes(st) ||
+          custCity.includes(st)
+        );
+
+        if (matchesNameOrNick) return true;
+
+        if (digits.length >= 3 && (custCpf.includes(digits) || custPhone.includes(digits))) {
+          return true;
+        }
+
+        return c.notes.some(n => {
+          const ident = normalizeSearch(n.identifier);
+          const moto = normalizeSearch(n.moto_details);
+          const saleId = normalizeSearch(String(n.sale_id || ''));
+          return searchTerms.some(st => ident.includes(st) || moto.includes(st) || saleId.includes(st));
+        });
+      });
     }
 
     // Sorting
@@ -193,7 +502,7 @@ export default function CentralCobranca({
     });
 
     return list;
-  }, [groupedCustomers, filter, searchTerm, sortBy]);
+  }, [effectiveCustomers, filter, searchTerm, sortBy]);
 
   // Filtered notes (Individual View)
   const filteredNotes = useMemo(() => {
@@ -216,12 +525,43 @@ export default function CentralCobranca({
     }
 
     if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      list = list.filter(i => 
-        (i.customer.customer_name || '').toLowerCase().includes(term) ||
-        (i.customer.cpf || '').toLowerCase().includes(term) ||
-        (i.note.identifier || '').toLowerCase().includes(term)
-      );
+      const term = normalizeSearch(searchTerm);
+      const digits = cleanDigits(searchTerm);
+
+      const searchTerms = [term];
+      if (ALIAS_MAP[term]) {
+        searchTerms.push(...ALIAS_MAP[term].map(normalizeSearch));
+      }
+      term.split(/\s+/).forEach(word => {
+        if (ALIAS_MAP[word]) {
+          ALIAS_MAP[word].forEach(alias => searchTerms.push(normalizeSearch(alias)));
+        }
+      });
+
+      list = list.filter(i => {
+        const custName = normalizeSearch(i.customer.customer_name);
+        const custNick = normalizeSearch(i.customer.nickname);
+        const ident = normalizeSearch(i.note.identifier);
+        const moto = normalizeSearch(i.note.moto_details);
+        const saleId = normalizeSearch(String(i.note.sale_id || ''));
+        const custCpf = cleanDigits(i.customer.cpf);
+        const custPhone = cleanDigits(i.customer.whatsapp || i.customer.phone);
+
+        const matchesText = searchTerms.some(st => 
+          custName.includes(st) || 
+          custNick.includes(st) || 
+          ident.includes(st) || 
+          moto.includes(st) || 
+          saleId.includes(st)
+        );
+        if (matchesText) return true;
+
+        if (digits.length >= 3 && (custCpf.includes(digits) || custPhone.includes(digits))) {
+          return true;
+        }
+
+        return false;
+      });
     }
 
     list.sort((a, b) => {
@@ -360,7 +700,7 @@ export default function CentralCobranca({
         <div className="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-sm">
           <p className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Total a Receber</p>
           <p className="text-lg font-black text-white mt-1">
-            {formatCurrencyBRL(dashboardStats?.totalReceivable || 0)}
+            {formatCurrencyBRL(effectiveStats.totalReceivable)}
           </p>
           <span className="text-[10px] text-slate-400">Total de títulos em aberto</span>
         </div>
@@ -369,7 +709,7 @@ export default function CentralCobranca({
         <div className="bg-rose-950/30 p-4 rounded-2xl border border-rose-900/40 shadow-sm">
           <p className="text-[10px] uppercase font-black text-rose-400 tracking-wider">Total Vencido</p>
           <p className="text-lg font-black text-rose-400 mt-1">
-            {formatCurrencyBRL(dashboardStats?.totalOverdue || 0)}
+            {formatCurrencyBRL(effectiveStats.totalOverdue)}
           </p>
           <span className="text-[10px] text-rose-300/70">Em atraso no crediário</span>
         </div>
@@ -378,7 +718,7 @@ export default function CentralCobranca({
         <div className="bg-amber-950/20 p-4 rounded-2xl border border-amber-900/30 shadow-sm">
           <p className="text-[10px] uppercase font-black text-amber-400 tracking-wider">Total a Vencer</p>
           <p className="text-lg font-black text-amber-300 mt-1">
-            {formatCurrencyBRL(dashboardStats?.totalUpcoming || 0)}
+            {formatCurrencyBRL(effectiveStats.totalUpcoming)}
           </p>
           <span className="text-[10px] text-amber-400/70">Vencimento futuro</span>
         </div>
@@ -387,7 +727,7 @@ export default function CentralCobranca({
         <div className="bg-emerald-950/30 p-4 rounded-2xl border border-emerald-900/40 shadow-sm">
           <p className="text-[10px] uppercase font-black text-emerald-400 tracking-wider">Recebido no Mês</p>
           <p className="text-lg font-black text-emerald-400 mt-1">
-            {formatCurrencyBRL(dashboardStats?.totalMonthReceived || 0)}
+            {formatCurrencyBRL(effectiveStats.totalMonthReceived)}
           </p>
           <span className="text-[10px] text-emerald-300/70">Baixas financeiras</span>
         </div>
@@ -396,7 +736,7 @@ export default function CentralCobranca({
         <div className="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-sm">
           <p className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Inadimplentes</p>
           <p className="text-lg font-black text-white mt-1">
-            {dashboardStats?.overdueCustomersCount || 0} <span className="text-xs font-normal text-slate-400">clientes</span>
+            {effectiveStats.overdueCustomersCount} <span className="text-xs font-normal text-slate-400">clientes</span>
           </p>
           <span className="text-[10px] text-slate-400">Com débitos vencidos</span>
         </div>
@@ -405,7 +745,7 @@ export default function CentralCobranca({
         <div className="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-sm">
           <p className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Cobranças Enviadas</p>
           <p className="text-lg font-black text-white mt-1">
-            {dashboardStats?.collectionsSentCount || 0} <span className="text-xs font-normal text-slate-400">envios</span>
+            {effectiveStats.collectionsSentCount} <span className="text-xs font-normal text-slate-400">envios</span>
           </p>
           <span className="text-[10px] text-slate-400">Registros confirmados</span>
         </div>
@@ -414,7 +754,7 @@ export default function CentralCobranca({
         <div className="bg-emerald-950/20 p-4 rounded-2xl border border-emerald-900/30 shadow-sm">
           <p className="text-[10px] uppercase font-black text-emerald-400 tracking-wider">Valores Recuperados</p>
           <p className="text-lg font-black text-emerald-300 mt-1">
-            {formatCurrencyBRL(dashboardStats?.recoveredAmount || 0)}
+            {formatCurrencyBRL(effectiveStats.recoveredAmount)}
           </p>
           <span className="text-[10px] text-emerald-400/70">Após acionamento</span>
         </div>
@@ -423,7 +763,7 @@ export default function CentralCobranca({
         <div className="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-sm">
           <p className="text-[10px] uppercase font-black text-rose-400 tracking-wider">Crédito Bloqueado</p>
           <p className="text-lg font-black text-white mt-1">
-            {dashboardStats?.blockedCustomersCount || 0} <span className="text-xs font-normal text-slate-400">clientes</span>
+            {effectiveStats.blockedCustomersCount} <span className="text-xs font-normal text-slate-400">clientes</span>
           </p>
           <span className="text-[10px] text-slate-400">&gt;30 dias de atraso</span>
         </div>
@@ -432,12 +772,12 @@ export default function CentralCobranca({
         <div className="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-sm sm:col-span-2 lg:col-span-2">
           <div className="flex justify-between items-center">
             <p className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Taxa de Recuperação</p>
-            <span className="text-xs font-black text-emerald-400">{dashboardStats?.recoveryRate || 0}%</span>
+            <span className="text-xs font-black text-emerald-400">{effectiveStats.recoveryRate}%</span>
           </div>
           <div className="w-full bg-slate-800 h-2.5 rounded-full mt-2 overflow-hidden">
             <div 
               className="bg-emerald-500 h-full transition-all duration-500 rounded-full"
-              style={{ width: `${Math.min(100, dashboardStats?.recoveryRate || 0)}%` }}
+              style={{ width: `${Math.min(100, effectiveStats.recoveryRate)}%` }}
             ></div>
           </div>
           <div className="flex justify-between text-[9px] text-slate-400 mt-1">
@@ -557,7 +897,12 @@ export default function CentralCobranca({
                     {/* Customer identity */}
                     <div className="flex-1">
                       <div className="flex items-center gap-2.5">
-                        <h3 className="font-black text-white text-base tracking-tight">{customer.customer_name}</h3>
+                        <h3 className="font-black text-white text-base tracking-tight">
+                          {customer.customer_name}
+                          {customer.nickname && (
+                            <span className="text-xs text-rose-400 font-bold ml-2">({customer.nickname})</span>
+                          )}
+                        </h3>
                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
                           isBlocked ? 'bg-rose-500/20 border-rose-500/30 text-rose-300' : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300'
                         }`}>
@@ -732,6 +1077,9 @@ export default function CentralCobranca({
                       <td className="p-3.5 font-bold font-mono text-white">{note.identifier || `#${note.id}`}</td>
                       <td className="p-3.5 font-bold text-white">
                         {customer.customer_name}
+                        {customer.nickname && (
+                          <span className="text-[10px] text-rose-400 font-bold ml-1.5">({customer.nickname})</span>
+                        )}
                         {customer.credit_status?.includes('BLOQUEADO') && (
                           <span className="text-[9px] bg-rose-500/20 text-rose-300 px-1.5 py-0.2 rounded ml-2 font-bold">
                             Bloqueado
