@@ -6005,6 +6005,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           partialPaymentAmount={partialPaymentAmount}
           setPartialPaymentAmount={setPartialPaymentAmount}
           onPrintReceipt={setSelectedSaleForReceipt}
+          onOpenCentral={() => setActiveTab('cobranca')}
         />
       </div>
     </div>
@@ -7717,6 +7718,9 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   <CentralCobranca 
                     customers={customers}
                     credits={credit}
+                    sales={sales}
+                    companyData={companyData}
+                    currentUser={user}
                     onPrintReceipt={handlePrintReceipt}
                     fetchCredits={fetchData}
                   />

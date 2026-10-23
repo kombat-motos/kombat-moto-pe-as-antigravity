@@ -2,7 +2,10 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Send, MessageCircle, Pencil, X, Check, Printer, FileText, DollarSign, Search, AlertTriangle } from 'lucide-react';
+import { Send, MessageCircle, Pencil, X, Check, Printer, FileText, DollarSign, Search, AlertTriangle, Layers, ShieldAlert } from 'lucide-react';
+import { CobrancaAgrupadaModal } from './cobranca/CobrancaAgrupadaModal';
+import { WhatsAppModal } from './cobranca/WhatsAppModal';
+import { CustomerDebtGroup, CreditNote } from './cobranca/types';
 
 interface Sale {
   id: string;
@@ -70,6 +73,7 @@ interface BillingAutomationBoxProps {
   partialPaymentAmount: string;
   setPartialPaymentAmount: (val: string) => void;
   onPrintReceipt: (sale: any) => void;
+  onOpenCentral?: () => void;
 }
 
 // Função para converter número em extenso (Português)
@@ -134,7 +138,8 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
   setPayingSaleId,
   partialPaymentAmount,
   setPartialPaymentAmount,
-  onPrintReceipt
+  onPrintReceipt,
+  onOpenCentral
 }) => {
   const [editingSaleId, setEditingSaleId] = React.useState<string | null>(null);
   const [tempDueDate, setTempDueDate] = React.useState<string>('');
@@ -143,6 +148,85 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
   const [selectedPromissory, setSelectedPromissory] = React.useState<any>(null);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [filterOverdue, setFilterOverdue] = React.useState(false);
+
+  // Sub-modals for Central V4.0 features
+  const [groupedModalCustomer, setGroupedModalCustomer] = React.useState<CustomerDebtGroup | null>(null);
+  const [isGroupModalOpen, setIsGroupModalOpen] = React.useState(false);
+  const [whatsAppModalCustomer, setWhatsAppModalCustomer] = React.useState<CustomerDebtGroup | null>(null);
+  const [whatsAppModalNotes, setWhatsAppModalNotes] = React.useState<CreditNote[]>([]);
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = React.useState(false);
+
+  const buildCustomerDebtGroup = (customerId?: number, fallbackName = 'Cliente'): CustomerDebtGroup => {
+    const cust = customers.find(c => c.id === customerId);
+    const custSales = pendingSales.filter(s => s.customer_id === customerId);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const notes: CreditNote[] = custSales.map(s => {
+      const dDate = s.due_date ? new Date(s.due_date) : null;
+      let diff = 0;
+      if (dDate) diff = differenceInDays(today, dDate);
+      const bal = Number(((s.total || 0) - (s.paid_total || 0)).toFixed(2));
+      return {
+        id: parseInt(s.id.replace(/\D/g, '').substring(0, 8)) || Math.floor(Math.random() * 100000),
+        sale_id: s.id,
+        identifier: `#${s.id.substring(0, 8).toUpperCase()}`,
+        original_value: s.total,
+        paid_value: s.paid_total || 0,
+        balance: bal,
+        due_date: s.due_date || new Date().toISOString(),
+        sale_date: s.date,
+        status: 'Pendente',
+        collection_status: 'PENDENTE',
+        parcel_number: 1,
+        total_parcels: 1,
+        moto_details: s.moto_details,
+        days_overdue: diff,
+        is_overdue: diff > 0,
+        is_due_today: diff === 0
+      };
+    });
+
+    const totalBal = notes.reduce((acc, n) => acc + n.balance, 0);
+    const totalOver = notes.filter(n => n.is_overdue).reduce((acc, n) => acc + n.balance, 0);
+    const maxOver = notes.reduce((max, n) => n.days_overdue > max ? n.days_overdue : max, 0);
+
+    return {
+      customer_id: customerId || 0,
+      customer_name: cust?.name || fallbackName,
+      whatsapp: cust?.whatsapp || '',
+      phone: cust?.whatsapp || '',
+      cpf: cust?.cpf || '',
+      address: cust?.address || '',
+      neighborhood: cust?.neighborhood || '',
+      city: cust?.city || 'Andirá - PR',
+      credit_status: maxOver > 30 ? 'BLOQUEADO' : 'LIBERADO',
+      credit_limit: cust?.credit_limit || 0,
+      notes: notes,
+      total_original: notes.reduce((acc, n) => acc + n.original_value, 0),
+      total_paid: notes.reduce((acc, n) => acc + n.paid_value, 0),
+      total_balance: totalBal,
+      total_overdue: totalOver,
+      total_upcoming: totalBal - totalOver,
+      max_overdue_days: maxOver,
+      has_overdue: totalOver > 0,
+      open_notes_count: notes.length
+    };
+  };
+
+  const handleOpenGroupedForSale = (sale: Sale) => {
+    const group = buildCustomerDebtGroup(sale.customer_id, sale.customer_name);
+    setGroupedModalCustomer(group);
+    setIsGroupModalOpen(true);
+  };
+
+  const handleOpenWhatsAppForSale = (sale: Sale) => {
+    const group = buildCustomerDebtGroup(sale.customer_id, sale.customer_name);
+    const targetNote = group.notes.find(n => n.sale_id === sale.id) || group.notes[0];
+    setWhatsAppModalCustomer(group);
+    setWhatsAppModalNotes(targetNote ? [targetNote] : []);
+    setIsWhatsAppModalOpen(true);
+  };
 
   const filteredSales = React.useMemo(() => {
     let list = Array.isArray(pendingSales) ? pendingSales : [];
@@ -297,6 +381,17 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
         <h2 className="text-xl font-bold text-slate-800">Automação de Cobrança</h2>
         
         <div className="flex items-center gap-3">
+          {onOpenCentral && (
+            <button
+              type="button"
+              onClick={onOpenCentral}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/30 transition-all border-b-2 border-rose-800 active:scale-95"
+            >
+              <ShieldAlert size={16} />
+              Central V4.0 Completa
+            </button>
+          )}
+
           <button
             onClick={() => setFilterOverdue(!filterOverdue)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${
@@ -566,6 +661,18 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
 
                 <div className="flex flex-col gap-2 items-end">
                   <div className="flex items-center gap-2">
+                    {/* Botão Cobrar Todas se o cliente tiver mais de 1 nota */}
+                    {pendingSales.filter(s => s.customer_id === sale.customer_id).length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenGroupedForSale(sale)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600/10 hover:bg-rose-600/20 text-rose-600 border border-rose-300 rounded-lg text-xs font-black transition-colors shadow-sm"
+                        title="Cliente possui múltiplas notas em aberto. Clique para cobrar agrupado!"
+                      >
+                        <Layers size={13} />
+                        Cobrar Todas ({pendingSales.filter(s => s.customer_id === sale.customer_id).length})
+                      </button>
+                    )}
                     <button
                       onClick={() => handlePrintPromissory(sale, totalWithCharges)}
                       className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-lg hover:bg-slate-900 transition-colors font-bold shadow-sm"
@@ -574,7 +681,7 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
                       Nota de Cobrança (PDF)
                     </button>
                     <button
-                      onClick={(e) => handleWhatsAppClick(e, customerWhatsapp, generateWhatsAppLink(customerWhatsapp, getNotificationMessage(sale, notificationType || 'on', totalWithCharges)))}
+                      onClick={() => handleOpenWhatsAppForSale(sale)}
                       className={`flex items-center gap-1 px-3 py-1.5 text-white text-xs rounded-lg transition-colors font-bold ${notificationType === 'after' ? 'bg-rose-500 hover:bg-rose-600' :
                         notificationType === 'on' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-slate-500 hover:bg-slate-600'
                         }`}
@@ -703,6 +810,21 @@ const BillingAutomationBox: React.FC<BillingAutomationBoxProps> = ({
           </div>
         )}
       </div>
+
+      {/* Sub-modais da Central V4.0 */}
+      <CobrancaAgrupadaModal
+        isOpen={isGroupModalOpen}
+        onClose={() => setIsGroupModalOpen(false)}
+        customer={groupedModalCustomer}
+        companyData={companyData}
+      />
+
+      <WhatsAppModal
+        isOpen={isWhatsAppModalOpen}
+        onClose={() => setIsWhatsAppModalOpen(false)}
+        customer={whatsAppModalCustomer}
+        selectedNotes={whatsAppModalNotes}
+      />
     </motion.div>
   );
 };

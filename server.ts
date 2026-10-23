@@ -115,7 +115,18 @@ export const hasPermission = (userOrRole: any, permission: string): boolean => {
   }
 
   const permissions = ROLE_PERMISSIONS[normRole] || [];
-  return permissions.includes(permission);
+  if (permissions.includes(permission)) return true;
+
+  // Granular mappings for Cobrança V4.0
+  if (permission === 'cobranca:view') return permissions.includes('receivables:collect') || permissions.includes('financial:view');
+  if (permission === 'cobranca:send') return permissions.includes('receivables:collect');
+  if (permission === 'cobranca:pay') return permissions.includes('receivables:collect') || permissions.includes('financial:manage');
+  if (permission === 'cobranca:discount') return permissions.includes('sales:discount') || permissions.includes('financial:manage');
+  if (permission === 'cobranca:negotiate') return permissions.includes('financial:manage');
+  if (permission === 'cobranca:settings') return permissions.includes('settings:manage');
+  if (permission === 'cobranca:export') return permissions.includes('financial:view');
+
+  return false;
 };
 
 // Extend Express Request type to include user with AppRole and correlationId
@@ -886,6 +897,47 @@ try {
   `);
   // Regra de crédito estrita da Kombat Moto Peças: bloqueio aos 30 dias (a partir do 31º dia)
   try { db.exec("UPDATE collection_settings SET block_days = 30 WHERE block_days != 30"); } catch(e) {}
+  try { db.exec("ALTER TABLE collection_settings ADD COLUMN second_collection_days INTEGER DEFAULT 7"); } catch(e) {}
+  try { db.exec("ALTER TABLE collection_settings ADD COLUMN stages_config TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE collection_settings ADD COLUMN pix_key TEXT DEFAULT '12.802.931/0001-92'"); } catch(e) {}
+  try { db.exec("ALTER TABLE collection_settings ADD COLUMN pix_type TEXT DEFAULT 'CNPJ'"); } catch(e) {}
+  try { db.exec("ALTER TABLE collection_settings ADD COLUMN whatsapp_templates TEXT"); } catch(e) {}
+  try { db.exec("ALTER TABLE credit ADD COLUMN agreement_id INTEGER"); } catch(e) {}
+  try { db.exec("ALTER TABLE credit ADD COLUMN notes TEXT"); } catch(e) {}
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS credit_agreements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      customer_id INTEGER NOT NULL,
+      original_total REAL NOT NULL,
+      discount_authorized REAL DEFAULT 0,
+      down_payment REAL DEFAULT 0,
+      negotiated_total REAL NOT NULL,
+      installments_count INTEGER NOT NULL,
+      first_due_date TEXT NOT NULL,
+      status TEXT DEFAULT 'Ativo',
+      observation TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS credit_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      customer_id INTEGER NOT NULL,
+      amount_paid REAL NOT NULL,
+      discount_applied REAL DEFAULT 0,
+      fine_applied REAL DEFAULT 0,
+      interest_applied REAL DEFAULT 0,
+      payment_method TEXT NOT NULL,
+      payment_date TEXT DEFAULT CURRENT_TIMESTAMP,
+      received_by TEXT,
+      receipt_number TEXT,
+      observation TEXT,
+      notes_settled TEXT
+    );
+  `);
 
   // --- CRM Table Initializations ---
   db.exec(`
@@ -3064,6 +3116,596 @@ async function startServer() {
     }
 
     res.json({ success: true, status: new_status });
+  });
+
+  // ==========================================
+  // CENTRAL INTELIGENTE DE COBRANÇAS V4.0 APIs
+  // ==========================================
+
+  app.get("/api/collections/dashboard-v4", authenticateToken, (req, res) => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const credits = db.prepare(`
+        SELECT cr.*, c.name as customer_name, c.credit_status
+        FROM credit cr
+        JOIN customers c ON cr.customer_id = c.id
+        WHERE cr.user_id = ?
+      `).all(req.user!.id) as any[];
+
+      const customers = db.prepare("SELECT * FROM customers WHERE user_id = ?").all(req.user!.id) as any[];
+
+      const openCredits = credits.filter(c => c.status === 'Aberto' || c.status === 'Pendente' || c.status === 'Atrasado');
+
+      let totalReceivable = 0;
+      let totalOverdue = 0;
+      let totalUpcoming = 0;
+      const overdueCustomerIds = new Set<number>();
+
+      openCredits.forEach(c => {
+        const balance = Math.max(0, (c.original_value || 0) - (c.paid_value || 0));
+        totalReceivable += balance;
+
+        const dueDate = parseDueDateToDate(c.due_date);
+        if (dueDate) {
+          dueDate.setHours(0, 0, 0, 0);
+          if (dueDate < today) {
+            totalOverdue += balance;
+            overdueCustomerIds.add(c.customer_id);
+          } else {
+            totalUpcoming += balance;
+          }
+        }
+      });
+
+      const currentYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+      const paymentsThisMonth = db.prepare(`
+        SELECT SUM(amount_paid) as total_received 
+        FROM credit_payments 
+        WHERE user_id = ? AND payment_date LIKE ?
+      `).get(req.user!.id, `${currentYearMonth}%`) as any;
+
+      const salesPaidThisMonth = db.prepare(`
+        SELECT SUM(paid_total) as total_paid
+        FROM sales
+        WHERE user_id = ? AND paid_date LIKE ? AND payment_status = 'Pago'
+      `).get(req.user!.id, `${currentYearMonth}%`) as any;
+
+      const totalMonthReceived = Number(((paymentsThisMonth?.total_received || 0) + (salesPaidThisMonth?.total_paid || 0)).toFixed(2));
+
+      const collectionsSent = db.prepare(`
+        SELECT COUNT(*) as cnt 
+        FROM collection_history 
+        WHERE user_id = ? AND status IN ('ENVIADA', 'Concluído')
+      `).get(req.user!.id) as any;
+      const collectionsSentCount = collectionsSent?.cnt || 0;
+
+      const recoveredResult = db.prepare(`
+        SELECT SUM(cp.amount_paid) as total_recovered
+        FROM credit_payments cp
+        WHERE cp.user_id = ? 
+          AND cp.customer_id IN (
+            SELECT DISTINCT customer_id FROM collection_history WHERE user_id = ? AND status IN ('ENVIADA', 'Concluído')
+          )
+      `).get(req.user!.id, req.user!.id) as any;
+      const recoveredAmount = Number((recoveredResult?.total_recovered || 0).toFixed(2));
+
+      const blockedCustomersCount = customers.filter(c => c.credit_status?.includes('BLOQUEADO')).length;
+
+      const totalOverdueAndRecovered = totalOverdue + recoveredAmount;
+      const recoveryRate = totalOverdueAndRecovered > 0 
+        ? Math.round((recoveredAmount / totalOverdueAndRecovered) * 100 * 10) / 10 
+        : 0;
+
+      const aging = {
+        d1_15: 0,
+        d16_30: 0,
+        d31_60: 0,
+        d60_plus: 0
+      };
+
+      openCredits.forEach(c => {
+        const dueDate = parseDueDateToDate(c.due_date);
+        if (dueDate) {
+          dueDate.setHours(0, 0, 0, 0);
+          const diffDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+          const balance = Math.max(0, (c.original_value || 0) - (c.paid_value || 0));
+          if (diffDays > 0) {
+            if (diffDays <= 15) aging.d1_15 += balance;
+            else if (diffDays <= 30) aging.d16_30 += balance;
+            else if (diffDays <= 60) aging.d31_60 += balance;
+            else aging.d60_plus += balance;
+          }
+        }
+      });
+
+      res.json({
+        totalReceivable: Number(totalReceivable.toFixed(2)),
+        totalOverdue: Number(totalOverdue.toFixed(2)),
+        totalUpcoming: Number(totalUpcoming.toFixed(2)),
+        totalMonthReceived,
+        overdueCustomersCount: overdueCustomerIds.size,
+        collectionsSentCount,
+        recoveredAmount,
+        blockedCustomersCount,
+        recoveryRate,
+        aging: {
+          d1_15: Number(aging.d1_15.toFixed(2)),
+          d16_30: Number(aging.d16_30.toFixed(2)),
+          d31_60: Number(aging.d31_60.toFixed(2)),
+          d60_plus: Number(aging.d60_plus.toFixed(2))
+        }
+      });
+    } catch (err: any) {
+      console.error("[Collections Dashboard Error]", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/collections/grouped", authenticateToken, (req, res) => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const credits = db.prepare(`
+        SELECT cr.*, 
+               c.name as customer_name, c.whatsapp, c.phone, c.cpf, c.cpf_cnpj, c.address, c.neighborhood, c.city, c.credit_status, c.credit_limit, c.credit_block_reason,
+               s.date as sale_date, s.moto_details, s.type as sale_type
+        FROM credit cr
+        JOIN customers c ON cr.customer_id = c.id
+        LEFT JOIN sales s ON cr.sale_id = s.id
+        WHERE cr.user_id = ?
+        ORDER BY cr.due_date ASC
+      `).all(req.user!.id) as any[];
+
+      const customerMap = new Map<number, any>();
+
+      credits.forEach(cr => {
+        const balance = Number(((cr.original_value || 0) - (cr.paid_value || 0)).toFixed(2));
+        
+        let diffDays = 0;
+        let isOverdue = false;
+        let isDueToday = false;
+        const dueDate = parseDueDateToDate(cr.due_date);
+        if (dueDate) {
+          dueDate.setHours(0, 0, 0, 0);
+          diffDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+          isOverdue = diffDays > 0;
+          isDueToday = diffDays === 0;
+        }
+
+        const noteObj = {
+          id: cr.id,
+          sale_id: cr.sale_id,
+          identifier: cr.identifier || `NOTA-${cr.id}`,
+          original_value: cr.original_value,
+          paid_value: cr.paid_value || 0,
+          balance: balance,
+          due_date: cr.due_date,
+          sale_date: cr.sale_date || cr.created_at,
+          status: cr.status,
+          collection_status: cr.collection_status || 'PENDENTE',
+          last_collection_at: cr.last_collection_at,
+          next_collection_at: cr.next_collection_at,
+          promise_date: cr.promise_date,
+          promise_amount: cr.promise_amount,
+          parcel_number: cr.parcel_number || 1,
+          total_parcels: cr.total_parcels || 1,
+          moto_details: cr.moto_details || '',
+          days_overdue: diffDays,
+          is_overdue: isOverdue,
+          is_due_today: isDueToday
+        };
+
+        if (!customerMap.has(cr.customer_id)) {
+          customerMap.set(cr.customer_id, {
+            customer_id: cr.customer_id,
+            customer_name: cr.customer_name,
+            whatsapp: cr.whatsapp || '',
+            phone: cr.phone || '',
+            cpf: cr.cpf || cr.cpf_cnpj || '',
+            address: cr.address || '',
+            neighborhood: cr.neighborhood || '',
+            city: cr.city || 'Andirá - PR',
+            credit_status: cr.credit_status || 'LIBERADO',
+            credit_limit: cr.credit_limit || 0,
+            credit_block_reason: cr.credit_block_reason || '',
+            notes: [],
+            total_original: 0,
+            total_paid: 0,
+            total_balance: 0,
+            total_overdue: 0,
+            total_upcoming: 0,
+            max_overdue_days: 0,
+            has_overdue: false,
+            open_notes_count: 0
+          });
+        }
+
+        const cGroup = customerMap.get(cr.customer_id);
+        cGroup.notes.push(noteObj);
+
+        if (cr.status === 'Aberto' || cr.status === 'Pendente' || cr.status === 'Atrasado') {
+          cGroup.total_original += cr.original_value || 0;
+          cGroup.total_paid += cr.paid_value || 0;
+          cGroup.total_balance += balance;
+          cGroup.open_notes_count++;
+
+          if (isOverdue) {
+            cGroup.total_overdue += balance;
+            cGroup.has_overdue = true;
+            if (diffDays > cGroup.max_overdue_days) {
+              cGroup.max_overdue_days = diffDays;
+            }
+          } else {
+            cGroup.total_upcoming += balance;
+          }
+        }
+      });
+
+      const groupedList = Array.from(customerMap.values()).map(g => ({
+        ...g,
+        total_original: Number(g.total_original.toFixed(2)),
+        total_paid: Number(g.total_paid.toFixed(2)),
+        total_balance: Number(g.total_balance.toFixed(2)),
+        total_overdue: Number(g.total_overdue.toFixed(2)),
+        total_upcoming: Number(g.total_upcoming.toFixed(2))
+      }));
+
+      res.json(groupedList);
+    } catch (err: any) {
+      console.error("[Collections Grouped Error]", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/credit/batch-payment", authenticateToken, (req, res) => {
+    const { 
+      customer_id, 
+      selected_credit_ids, 
+      amount_paid, 
+      discount_applied, 
+      fine_applied, 
+      interest_applied, 
+      payment_method, 
+      received_by, 
+      observation 
+    } = req.body;
+
+    if (!customer_id || !selected_credit_ids || !Array.isArray(selected_credit_ids) || selected_credit_ids.length === 0) {
+      return res.status(400).json({ error: "Parâmetros inválidos: informe o cliente e ao menos uma nota selecionada." });
+    }
+
+    const payVal = parseFloat(amount_paid);
+    if (isNaN(payVal) || payVal <= 0) {
+      return res.status(400).json({ error: "Valor de pagamento inválido." });
+    }
+
+    try {
+      const receiptNumber = `REC-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const settledNotes: any[] = [];
+
+      db.transaction(() => {
+        const credits = db.prepare(`
+          SELECT * FROM credit 
+          WHERE id IN (${selected_credit_ids.map(() => '?').join(',')}) AND user_id = ?
+          ORDER BY due_date ASC
+        `).all(...selected_credit_ids, req.user!.id) as any[];
+
+        let remainingPay = payVal;
+        const totalDiscount = parseFloat(discount_applied) || 0;
+        const totalFine = parseFloat(fine_applied) || 0;
+        const totalInterest = parseFloat(interest_applied) || 0;
+
+        for (let i = 0; i < credits.length; i++) {
+          const cr = credits[i];
+          const currentBal = Math.max(0, (cr.original_value || 0) - (cr.paid_value || 0));
+          if (currentBal <= 0) continue;
+
+          let payForThis = 0;
+          if (remainingPay >= currentBal) {
+            payForThis = currentBal;
+            remainingPay -= currentBal;
+          } else {
+            payForThis = remainingPay;
+            remainingPay = 0;
+          }
+
+          const newPaid = Number(((cr.paid_value || 0) + payForThis).toFixed(2));
+          const isNoteFullyPaid = newPaid >= (cr.original_value || 0) - 0.009;
+          const newStatus = isNoteFullyPaid ? 'Pago' : 'Aberto';
+
+          db.prepare(`
+            UPDATE credit 
+            SET paid_value = ?, status = ?, collection_status = ?
+            WHERE id = ? AND user_id = ?
+          `).run(newPaid, newStatus, isNoteFullyPaid ? 'QUITADA' : 'PARCIALMENTE_PAGA', cr.id, req.user!.id);
+
+          settledNotes.push({
+            credit_id: cr.id,
+            sale_id: cr.sale_id,
+            identifier: cr.identifier,
+            amount_applied: payForThis,
+            is_fully_paid: isNoteFullyPaid
+          });
+
+          if (cr.sale_id) {
+            const sale = db.prepare("SELECT total, paid_total FROM sales WHERE id = ?").get(cr.sale_id) as any;
+            if (sale) {
+              const newSalePaid = Number(((sale.paid_total || 0) + payForThis).toFixed(2));
+              const salePaid = newSalePaid >= (sale.total || 0) - 0.009;
+              db.prepare(`
+                UPDATE sales 
+                SET paid_total = ?, payment_status = ?, paid_date = ?
+                WHERE id = ? AND user_id = ?
+              `).run(newSalePaid, salePaid ? 'Pago' : 'Pendente', salePaid ? new Date().toISOString() : null, cr.sale_id, req.user!.id);
+            }
+          }
+
+          if (remainingPay <= 0 && i < credits.length - 1) {
+            break;
+          }
+        }
+
+        db.prepare(`
+          INSERT INTO credit_payments (
+            user_id, customer_id, amount_paid, discount_applied, fine_applied, interest_applied, 
+            payment_method, payment_date, received_by, receipt_number, observation, notes_settled
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)
+        `).run(
+          req.user!.id, customer_id, payVal, totalDiscount, totalFine, totalInterest,
+          payment_method || 'Pix', received_by || req.user!.username, receiptNumber,
+          observation || '', JSON.stringify(settledNotes)
+        );
+
+        db.prepare(`
+          INSERT INTO collection_history (user_id, customer_id, action_type, message, status, metadata)
+          VALUES (?, ?, 'PAGAMENTO_AGRUPADO', ?, 'Concluído', ?)
+        `).run(
+          req.user!.id, customer_id,
+          `Pagamento de R$ ${payVal.toFixed(2)} (${payment_method}) para ${settledNotes.length} nota(s). Recibo #${receiptNumber}.`,
+          JSON.stringify({ receiptNumber, payVal, settledNotes, payment_method, observation })
+        );
+      })();
+
+      setTimeout(() => {
+        try { runCreditAutomationEngine(); } catch (e) { console.error(e); }
+      }, 100);
+
+      res.json({
+        success: true,
+        receipt_number: receiptNumber,
+        settled_notes: settledNotes,
+        amount_paid: payVal
+      });
+    } catch (err: any) {
+      console.error("[Batch Payment Error]", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/credit/negotiate", authenticateToken, (req, res) => {
+    const {
+      customer_id,
+      selected_credit_ids,
+      original_total,
+      discount_authorized,
+      down_payment,
+      installments_count,
+      first_due_date,
+      observation
+    } = req.body;
+
+    if (!customer_id || !selected_credit_ids || !Array.isArray(selected_credit_ids) || selected_credit_ids.length === 0) {
+      return res.status(400).json({ error: "Selecione ao menos uma nota para negociar." });
+    }
+
+    const numInstallments = parseInt(installments_count) || 1;
+    const discountVal = parseFloat(discount_authorized) || 0;
+    const downPaymentVal = parseFloat(down_payment) || 0;
+    const origTotal = parseFloat(original_total) || 0;
+    const netTotal = Math.max(0, origTotal - discountVal - downPaymentVal);
+
+    try {
+      let agreementId = 0;
+      const createdInstallments: any[] = [];
+
+      db.transaction(() => {
+        const agreementInfo = db.prepare(`
+          INSERT INTO credit_agreements (
+            user_id, customer_id, original_total, discount_authorized, down_payment, 
+            negotiated_total, installments_count, first_due_date, status, observation
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Ativo', ?)
+        `).run(
+          req.user!.id, customer_id, origTotal, discountVal, downPaymentVal, 
+          netTotal, numInstallments, first_due_date || new Date().toISOString().split('T')[0], observation || ''
+        );
+        agreementId = parseInt(agreementInfo.lastInsertRowid.toString());
+
+        const updateOrig = db.prepare(`
+          UPDATE credit 
+          SET status = 'Negociado', agreement_id = ?, collection_status = 'RENEGOCIADO'
+          WHERE id = ? AND user_id = ?
+        `);
+        for (const cid of selected_credit_ids) {
+          updateOrig.run(agreementId, cid, req.user!.id);
+        }
+
+        if (downPaymentVal > 0) {
+          const recNum = `ENTRADA-${agreementId}-${Math.floor(1000 + Math.random() * 9000)}`;
+          db.prepare(`
+            INSERT INTO credit_payments (
+              user_id, customer_id, amount_paid, payment_method, received_by, receipt_number, observation
+            ) VALUES (?, ?, ?, 'Pix', ?, ?, ?)
+          `).run(req.user!.id, customer_id, downPaymentVal, req.user!.username, recNum, `Entrada do acordo #${agreementId}`);
+        }
+
+        if (netTotal > 0) {
+          const baseInstallment = netTotal / numInstallments;
+          const roundedBase = Math.round(baseInstallment * 100) / 100;
+          const remainder = Number((netTotal - (roundedBase * numInstallments)).toFixed(2));
+
+          let dueDate = new Date();
+          if (first_due_date) {
+            const parsed = parseDueDateToDate(first_due_date);
+            if (parsed) dueDate = parsed;
+          }
+          const origDay = dueDate.getDate();
+
+          const insertInstallment = db.prepare(`
+            INSERT INTO credit (
+              user_id, customer_id, original_value, due_date, status, parcel_number, total_parcels, identifier, agreement_id
+            ) VALUES (?, ?, ?, ?, 'Pendente', ?, ?, ?, ?)
+          `);
+
+          for (let i = 1; i <= numInstallments; i++) {
+            const isLast = i === numInstallments;
+            const installmentVal = isLast ? Number((roundedBase + remainder).toFixed(2)) : roundedBase;
+            const ident = `ACORDO-${agreementId}-${String(i).padStart(2, '0')}`;
+            const dateStr = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}-${String(dueDate.getDate()).padStart(2, '0')}`;
+
+            const instInfo = insertInstallment.run(
+              req.user!.id, customer_id, installmentVal, dateStr, i, numInstallments, ident, agreementId
+            );
+
+            createdInstallments.push({
+              id: parseInt(instInfo.lastInsertRowid.toString()),
+              identifier: ident,
+              value: installmentVal,
+              due_date: dateStr,
+              parcel_number: i,
+              total_parcels: numInstallments
+            });
+
+            let nextMonth = dueDate.getMonth() + 1;
+            let nextYear = dueDate.getFullYear();
+            if (nextMonth > 11) {
+              nextMonth = 0;
+              nextYear++;
+            }
+            let nextDate = new Date(nextYear, nextMonth, origDay);
+            if (nextDate.getMonth() !== nextMonth) {
+              nextDate = new Date(nextYear, nextMonth + 1, 0);
+            }
+            dueDate = nextDate;
+          }
+        }
+
+        db.prepare(`
+          INSERT INTO collection_history (user_id, customer_id, action_type, message, status, metadata)
+          VALUES (?, ?, 'ACORDO_RENEGOCIACAO', ?, 'Concluído', ?)
+        `).run(
+          req.user!.id, customer_id,
+          `Acordo #${agreementId} firmado: R$ ${netTotal.toFixed(2)} em ${numInstallments}x (Entrada R$ ${downPaymentVal.toFixed(2)}, Desconto R$ ${discountVal.toFixed(2)}).`,
+          JSON.stringify({ agreementId, origTotal, discountVal, downPaymentVal, netTotal, numInstallments, createdInstallments })
+        );
+      })();
+
+      res.json({
+        success: true,
+        agreement_id: agreementId,
+        installments: createdInstallments,
+        negotiated_total: netTotal
+      });
+    } catch (err: any) {
+      console.error("[Negotiation Error]", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/credit/collection-log", authenticateToken, (req, res) => {
+    const { customer_id, credit_ids, action_type, message, channel, status, metadata } = req.body;
+    if (!customer_id) return res.status(400).json({ error: "customer_id é obrigatório" });
+
+    try {
+      const validStatus = status || 'PREPARADA';
+      const cids = Array.isArray(credit_ids) ? credit_ids : (credit_ids ? [credit_ids] : []);
+
+      const info = db.prepare(`
+        INSERT INTO collection_history (user_id, customer_id, credit_id, action_type, message, channel, status, metadata)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        req.user!.id, 
+        customer_id, 
+        cids[0] || null, 
+        action_type || 'COBRANCA_WHATSAPP', 
+        message || '', 
+        channel || 'WhatsApp', 
+        validStatus, 
+        JSON.stringify(metadata || {})
+      );
+
+      if (validStatus === 'ENVIADA' && cids.length > 0) {
+        const placeholders = cids.map(() => '?').join(',');
+        db.prepare(`
+          UPDATE credit 
+          SET last_collection_at = CURRENT_TIMESTAMP, collection_status = 'ENVIADA'
+          WHERE id IN (${placeholders}) AND user_id = ?
+        `).run(...cids, req.user!.id);
+      } else if (validStatus === 'ABERTA_WHATSAPP' && cids.length > 0) {
+        const placeholders = cids.map(() => '?').join(',');
+        db.prepare(`
+          UPDATE credit 
+          SET collection_status = 'ABERTA_WHATSAPP'
+          WHERE id IN (${placeholders}) AND user_id = ?
+        `).run(...cids, req.user!.id);
+      }
+
+      res.json({ success: true, id: parseInt(info.lastInsertRowid.toString()) });
+    } catch (err: any) {
+      console.error("[Collection Log Error]", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/collections/settings-v4", authenticateToken, (req, res) => {
+    let settings = db.prepare("SELECT * FROM collection_settings WHERE tenant_id = 1").get() as any;
+    if (!settings) {
+      db.prepare("INSERT INTO collection_settings (tenant_id) VALUES (1)").run();
+      settings = db.prepare("SELECT * FROM collection_settings WHERE tenant_id = 1").get() as any;
+    }
+    res.json(settings);
+  });
+
+  app.put("/api/collections/settings-v4", authenticateToken, (req, res) => {
+    const { 
+      reminder_days, 
+      first_collection_days, 
+      second_collection_days, 
+      strong_collection_days, 
+      block_days, 
+      admin_days, 
+      default_fine, 
+      default_interest, 
+      pix_key, 
+      pix_type, 
+      stages_config, 
+      whatsapp_templates 
+    } = req.body;
+
+    db.prepare(`
+      UPDATE collection_settings 
+      SET reminder_days=?, first_collection_days=?, second_collection_days=?, strong_collection_days=?, 
+          block_days=?, admin_days=?, default_fine=?, default_interest=?, pix_key=?, pix_type=?, 
+          stages_config=?, whatsapp_templates=? 
+      WHERE tenant_id = 1
+    `).run(
+      reminder_days ?? 3,
+      first_collection_days ?? 3,
+      second_collection_days ?? 7,
+      strong_collection_days ?? 15,
+      block_days ?? 30,
+      admin_days ?? 45,
+      default_fine ?? 2,
+      default_interest ?? 1,
+      pix_key || '12.802.931/0001-92',
+      pix_type || 'CNPJ',
+      typeof stages_config === 'string' ? stages_config : JSON.stringify(stages_config || {}),
+      typeof whatsapp_templates === 'string' ? whatsapp_templates : JSON.stringify(whatsapp_templates || {})
+    );
+
+    res.json({ success: true });
   });
 
 
