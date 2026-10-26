@@ -99,6 +99,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import * as htmlToImage from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import { formatDateBR } from './utils/formatters';
 
 // --- Types ---
 interface Customer {
