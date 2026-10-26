@@ -833,6 +833,10 @@ try { db.exec("ALTER TABLE credit ADD COLUMN fine_applied REAL DEFAULT 0"); } ca
 try { db.exec("ALTER TABLE credit ADD COLUMN discount_applied REAL DEFAULT 0"); } catch (e) {}
 try { db.exec("ALTER TABLE credit ADD COLUMN paid_value REAL DEFAULT 0"); } catch (e) {}
 
+// Migrations for cash_sessions
+try { db.exec("ALTER TABLE cash_sessions ADD COLUMN notes TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE cash_sessions ADD COLUMN expected_balance REAL DEFAULT 0"); } catch (e) {}
+
 // Migrations for purchase_orders and purchase_order_items
 try { db.exec("ALTER TABLE purchase_orders ADD COLUMN order_number TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE purchase_orders ADD COLUMN distributor_name TEXT"); } catch (e) {}
@@ -6426,29 +6430,118 @@ ${promptText}`,
 
   // Cash Sessions & Transactions
   app.get("/api/cash_sessions", authenticateToken, (req, res) => {
-    res.json(db.prepare("SELECT * FROM cash_sessions WHERE user_id = ? ORDER BY opened_at DESC").all(req.user!.id));
+    try {
+      const userRole = (req.user?.role || '').toUpperCase();
+      const isAdminOrGerente = userRole === 'ADMIN' || userRole === 'GERENTE';
+      const rows = db.prepare(`
+        SELECT * FROM cash_sessions 
+        WHERE (user_id = ? OR ? = 1) 
+        ORDER BY opened_at DESC
+      `).all(req.user!.id, isAdminOrGerente ? 1 : 0);
+      res.json(rows);
+    } catch (err: any) {
+      console.error("[GET /api/cash_sessions Error]", err);
+      res.status(500).json({ error: err.message || "Erro ao buscar sessões de caixa" });
+    }
   });
+
   app.post("/api/cash_sessions", authenticateToken, (req, res) => {
-    const { id, opened_at, opening_balance, status, notes } = req.body;
-    db.prepare("INSERT INTO cash_sessions (id, user_id, opened_at, opening_balance, status, notes) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(id, req.user!.id, opened_at, opening_balance, status, notes);
-    res.json({ success: true });
+    try {
+      try { db.exec("ALTER TABLE cash_sessions ADD COLUMN notes TEXT"); } catch (e) {}
+      try { db.exec("ALTER TABLE cash_sessions ADD COLUMN expected_balance REAL DEFAULT 0"); } catch (e) {}
+
+      const { id, opened_at, opening_balance, status, notes } = req.body;
+      const openDate = opened_at || new Date().toISOString();
+      const openBal = parseFloat(opening_balance) || 0;
+      const sessionStatus = status || 'Aberto';
+      const sessionNotes = notes || '';
+
+      const numId = parseInt(id, 10);
+      let result;
+      if (!isNaN(numId) && numId > 0 && String(numId) === String(id)) {
+        result = db.prepare(`
+          INSERT INTO cash_sessions (id, user_id, opened_at, opening_balance, status, notes) 
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(numId, req.user!.id, openDate, openBal, sessionStatus, sessionNotes);
+      } else {
+        result = db.prepare(`
+          INSERT INTO cash_sessions (user_id, opened_at, opening_balance, status, notes) 
+          VALUES (?, ?, ?, ?, ?)
+        `).run(req.user!.id, openDate, openBal, sessionStatus, sessionNotes);
+      }
+
+      res.json({ success: true, id: result.lastInsertRowid });
+    } catch (err: any) {
+      console.error("[POST /api/cash_sessions Error]", err);
+      res.status(500).json({ error: err.message || "Erro ao abrir caixa no servidor" });
+    }
   });
+
   app.put("/api/cash_sessions/:id", authenticateToken, (req, res) => {
-    const { closed_at, closing_balance, expected_balance, status } = req.body;
-    db.prepare("UPDATE cash_sessions SET closed_at = ?, closing_balance = ?, expected_balance = ?, status = ? WHERE id = ? AND user_id = ?")
-      .run(closed_at, closing_balance, expected_balance, status, req.params.id, req.user!.id);
-    res.json({ success: true });
+    try {
+      try { db.exec("ALTER TABLE cash_sessions ADD COLUMN expected_balance REAL DEFAULT 0"); } catch (e) {}
+
+      const { closed_at, closing_balance, expected_balance, status } = req.body;
+      const userRole = (req.user?.role || '').toUpperCase();
+      const isAdminOrGerente = userRole === 'ADMIN' || userRole === 'GERENTE';
+
+      db.prepare(`
+        UPDATE cash_sessions 
+        SET closed_at = ?, closing_balance = ?, expected_balance = ?, status = ? 
+        WHERE id = ? AND (user_id = ? OR ? = 1)
+      `).run(
+        closed_at || new Date().toISOString(),
+        parseFloat(closing_balance) || 0,
+        parseFloat(expected_balance) || 0,
+        status || 'Fechado',
+        req.params.id,
+        req.user!.id,
+        isAdminOrGerente ? 1 : 0
+      );
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("[PUT /api/cash_sessions/:id Error]", err);
+      res.status(500).json({ error: err.message || "Erro ao fechar caixa no servidor" });
+    }
   });
 
   app.get("/api/cash_transactions", authenticateToken, (req, res) => {
-    res.json(db.prepare("SELECT * FROM cash_transactions WHERE user_id = ? ORDER BY created_at DESC").all(req.user!.id));
+    try {
+      const userRole = (req.user?.role || '').toUpperCase();
+      const isAdminOrGerente = userRole === 'ADMIN' || userRole === 'GERENTE';
+      const txs = db.prepare(`
+        SELECT * FROM cash_transactions 
+        WHERE (user_id = ? OR ? = 1) 
+        ORDER BY created_at DESC
+      `).all(req.user!.id, isAdminOrGerente ? 1 : 0);
+      res.json(txs);
+    } catch (err: any) {
+      console.error("[GET /api/cash_transactions Error]", err);
+      res.status(500).json({ error: err.message || "Erro ao buscar movimentações de caixa" });
+    }
   });
+
   app.post("/api/cash_transactions", authenticateToken, (req, res) => {
-    const { id, session_id, type, amount, description, date } = req.body;
-    db.prepare("INSERT INTO cash_transactions (id, user_id, session_id, type, amount, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .run(id, req.user!.id, session_id, type, amount, description, date);
-    res.json({ success: true });
+    try {
+      const { id, session_id, type, amount, description, date } = req.body;
+      const numId = parseInt(id, 10);
+      let result;
+      if (!isNaN(numId) && numId > 0 && String(numId) === String(id)) {
+        result = db.prepare(`
+          INSERT INTO cash_transactions (id, user_id, session_id, type, amount, description, created_at) 
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(numId, req.user!.id, session_id || null, type, parseFloat(amount) || 0, description || '', date || new Date().toISOString());
+      } else {
+        result = db.prepare(`
+          INSERT INTO cash_transactions (user_id, session_id, type, amount, description, created_at) 
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(req.user!.id, session_id || null, type, parseFloat(amount) || 0, description || '', date || new Date().toISOString());
+      }
+      res.json({ success: true, id: result.lastInsertRowid });
+    } catch (err: any) {
+      console.error("[POST /api/cash_transactions Error]", err);
+      res.status(500).json({ error: err.message || "Erro ao registrar movimentação de caixa" });
+    }
   });
 
   // Servir imagens / links curtos com altíssima performance e cache HTTP

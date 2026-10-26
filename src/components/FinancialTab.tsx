@@ -396,10 +396,8 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
   // --- Handlers (Migrated from App) ---
   const handleOpenCash = async (e: React.FormEvent) => {
     e.preventDefault();
-    const id = Math.random().toString(36).substr(2, 9).toUpperCase();
     try {
       await localApi.post('cash_sessions', {
-        id,
         opened_at: new Date().toISOString(),
         opening_balance: parseFloat(cashForm.openingBalance.toString().replace(',', '.')) || 0,
         status: 'Aberto',
@@ -407,11 +405,12 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       });
       setIsCashModalOpen(false);
       setCashForm({ openingBalance: '', notes: '' });
-      loadFinancialData();
+      await loadFinancialData();
+      if (fetchData) fetchData();
       alert('Caixa aberto com sucesso!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error opening cash:', error);
-      alert('Erro ao abrir caixa.');
+      alert(error?.message || 'Erro ao abrir caixa.');
     }
   };
 
@@ -436,19 +435,18 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       });
       setActiveSession(null);
       alert(`Caixa fechado! \nEsperado: R$ ${expected.toFixed(2)} \nInformado: R$ ${parseFloat(closingBalance).toFixed(2)} \nDiferença: R$ ${(parseFloat(closingBalance) - expected).toFixed(2)}`);
-      loadFinancialData();
-    } catch (error) {
+      await loadFinancialData();
+      if (fetchData) fetchData();
+    } catch (error: any) {
       console.error('Error closing cash:', error);
-      alert('Erro ao fechar caixa.');
+      alert(error?.message || 'Erro ao fechar caixa.');
     }
   };
 
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    const id = Math.random().toString(36).substr(2, 9).toUpperCase();
     try {
       await localApi.post('cash_transactions', {
-        id,
         session_id: activeSession?.id,
         type: transactionForm.type,
         amount: parseFloat(transactionForm.amount.toString().replace(',', '.')) || 0,
@@ -457,11 +455,12 @@ const FinancialTab: React.FC<FinancialTabProps> = ({
       });
       setIsTransactionModalOpen(false);
       setTransactionForm({ type: 'Sangria', amount: '', description: '' });
-      loadFinancialData();
+      await loadFinancialData();
+      if (fetchData) fetchData();
       alert('Movimentação registrada!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding transaction:', error);
-      alert('Erro ao registrar movimentação.');
+      alert(error?.message || 'Erro ao registrar movimentação.');
     }
   };
 
