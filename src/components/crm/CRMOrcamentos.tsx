@@ -3,6 +3,7 @@ import {
   FileText, Search, Plus, MessageCircle, Printer, ShoppingCart, 
   Wrench, Trash2, Edit2, X, PlusCircle, MinusCircle 
 } from 'lucide-react';
+import { searchSmartProducts } from '../../utils/smartSearch';
 
 interface Product {
   id: number;
@@ -81,7 +82,10 @@ export default function CRMOrcamentos({
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
 
   useEffect(() => {
-    if (productSearch.trim()) {
+    if (productSearch.trim().length >= 2) {
+      const results = searchSmartProducts(products as any, productSearch, { limit: 8 });
+      setFilteredProducts(results.map(r => r.item as Product));
+    } else if (productSearch.trim()) {
       const term = productSearch.toLowerCase();
       setFilteredProducts(
         products.filter(p => p.description.toLowerCase().includes(term)).slice(0, 5)

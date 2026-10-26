@@ -19,6 +19,7 @@ import {
   ArrowRight,
   X
 } from 'lucide-react';
+import { searchSmartProducts, searchSmartCustomers } from '../utils/smartSearch';
 
 export interface SaleItem {
   product_id?: number;
@@ -243,30 +244,20 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
   };
 
   const filteredCustomers = useMemo(() => {
-    const query = normalizeCustomerSearch(customerSearch);
+    const query = (customerSearch || '').trim();
     if (query.length < 2) return [];
 
     // Se o cliente já está selecionado e o termo na busca é exatamente o nome dele, não abre lista
     if (form.customer_id) {
       const selectedCust = sortedCustomers.find(c => c.id.toString() === form.customer_id);
-      if (selectedCust && normalizeCustomerSearch(selectedCust.name) === query) {
+      if (selectedCust && selectedCust.name.toLowerCase().trim() === query.toLowerCase()) {
         return [];
       }
     }
 
-    // 1. Prioriza pelo início do nome (startsWith)
-    const startsWithMatches = sortedCustomers.filter(c =>
-      normalizeCustomerSearch(c.name).startsWith(query)
-    );
-
-    // 2. Secundariamente, inclui os que contêm no nome ou apelido
-    const otherMatches = sortedCustomers.filter(c =>
-      !normalizeCustomerSearch(c.name).startsWith(query) &&
-      (normalizeCustomerSearch(c.name).includes(query) || (c.nickname && normalizeCustomerSearch(c.nickname).includes(query)))
-    );
-
-    return [...startsWithMatches, ...otherMatches].slice(0, 10);
-  }, [customerSearch, sortedCustomers, form.customer_id]);
+    const smartCusts = searchSmartCustomers(sortedCustomers as any, query, (data.motorcycles || []) as any, { limit: 15 });
+    return smartCusts.map(r => r.customer);
+  }, [customerSearch, sortedCustomers, form.customer_id, data.motorcycles]);
 
   // Lista de categorias únicas dos produtos
   const categories = useMemo(() => {
@@ -274,18 +265,26 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
     return ['all', ...Array.from(list)];
   }, [data.products]);
 
-  // Filtragem dos produtos por pesquisa e categoria
+  // Filtragem inteligente dos produtos por pesquisa e categoria
   const filteredProducts = useMemo(() => {
-    const query = (searchProduct || '').trim().toLowerCase();
-    return sortedProducts.filter(p => {
-      const matchesSearch =
-        !query ||
-        (p.description || '').toLowerCase().includes(query) ||
-        (p.brand || '').toLowerCase().includes(query) ||
-        (p.sku || '').toLowerCase().includes(query) ||
-        (p.barcode || '').toLowerCase().includes(query) ||
-        (p.alt_code || '').toLowerCase().includes(query);
+    const query = (searchProduct || '').trim();
+    if (!query) {
+      return selectedCategory === 'all'
+        ? sortedProducts
+        : sortedProducts.filter(p => p.category === selectedCategory);
+    }
 
+    if (query.length >= 2) {
+      const smartResults = searchSmartProducts(sortedProducts as any, query, { limit: 100 });
+      const matched = smartResults.map(r => r.item as any);
+      return selectedCategory === 'all'
+        ? matched
+        : matched.filter(p => p.category === selectedCategory);
+    }
+
+    const qLower = query.toLowerCase();
+    return sortedProducts.filter(p => {
+      const matchesSearch = (p.description || '').toLowerCase().startsWith(qLower);
       const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });

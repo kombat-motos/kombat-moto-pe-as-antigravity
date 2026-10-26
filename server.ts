@@ -721,6 +721,13 @@ createIndexSafely(db, "idx_products_user_desc", "products", ["user_id", "descrip
 createIndexSafely(db, "idx_products_sku", "products", ["user_id", "sku"]);
 createIndexSafely(db, "idx_products_barcode", "products", ["user_id", "barcode"]);
 createIndexSafely(db, "idx_products_alt_code", "products", ["user_id", "alt_code"]);
+createIndexSafely(db, "idx_products_brand", "products", ["user_id", "brand"]);
+createIndexSafely(db, "idx_products_application", "products", ["user_id", "application"]);
+createIndexSafely(db, "idx_customers_user_name", "customers", ["user_id", "name"]);
+createIndexSafely(db, "idx_customers_whatsapp", "customers", ["user_id", "whatsapp"]);
+createIndexSafely(db, "idx_customers_cpf", "customers", ["user_id", "cpf"]);
+createIndexSafely(db, "idx_motorcycles_customer", "motorcycles", ["customer_id"]);
+createIndexSafely(db, "idx_motorcycles_plate", "motorcycles", ["plate"]);
 createIndexSafely(db, "idx_audit_logs_corr", "audit_logs", ["correlation_id"]);
 createIndexSafely(db, "idx_single_use_tokens", "single_use_tokens", ["id"]);
 
@@ -2340,6 +2347,130 @@ async function startServer() {
     } catch (err: any) {
       console.error('ERRO AO BUSCAR PRODUTO POR CÓDIGO:', err);
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Endpoints de Busca Inteligente de Alta Performance (Tokens, Relevância e Índices)
+  app.get("/api/smart-search/products", authenticateToken, (req, res) => {
+    try {
+      const q = String(req.query.q || '').trim();
+      const limit = Math.min(parseInt(String(req.query.limit || '35'), 10) || 35, 100);
+      if (q.length < 2) return res.json([]);
+
+      // Normaliza texto para SQLite (sem acentos)
+      const cleanNorm = q.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const rawTokens = cleanNorm.split(/\s+/).filter(Boolean);
+
+      // 1. Busca exata por código/SKU/código de barras
+      const exactCode = db.prepare(`
+        SELECT * FROM products 
+        WHERE user_id = ? AND (sku = ? OR barcode = ? OR alt_code = ?)
+        LIMIT 5
+      `).all(req.user!.id, q, q, q);
+
+      // 2. Busca por tokens múltiplos na descrição, aplicação e marca
+      const conditions: string[] = ["user_id = ?"];
+      const params: any[] = [req.user!.id];
+
+      for (const token of rawTokens) {
+        conditions.push(`(description LIKE ? OR application LIKE ? OR brand LIKE ? OR category LIKE ? OR sku LIKE ? OR alt_code LIKE ?)`);
+        const likeParam = `%${token}%`;
+        params.push(likeParam, likeParam, likeParam, likeParam, likeParam, likeParam);
+      }
+
+      const sql = `
+        SELECT *,
+          CASE 
+            WHEN description LIKE ? THEN 3000
+            WHEN description LIKE ? THEN 1500
+            ELSE 500
+          END + CASE WHEN stock > 0 THEN 100 ELSE 0 END AS rank_score
+        FROM products
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY rank_score DESC, description ASC
+        LIMIT ?
+      `;
+
+      params.push(`%${cleanNorm}%`, `${rawTokens[0]}%`, limit);
+      const tokenResults = db.prepare(sql).all(...params) as any[];
+
+      // Combina os exatos primeiro e remove duplicatas
+      const existingIds = new Set<number>();
+      const combined: any[] = [];
+
+      for (const p of [...exactCode, ...tokenResults]) {
+        if (!existingIds.has(p.id)) {
+          existingIds.add(p.id);
+          combined.push(p);
+        }
+      }
+
+      res.json(combined.slice(0, limit));
+    } catch (err: any) {
+      console.error("[SMART SEARCH PRODUCTS ERROR]", err);
+      res.status(500).json({ error: err.message || "Erro na busca inteligente de produtos" });
+    }
+  });
+
+  app.get("/api/smart-search/customers", authenticateToken, (req, res) => {
+    try {
+      const q = String(req.query.q || '').trim();
+      const limit = Math.min(parseInt(String(req.query.limit || '20'), 10) || 20, 50);
+      if (q.length < 2) return res.json([]);
+
+      const cleanDigitsOnly = q.replace(/\D/g, '');
+      const cleanPlateOnly = q.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+      let customers: any[] = [];
+
+      // Se contém placa de moto
+      if (cleanPlateOnly.length >= 3) {
+        const plateCusts = db.prepare(`
+          SELECT c.*, m.id as moto_id, m.plate, m.model as moto_model, m.current_km
+          FROM customers c
+          JOIN motorcycles m ON m.customer_id = c.id
+          WHERE c.user_id = ? AND (REPLACE(REPLACE(m.plate, '-', ''), ' ', '') LIKE ?)
+          LIMIT ?
+        `).all(req.user!.id, `%${cleanPlateOnly}%`, limit);
+        customers.push(...plateCusts);
+      }
+
+      // Se contém números de telefone / CPF
+      if (cleanDigitsOnly.length >= 3) {
+        const phoneCusts = db.prepare(`
+          SELECT * FROM customers 
+          WHERE user_id = ? AND (
+            REPLACE(REPLACE(REPLACE(REPLACE(whatsapp, '(', ''), ')', ''), '-', ''), ' ', '') LIKE ? 
+            OR REPLACE(REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', ''), '/', '') LIKE ?
+          )
+          LIMIT ?
+        `).all(req.user!.id, `%${cleanDigitsOnly}%`, `%${cleanDigitsOnly}%`, limit);
+        customers.push(...phoneCusts);
+      }
+
+      // Busca por nome ou apelido
+      const nameCusts = db.prepare(`
+        SELECT * FROM customers 
+        WHERE user_id = ? AND (name LIKE ? OR nickname LIKE ?)
+        ORDER BY CASE WHEN name LIKE ? THEN 100 ELSE 10 END DESC, name ASC
+        LIMIT ?
+      `).all(req.user!.id, `%${q}%`, `%${q}%`, `${q}%`, limit);
+      customers.push(...nameCusts);
+
+      // Remove duplicados
+      const seen = new Set<number>();
+      const uniqueCusts: any[] = [];
+      for (const c of customers) {
+        if (!seen.has(c.id)) {
+          seen.add(c.id);
+          uniqueCusts.push(c);
+        }
+      }
+
+      res.json(uniqueCusts.slice(0, limit));
+    } catch (err: any) {
+      console.error("[SMART SEARCH CUSTOMERS ERROR]", err);
+      res.status(500).json({ error: err.message || "Erro na busca inteligente de clientes" });
     }
   });
 

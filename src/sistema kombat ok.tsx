@@ -92,6 +92,9 @@ import LabelAssistantModal from './components/labels/LabelAssistantModal';
 import { LoadingState } from './components/common/LoadingState';
 import { EmptyState } from './components/common/EmptyState';
 import { ConfirmModal } from './components/common/ConfirmModal';
+import SmartProductSearch from './components/common/SmartProductSearch';
+import SmartCustomerSearch from './components/common/SmartCustomerSearch';
+import { searchSmartProducts } from './utils/smartSearch';
 import { hasPermission, normalizeRole, isAdmin, canViewCostPrice } from './types/auth';
 import UserManagementModule from './components/UserManagementModule';
 
@@ -7965,63 +7968,27 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-400 dark:bg-slate-900 dark:border-slate-700">
               <div className="relative">
                 <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Cliente / Razão Social</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input
-                    type="text"
-                    required
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-slate-900 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-                    placeholder="Pesquisar ou digitar nome do cliente..."
-                    value={quoteForm.customer_name}
-                    onChange={e => {
-                      setQuoteForm({ ...quoteForm, customer_name: e.target.value, customer_id: undefined });
-                      setQuoteCustomerSearchTerm(e.target.value);
-                    }}
-                    onFocus={() => {
-                      if (quoteForm.customer_name) setQuoteCustomerSearchTerm(quoteForm.customer_name);
-                    }}
-                  />
-                </div>
-                {quoteCustomerSearchTerm && (
-                  <div className="absolute z-[110] w-full mt-1 bg-white border border-slate-400 rounded-xl shadow-2xl max-h-48 overflow-y-auto dark:bg-slate-800 dark:border-slate-700">
-                    {sortedCustomers.filter(c => 
-                      c.name.toLowerCase().includes(d_quoteCustomerSearch.toLowerCase()) ||
-                      (c.nickname && c.nickname.toLowerCase().includes(d_quoteCustomerSearch.toLowerCase()))
-                    ).map(c => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => {
-                          const customerMotos = motorcycles.filter(m => m.customer_id === c.id);
-                          setQuoteForm({ 
-                            ...quoteForm, 
-                            customer_name: c.name, 
-                            customer_id: c.id,
-                            // Só preenche automático se tiver EXATAMENTE uma moto
-                            motorcycle_details: customerMotos.length === 1 ? `${customerMotos[0].model} (${customerMotos[0].plate})` : ''
-                          });
-                          setQuoteCustomerSearchTerm('');
-                        }}
-                        className="w-full text-left px-4 py-3 hover:bg-rose-50 flex justify-between items-center border-b border-slate-100 last:border-none transition-colors"
-                      >
-                        <div>
-                          <p className="text-sm font-bold text-slate-900 uppercase dark:text-slate-100">{c.name}</p>
-                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter dark:text-slate-400">
-                            {c.nickname ? `${c.nickname} | ` : ''}{c.whatsapp}
-                          </p>
-                        </div>
-                        <Plus size={14} className="text-rose-500" />
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setQuoteCustomerSearchTerm('')}
-                      className="w-full py-2 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase hover:text-slate-600 transition-colors dark:bg-slate-900"
-                    >
-                      Manter apenas texto digitado
-                    </button>
-                  </div>
-                )}
+                <SmartCustomerSearch
+                  customers={customers}
+                  motorcycles={motorcycles}
+                  selectedCustomerId={quoteForm.customer_id}
+                  selectedCustomerName={quoteForm.customer_name}
+                  placeholder="Pesquisar cliente por nome, placa ou telefone..."
+                  onOpenNewCustomerModal={() => setIsCustomerModalOpen(true)}
+                  onSelectCustomer={(c, matchedMoto) => {
+                    const customerMotos = motorcycles.filter(m => m.customer_id === c.id);
+                    const chosenMoto = matchedMoto || (customerMotos.length === 1 ? customerMotos[0] : null);
+                    setQuoteForm({
+                      ...quoteForm,
+                      customer_name: c.name,
+                      customer_id: c.id,
+                      motorcycle_details: chosenMoto ? `${chosenMoto.model} (${chosenMoto.plate})` : (customerMotos.length === 1 ? `${customerMotos[0].model} (${customerMotos[0].plate})` : '')
+                    });
+                  }}
+                  onClearCustomer={() => {
+                    setQuoteForm({ ...quoteForm, customer_name: '', customer_id: undefined });
+                  }}
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Motocicleta</label>
@@ -8334,17 +8301,19 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-300">
-                  {sortedProducts
-                    .filter(p => {
-                      const search = d_stockSearchTerm.toLowerCase();
-                      return (
-                        (p.description || '').toLowerCase().includes(search) ||
-                        (p.sku || '').toLowerCase().includes(search) ||
-                        (p.alt_code || '').toLowerCase().includes(search) ||
-                        (p.barcode || '').toLowerCase().includes(search)
-                      );
-                    })
-                    .map(product => (
+                  {(d_stockSearchTerm.trim().length >= 2
+                    ? searchSmartProducts(sortedProducts as any, d_stockSearchTerm, { limit: 50 }).map(r => r.item as Product)
+                    : sortedProducts.filter(p => {
+                        const search = d_stockSearchTerm.toLowerCase();
+                        return (
+                          !search ||
+                          (p.description || '').toLowerCase().includes(search) ||
+                          (p.sku || '').toLowerCase().includes(search) ||
+                          (p.alt_code || '').toLowerCase().includes(search) ||
+                          (p.barcode || '').toLowerCase().includes(search)
+                        );
+                      })
+                  ).map(product => (
                       <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
                         <td className="px-4 py-3">
                           <p className="font-bold text-slate-900 text-sm uppercase dark:text-slate-100">{product.description}</p>
@@ -10032,115 +10001,55 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                   </div>
                 </div>
 
-                {/* 1. Cliente */}
+                {/* 1. Cliente (Busca Inteligente) */}
                 <div className="col-span-1 md:col-span-1 lg:col-span-1 relative" ref={osCustomerContainerRef}>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><Users size={12}/> Cliente</label>
-                  <div className="relative">
-                    <input
-                      ref={osCustomerInputRef}
-                      type="text"
-                      className="w-full px-3 py-2 pr-8 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:bg-white focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 h-[38px]"
-                      placeholder="Digite o nome do cliente..."
-                      value={osCustomerSearch}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setOsCustomerSearch(val);
-                        setIsOsCustomerDropdownOpen(true);
-                        if (!val.trim() && osForm.customer_id) {
-                          setOsForm(prev => ({ ...prev, customer_id: '', motorcycle_id: '', motorcycle_plate: '', km: '' }));
-                        }
-                      }}
-                      onFocus={() => {
-                        const clean = normalizeCustomerSearch(osCustomerSearch);
-                        if (clean.length >= 2) {
-                          setIsOsCustomerDropdownOpen(true);
-                        }
-                      }}
-                      onKeyDown={e => {
-                        if (e.key === 'Escape') {
-                          setIsOsCustomerDropdownOpen(false);
-                        }
-                      }}
-                    />
-                    {(osCustomerSearch || osForm.customer_id) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOsCustomerSearch('');
-                          setIsOsCustomerDropdownOpen(false);
-                          setOsForm(prev => ({ ...prev, customer_id: '', motorcycle_id: '', motorcycle_plate: '', km: '' }));
-                          osCustomerInputRef.current?.focus();
-                        }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors"
-                        title="Limpar cliente"
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
-
-                    {/* Dropdown com os resultados da busca */}
-                    {isOsCustomerDropdownOpen && normalizeCustomerSearch(osCustomerSearch).length >= 2 && (
-                      <div className="absolute left-0 top-full mt-1 w-full min-w-[280px] z-[120] bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto dark:bg-slate-800 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700/60">
-                        {filteredOsCustomers.length > 0 ? (
-                          filteredOsCustomers.map(c => (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onClick={() => {
-                                setOsCustomerSearch(c.name);
-                                setIsOsCustomerDropdownOpen(false);
-                                if (isCustomerReallyBlocked(c)) {
-                                  alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${c.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
-                                }
-                                const customerMotos = motorcycles.filter(m => m.customer_id === c.id);
-                                if (customerMotos.length > 0) {
-                                  setOsForm(prev => ({
-                                    ...prev,
-                                    customer_id: c.id.toString(),
-                                    motorcycle_id: customerMotos[0].id.toString(),
-                                    motorcycle_plate: customerMotos[0].plate,
-                                    km: customerMotos[0].current_km || ''
-                                  }));
-                                } else {
-                                  setOsForm(prev => ({
-                                    ...prev,
-                                    customer_id: c.id.toString(),
-                                    motorcycle_id: '',
-                                    motorcycle_plate: '',
-                                    km: ''
-                                  }));
-                                }
-                              }}
-                              className="w-full px-3 py-2.5 text-left hover:bg-rose-50/80 dark:hover:bg-slate-700/70 transition-colors flex items-center justify-between group cursor-pointer"
-                            >
-                              <div className="min-w-0 flex-1 pr-2">
-                                <p className="text-xs font-bold text-slate-800 uppercase dark:text-slate-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors truncate">
-                                  {c.name}
-                                </p>
-                                {(c.nickname || c.phone || c.whatsapp) && (
-                                  <p className="text-[10px] text-slate-400 font-medium truncate">
-                                    {c.nickname ? `${c.nickname} • ` : ''}
-                                    {c.phone || c.whatsapp || ''}
-                                  </p>
-                                )}
-                              </div>
-                            </button>
-                          ))
-                        ) : (
-                          <div className="px-3 py-3 text-xs font-bold text-slate-400 dark:text-slate-500 text-center">
-                            Nenhum cliente encontrado
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <SmartCustomerSearch
+                    customers={customers}
+                    motorcycles={motorcycles}
+                    selectedCustomerId={osForm.customer_id}
+                    selectedCustomerName={osCustomerSearch}
+                    placeholder="Digite o nome, placa ou telefone..."
+                    isCustomerBlocked={(c) => isCustomerReallyBlocked(c)}
+                    getRemainingCredit={(cid) => getCustomerRemainingCredit(cid)}
+                    onOpenNewCustomerModal={() => setIsCustomerModalOpen(true)}
+                    onSelectCustomer={(c, matchedMoto) => {
+                      setOsCustomerSearch(c.name);
+                      if (isCustomerReallyBlocked(c)) {
+                        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${c.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
+                      }
+                      const customerMotos = motorcycles.filter(m => m.customer_id === c.id);
+                      const chosenMoto = matchedMoto || (customerMotos.length > 0 ? customerMotos[0] : null);
+                      if (chosenMoto) {
+                        setOsForm(prev => ({
+                          ...prev,
+                          customer_id: c.id.toString(),
+                          motorcycle_id: chosenMoto.id.toString(),
+                          motorcycle_plate: chosenMoto.plate,
+                          km: chosenMoto.current_km ? chosenMoto.current_km.toString() : ''
+                        }));
+                      } else {
+                        setOsForm(prev => ({
+                          ...prev,
+                          customer_id: c.id.toString(),
+                          motorcycle_id: '',
+                          motorcycle_plate: '',
+                          km: ''
+                        }));
+                      }
+                    }}
+                    onClearCustomer={() => {
+                      setOsCustomerSearch('');
+                      setOsForm(prev => ({ ...prev, customer_id: '', motorcycle_id: '', motorcycle_plate: '', km: '' }));
+                    }}
+                  />
                   {osForm.customer_id && (
                     <div className="mt-1 flex justify-between items-center px-1">
                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Crédito:</span>
                       {(() => {
                         const cust = customers.find(c => c.id === parseInt(osForm.customer_id));
                         if (isCustomerReallyBlocked(cust)) {
-                          return <span className="text-[10px] font-black text-rose-600 uppercase bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 animate-pulse">BLOQUEADO (+60D)</span>;
+                          return <span className="text-[10px] font-black text-rose-600 uppercase bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 animate-pulse">BLOQUEADO (+30D)</span>;
                         }
                         return (
                           <span className={`text-[11px] font-black ${getCustomerRemainingCredit(parseInt(osForm.customer_id)) > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -10328,86 +10237,44 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
               
               {/* Painel Esquerdo (75% e rolável internamente) */}
               <div className="flex-1 lg:flex-[3] flex flex-col gap-4 overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700 p-4">
-                {/* LINHA 2: Busca */}
+                {/* LINHA 2: Busca Inteligente de Peças e Serviços */}
                 <div className="relative shrink-0 z-20">
-                  <div className="relative">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-500 bg-rose-100 p-1.5 rounded-lg">
-                      <Search size={16} strokeWidth={3} />
-                    </div>
-                    <input
-                      type="text"
-                      autoFocus
-                      placeholder="Buscar peça/serviço ou digite para adicionar item avulso..."
-                      className="w-full pl-14 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
-                      value={osSearchProduct}
-                      onChange={e => setOsSearchProduct(e.target.value)}
-                    />
-                    {osSearchProduct && (
-                      <button onClick={() => setOsSearchProduct('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-slate-200 rounded-full p-1 transition-colors dark:bg-slate-800">
-                        <X size={14} strokeWidth={3}/>
-                      </button>
-                    )}
-                  </div>
-                  {osSearchProduct && (
-                    <div className="absolute top-[calc(100%+8px)] left-0 w-full bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-[40vh] overflow-y-auto z-50 divide-y divide-slate-100 flex flex-col dark:bg-slate-800 dark:border-slate-700">
-                      <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        {/* Produtos Encontrados */}
-                        {sortedProducts.filter(p =>
-                          p && ((p.description || '').toLowerCase().includes(osSearchProduct.toLowerCase()) ||
-                            ((p.brand || '').toLowerCase().includes(osSearchProduct.toLowerCase())) ||
-                            ((p.alt_code || '').toLowerCase().includes(osSearchProduct.toLowerCase())))
-                        ).map(p => (
-                          <button
-                            key={`prod-${p.id}`}
-                            onClick={() => { handleAddOsItem(p); setOsSearchProduct(''); }}
-                            className="w-full text-left px-5 py-3.5 hover:bg-rose-50 flex justify-between items-center transition-colors group"
-                          >
-                            <div>
-                              <p className="text-sm font-bold text-slate-800 group-hover:text-rose-700 dark:text-slate-100">{p.description}</p>
-                              <div className="flex gap-2 mt-1.5">
-                                <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1 dark:text-slate-400"><Package size={10}/> Estoque: {p.stock}</span>
-                                {p.brand && <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase font-bold dark:bg-slate-800 dark:text-slate-400">{p.brand}</span>}
-                              </div>
-                            </div>
-                            <span className="text-sm font-black text-rose-600">R$ {(p.sale_price || 0).toFixed(2)}</span>
-                          </button>
-                        ))}
-
-                        {/* Serviços Encontrados */}
-                        {sortedRegisteredServices.filter(s =>
-                          s && (s.description || '').toLowerCase().includes(osSearchProduct.toLowerCase())
-                        ).map(s => (
-                          <button
-                            key={`serv-${s.id}`}
-                            onClick={() => {
-                              setOsForm({ ...osForm, items: [...osForm.items, { description: s.description, quantity: 1, price: s.price, type: 'Serviço' }] });
-                              setOsSearchProduct('');
-                            }}
-                            className="w-full text-left px-5 py-3.5 hover:bg-amber-50 flex justify-between items-center transition-colors group"
-                          >
-                            <div>
-                              <p className="text-sm font-bold text-slate-800 group-hover:text-amber-700 dark:text-slate-100">{s.description}</p>
-                              <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold uppercase mt-1.5 inline-flex items-center gap-1"><Wrench size={10}/> Serviço Cadastrado</span>
-                            </div>
-                            <span className="text-sm font-black text-amber-600">R$ {(s.price || 0).toFixed(2)}</span>
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Adicionar Avulso */}
-                      <div className="p-3 bg-slate-50 sticky bottom-0 border-t border-slate-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] dark:bg-slate-900 dark:border-slate-700">
-                        <button
-                          onClick={() => {
-                            setOsForm({ ...osForm, items: [...osForm.items, { description: osSearchProduct.toUpperCase(), quantity: 1, price: 0, type: 'Peça' }] });
-                            setOsSearchProduct('');
-                          }}
-                          className="w-full py-3 bg-white border-2 border-rose-200 text-xs font-black text-rose-600 rounded-xl hover:bg-rose-50 hover:border-rose-400 transition-all uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm dark:bg-slate-800"
-                        >
-                          <PlusCircle size={16} /> Adicionar "{osSearchProduct}" como item avulso
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <SmartProductSearch
+                    products={products}
+                    services={sortedRegisteredServices}
+                    chargeType={osForm.charge_type || 'vista'}
+                    onSelectProduct={(p) => handleAddOsItem(p)}
+                    onSelectService={(s) => {
+                      setOsForm({
+                        ...osForm,
+                        items: [
+                          ...osForm.items,
+                          {
+                            description: s.description || s.name || '',
+                            quantity: 1,
+                            price: s.price,
+                            type: 'Serviço',
+                          },
+                        ],
+                      });
+                    }}
+                    onAddCustomItem={(desc) => {
+                      setOsForm({
+                        ...osForm,
+                        items: [
+                          ...osForm.items,
+                          {
+                            description: desc,
+                            quantity: 1,
+                            price: 0,
+                            type: 'Peça',
+                          },
+                        ],
+                      });
+                    }}
+                    placeholder="Buscar peça/serviço ou digite para adicionar item avulso..."
+                    autoFocus
+                  />
                 </div>
 
                 {/* Listas de Peças e Serviços */}
