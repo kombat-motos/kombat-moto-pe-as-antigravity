@@ -1075,22 +1075,45 @@ export default function App() {
     customer_id: string;
     mechanic_id: string;
     items: SaleItem[];
-    payment_method: 'Pix' | 'Cartão' | 'Dinheiro' | 'Fiado';
+    payment_method: string;
     due_date: string;
     sale_condition: 'Vista' | 'Prazo';
     installments: number;
     discount: number;
-    charge_type?: 'vista' | 'credito_30_dias' | 'atacado';
+    surcharge?: number;
+    charge_type?: 'vista' | 'credito_30_dias' | 'atacado' | 'fiado';
   }>({
     customer_id: '',
     mechanic_id: '',
     items: [],
-    payment_method: 'Pix' as 'Pix' | 'Cartão' | 'Dinheiro' | 'Fiado',
+    payment_method: 'Pix',
     due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     sale_condition: 'Vista',
     installments: 1,
-    discount: 0
+    discount: 0,
+    surcharge: 0,
+    charge_type: 'vista'
   });
+
+  const handleCancelPdvSale = () => {
+    if (pdvForm.items.length > 0) {
+      if (!window.confirm('Tem certeza que deseja cancelar e limpar a venda atual?')) {
+        return;
+      }
+    }
+    setPdvForm({
+      customer_id: '',
+      mechanic_id: '',
+      items: [],
+      payment_method: 'Pix',
+      due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      sale_condition: 'Vista',
+      installments: 1,
+      discount: 0,
+      surcharge: 0,
+      charge_type: 'vista'
+    });
+  };
   const [selectedPdvCategory, setSelectedPdvCategory] = useState<string>('all');
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [checkoutPaymentReceived, setCheckoutPaymentReceived] = useState<string>('');
@@ -2527,11 +2550,12 @@ export default function App() {
     }
 
     const itemsBaseTotal = pdvForm.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-    const subtotalWithDiscount = Math.max(0, itemsBaseTotal - (pdvForm.discount || 0));
+    const subtotalWithDiscount = Math.max(0, itemsBaseTotal - (pdvForm.discount || 0) + (pdvForm.surcharge || 0));
     let total = subtotalWithDiscount;
     let finalItems = [...pdvForm.items];
 
-    if (pdvForm.payment_method === 'Cartão' && pdvForm.sale_condition === 'Prazo') {
+    const isCardCredit = pdvForm.payment_method === 'Cartão Crédito' || (pdvForm.payment_method === 'Cartão' && pdvForm.sale_condition === 'Prazo');
+    if (isCardCredit && pdvForm.installments > 1) {
       const fee = cardFeesSettings[pdvForm.installments] || 0;
       const divisor = 1 - (fee / 100);
       total = divisor > 0 ? (subtotalWithDiscount / divisor) : subtotalWithDiscount;
@@ -2605,9 +2629,9 @@ export default function App() {
       payment_method: pdvForm.payment_method,
       type: 'Balcão',
       date: new Date().toISOString(),
-      payment_status: pdvForm.payment_method === 'Fiado' ? 'Pendente' : 'Pago',
-      due_date: pdvForm.payment_method === 'Fiado' ? pdvForm.due_date : undefined,
-      paid_date: pdvForm.payment_method !== 'Fiado' ? new Date().toISOString() : undefined,
+      payment_status: (pdvForm.payment_method === 'Fiado' || pdvForm.payment_method === 'Crediário') ? 'Pendente' : 'Pago',
+      due_date: (pdvForm.payment_method === 'Fiado' || pdvForm.payment_method === 'Crediário') ? pdvForm.due_date : undefined,
+      paid_date: (pdvForm.payment_method !== 'Fiado' && pdvForm.payment_method !== 'Crediário') ? new Date().toISOString() : undefined,
       charge_type: pdvForm.charge_type
     };
 
@@ -2633,6 +2657,7 @@ export default function App() {
         sale_condition: 'Vista',
         installments: 1,
         discount: 0,
+        surcharge: 0,
         charge_type: 'vista'
       });
       setCheckoutPaymentReceived('');
@@ -2973,7 +2998,35 @@ export default function App() {
                 alert('Adicione itens ao carrinho primeiro!');
               }
             },
+            onFinalizeSale: handleCompleteSale,
+            onCancelSale: handleCancelPdvSale,
+            onClearCart: handleCancelPdvSale,
             onDiscountChange: (discount) => setPdvForm(prev => ({ ...prev, discount })),
+            onSurchargeChange: (surcharge) => setPdvForm(prev => ({ ...prev, surcharge })),
+            onPaymentMethodChange: (payment_method) => {
+              setPdvForm(prev => {
+                let nextDue = prev.due_date;
+                let nextCondition = prev.sale_condition;
+                if (payment_method === 'Fiado') {
+                  const cust = customers.find(c => c.id === parseInt(prev.customer_id));
+                  nextDue = calculateBillingDueDate(new Date(), cust?.billing_day);
+                  nextCondition = 'Prazo';
+                } else if (payment_method === 'Crediário') {
+                  nextCondition = 'Prazo';
+                } else if (payment_method === 'Cartão Crédito') {
+                  nextCondition = prev.installments > 1 ? 'Prazo' : 'Vista';
+                } else {
+                  nextCondition = 'Vista';
+                }
+                return { ...prev, payment_method, due_date: nextDue, sale_condition: nextCondition };
+              });
+            },
+            onInstallmentsChange: (installments) => setPdvForm(prev => ({
+              ...prev,
+              installments,
+              sale_condition: installments > 1 ? 'Prazo' : 'Vista'
+            })),
+            onDueDateChange: (due_date) => setPdvForm(prev => ({ ...prev, due_date })),
             onCustomerChange: (customer_id) => {
               const cust = customers.find(c => c.id === parseInt(customer_id));
               setPdvForm(prev => {
@@ -2995,6 +3048,11 @@ export default function App() {
               }));
               setPdvSearchProduct('');
             },
+            onOpenCustomerModal: () => setIsCustomerModalOpen(true),
+            onOpenOsModal: () => setIsOsModalOpen(true),
+            onOpenQuotesTab: () => setActiveTab('quotes'),
+            onNavigateTab: (tab) => setActiveTab(tab),
+            onLogout: handleLogout,
           }}
           data={{
             products,
@@ -3005,10 +3063,14 @@ export default function App() {
             todaySales,
             totalToday,
             currentUser: user,
+            cardFeesSettings,
+            companyLogo,
           }}
           helpers={{
             formatBRL,
             getCustomerRemainingCredit,
+            isCustomerReallyBlocked,
+            localApi,
           }}
         />
 
