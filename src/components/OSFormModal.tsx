@@ -390,18 +390,31 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
 
             {/* 2. Cliente (Busca Inteligente) */}
             <div className="col-span-1 sm:col-span-2 md:col-span-2 lg:col-span-2 relative z-[110]">
-              <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5 flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><Users size={13} className="text-rose-500" /> Cliente</span>
-                {currentCustomer && (
-                  <span className={`text-[9px] font-black px-1.5 py-0.2 rounded ${
-                    isCustomerReallyBlocked(currentCustomer)
-                      ? 'bg-rose-950 text-rose-400 border border-rose-800'
-                      : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
-                  }`}>
-                    {isCustomerReallyBlocked(currentCustomer) ? 'CRÉDITO BLOQUEADO' : 'LIBERADO'}
-                  </span>
-                )}
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1.5">
+                  <Users size={13} className="text-rose-500" /> Cliente
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {currentCustomer && (
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
+                      isCustomerReallyBlocked(currentCustomer)
+                        ? 'bg-rose-950 text-rose-400 border border-rose-800'
+                        : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
+                    }`}>
+                      {isCustomerReallyBlocked(currentCustomer) ? 'CRÉDITO BLOQUEADO' : 'LIBERADO'}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onOpenNewCustomerModal}
+                    className="text-[10px] font-black text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 px-2 py-0.5 rounded-lg border border-rose-500/30 hover:border-rose-500 transition-all flex items-center gap-1 cursor-pointer"
+                    title="Cadastrar Novo Cliente"
+                  >
+                    <Plus size={11} strokeWidth={3} />
+                    <span>+ Novo</span>
+                  </button>
+                </div>
+              </div>
               <SmartCustomerSearch
                 customers={customers}
                 motorcycles={motorcycles}

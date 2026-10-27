@@ -330,30 +330,47 @@ export const SmartCustomerSearch: React.FC<SmartCustomerSearchProps> = ({
               })
             ) : (
               <div className="py-6 px-4 text-center">
-                <Users size={28} className="mx-auto text-slate-300 dark:text-slate-600 mb-1.5" />
-                <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                <Users size={32} className="mx-auto text-slate-500 mb-2" />
+                <p className="text-xs font-black text-slate-200 uppercase tracking-wide">
                   Nenhum cliente encontrado para "{debouncedTerm}"
                 </p>
-                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                  Pesquise por nome, telefone ou placa da motocicleta.
+                <p className="text-[11px] text-slate-400 mt-1 mb-3">
+                  Deseja cadastrar este novo cliente na oficina?
                 </p>
+                {onOpenNewCustomerModal && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsOpen(false);
+                      onOpenNewCustomerModal();
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase rounded-xl shadow-lg shadow-rose-900/40 transition-all cursor-pointer"
+                  >
+                    <UserPlus size={15} />
+                    Cadastrar Novo Cliente Agora
+                  </button>
+                )}
               </div>
             )}
           </div>
 
           {/* Botão + Cadastrar novo cliente (sempre visível no rodapé do dropdown) */}
           {onOpenNewCustomerModal && (
-            <div className="p-2 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+            <div className="p-3 bg-slate-900 border-t border-slate-800 shrink-0">
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   setIsOpen(false);
                   onOpenNewCustomerModal();
                 }}
-                className="w-full py-2 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                className="w-full py-3 px-4 bg-gradient-to-r from-rose-600 via-rose-500 to-rose-600 hover:from-rose-500 hover:to-rose-400 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(225,29,72,0.45)] hover:shadow-[0_4px_25px_rgba(225,29,72,0.65)] active:scale-[0.98] cursor-pointer border border-rose-400/40"
               >
-                <UserPlus size={14} />
-                + Cadastrar novo cliente
+                <UserPlus size={16} strokeWidth={2.5} className="text-white" />
+                <span>+ CADASTRAR NOVO CLIENTE</span>
               </button>
             </div>
           )}

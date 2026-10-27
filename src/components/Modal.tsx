@@ -10,6 +10,7 @@ interface ModalProps {
   maxWidth?: string;
   bodyClassName?: string;
   fullScreen?: boolean;
+  zIndex?: string;
 }
 
 const Modal: React.FC<ModalProps> = ({ 
@@ -19,11 +20,12 @@ const Modal: React.FC<ModalProps> = ({
   children, 
   maxWidth = "max-w-lg",
   bodyClassName = "p-6 max-h-[80vh] overflow-y-auto",
-  fullScreen = false
+  fullScreen = false,
+  zIndex = "z-50"
 }) => (
   <AnimatePresence>
     {isOpen && (
-      <div className={`fixed inset-0 z-50 flex items-center justify-center ${fullScreen ? 'p-0' : 'p-4'}`}>
+      <div className={`fixed inset-0 ${zIndex} flex items-center justify-center ${fullScreen ? 'p-0' : 'p-4'}`}>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

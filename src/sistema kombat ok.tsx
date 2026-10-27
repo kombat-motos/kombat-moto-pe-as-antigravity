@@ -4615,15 +4615,24 @@ export default function App() {
         image_url
       };
 
+      let createdCustomerId: any = null;
       if (editingCustomer) {
         await localApi.put('customers', editingCustomer.id, dataToSave);
       } else {
-        await localApi.post('customers', dataToSave);
+        const resp = await localApi.post('customers', dataToSave);
+        createdCustomerId = resp?.id || (typeof resp === 'number' ? resp : null);
       }
       setIsCustomerModalOpen(false);
       setEditingCustomer(null);
       setCustomerForm({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1, image_url: '' });
-      fetchData();
+      await fetchData();
+
+      if (isOsModalOpen && createdCustomerId) {
+        setOsForm(prev => ({
+          ...prev,
+          customer_id: String(createdCustomerId)
+        }));
+      }
     } catch (error: any) {
       console.error('Error adding/updating customer:', error);
       alert('Erro ao salvar cliente: ' + (error.message || 'Erro desconhecido.'));
@@ -8377,6 +8386,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
         <Modal
           isOpen={isCustomerModalOpen}
+          zIndex="z-[250]"
           onClose={() => {
             setIsCustomerModalOpen(false);
             setEditingCustomer(null);
@@ -8813,6 +8823,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
         <Modal
           isOpen={isMotorcycleModalOpen}
+          zIndex="z-[250]"
           onClose={() => setIsMotorcycleModalOpen(false)}
           title="Cadastrar Moto para Cliente"
         >
