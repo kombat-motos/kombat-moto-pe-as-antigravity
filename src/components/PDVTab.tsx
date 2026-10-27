@@ -333,10 +333,36 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
 
   // Produtos filtrados por busca e categoria
   const filteredProducts = useMemo(() => {
-    let result = sortedProducts;
+    let result: Product[] = sortedProducts;
 
-    if (searchProduct.trim() !== '') {
-      result = searchSmartProducts(result, searchProduct);
+    const query = (searchProduct || '').trim();
+    if (query) {
+      if (query.length >= 2) {
+        const smartResults = searchSmartProducts(sortedProducts as any, query, { limit: 120 });
+        let matched = smartResults.map((r: any) => r.item as Product);
+
+        // Fallback robusto e insensível a acentos caso smartSearch não pontue
+        if (matched.length === 0) {
+          const qNorm = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const qWords = qNorm.split(/\s+/).filter(Boolean);
+          matched = sortedProducts.filter(p => {
+            const fullText = `${p.description || ''} ${p.brand || ''} ${p.sku || ''} ${p.barcode || ''} ${p.application || ''} ${p.category || ''}`
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '');
+            return qWords.every(word => fullText.includes(word));
+          });
+        }
+        result = matched;
+      } else {
+        const qLower = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        result = sortedProducts.filter(p => {
+          const desc = (p.description || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const sku = (p.sku || '').toLowerCase();
+          const bar = (p.barcode || '');
+          return desc.includes(qLower) || sku.includes(qLower) || bar.includes(qLower);
+        });
+      }
     }
 
     if (selectedCategory && selectedCategory !== 'all' && selectedCategory !== 'TODAS') {
@@ -347,6 +373,17 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
 
     return result;
   }, [sortedProducts, searchProduct, selectedCategory]);
+
+  // Limite de exibição para máxima fluidez visual
+  const [displayLimit, setDisplayLimit] = useState(60);
+
+  useEffect(() => {
+    setDisplayLimit(60);
+  }, [searchProduct, selectedCategory]);
+
+  const visibleFilteredProducts = useMemo(() => {
+    return filteredProducts.slice(0, displayLimit);
+  }, [filteredProducts, displayLimit]);
 
   // Preço de exibição conforme modalidade comercial selecionada
   const getDisplayPrice = useCallback((product: Product): number => {
@@ -943,7 +980,7 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5 pb-2">
-                {filteredProducts.map(product => {
+                {visibleFilteredProducts.map(product => {
                   const displayPrice = getDisplayPrice(product);
                   const isOutOfStock = product.stock <= 0;
 
@@ -1024,6 +1061,17 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
                     </div>
                   );
                 })}
+                {displayLimit < filteredProducts.length && (
+                  <div className="col-span-full py-3 flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDisplayLimit(prev => Math.min(prev + 60, filteredProducts.length))}
+                      className="px-4 py-2 bg-[#0E1726] hover:bg-[#1F2E47] text-slate-300 hover:text-white border border-[#1F2E47] rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                    >
+                      Carregar mais produtos ({visibleFilteredProducts.length} de {filteredProducts.length})
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
