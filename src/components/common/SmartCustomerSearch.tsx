@@ -178,7 +178,7 @@ export const SmartCustomerSearch: React.FC<SmartCustomerSearchProps> = ({
   };
 
   return (
-    <div ref={containerRef} className={`relative z-50 w-full ${className}`}>
+    <div ref={containerRef} className={`relative z-[120] w-full ${className}`}>
       {/* Input de Busca de Cliente */}
       <div className="relative">
         <input
@@ -216,13 +216,13 @@ export const SmartCustomerSearch: React.FC<SmartCustomerSearchProps> = ({
 
       {/* Lista Flutuante de Clientes Encontrados */}
       {isOpen && (
-        <div className="absolute left-0 top-[calc(100%+6px)] w-full min-w-[320px] max-w-lg bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-72 overflow-hidden z-[120] flex flex-col dark:bg-slate-800 dark:border-slate-700 animate-in fade-in slide-in-from-top-1 duration-150">
-          <div className="px-3.5 py-2 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400">
+        <div className="absolute left-0 top-[calc(100%+6px)] w-full min-w-[340px] max-w-lg bg-white border border-slate-200 rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] max-h-80 overflow-hidden z-[200] flex flex-col dark:bg-slate-900 dark:border-slate-700 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400">
             <span>{searchResults.length} {searchResults.length === 1 ? 'cliente encontrado' : 'clientes encontrados'}</span>
             <span className="text-[10px] text-slate-400">Pressione ↑ ↓ e Enter</span>
           </div>
 
-          <div ref={listRef} className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/60 custom-scrollbar">
+          <div ref={listRef} className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 custom-scrollbar bg-white dark:bg-slate-900">
             {searchResults.length > 0 ? (
               searchResults.map((res, idx) => {
                 const isSelected = idx === selectedIndex;
@@ -239,8 +239,8 @@ export const SmartCustomerSearch: React.FC<SmartCustomerSearchProps> = ({
                     onMouseEnter={() => setSelectedIndex(idx)}
                     className={`w-full px-3.5 py-2.5 text-left transition-colors flex items-center justify-between group cursor-pointer ${
                       isSelected
-                        ? 'bg-rose-50/90 dark:bg-slate-700/90'
-                        : 'hover:bg-slate-50 dark:hover:bg-slate-700/40'
+                        ? 'bg-rose-50 dark:bg-slate-800'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/60 dark:bg-slate-900'
                     }`}
                   >
                     <div className="min-w-0 flex-1 pr-3">
@@ -343,7 +343,7 @@ export const SmartCustomerSearch: React.FC<SmartCustomerSearchProps> = ({
 
           {/* Botão + Cadastrar novo cliente (sempre visível no rodapé do dropdown) */}
           {onOpenNewCustomerModal && (
-            <div className="p-2 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
+            <div className="p-2 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => {

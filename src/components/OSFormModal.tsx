@@ -343,7 +343,7 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
         {/* ========================================================= */}
         {/* ÁREA 1: CABEÇALHO E IDENTIFICAÇÃO (Topo Completo e Limpo)  */}
         {/* ========================================================= */}
-        <div className="bg-slate-900/95 border-b border-slate-800 p-4 lg:px-6 shrink-0 shadow-lg relative z-30">
+        <div className="bg-slate-900/95 border-b border-slate-800 p-4 lg:px-6 shrink-0 shadow-lg relative z-[100]">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3.5 items-end">
             
             {/* 1. Tabela de Preço */}
@@ -389,7 +389,7 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
             </div>
 
             {/* 2. Cliente (Busca Inteligente) */}
-            <div className="col-span-1 sm:col-span-2 md:col-span-2 lg:col-span-2 relative">
+            <div className="col-span-1 sm:col-span-2 md:col-span-2 lg:col-span-2 relative z-[110]">
               <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1.5 flex items-center justify-between">
                 <span className="flex items-center gap-1.5"><Users size={13} className="text-rose-500" /> Cliente</span>
                 {currentCustomer && (
@@ -577,12 +577,12 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
         {/* ========================================================= */}
         {/* CORPO DA O.S.: 70% ÁREA PRINCIPAL + 30% PAINEL FINANCEIRO  */}
         {/* ========================================================= */}
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 bg-slate-950 p-4 lg:p-6 gap-6">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 bg-slate-950 p-4 lg:p-6 gap-6 relative z-10">
           
           {/* ------------------------------------------------------- */}
           {/* ÁREA 2: PRINCIPAL (PESQUISA + TABELA DE PEÇAS E SERVIÇOS) */}
           {/* ------------------------------------------------------- */}
-          <div className="flex-1 lg:flex-[7] flex flex-col gap-4 overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+          <div className="flex-1 lg:flex-[7] flex flex-col gap-4 overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative z-10">
             
             {/* Topo da Área 2: Barra de Busca Inteligente */}
             <div className="relative shrink-0">
