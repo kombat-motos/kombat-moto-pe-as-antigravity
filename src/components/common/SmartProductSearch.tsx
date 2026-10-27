@@ -75,7 +75,7 @@ export const SmartProductSearch: React.FC<SmartProductSearchProps> = ({
     return searchSmartProducts(products, debouncedTerm, {
       services,
       limit: 35,
-      activePriceTable: chargeType,
+      activePriceTable: (chargeType as 'vista' | 'credito_30_dias' | 'atacado') || 'vista',
     });
   }, [products, services, debouncedTerm, chargeType]);
 

@@ -46,7 +46,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   useEffect(() => {
     if (isOpen && customer) {
       // Se tiver mais de uma nota, o padrão ideal é o Modelo C
-      const code = selectedNotes.length > 1 ? 'C' : (initialTemplateCode || 'B');
+      const code = (selectedNotes.length > 1 ? 'C' : (initialTemplateCode || 'B')) as 'A' | 'B' | 'C' | 'D' | 'E';
       setSelectedTemplate(code);
       const generated = buildWhatsAppMessage(code, customTemplates, customer, selectedNotes, { pixKey });
       setMessageText(generated);

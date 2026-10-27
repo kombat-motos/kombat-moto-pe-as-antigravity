@@ -285,3 +285,5 @@ export const canViewCostPrice = (userOrRole: any): boolean => {
   return DEFAULT_ROLE_PERMISSIONS[normRole]?.estoque_visualizar_custo ?? false;
 };
 
+export const ROLE_PERMISSIONS = DEFAULT_ROLE_PERMISSIONS;
+
