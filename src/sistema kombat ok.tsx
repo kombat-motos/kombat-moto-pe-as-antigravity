@@ -95,6 +95,8 @@ import { ConfirmModal } from './components/common/ConfirmModal';
 import SmartProductSearch from './components/common/SmartProductSearch';
 import SmartCustomerSearch from './components/common/SmartCustomerSearch';
 import OSFormModal from './components/OSFormModal';
+import CustomerModal, { CustomerData } from './components/CustomerModal';
+import { calculateBillingDueDate } from './utils/billingDate';
 import { searchSmartProducts } from './utils/smartSearch';
 import { hasPermission, normalizeRole, isAdmin, canViewCostPrice } from './types/auth';
 import UserManagementModule from './components/UserManagementModule';
@@ -124,6 +126,15 @@ interface Customer {
   credit_status?: string;
   credit_block_reason?: string;
   credit_blocked_at?: string;
+  billing_day?: number | null;
+  person_type?: string;
+  secondary_phone?: string;
+  email?: string;
+  number?: string;
+  complement?: string;
+  state?: string;
+  financial_notes?: string;
+  general_notes?: string;
 }
 
 interface Motorcycle {
@@ -2963,7 +2974,16 @@ export default function App() {
               }
             },
             onDiscountChange: (discount) => setPdvForm(prev => ({ ...prev, discount })),
-            onCustomerChange: (customer_id) => setPdvForm(prev => ({ ...prev, customer_id })),
+            onCustomerChange: (customer_id) => {
+              const cust = customers.find(c => c.id === parseInt(customer_id));
+              setPdvForm(prev => {
+                let nextDue = prev.due_date;
+                if (prev.payment_method === 'Fiado') {
+                  nextDue = calculateBillingDueDate(new Date(), cust?.billing_day);
+                }
+                return { ...prev, customer_id, due_date: nextDue };
+              });
+            },
             onMechanicChange: (mechanic_id) => setPdvForm(prev => ({ ...prev, mechanic_id })),
             onAddCustomItem: (description) => {
               setPdvForm(prev => ({
@@ -4592,6 +4612,31 @@ export default function App() {
     } catch (error) {
       console.error('Error saving purchase order:', error);
       alert('Erro ao salvar pedido.');
+    }
+  };
+
+  const handleSaveCustomerModal = async (data: CustomerData) => {
+    try {
+      let createdCustomerId: any = null;
+      if (editingCustomer) {
+        await localApi.put('customers', editingCustomer.id, data);
+      } else {
+        const resp = await localApi.post('customers', data);
+        createdCustomerId = resp?.id || (typeof resp === 'number' ? resp : null);
+      }
+      setIsCustomerModalOpen(false);
+      setEditingCustomer(null);
+      await fetchData();
+
+      if (isOsModalOpen && createdCustomerId) {
+        setOsForm(prev => ({
+          ...prev,
+          customer_id: String(createdCustomerId)
+        }));
+      }
+    } catch (error: any) {
+      console.error('Error saving customer from modal:', error);
+      throw error;
     }
   };
 
@@ -8384,164 +8429,17 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           </div>
         </Modal>
 
-        <Modal
+        <CustomerModal
           isOpen={isCustomerModalOpen}
           zIndex="z-[250]"
           onClose={() => {
             setIsCustomerModalOpen(false);
             setEditingCustomer(null);
-            setCustomerForm({ name: '', nickname: '', cpf: '', cnpj: '', whatsapp: '', address: '', neighborhood: '', city: '', zip_code: '', credit_limit: 0, fine_rate: 2, interest_rate: 1, image_url: '' });
           }}
-          title={editingCustomer ? "Editar Cliente" : "Cadastrar Novo Cliente"}
-          maxWidth="max-w-4xl"
-        >
-          <form onSubmit={handleAddCustomer} className="space-y-4">
-            <div className="flex flex-col items-center mb-6">
-              <div className="relative w-32 h-32 bg-slate-100 border-2 border-slate-200 rounded-[2rem] overflow-hidden group shadow-inner flex items-center justify-center dark:bg-slate-800 dark:border-slate-700">
-                {customerForm.image_url ? (
-                  <img src={customerForm.image_url} alt="Foto do Cliente" className="w-full h-full object-cover" />
-                ) : (
-                  <User size={48} className="text-slate-300" />
-                )}
-                <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-all">
-                  <Camera size={24} className="text-white mb-1" />
-                  <span className="text-[10px] text-white font-bold uppercase">Foto do Cliente</span>
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    capture="environment" 
-                    className="hidden" 
-                    onChange={handleCustomerImageUpload} 
-                  />
-                </label>
-              </div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mt-2 tracking-widest">Toque para capturar foto</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Nome Completo</label>
-                <input
-                  type="text" required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={customerForm.name}
-                  onChange={e => setCustomerForm({ ...customerForm, name: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Apelido (Como é chamado)</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Dequinha, João do Pneu"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={customerForm.nickname}
-                  onChange={e => setCustomerForm({ ...customerForm, nickname: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">CPF (Opcional)</label>
-                <input
-                  type="text" placeholder="000.000.000-00"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={customerForm.cpf}
-                  onChange={e => setCustomerForm({ ...customerForm, cpf: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">CNPJ (Opcional)</label>
-                <input
-                  type="text" placeholder="00.000.000/0000-00"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={customerForm.cnpj}
-                  onChange={e => setCustomerForm({ ...customerForm, cnpj: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Celular (Opcional)</label>
-                <input
-                  type="text" placeholder="5511999999999"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={customerForm.whatsapp}
-                  onChange={e => setCustomerForm({ ...customerForm, whatsapp: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Limite de Crédito (R$)</label>
-                <input
-                  type="number" step="0.01"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600 dark:bg-slate-900 dark:border-slate-700"
-                  value={customerForm.credit_limit}
-                  onChange={e => setCustomerForm({ ...customerForm, credit_limit: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">CEP (Opcional)</label>
-                <input
-                  type="text" placeholder="00000-000"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={customerForm.zip_code}
-                  onChange={e => setCustomerForm({ ...customerForm, zip_code: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Cidade (Opcional)</label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={customerForm.city}
-                  onChange={e => setCustomerForm({ ...customerForm, city: e.target.value })}
-                />
-              </div>
-              <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Bairro (Opcional)</label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={customerForm.neighborhood}
-                  onChange={e => setCustomerForm({ ...customerForm, neighborhood: e.target.value })}
-                />
-              </div>
-              <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Endereço (Opcional)</label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                  value={customerForm.address}
-                  onChange={e => setCustomerForm({ ...customerForm, address: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Multa por Atraso (%)</label>
-                <input
-                  type="number" step="0.01"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
-                  value={customerForm.fine_rate}
-                  onChange={e => setCustomerForm({ ...customerForm, fine_rate: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-100">Juros Mensais (%)</label>
-                <input
-                  type="number" step="0.01"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-400 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
-                  value={customerForm.interest_rate}
-                  onChange={e => setCustomerForm({ ...customerForm, interest_rate: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-            </div>
-            <button type="submit" className="w-full py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-100">
-              {editingCustomer ? "Atualizar Cliente" : "Salvar Cliente"}
-            </button>
-          </form>
-        </Modal>
+          onSave={handleSaveCustomerModal}
+          customer={editingCustomer}
+          existingCustomers={customers}
+        />
 
         <Modal
           isOpen={isProductModalOpen}
@@ -9110,12 +9008,14 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                               });
                               newChargeType = 'credito_30_dias';
                             }
+                            const selectedCust = pdvForm.customer_id ? customers.find(c => c.id === parseInt(pdvForm.customer_id)) : null;
+                            const nextFiadoDueDate = method.id === 'Fiado' ? calculateBillingDueDate(new Date(), selectedCust?.billing_day) : pdvForm.due_date;
                             setPdvForm({ 
                               ...pdvForm, 
                               payment_method: method.id as any,
                               items: newItems,
                               charge_type: newChargeType,
-                              due_date: method.id === 'Fiado' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : pdvForm.due_date
+                              due_date: nextFiadoDueDate
                             });
                           }}
                           className={`py-3 px-4 rounded-xl text-xs font-black border transition-all text-center flex items-center justify-center ${pdvForm.payment_method === method.id
@@ -9156,6 +9056,17 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
 
                   {pdvForm.payment_method === 'Fiado' && (
                     <div className="p-4 bg-amber-50/50 border border-amber-200/50 rounded-2xl dark:bg-amber-950/20 dark:border-amber-900/30 animate-in fade-in duration-200 flex flex-col gap-3">
+                      {(() => {
+                        const selectedCust = pdvForm.customer_id ? customers.find(c => c.id === parseInt(pdvForm.customer_id)) : null;
+                        return selectedCust?.billing_day ? (
+                          <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2 text-rose-400 text-xs font-bold">
+                            <Calendar size={15} className="shrink-0" />
+                            <span>
+                              Dia fixo de vencimento do cliente: <strong>Todo dia {String(selectedCust.billing_day).padStart(2, '0')}</strong> (calculado automaticamente).
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
                       <div>
                         <label className="block text-xs uppercase font-black text-amber-700 dark:text-amber-400 mb-1.5">Data de Vencimento da 1ª Parcela</label>
                         <input

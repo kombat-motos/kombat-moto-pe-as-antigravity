@@ -7,7 +7,7 @@ import {
   ShieldAlert, AlertTriangle, Clock, Search, Send, FileText, 
   CheckCircle, Phone, MessageCircle, DollarSign, Handshake, 
   Settings, Download, Layers, Users, ChevronDown, ChevronUp, 
-  Printer, ArrowUpDown, Filter, Lock, CheckSquare, Eye 
+  Printer, ArrowUpDown, Filter, Lock, CheckSquare, Eye, Calendar
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -129,6 +129,7 @@ function buildGroupedFromProps(credits: any[], customers: any[], sales: any[]): 
         credit_status: cust.credit_status || 'LIBERADO',
         credit_limit: cust.credit_limit || 0,
         credit_block_reason: cust.credit_block_reason || '',
+        billing_day: cust.billing_day || null,
         notes: [],
         total_original: 0,
         total_paid: 0,
@@ -222,6 +223,7 @@ function buildGroupedFromProps(credits: any[], customers: any[], sales: any[]): 
             credit_status: cust.credit_status || 'LIBERADO',
             credit_limit: cust.credit_limit || 0,
             credit_block_reason: cust.credit_block_reason || '',
+            billing_day: cust.billing_day || null,
             notes: [],
             total_original: 0,
             total_paid: 0,
@@ -911,6 +913,12 @@ export default function CentralCobranca({
                         <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-mono">
                           {unpaidNotes.length} nota{unpaidNotes.length > 1 ? 's' : ''} em aberto
                         </span>
+                        {customer.billing_day && (
+                          <span className="text-[10px] bg-rose-500/15 border border-rose-500/30 text-rose-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                            <Calendar size={11} className="text-rose-400" />
+                            Dia Fixo: {String(customer.billing_day).padStart(2, '0')}
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mt-1">

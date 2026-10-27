@@ -32,6 +32,7 @@ import Modal from './Modal';
 import SmartCustomerSearch from './common/SmartCustomerSearch';
 import SmartProductSearch from './common/SmartProductSearch';
 import { CustomerItem, MotorcycleItem, ProductItem, ServiceItem } from '../utils/smartSearch';
+import { calculateBillingDueDate } from '../utils/billingDate';
 
 export interface SaleItem {
   product_id?: number;
@@ -431,6 +432,7 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
                   }
                   const custMotos = motorcycles.filter(m => m.customer_id === c.id);
                   const chosenMoto = matchedMoto || (custMotos.length > 0 ? custMotos[0] : null);
+                  const nextDueIfFiado = osForm.payment_method === 'Fiado' ? calculateBillingDueDate(new Date(), c.billing_day) : osForm.due_date;
                   if (chosenMoto) {
                     setOsForm(prev => ({
                       ...prev,
@@ -438,6 +440,7 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
                       motorcycle_id: chosenMoto.id.toString(),
                       motorcycle_plate: chosenMoto.plate,
                       km: chosenMoto.current_km ? String(chosenMoto.current_km) : '',
+                      due_date: nextDueIfFiado || prev.due_date,
                     }));
                   } else {
                     setOsForm(prev => ({
@@ -446,6 +449,7 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
                       motorcycle_id: '',
                       motorcycle_plate: '',
                       km: '',
+                      due_date: nextDueIfFiado || prev.due_date,
                     }));
                   }
                 }}
@@ -1051,10 +1055,13 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
                       key={method}
                       type="button"
                       onClick={() => {
+                        const cust = osForm.customer_id ? customers.find(c => c.id === parseInt(osForm.customer_id)) : null;
+                        const nextDue = method === 'Fiado' ? calculateBillingDueDate(new Date(), cust?.billing_day) : osForm.due_date;
                         setOsForm(prev => ({
                           ...prev,
                           payment_method: method,
                           charge_type: method === 'Fiado' ? 'credito_30_dias' : prev.charge_type,
+                          due_date: nextDue || prev.due_date,
                         }));
                       }}
                       className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${
@@ -1071,6 +1078,12 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
                 {/* Opções extras quando Fiado */}
                 {osForm.payment_method === 'Fiado' && (
                   <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2.5">
+                    {currentCustomer?.billing_day && (
+                      <div className="p-2 bg-rose-500/15 border border-rose-500/30 rounded-lg flex items-center gap-1.5 text-rose-400 text-[11px] font-bold">
+                        <Sparkles size={13} className="shrink-0" />
+                        <span>Dia fixo de vencimento do cliente: <strong>Todo dia {String(currentCustomer.billing_day).padStart(2, '0')}</strong></span>
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[9px] font-black uppercase text-rose-400 mb-1">1º Vencimento</label>

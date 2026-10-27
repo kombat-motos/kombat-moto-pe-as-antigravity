@@ -37,6 +37,7 @@ export interface CustomerDebtGroup {
   credit_status: string;
   credit_limit: number;
   credit_block_reason?: string;
+  billing_day?: number | null;
   notes: CreditNote[];
   total_original: number;
   total_paid: number;

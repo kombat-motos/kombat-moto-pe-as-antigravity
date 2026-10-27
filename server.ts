@@ -829,6 +829,15 @@ try {
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_block_reason TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_blocked_at TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_blocked_by INTEGER"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN billing_day INTEGER"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN person_type TEXT DEFAULT 'Fisica'"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN secondary_phone TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN email TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN number TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN complement TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN state TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN financial_notes TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN general_notes TEXT"); } catch (e) {}
 
 try { db.exec("ALTER TABLE credit ADD COLUMN promise_date TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE credit ADD COLUMN promise_amount REAL"); } catch (e) {}
@@ -2255,12 +2264,37 @@ async function startServer() {
     res.json(customers);
   });
   app.post("/api/customers", authenticateToken, (req, res) => {
-    const { name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate, image_url } = req.body;
+    const { 
+      name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, 
+      credit_limit, fine_rate, interest_rate, image_url,
+      billing_day, person_type, secondary_phone, email, number, complement, state, 
+      financial_notes, general_notes 
+    } = req.body;
     const userId = req.user!.id;
+    const safeBillingDay = billing_day && parseInt(billing_day) >= 1 && parseInt(billing_day) <= 31 ? parseInt(billing_day) : null;
+    const safePersonType = person_type === 'Juridica' ? 'Juridica' : 'Fisica';
+    const safeSecPhone = secondary_phone || null;
+    const safeEmail = email || null;
+    const safeNumber = number || null;
+    const safeComplement = complement || null;
+    const safeState = state || null;
+    const safeFinNotes = financial_notes || null;
+    const safeGenNotes = general_notes || null;
+
     try {
       const run = db.transaction(() => {
-        const info = db.prepare("INSERT INTO customers (user_id, name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-          .run(userId, name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit || 0, fine_rate || 2, interest_rate || 1, image_url);
+        const info = db.prepare(`INSERT INTO customers (
+          user_id, name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, 
+          credit_limit, fine_rate, interest_rate, image_url,
+          billing_day, person_type, secondary_phone, email, number, complement, state, 
+          financial_notes, general_notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run(
+            userId, name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, 
+            credit_limit || 0, fine_rate !== undefined ? fine_rate : 2, interest_rate !== undefined ? interest_rate : 1, image_url,
+            safeBillingDay, safePersonType, safeSecPhone, safeEmail, safeNumber, safeComplement, safeState, 
+            safeFinNotes, safeGenNotes
+          );
         const newId = info.lastInsertRowid;
         
         // Sync with CRM clientes table
@@ -2279,16 +2313,40 @@ async function startServer() {
   });
 
   app.put("/api/customers/:id", authenticateToken, (req, res) => {
-    const { name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit, fine_rate, interest_rate, image_url } = req.body;
+    const { 
+      name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, 
+      credit_limit, fine_rate, interest_rate, image_url,
+      billing_day, person_type, secondary_phone, email, number, complement, state, 
+      financial_notes, general_notes 
+    } = req.body;
     const userId = req.user!.id;
     const customerId = req.params.id;
+    const safeBillingDay = billing_day && parseInt(billing_day) >= 1 && parseInt(billing_day) <= 31 ? parseInt(billing_day) : null;
+    const safePersonType = person_type === 'Juridica' ? 'Juridica' : 'Fisica';
+    const safeSecPhone = secondary_phone || null;
+    const safeEmail = email || null;
+    const safeNumber = number || null;
+    const safeComplement = complement || null;
+    const safeState = state || null;
+    const safeFinNotes = financial_notes || null;
+    const safeGenNotes = general_notes || null;
+
     try {
       db.transaction(() => {
         db.prepare(`
           UPDATE customers 
-          SET name = ?, nickname = ?, cpf = ?, cnpj = ?, whatsapp = ?, address = ?, neighborhood = ?, city = ?, zip_code = ?, credit_limit = ?, fine_rate = ?, interest_rate = ?, image_url = ? 
+          SET name = ?, nickname = ?, cpf = ?, cnpj = ?, whatsapp = ?, address = ?, neighborhood = ?, city = ?, zip_code = ?, 
+              credit_limit = ?, fine_rate = ?, interest_rate = ?, image_url = ?,
+              billing_day = ?, person_type = ?, secondary_phone = ?, email = ?, number = ?, complement = ?, state = ?, 
+              financial_notes = ?, general_notes = ?
           WHERE id = ? AND user_id = ?
-        `).run(name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, credit_limit || 0, fine_rate || 2, interest_rate || 1, image_url, customerId, userId);
+        `).run(
+          name, nickname, cpf, cnpj, whatsapp, address, neighborhood, city, zip_code, 
+          credit_limit || 0, fine_rate !== undefined ? fine_rate : 2, interest_rate !== undefined ? interest_rate : 1, image_url,
+          safeBillingDay, safePersonType, safeSecPhone, safeEmail, safeNumber, safeComplement, safeState, 
+          safeFinNotes, safeGenNotes,
+          customerId, userId
+        );
         
         // Sync CRM clientes
         const exists = db.prepare("SELECT id FROM clientes WHERE id = ? AND user_id = ?").get(customerId, userId);
@@ -2750,7 +2808,27 @@ async function startServer() {
           const roundedValue = Math.round(baseValue * 100) / 100;
           const remainder = Number((safeTotal - (roundedValue * numInstallments)).toFixed(2));
           
-          const [year, month, day] = due_date.split('T')[0].split('-').map(Number);
+          let effectiveDueDate = due_date;
+          if (!effectiveDueDate) {
+            const custRow = db.prepare("SELECT billing_day FROM customers WHERE id = ?").get(safeCustId) as any;
+            const bDay = custRow?.billing_day;
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = now.getMonth() + 1;
+            const d = now.getDate();
+            if (bDay && bDay >= 1 && bDay <= 31) {
+              let tY = y;
+              let tM = d <= bDay ? m : m + 1;
+              if (tM > 12) { tM = 1; tY++; }
+              const maxD = new Date(tY, tM, 0).getDate();
+              const fD = Math.min(bDay, maxD);
+              effectiveDueDate = `${tY}-${String(tM).padStart(2, '0')}-${String(fD).padStart(2, '0')}`;
+            } else {
+              const def = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+              effectiveDueDate = `${def.getFullYear()}-${String(def.getMonth() + 1).padStart(2, '0')}-${String(def.getDate()).padStart(2, '0')}`;
+            }
+          }
+          const [year, month, day] = effectiveDueDate.split('T')[0].split('-').map(Number);
           let currentDate = new Date(year, month - 1, day);
           const originalDay = day;
 
