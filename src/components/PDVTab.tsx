@@ -1130,8 +1130,8 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
                 {/* Cabeçalho da Tabela */}
                 <div className="grid grid-cols-12 text-[9px] font-black uppercase text-slate-400 px-2 py-1 tracking-wider border-b border-[#1E293B]">
                   <span className="col-span-5">PRODUTO</span>
-                  <span className="col-span-3 text-center">QTD</span>
-                  <span className="col-span-2 text-right">VALOR UNIT.</span>
+                  <span className="col-span-2 text-center">QTD</span>
+                  <span className="col-span-3 text-right">VALOR UNIT.</span>
                   <span className="col-span-2 text-right">TOTAL</span>
                 </div>
 
@@ -1165,7 +1165,7 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
                       </div>
 
                       {/* Controle de Quantidade [-] QTD [+] */}
-                      <div className="col-span-3 flex items-center justify-center">
+                      <div className="col-span-2 flex items-center justify-center">
                         <div className="flex items-center bg-[#080D1A] border border-[#1F2E47] rounded-lg overflow-hidden h-6">
                           <button
                             type="button"
@@ -1174,7 +1174,7 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
                           >
                             <Minus size={10} />
                           </button>
-                          <span className="w-6 text-center text-xs font-mono font-bold text-white">
+                          <span className="w-5 text-center text-xs font-mono font-bold text-white">
                             {item.quantity}
                           </span>
                           <button
@@ -1187,9 +1187,25 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
                         </div>
                       </div>
 
-                      {/* Valor Unitário */}
-                      <div className="col-span-2 text-right font-mono text-[11px] text-slate-300">
-                        {formatBRL(item.price)}
+                      {/* Valor Unitário Editável */}
+                      <div className="col-span-3 flex items-center justify-end">
+                        <div className="flex items-center bg-[#080D1A] border border-[#1F2E47] focus-within:border-[#FF1A53] focus-within:ring-1 focus-within:ring-[#FF1A53]/30 rounded-lg px-1.5 h-6 transition-all shadow-inner">
+                          <span className="text-[9px] text-slate-500 mr-0.5 font-mono select-none">R$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.price === 0 ? '' : item.price}
+                            placeholder="0,00"
+                            onFocus={e => e.target.select()}
+                            onChange={e => {
+                              const val = parseFloat(e.target.value);
+                              onPriceChange(idx, isNaN(val) ? 0 : Math.max(0, val));
+                            }}
+                            className="w-16 bg-transparent outline-none text-right font-mono font-bold text-xs text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            title="Editar valor unitário"
+                          />
+                        </div>
                       </div>
 
                       {/* Total + Botão Excluir */}
