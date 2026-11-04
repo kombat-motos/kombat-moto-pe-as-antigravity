@@ -864,11 +864,10 @@ export default function App() {
 
   const localApi = {
     getHeaders: () => {
-      const token = localStorage.getItem('token');
-      return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      };
+      const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token && token !== 'undefined' && token !== 'null') headers['Authorization'] = `Bearer ${token}`;
+      return headers;
     },
     notifyIfExpired: (res: Response) => {
       if (res.status === 401 && typeof window !== 'undefined') {
@@ -5559,18 +5558,20 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
   };
 
   const handleDeleteSale = async (id: string, reason?: string) => {
-    const cancelReason = reason || prompt('Motivo do cancelamento da venda (obrigatório para auditoria):');
-    if (!cancelReason || !cancelReason.trim()) {
-      alert('O cancelamento de venda exige um motivo justificado para auditoria.');
+    if (!window.confirm('Tem certeza que deseja excluir esta venda? O estoque dos produtos será devolvido e os lançamentos financeiros serão estornados automaticamente.')) {
       return;
     }
+    const cancelReason = (reason && reason.trim()) ? reason.trim() : 'Exclusão de venda solicitada pelo Administrador';
     try {
-      await localApi.post(`sales/${id}/cancel`, { reason: cancelReason.trim() });
-      alert('Venda cancelada com sucesso! Estoque e lançamentos financeiros foram devidamente estornados.');
-      fetchData();
+      await localApi.post(`sales/${id}/cancel`, { reason: cancelReason });
+      setSales(prev => prev.filter(s => s.id !== id));
+      setFinancialSales(prev => prev.filter(s => s.id !== id));
+      setCredit(prev => prev.filter((c: any) => c.sale_id !== id));
+      alert('Venda excluída com sucesso! Estoque e lançamentos financeiros foram devidamente estornados.');
+      fetchData(true);
     } catch (error: any) {
       console.error('Error cancelling sale:', error);
-      alert('Erro ao cancelar venda: ' + (error.message || error));
+      alert('Erro ao excluir venda: ' + (error.message || error));
     }
   };
 
@@ -7863,6 +7864,7 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                     setSelectedSaleForReceipt={setSelectedSaleForReceipt}
                     handleSendSaleWhatsApp={handleSendSaleWhatsApp}
                     handleUpdateOSStatus={handleUpdateOSStatus}
+                    handleDeleteSale={handleDeleteSale}
                   />
                 )}
                 {activeTab === 'financial' && (
@@ -11680,4 +11682,4 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
       )}
     </>
   );
-}
+}
