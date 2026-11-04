@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, PlusCircle, Bike, Edit, Printer, MessageCircle } from 'lucide-react';
+import { Search, PlusCircle, Bike, Edit, Printer, MessageCircle, Trash2 } from 'lucide-react';
 
 interface SaleItem {
   product_id?: number;
@@ -59,6 +59,7 @@ interface OSTabProps {
   setSelectedSaleForReceipt: (os: Sale) => void;
   handleSendSaleWhatsApp: (sale: Sale) => void;
   handleUpdateOSStatus?: (osId: string, status: string) => void;
+  handleDeleteSale?: (osId: string) => void;
 }
 
 const OSTab: React.FC<OSTabProps> = ({
@@ -75,7 +76,8 @@ const OSTab: React.FC<OSTabProps> = ({
   setSelectedSaleForOS,
   setSelectedSaleForReceipt,
   handleSendSaleWhatsApp,
-  handleUpdateOSStatus
+  handleUpdateOSStatus,
+  handleDeleteSale
 }) => {
   const osSales = sales.filter(s => s.type === 'Oficina');
   const [localSearch, setLocalSearch] = React.useState(salesSearchTerm);
@@ -241,6 +243,15 @@ const OSTab: React.FC<OSTabProps> = ({
                   >
                     <MessageCircle size={14} /> Enviar WhatsApp
                   </button>
+                  {handleDeleteSale && (
+                    <button
+                      onClick={() => handleDeleteSale(os.id)}
+                      title="Excluir O.S."
+                      className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold hover:bg-rose-100 transition-colors flex items-center gap-1 border border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900"
+                    >
+                      <Trash2 size={14} /> Excluir
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

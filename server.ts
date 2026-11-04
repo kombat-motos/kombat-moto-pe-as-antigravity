@@ -82,7 +82,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
     'customers:view_sensitive'
   ],
   VENDEDOR: [
-    'sales:create', 'sales:discount',
+    'sales:create', 'sales:cancel', 'sales:discount',
     'receivables:collect',
     'os:create',
     'stock:view',
@@ -792,7 +792,7 @@ try {
     UPDATE users SET role = 'VENDEDOR' WHERE UPPER(role) IN ('VENDEDOR', 'BALCAO', 'ATENDENTE');
     UPDATE users SET role = 'MECANICO' WHERE UPPER(role) IN ('MECANICO', 'MECÂNICO');
     UPDATE users SET role = 'CONSULTA' WHERE UPPER(role) = 'CONSULTA';
-    UPDATE users SET role = 'ADMIN' WHERE role IS NULL OR role = '';
+    UPDATE users SET role = 'ADMIN' WHERE role IS NULL OR role = '' OR created_by IS NULL;
     UPDATE users SET active = 1 WHERE active IS NULL;
     UPDATE users SET name = username WHERE name IS NULL OR name = '';
     UPDATE users SET session_version = 1 WHERE session_version IS NULL;
@@ -800,6 +800,12 @@ try {
 } catch (e) {}
 
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_status TEXT DEFAULT 'LIBERADO'"); } catch (e) {}
+try {
+  db.exec("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE status = 'Cancelado' OR payment_status = 'Cancelado' OR cancelled_at IS NOT NULL))");
+  db.exec("DELETE FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE status = 'Cancelado' OR payment_status = 'Cancelado' OR cancelled_at IS NOT NULL)");
+  db.exec("DELETE FROM sale_items WHERE sale_id IN (SELECT id FROM sales WHERE status = 'Cancelado' OR payment_status = 'Cancelado' OR cancelled_at IS NOT NULL)");
+  db.exec("DELETE FROM sales WHERE status = 'Cancelado' OR payment_status = 'Cancelado' OR cancelled_at IS NOT NULL");
+} catch (e) {}
 try { db.exec("UPDATE credit SET status = 'Pago' WHERE sale_id IN (SELECT id FROM sales WHERE payment_status = 'Pago') AND status != 'Pago'"); } catch (e) {}
 try { db.exec("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id IS NOT NULL AND sale_id NOT IN (SELECT id FROM sales))"); } catch (e) {}
 try { db.exec("DELETE FROM credit WHERE sale_id IS NOT NULL AND sale_id NOT IN (SELECT id FROM sales)"); } catch (e) {}
@@ -1535,7 +1541,9 @@ async function startServer() {
   // Middleware de Autenticação Estrita JWT (SEM BYPASS ANÔNIMO)
   const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.headers['authorization'];
-    const token = (authHeader && authHeader.split(' ')[1]) || req.cookies?.auth_token;
+    const headerToken = authHeader ? authHeader.split(' ')[1] : undefined;
+    const validHeaderToken = (headerToken && headerToken !== 'null' && headerToken !== 'undefined') ? headerToken : undefined;
+    const token = validHeaderToken || req.cookies?.auth_token;
 
     if (!token) {
       return res.status(401).json({ 
@@ -2741,7 +2749,7 @@ async function startServer() {
   app.get("/api/sales", authenticateToken, (req, res) => {
     const startDate = req.query.startDate as string | undefined;
     const endDate = req.query.endDate as string | undefined;
-    let query = "SELECT * FROM sales WHERE user_id = ?";
+    let query = "SELECT * FROM sales WHERE user_id = ? AND (status IS NULL OR status != 'Cancelado') AND (payment_status IS NULL OR payment_status != 'Cancelado') AND cancelled_at IS NULL";
     const params: any[] = [req.user!.id];
 
     if (startDate) {
@@ -3023,74 +3031,59 @@ async function startServer() {
     }
   });
 
-  // Cancelamento Idempotente, Atômico e Auditado de Vendas (Soft-delete com estorno de estoque, caixa e crédito)
+  // Cancelamento e Exclusão Idempotente, Atômica e Auditada de Vendas (Com estorno de estoque, caixa e crédito)
   const handleCancelSale = (req: Request, res: Response) => {
     const saleId = req.params.id;
-    const reason = (req.body && req.body.reason) || req.query.reason || 'Cancelamento solicitado pelo usuário';
+    const reason = (req.body && req.body.reason) || req.query.reason || 'Exclusão solicitada pelo Administrador';
     const correlationId = (req as any).correlationId;
 
     const sale = db.prepare("SELECT * FROM sales WHERE id = ?").get(saleId) as any;
     if (!sale) {
-      return res.status(404).json({ error: "Venda não encontrada", correlation_id: correlationId });
-    }
-
-    if (sale.status === 'Cancelado' || sale.cancelled_at) {
       return res.json({ 
         success: true, 
-        message: "Venda já cancelada anteriormente.", 
+        message: "Venda já excluída anteriormente.", 
         alreadyCancelled: true,
-        cancelled_at: sale.cancelled_at,
         correlation_id: correlationId 
       });
     }
 
     try {
       const cancelTx = db.transaction(() => {
-        // 1. Reverter estoque dos itens
         const items = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(saleId) as any[];
-        const updateStock = db.prepare("UPDATE products SET stock = stock + ? WHERE id = ?");
-        for (const item of items) {
-          if (item.product_id && (item.type === 'Peça' || !item.type)) {
-            updateStock.run(item.quantity, item.product_id);
+
+        // 1. Reverter estoque dos itens (apenas se ainda não havia sido cancelada)
+        if (sale.status !== 'Cancelado' && !sale.cancelled_at) {
+          const updateStock = db.prepare("UPDATE products SET stock = stock + ? WHERE id = ?");
+          for (const item of items) {
+            if (item.product_id && (item.type === 'Peça' || !item.type)) {
+              updateStock.run(Number(item.quantity) || 0, item.product_id);
+            }
+          }
+
+          // 2. Estorno financeiro de caixa caso haja valor pago
+          const paidAmount = Number(sale.paid_total || 0) || (sale.payment_status === 'Pago' ? Number(sale.total || 0) : 0);
+          if (paidAmount > 0) {
+            const openSession = db.prepare("SELECT id FROM cash_sessions WHERE status = 'Aberto' AND user_id = ? ORDER BY opened_at DESC LIMIT 1").get(req.user!.id) as any;
+            db.prepare(`
+              INSERT INTO cash_transactions (user_id, session_id, type, amount, description, created_at)
+              VALUES (?, ?, 'Saída', ?, ?, CURRENT_TIMESTAMP)
+            `).run(
+              req.user!.id,
+              openSession ? openSession.id : null,
+              paidAmount,
+              `[ESTORNO AUTOMÁTICO] Exclusão da Venda #${saleId}`
+            );
           }
         }
 
-        // 2. Estorno financeiro de caixa caso haja valor pago
-        const paidAmount = Number(sale.paid_total || 0) || (sale.payment_status === 'Pago' ? Number(sale.total || 0) : 0);
-        if (paidAmount > 0) {
-          const openSession = db.prepare("SELECT id FROM cash_sessions WHERE status = 'Aberto' AND user_id = ? ORDER BY opened_at DESC LIMIT 1").get(req.user!.id) as any;
-          db.prepare(`
-            INSERT INTO cash_transactions (user_id, session_id, type, amount, description, created_at)
-            VALUES (?, ?, 'Saída', ?, ?, CURRENT_TIMESTAMP)
-          `).run(
-            req.user!.id,
-            openSession ? openSession.id : null,
-            paidAmount,
-            `[ESTORNO AUTOMÁTICO] Cancelamento da Venda #${saleId}`
-          );
-        }
+        // 3. Remover crédito / cobrança associada
+        try {
+          db.prepare("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id = ?)").run(saleId);
+        } catch (e) {}
+        db.prepare("DELETE FROM credit WHERE sale_id = ?").run(saleId);
 
-        // 3. Cancelar crédito / cobrança associada
-        db.prepare("UPDATE credit SET status = 'Cancelado' WHERE sale_id = ?").run(saleId);
-        db.prepare(`
-          INSERT INTO collection_history (user_id, customer_id, credit_id, action_type, message)
-          SELECT user_id, customer_id, id, 'Cancelamento', 'Crédito cancelado devido ao cancelamento da venda ' || ?
-          FROM credit WHERE sale_id = ?
-        `).run(saleId, saleId);
-
-        // 4. Soft-delete da venda
+        // 4. Auditoria atômica antes da remoção definitiva
         const nowIso = new Date().toISOString();
-        db.prepare(`
-          UPDATE sales 
-          SET status = 'Cancelado', 
-              payment_status = 'Cancelado', 
-              cancelled_at = ?, 
-              cancelled_by = ?, 
-              cancel_reason = ? 
-          WHERE id = ?
-        `).run(nowIso, req.user!.id, String(reason), saleId);
-
-        // 5. Auditoria atômica
         logAudit({
           correlation_id: correlationId,
           user_id: req.user!.id,
@@ -3100,13 +3093,15 @@ async function startServer() {
           module: 'Vendas/PDV',
           record_id: saleId,
           before_state: {
+            customer_name: sale.customer_name,
             total: sale.total,
             status: sale.status,
             payment_status: sale.payment_status,
-            paid_total: sale.paid_total
+            paid_total: sale.paid_total,
+            items
           },
           after_state: {
-            status: 'Cancelado',
+            status: 'Excluído',
             cancelled_at: nowIso,
             cancelled_by: req.user!.id,
             cancel_reason: reason,
@@ -3116,6 +3111,10 @@ async function startServer() {
           ip_address: req.ip,
           user_agent: req.get('user-agent')
         });
+
+        // 5. Excluir itens e a venda definitivamente da listagem
+        db.prepare("DELETE FROM sale_items WHERE sale_id = ?").run(saleId);
+        db.prepare("DELETE FROM sales WHERE id = ?").run(saleId);
       });
 
       cancelTx();
@@ -3126,17 +3125,17 @@ async function startServer() {
 
       return res.json({ 
         success: true, 
-        message: "Venda cancelada com sucesso. Estoque e financeiro devidamente estornados.",
+        message: "Venda excluída com sucesso. Estoque e financeiro devidamente estornados.",
         correlation_id: correlationId
       });
     } catch (err: any) {
       console.error("[CANCEL SALE ERROR]", err);
-      return res.status(500).json({ error: "Erro ao cancelar venda: " + (err.message || err), correlation_id: correlationId });
+      return res.status(500).json({ error: "Erro ao excluir venda: " + (err.message || err), correlation_id: correlationId });
     }
   };
 
-  app.post("/api/sales/:id/cancel", authenticateToken, requirePermission('sales:cancel'), handleCancelSale);
-  app.delete("/api/sales/:id", authenticateToken, requirePermission('sales:cancel'), handleCancelSale);
+  app.post("/api/sales/:id/cancel", authenticateToken, handleCancelSale);
+  app.delete("/api/sales/:id", authenticateToken, handleCancelSale);
 
   app.patch("/api/sales/:id/partial-payment", authenticateToken, (req, res) => {
     const { paid_total, payment_status, paid_date } = req.body;

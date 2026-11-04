@@ -416,7 +416,7 @@ const localApi = {
   getHeaders: () => {
     const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (token && token !== 'undefined' && token !== 'null') headers['Authorization'] = `Bearer ${token}`;
     return headers;
   },
   get: async (route: string) => {
