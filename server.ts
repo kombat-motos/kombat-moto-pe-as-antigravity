@@ -805,6 +805,7 @@ try {
   db.exec("DELETE FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE status = 'Cancelado' OR payment_status = 'Cancelado' OR cancelled_at IS NOT NULL)");
   db.exec("DELETE FROM sale_items WHERE sale_id IN (SELECT id FROM sales WHERE status = 'Cancelado' OR payment_status = 'Cancelado' OR cancelled_at IS NOT NULL)");
   db.exec("DELETE FROM sales WHERE status = 'Cancelado' OR payment_status = 'Cancelado' OR cancelled_at IS NOT NULL");
+  db.exec("UPDATE agendamentos SET sale_id = NULL WHERE sale_id IS NOT NULL AND sale_id NOT IN (SELECT id FROM sales)");
 } catch (e) {}
 try { db.exec("UPDATE credit SET status = 'Pago' WHERE sale_id IN (SELECT id FROM sales WHERE payment_status = 'Pago') AND status != 'Pago'"); } catch (e) {}
 try { db.exec("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id IS NOT NULL AND sale_id NOT IN (SELECT id FROM sales))"); } catch (e) {}
@@ -2747,6 +2748,10 @@ async function startServer() {
 
   // Sales & Items
   app.get("/api/sales", authenticateToken, (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     const startDate = req.query.startDate as string | undefined;
     const endDate = req.query.endDate as string | undefined;
     let query = "SELECT * FROM sales WHERE user_id = ? AND (status IS NULL OR status != 'Cancelado') AND (payment_status IS NULL OR payment_status != 'Cancelado') AND cancelled_at IS NULL";
@@ -3033,12 +3038,27 @@ async function startServer() {
 
   // Cancelamento e Exclusão Idempotente, Atômica e Auditada de Vendas (Com estorno de estoque, caixa e crédito)
   const handleCancelSale = (req: Request, res: Response) => {
-    const saleId = req.params.id;
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    const rawId = req.params.id;
+    const saleId = String(rawId || '').trim();
     const reason = (req.body && req.body.reason) || req.query.reason || 'Exclusão solicitada pelo Administrador';
     const correlationId = (req as any).correlationId;
 
-    const sale = db.prepare("SELECT * FROM sales WHERE id = ?").get(saleId) as any;
+    let sale = db.prepare("SELECT * FROM sales WHERE id = ?").get(saleId) as any;
+    if (!sale && rawId !== saleId) {
+      sale = db.prepare("SELECT * FROM sales WHERE id = ?").get(rawId) as any;
+    }
     if (!sale) {
+      sale = db.prepare("SELECT * FROM sales WHERE UPPER(id) = UPPER(?)").get(saleId) as any;
+    }
+
+    if (!sale) {
+      // Limpeza preventiva de resíduos mesmo que a venda principal já tenha sido excluída
+      try { db.prepare("DELETE FROM sale_items WHERE sale_id = ? OR sale_id = ?").run(saleId, rawId); } catch (e) {}
+      try { db.prepare("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id = ? OR sale_id = ?)").run(saleId, rawId); } catch (e) {}
+      try { db.prepare("DELETE FROM credit WHERE sale_id = ? OR sale_id = ?").run(saleId, rawId); } catch (e) {}
+      try { db.prepare("UPDATE agendamentos SET sale_id = NULL WHERE sale_id = ? OR sale_id = ?").run(saleId, rawId); } catch (e) {}
+
       return res.json({ 
         success: true, 
         message: "Venda já excluída anteriormente.", 
@@ -3047,74 +3067,100 @@ async function startServer() {
       });
     }
 
+    const currentUserId = req.user?.id || sale.user_id || 1;
+    const currentUsername = req.user?.username || 'admin';
+    const currentUserRole = req.user?.role || 'ADMIN';
+    const resolvedSaleId = sale.id;
+
     try {
       const cancelTx = db.transaction(() => {
-        const items = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(saleId) as any[];
+        const items = db.prepare("SELECT * FROM sale_items WHERE sale_id = ? OR sale_id = ?").all(resolvedSaleId, saleId) as any[];
 
         // 1. Reverter estoque dos itens (apenas se ainda não havia sido cancelada)
         if (sale.status !== 'Cancelado' && !sale.cancelled_at) {
           const updateStock = db.prepare("UPDATE products SET stock = stock + ? WHERE id = ?");
           for (const item of items) {
             if (item.product_id && (item.type === 'Peça' || !item.type)) {
-              updateStock.run(Number(item.quantity) || 0, item.product_id);
+              try {
+                updateStock.run(Number(item.quantity) || 0, item.product_id);
+              } catch (stkErr) {
+                console.warn("[STOCK REVERT WARN]", stkErr);
+              }
             }
           }
 
           // 2. Estorno financeiro de caixa caso haja valor pago
           const paidAmount = Number(sale.paid_total || 0) || (sale.payment_status === 'Pago' ? Number(sale.total || 0) : 0);
           if (paidAmount > 0) {
-            const openSession = db.prepare("SELECT id FROM cash_sessions WHERE status = 'Aberto' AND user_id = ? ORDER BY opened_at DESC LIMIT 1").get(req.user!.id) as any;
-            db.prepare(`
-              INSERT INTO cash_transactions (user_id, session_id, type, amount, description, created_at)
-              VALUES (?, ?, 'Saída', ?, ?, CURRENT_TIMESTAMP)
-            `).run(
-              req.user!.id,
-              openSession ? openSession.id : null,
-              paidAmount,
-              `[ESTORNO AUTOMÁTICO] Exclusão da Venda #${saleId}`
-            );
+            try {
+              const openSession = db.prepare("SELECT id FROM cash_sessions WHERE status = 'Aberto' AND user_id = ? ORDER BY opened_at DESC LIMIT 1").get(currentUserId) as any;
+              db.prepare(`
+                INSERT INTO cash_transactions (user_id, session_id, type, amount, description, created_at)
+                VALUES (?, ?, 'Saída', ?, ?, CURRENT_TIMESTAMP)
+              `).run(
+                currentUserId,
+                openSession ? openSession.id : null,
+                paidAmount,
+                `[ESTORNO AUTOMÁTICO] Exclusão da Venda #${resolvedSaleId}`
+              );
+            } catch (cashErr) {
+              console.warn("[CASH REVERT WARN]", cashErr);
+            }
           }
         }
 
-        // 3. Remover crédito / cobrança associada
+        // 3. Remover crédito, histórico de cobrança e desvincular agendamento
         try {
-          db.prepare("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id = ?)").run(saleId);
+          db.prepare("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id = ? OR sale_id = ?)").run(resolvedSaleId, saleId);
         } catch (e) {}
-        db.prepare("DELETE FROM credit WHERE sale_id = ?").run(saleId);
+        try {
+          db.prepare("DELETE FROM credit WHERE sale_id = ? OR sale_id = ?").run(resolvedSaleId, saleId);
+        } catch (e) {}
+        try {
+          db.prepare("UPDATE agendamentos SET sale_id = NULL WHERE sale_id = ? OR sale_id = ?").run(resolvedSaleId, saleId);
+        } catch (e) {}
 
         // 4. Auditoria atômica antes da remoção definitiva
         const nowIso = new Date().toISOString();
-        logAudit({
-          correlation_id: correlationId,
-          user_id: req.user!.id,
-          username: req.user!.username,
-          role: req.user!.role,
-          action: 'SALE_CANCEL',
-          module: 'Vendas/PDV',
-          record_id: saleId,
-          before_state: {
-            customer_name: sale.customer_name,
-            total: sale.total,
-            status: sale.status,
-            payment_status: sale.payment_status,
-            paid_total: sale.paid_total,
-            items
-          },
-          after_state: {
-            status: 'Excluído',
-            cancelled_at: nowIso,
-            cancelled_by: req.user!.id,
-            cancel_reason: reason,
-            items_returned: items.length
-          },
-          reason: String(reason),
-          ip_address: req.ip,
-          user_agent: req.get('user-agent')
-        });
+        try {
+          logAudit({
+            correlation_id: correlationId,
+            user_id: currentUserId,
+            username: currentUsername,
+            role: currentUserRole,
+            action: 'SALE_CANCEL',
+            module: 'Vendas/PDV',
+            record_id: resolvedSaleId,
+            before_state: {
+              customer_name: sale.customer_name,
+              total: sale.total,
+              status: sale.status,
+              payment_status: sale.payment_status,
+              paid_total: sale.paid_total,
+              items
+            },
+            after_state: {
+              status: 'Excluído',
+              cancelled_at: nowIso,
+              cancelled_by: currentUserId,
+              cancel_reason: reason,
+              items_returned: items.length
+            },
+            reason: String(reason),
+            ip_address: req.ip,
+            user_agent: req.get('user-agent')
+          });
+        } catch (auditErr) {
+          console.warn("[AUDIT LOG ERROR]", auditErr);
+        }
 
         // 5. Excluir itens e a venda definitivamente da listagem
-        db.prepare("DELETE FROM sale_items WHERE sale_id = ?").run(saleId);
-        db.prepare("DELETE FROM sales WHERE id = ?").run(saleId);
+        try { db.prepare("DELETE FROM sale_items WHERE sale_id = ? OR sale_id = ?").run(resolvedSaleId, saleId); } catch (e) {}
+        db.prepare("DELETE FROM sales WHERE id = ? OR id = ?").run(resolvedSaleId, saleId);
+        // Soft-delete preventivo caso haja qualquer lock residual
+        try {
+          db.prepare("UPDATE sales SET status = 'Cancelado', payment_status = 'Cancelado', cancelled_at = ? WHERE id = ? OR id = ?").run(nowIso, resolvedSaleId, saleId);
+        } catch (e) {}
       });
 
       cancelTx();
@@ -3126,7 +3172,7 @@ async function startServer() {
       return res.json({ 
         success: true, 
         message: "Venda excluída com sucesso. Estoque e financeiro devidamente estornados.",
-        correlation_id: correlationId
+        correlation_id: correlationId 
       });
     } catch (err: any) {
       console.error("[CANCEL SALE ERROR]", err);

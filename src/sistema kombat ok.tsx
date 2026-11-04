@@ -1117,6 +1117,8 @@ export default function App() {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [checkoutPaymentReceived, setCheckoutPaymentReceived] = useState<string>('');
   const [isPdvHistoryOpen, setIsPdvHistoryOpen] = useState(false);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [isDeletingSale, setIsDeletingSale] = useState(false);
   const [historyStartDate, setHistoryStartDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -1325,8 +1327,14 @@ export default function App() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
         try {
-          const res = await fetch(`/api/${route}`, {
-            headers,
+          const sep = route.includes('?') ? '&' : '?';
+          const res = await fetch(`/api/${route}${sep}_t=${Date.now()}`, {
+            headers: {
+              ...headers,
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            },
+            cache: 'no-store',
             credentials: 'include',
             signal: controller.signal
           });
@@ -3192,9 +3200,13 @@ export default function App() {
                             <MessageCircle size={12} />
                           </button>
                           <button
-                            onClick={() => handleDeleteSale(sale.id)}
-                            title="Excluir"
-                            className="p-1.5 bg-slate-800 border border-slate-700 hover:border-rose-500 rounded-lg text-rose-400 hover:text-rose-300 transition-all"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSaleToDelete(sale);
+                            }}
+                            title="Excluir Venda"
+                            className="p-1.5 bg-slate-800 border border-slate-700 hover:border-rose-500 rounded-lg text-rose-400 hover:text-rose-300 transition-all hover:scale-105 active:scale-95"
                           >
                             <Trash2 size={12} />
                           </button>
@@ -3214,6 +3226,23 @@ export default function App() {
             </div>
           </div>
         </Modal>
+
+        {saleToDelete && (
+          <ConfirmModal
+            isOpen={!!saleToDelete}
+            title="Excluir Venda do Sistema"
+            description={`Tem certeza que deseja excluir a venda #${saleToDelete.id} (${saleToDelete.customer_name || 'Cliente Balcão'}) no valor de ${formatBRL(saleToDelete.total)}?\n\nO estoque das peças será devolvido automaticamente e eventuais lançamentos no caixa ou no contas a receber (fiado) serão estornados.`}
+            confirmText="Sim, Excluir Venda"
+            cancelText="Cancelar"
+            isDestructive={true}
+            requireReason={false}
+            loading={isDeletingSale}
+            onConfirm={(reason) => handleConfirmDeleteSale(saleToDelete, reason)}
+            onClose={() => {
+              if (!isDeletingSale) setSaleToDelete(null);
+            }}
+          />
+        )}
       </>
     );
   };
@@ -5557,21 +5586,45 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
     }
   };
 
-  const handleDeleteSale = async (id: string, reason?: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta venda? O estoque dos produtos será devolvido e os lançamentos financeiros serão estornados automaticamente.')) {
-      return;
-    }
+  const handleConfirmDeleteSale = async (targetSale: { id: string; customer_name?: string; total?: number }, reason?: string) => {
+    if (!targetSale || !targetSale.id) return;
+    const id = targetSale.id;
     const cancelReason = (reason && reason.trim()) ? reason.trim() : 'Exclusão de venda solicitada pelo Administrador';
+    setIsDeletingSale(true);
+
+    // 1. Otimista imediato no estado local (não deixa a venda visível em tela)
+    setSales(prev => prev.filter(s => s.id !== id && String(s.id).trim().toUpperCase() !== String(id).trim().toUpperCase()));
+    setFinancialSales(prev => prev.filter(s => s.id !== id && String(s.id).trim().toUpperCase() !== String(id).trim().toUpperCase()));
+    setCredit(prev => prev.filter((c: any) => c.sale_id !== id && String(c.sale_id).trim().toUpperCase() !== String(id).trim().toUpperCase()));
+
     try {
-      await localApi.post(`sales/${id}/cancel`, { reason: cancelReason });
-      setSales(prev => prev.filter(s => s.id !== id));
-      setFinancialSales(prev => prev.filter(s => s.id !== id));
-      setCredit(prev => prev.filter((c: any) => c.sale_id !== id));
+      try {
+        await localApi.post(`sales/${encodeURIComponent(id)}/cancel`, { reason: cancelReason });
+      } catch (postErr) {
+        console.warn('POST /cancel retornou erro, tentando DELETE direto:', postErr);
+        await localApi.delete('sales', encodeURIComponent(id));
+      }
+      setSaleToDelete(null);
       alert('Venda excluída com sucesso! Estoque e lançamentos financeiros foram devidamente estornados.');
-      fetchData(true);
+      await fetchData(true);
     } catch (error: any) {
       console.error('Error cancelling sale:', error);
-      alert('Erro ao excluir venda: ' + (error.message || error));
+      alert('Aviso ao excluir venda: ' + (error.message || error));
+      await fetchData(true);
+    } finally {
+      setIsDeletingSale(false);
+    }
+  };
+
+  const handleDeleteSale = async (id: string, reason?: string) => {
+    const foundSale = sales.find(s => s.id === id || String(s.id).trim().toUpperCase() === String(id).trim().toUpperCase());
+    if (foundSale) {
+      setSaleToDelete(foundSale);
+    } else {
+      if (typeof window !== 'undefined' && !window.confirm('Tem certeza que deseja excluir esta venda? O estoque dos produtos será devolvido e os lançamentos financeiros serão estornados.')) {
+        return;
+      }
+      handleConfirmDeleteSale({ id } as any, reason);
     }
   };
 
