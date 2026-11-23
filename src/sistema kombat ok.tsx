@@ -127,6 +127,7 @@ interface Customer {
   image_url?: string;
   credit_status?: string;
   blocked_for_sales?: number | boolean;
+  manual_unblocked?: number | boolean;
   credit_block_reason?: string;
   credit_blocked_at?: string;
   billing_day?: number | null;
@@ -1568,11 +1569,27 @@ export default function App() {
   const isCustomerReallyBlocked = (c: Customer | any): boolean => {
     if (!c) return false;
     
-    // 1. Bloqueio manual direto determinado pelo administrador
-    if (c.blocked_for_sales === 1 || c.blocked_for_sales === true) return true;
-    if (c.credit_status === 'BLOQUEADO' || c.credit_status === 'BLOQUEADO_MANUAL') return true;
+    // 1. Se o cliente foi DESBLOQUEADO manualmente pelo administrador, LIBERAÇÃO TOTAL (permite novas vendas mesmo com débitos em aberto)
+    if (
+      c.credit_status === 'DESBLOQUEADO' || 
+      c.credit_status === 'LIBERADO_MANUAL' || 
+      c.manual_unblocked === 1 || 
+      c.manual_unblocked === true
+    ) {
+      return false;
+    }
 
-    // 2. Bloqueio automático por débitos vencidos há mais de 30 dias
+    // 2. Se o cliente foi BLOQUEADO pelo administrador
+    if (
+      c.blocked_for_sales === 1 || 
+      c.blocked_for_sales === true || 
+      c.credit_status === 'BLOQUEADO' || 
+      c.credit_status === 'BLOQUEADO_MANUAL'
+    ) {
+      return true;
+    }
+
+    // 3. Bloqueio automático por débitos vencidos há mais de 30 dias (somente se não foi desbloqueado manualmente)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -1616,7 +1633,7 @@ export default function App() {
     if (!c) return;
     const isCurrentlyBlocked = isCustomerBlocked(c);
     const confirmMessage = isCurrentlyBlocked
-      ? `Deseja DESBLOQUEAR o cliente "${c.name}" para novas vendas?\n\nO cliente voltará a ter permissão para compras no PDV e Ordens de Serviço.`
+      ? `Deseja DESBLOQUEAR o cliente "${c.name}" para novas vendas?\n\nO cliente voltará a ter permissão para compras no PDV e Ordens de Serviço (mesmo se possuir débitos anteriores).`
       : `Deseja BLOQUEAR o cliente "${c.name}" para novas vendas?\n\nEnquanto bloqueado, o sistema impedirá novas vendas e notas para este cliente.`;
 
     if (!window.confirm(confirmMessage)) {
@@ -1624,13 +1641,14 @@ export default function App() {
     }
 
     const nextBlocked = !isCurrentlyBlocked;
-    const nextStatus = nextBlocked ? 'BLOQUEADO' : 'LIBERADO';
+    const nextStatus = nextBlocked ? 'BLOQUEADO' : 'DESBLOQUEADO';
     const nextReason = nextBlocked ? 'Bloqueio de novas vendas solicitado pelo administrador' : null;
 
     // Atualização otimista imediata no estado local
     setCustomers(prev => prev.map(cust => cust.id === c.id ? {
       ...cust,
       blocked_for_sales: nextBlocked ? 1 : 0,
+      manual_unblocked: nextBlocked ? 0 : 1,
       credit_status: nextStatus,
       credit_block_reason: nextReason,
       credit_blocked_at: nextBlocked ? new Date().toISOString() : null
@@ -1643,6 +1661,7 @@ export default function App() {
         credentials: 'include',
         body: JSON.stringify({
           credit_status: nextStatus,
+          manual_unblocked: nextBlocked ? 0 : 1,
           credit_block_reason: nextReason,
           blocked_for_sales: nextBlocked ? 1 : 0,
           credit_blocked_at: nextBlocked ? new Date().toISOString() : null

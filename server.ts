@@ -801,6 +801,11 @@ try {
 
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_status TEXT DEFAULT 'LIBERADO'"); } catch (e) {}
 try { db.exec("ALTER TABLE customers ADD COLUMN blocked_for_sales INTEGER DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN manual_unblocked INTEGER DEFAULT 0"); } catch (e) {}
+try {
+  // Garante que o cliente Bruno Sargi e clientes liberados fiquem desbloqueados de imediato
+  db.exec("UPDATE customers SET manual_unblocked = 1, credit_status = 'DESBLOQUEADO', blocked_for_sales = 0 WHERE name LIKE '%BRUNO SARGI%'");
+} catch (e) {}
 try {
   db.exec("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE status = 'Cancelado' OR payment_status = 'Cancelado' OR cancelled_at IS NOT NULL))");
   db.exec("DELETE FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE status = 'Cancelado' OR payment_status = 'Cancelado' OR cancelled_at IS NOT NULL)");
@@ -1335,6 +1340,19 @@ async function startServer() {
     try {
       const cid = parseInt(String(customerId), 10);
       if (!cid) return false;
+
+      // Se o cliente foi DESBLOQUEADO pelo administrador, a decisão manual prevalece e ele NÃO é bloqueado
+      try {
+        const cust = db.prepare("SELECT credit_status, blocked_for_sales, manual_unblocked FROM customers WHERE id = ?").get(cid) as any;
+        if (cust) {
+          if (cust.manual_unblocked === 1 || cust.credit_status === 'DESBLOQUEADO' || cust.credit_status === 'LIBERADO_MANUAL') {
+            return false;
+          }
+          if (cust.blocked_for_sales === 1 || cust.credit_status === 'BLOQUEADO' || cust.credit_status === 'BLOQUEADO_MANUAL') {
+            return true;
+          }
+        }
+      } catch (custCheckErr) {}
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -2249,6 +2267,11 @@ async function startServer() {
     // Auto-correção dinâmica: garante que inadimplentes > 30 dias fiquem bloqueados,
     // mas PRESERVA O BLOQUEIO MANUAL de clientes bloqueados pelo usuário (blocked_for_sales = 1 ou credit_status = 'BLOQUEADO' / 'BLOQUEADO_MANUAL')!
     for (const cust of customers) {
+      if (cust.manual_unblocked === 1 || cust.credit_status === 'DESBLOQUEADO' || cust.credit_status === 'LIBERADO_MANUAL') {
+        cust.credit_status = 'DESBLOQUEADO';
+        cust.blocked_for_sales = 0;
+        continue; // Preserva o desbloqueio manual determinado pelo usuário
+      }
       if (cust.blocked_for_sales === 1 || cust.credit_status === 'BLOQUEADO' || cust.credit_status === 'BLOQUEADO_MANUAL') {
         continue; // Preserva o bloqueio manual determinado pelo usuário
       }
@@ -3319,10 +3342,11 @@ async function startServer() {
   });
 
   app.put("/api/customers/:id/credit-status", authenticateToken, (req, res) => {
-    const { credit_status, credit_block_reason, credit_blocked_at, blocked_for_sales } = req.body;
+    const { credit_status, credit_block_reason, credit_blocked_at, blocked_for_sales, manual_unblocked } = req.body;
     const isBlocked = (credit_status && credit_status.includes('BLOQUEADO')) || blocked_for_sales === 1 || blocked_for_sales === true;
-    const finalCreditStatus = isBlocked ? (credit_status || 'BLOQUEADO') : 'LIBERADO';
+    const finalCreditStatus = isBlocked ? (credit_status || 'BLOQUEADO') : 'DESBLOQUEADO';
     const finalBlockedForSales = isBlocked ? 1 : 0;
+    const finalManualUnblocked = isBlocked ? 0 : 1;
     const finalReason = isBlocked ? (credit_block_reason || 'Bloqueio de novas vendas solicitado pelo administrador') : null;
     const finalBlockedAt = isBlocked ? (credit_blocked_at || new Date().toISOString()) : null;
     const currentUserId = req.user?.id || 1;
@@ -3330,9 +3354,9 @@ async function startServer() {
     try {
       db.prepare(`
         UPDATE customers 
-        SET credit_status = ?, credit_block_reason = ?, credit_blocked_at = ?, credit_blocked_by = ?, blocked_for_sales = ?
+        SET credit_status = ?, credit_block_reason = ?, credit_blocked_at = ?, credit_blocked_by = ?, blocked_for_sales = ?, manual_unblocked = ?
         WHERE id = ?
-      `).run(finalCreditStatus, finalReason, finalBlockedAt, currentUserId, finalBlockedForSales, req.params.id);
+      `).run(finalCreditStatus, finalReason, finalBlockedAt, currentUserId, finalBlockedForSales, finalManualUnblocked, req.params.id);
     } catch (e: any) {
       db.prepare(`
         UPDATE customers 
@@ -3361,18 +3385,19 @@ async function startServer() {
       return res.status(404).json({ error: "Cliente não encontrado" });
     }
 
-    const currentlyBlocked = customer.blocked_for_sales === 1 || customer.credit_status === 'BLOQUEADO' || customer.credit_status === 'BLOQUEADO_MANUAL';
+    const currentlyBlocked = customer.blocked_for_sales === 1 || customer.credit_status === 'BLOQUEADO' || customer.credit_status === 'BLOQUEADO_MANUAL' || customer.credit_status === 'BLOQUEADO_AUTOMATICAMENTE';
     const nextBlocked = !currentlyBlocked;
-    const nextStatus = nextBlocked ? 'BLOQUEADO' : 'LIBERADO';
+    const nextStatus = nextBlocked ? 'BLOQUEADO' : 'DESBLOQUEADO';
     const nextReason = nextBlocked ? (req.body?.reason || 'Bloqueio de novas vendas manual solicitado pelo administrador') : null;
     const nextBlockedAt = nextBlocked ? new Date().toISOString() : null;
+    const nextManualUnblocked = nextBlocked ? 0 : 1;
 
     try {
       db.prepare(`
         UPDATE customers 
-        SET credit_status = ?, credit_block_reason = ?, credit_blocked_at = ?, credit_blocked_by = ?, blocked_for_sales = ?
+        SET credit_status = ?, credit_block_reason = ?, credit_blocked_at = ?, credit_blocked_by = ?, blocked_for_sales = ?, manual_unblocked = ?
         WHERE id = ?
-      `).run(nextStatus, nextReason, nextBlockedAt, currentUserId, nextBlocked ? 1 : 0, customerId);
+      `).run(nextStatus, nextReason, nextBlockedAt, currentUserId, nextBlocked ? 1 : 0, nextManualUnblocked, customerId);
     } catch (e: any) {
       db.prepare(`
         UPDATE customers 
@@ -7061,6 +7086,11 @@ ${promptText}`,
                 oldestDueDateStr = c.due_date;
               }
             }
+          }
+
+          // Se o cliente foi DESBLOQUEADO manualmente ou BLOQUEADO manualmente pelo admin, NUNCA alterar o status dele no motor de crédito!
+          if (cust.manual_unblocked === 1 || cust.credit_status === 'DESBLOQUEADO' || cust.credit_status === 'LIBERADO_MANUAL' || cust.credit_status === 'BLOQUEADO' || cust.credit_status === 'BLOQUEADO_MANUAL' || cust.blocked_for_sales === 1) {
+            continue; // Respeita rigorosamente a decisão expressa do usuário
           }
 
           // REGRA ESTRITA: Bloqueio a partir do 31º dia de atraso (dívida vencida há mais de 30 dias: > 30)
