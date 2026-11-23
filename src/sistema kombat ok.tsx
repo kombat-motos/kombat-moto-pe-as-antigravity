@@ -48,6 +48,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Ban,
+  Lock,
+  Unlock,
   CheckCircle,
   Percent,
   Barcode,
@@ -124,6 +126,7 @@ interface Customer {
   interest_rate?: number;
   image_url?: string;
   credit_status?: string;
+  blocked_for_sales?: number | boolean;
   credit_block_reason?: string;
   credit_blocked_at?: string;
   billing_day?: number | null;
@@ -1561,10 +1564,15 @@ export default function App() {
   const [companyLogo, setCompanyLogo] = useState<string | null>(localStorage.getItem('companyLogo'));
   const [partialPaymentAmount, setPartialPaymentAmount] = useState<string>('');
 
-  // Validação dinâmica e estrita: o cliente só é bloqueado se possuir débito vencido há MAIS DE 30 DIAS (> 30 / a partir do 31º dia)
+  // Validação dinâmica e estrita: verifica bloqueio manual direto ou inadimplência superior a 30 dias
   const isCustomerReallyBlocked = (c: Customer | any): boolean => {
     if (!c) return false;
     
+    // 1. Bloqueio manual direto determinado pelo administrador
+    if (c.blocked_for_sales === 1 || c.blocked_for_sales === true) return true;
+    if (c.credit_status === 'BLOQUEADO' || c.credit_status === 'BLOQUEADO_MANUAL') return true;
+
+    // 2. Bloqueio automático por débitos vencidos há mais de 30 dias
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -1572,7 +1580,7 @@ export default function App() {
       s && s.customer_id === c.id && s.payment_status === 'Pendente' && ((s.total || 0) - (s.paid_total || 0) > 0.01)
     );
 
-    // Se o cliente não tem nenhuma venda pendente, não pode estar bloqueado!
+    // Se o cliente não tem nenhuma venda pendente, não pode estar bloqueado por atraso!
     if (pendingSales.length === 0) {
       return false;
     }
@@ -1598,6 +1606,60 @@ export default function App() {
     });
 
     return hasDebtOver30Days;
+  };
+
+  const isCustomerBlocked = (c: Customer | any): boolean => {
+    return isCustomerReallyBlocked(c);
+  };
+
+  const handleToggleCustomerBlock = async (c: Customer) => {
+    if (!c) return;
+    const isCurrentlyBlocked = isCustomerBlocked(c);
+    const confirmMessage = isCurrentlyBlocked
+      ? `Deseja DESBLOQUEAR o cliente "${c.name}" para novas vendas?\n\nO cliente voltará a ter permissão para compras no PDV e Ordens de Serviço.`
+      : `Deseja BLOQUEAR o cliente "${c.name}" para novas vendas?\n\nEnquanto bloqueado, o sistema impedirá novas vendas e notas para este cliente.`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    const nextBlocked = !isCurrentlyBlocked;
+    const nextStatus = nextBlocked ? 'BLOQUEADO' : 'LIBERADO';
+    const nextReason = nextBlocked ? 'Bloqueio de novas vendas solicitado pelo administrador' : null;
+
+    // Atualização otimista imediata no estado local
+    setCustomers(prev => prev.map(cust => cust.id === c.id ? {
+      ...cust,
+      blocked_for_sales: nextBlocked ? 1 : 0,
+      credit_status: nextStatus,
+      credit_block_reason: nextReason,
+      credit_blocked_at: nextBlocked ? new Date().toISOString() : null
+    } : cust));
+
+    try {
+      const res = await fetch(`/api/customers/${c.id}/credit-status`, {
+        method: 'PUT',
+        headers: localApi.getHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({
+          credit_status: nextStatus,
+          credit_block_reason: nextReason,
+          blocked_for_sales: nextBlocked ? 1 : 0,
+          credit_blocked_at: nextBlocked ? new Date().toISOString() : null
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error('Falha ao registrar alteração no servidor.');
+      }
+
+      alert(`Cliente "${c.name}" ${nextBlocked ? 'BLOQUEADO' : 'DESBLOQUEADO'} para novas vendas com sucesso!`);
+      fetchData(true);
+    } catch (err: any) {
+      console.error('Erro ao alternar bloqueio de vendas do cliente:', err);
+      alert('Aviso ao sincronizar alteração: ' + (err.message || err));
+      fetchData(true);
+    }
   };
   const [payingSaleId, setPayingSaleId] = useState<string | null>(null);
   const [companyData, setCompanyData] = useState(() => {
@@ -2590,8 +2652,9 @@ export default function App() {
         return;
       }
 
-      if (isCustomerReallyBlocked(customer)) {
-        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
+      if (isCustomerBlocked(customer)) {
+        const isManual = customer.blocked_for_sales === 1 || customer.credit_status === 'BLOQUEADO' || customer.credit_status === 'BLOQUEADO_MANUAL';
+        alert(`CLIENTE BLOQUEADO PARA NOVAS VENDAS\n\nEste cliente está com o cadastro bloqueado no sistema.\nMotivo: ${customer.credit_block_reason || (isManual ? 'Bloqueio manual de vendas ativo pelo administrador.' : 'Débito superior a 30 dias de atraso.')}\n\nPara liberar vendas para este cliente, realize o desbloqueio no menu de Clientes.`);
         return;
       }
 
@@ -2803,8 +2866,9 @@ export default function App() {
         return;
       }
 
-      if (isCustomerReallyBlocked(customer)) {
-        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${customer.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
+      if (isCustomerBlocked(customer)) {
+        const isManual = customer.blocked_for_sales === 1 || customer.credit_status === 'BLOQUEADO' || customer.credit_status === 'BLOQUEADO_MANUAL';
+        alert(`CLIENTE BLOQUEADO PARA NOVAS VENDAS\n\nEste cliente está com o cadastro bloqueado no sistema.\nMotivo: ${customer.credit_block_reason || (isManual ? 'Bloqueio manual de vendas ativo pelo administrador.' : 'Débito superior a 30 dias de atraso.')}\n\nPara liberar vendas para este cliente, realize o desbloqueio no menu de Clientes.`);
         return;
       }
 
@@ -6283,12 +6347,45 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                         {formatBRL(getCustomerRemainingCredit(c.id))}
                       </span>
                     </div>
-                    {customerOverdueMap.has(c.id) && (
-                      <div className="flex items-center gap-1 mt-1 px-2 py-1 bg-rose-100 text-rose-700 rounded w-fit border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50">
-                        <AlertTriangle size={12} className="shrink-0" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Conta Vencida</span>
-                      </div>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                      {customerOverdueMap.has(c.id) && (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-rose-100 text-rose-700 rounded w-fit border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50">
+                          <AlertTriangle size={12} className="shrink-0" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Conta Vencida</span>
+                        </div>
+                      )}
+                      {isCustomerBlocked(c) && (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-rose-600 text-white rounded w-fit font-black text-[10px] uppercase tracking-wider shadow-sm">
+                          <ShieldAlert size={12} className="shrink-0" />
+                          <span>Bloqueado</span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleCustomerBlock(c);
+                        }}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-sm ${
+                          isCustomerBlocked(c)
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20 hover:scale-105 active:scale-95'
+                            : 'bg-rose-50 border border-rose-300 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400 hover:scale-105 active:scale-95'
+                        }`}
+                        title={isCustomerBlocked(c) ? "Clique para DESBLOQUEAR este cliente para novas vendas" : "Clique para BLOQUEAR este cliente para novas vendas"}
+                      >
+                        {isCustomerBlocked(c) ? (
+                          <>
+                            <Unlock size={13} className="shrink-0 text-emerald-100" />
+                            <span>Desbloquear Vendas</span>
+                          </>
+                        ) : (
+                          <>
+                            <Ban size={13} className="shrink-0 text-rose-600" />
+                            <span>Bloquear Vendas</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="w-24 h-24 bg-slate-100 border border-slate-400 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center dark:bg-slate-800 dark:border-slate-700">
@@ -6433,12 +6530,36 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
                             style={{ width: `${Math.max(0, Math.min(100, (getCustomerRemainingCredit(c.id) / (c.credit_limit || 1)) * 100))}%` }}
                           />
                         </div>
-                        {customerOverdueMap.has(c.id) && (
-                          <div className="flex items-center gap-1 mt-1 px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded w-fit border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50">
-                            <AlertTriangle size={10} className="shrink-0" />
-                            <span className="text-[9px] font-black uppercase tracking-widest">Conta Vencida</span>
-                          </div>
-                        )}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          {customerOverdueMap.has(c.id) && (
+                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded w-fit border border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50">
+                              <AlertTriangle size={10} className="shrink-0" />
+                              <span className="text-[9px] font-black uppercase tracking-widest">Conta Vencida</span>
+                            </div>
+                          )}
+                          {isCustomerBlocked(c) && (
+                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-600 text-white rounded w-fit font-black text-[9px] uppercase tracking-wider">
+                              <ShieldAlert size={10} className="shrink-0" />
+                              <span>Bloqueado</span>
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleCustomerBlock(c);
+                            }}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all shadow-sm ${
+                              isCustomerBlocked(c)
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white hover:scale-105 active:scale-95'
+                                : 'bg-rose-50 border border-rose-300 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400 hover:scale-105 active:scale-95'
+                            }`}
+                            title={isCustomerBlocked(c) ? "Clique para DESBLOQUEAR este cliente para novas vendas" : "Clique para BLOQUEAR este cliente para novas vendas"}
+                          >
+                            {isCustomerBlocked(c) ? <Unlock size={11} /> : <Ban size={11} />}
+                            <span>{isCustomerBlocked(c) ? "Desbloquear" : "Bloquear"}</span>
+                          </button>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">

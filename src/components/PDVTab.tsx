@@ -39,6 +39,8 @@ import {
   DollarSign,
   Settings,
   AlertCircle,
+  ShieldAlert,
+  Ban,
   Check
 } from 'lucide-react';
 import { searchSmartProducts } from '../utils/smartSearch';
@@ -658,15 +660,18 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
       return;
     }
 
+    // Validação estrita de cliente bloqueado para vendas
+    if (selectedCustomer && isCustomerReallyBlocked && isCustomerReallyBlocked(selectedCustomer)) {
+      const isManual = selectedCustomer.blocked_for_sales === 1 || selectedCustomer.credit_status === 'BLOQUEADO' || selectedCustomer.credit_status === 'BLOQUEADO_MANUAL';
+      alert(`CLIENTE BLOQUEADO PARA NOVAS VENDAS\n\nEste cliente está bloqueado no sistema.\nMotivo: ${selectedCustomer.credit_block_reason || (isManual ? 'Bloqueio manual de vendas efetuado pelo administrador.' : 'Débito superior a 30 dias de atraso.')}\n\nPara realizar vendas para este cliente, realize o desbloqueio no menu de Gestão de Clientes.`);
+      return;
+    }
+
     // Validações rigorosas para venda Fiado
     if (form.payment_method === 'Fiado') {
       if (!form.customer_id) {
         alert('Selecione um cliente cadastrado para realizar uma venda fiada.');
         setIsCustomerModalOpen(true);
-        return;
-      }
-      if (isCustomerReallyBlocked && selectedCustomer && isCustomerReallyBlocked(selectedCustomer)) {
-        alert(`CRÉDITO BLOQUEADO\n\nEste cliente está com o crédito bloqueado.\nMotivo: ${selectedCustomer.credit_block_reason || 'Débito superior a 30 dias de atraso.'}`);
         return;
       }
       if (selectedCustomer && selectedCustomer.credit_limit) {
@@ -1131,6 +1136,11 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
                   <p className="text-xs font-bold text-white truncate mt-0.5">
                     {selectedCustomer ? selectedCustomer.name : 'Consumidor Final'}
                   </p>
+                  {selectedCustomer && isCustomerReallyBlocked && isCustomerReallyBlocked(selectedCustomer) && (
+                    <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 bg-rose-600 text-white text-[9px] font-black uppercase rounded tracking-wider shadow-sm">
+                      <ShieldAlert size={10} /> BLOQUEADO P/ VENDAS
+                    </span>
+                  )}
                   <span className="text-[9px] text-slate-500 font-mono block leading-none truncate">
                     {selectedCustomer ? (selectedCustomer.cpf || selectedCustomer.whatsapp || 'Cadastrado') : 'CPF não informado'}
                   </span>
@@ -1699,7 +1709,14 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
                     className="p-2.5 bg-[#080D1A] border border-[#1F2E47] hover:border-[#FF1A53] rounded-xl flex items-center justify-between cursor-pointer transition-all"
                   >
                     <div>
-                      <h4 className="text-xs font-bold text-white">{cust.name}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-white">{cust.name}</h4>
+                        {isCustomerReallyBlocked && isCustomerReallyBlocked(cust) && (
+                          <span className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[8.5px] font-black uppercase tracking-wider flex items-center gap-1">
+                            <ShieldAlert size={10} /> BLOQUEADO P/ VENDAS
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-slate-400 font-mono">
                         CPF: {cust.cpf || 'Não informado'} {cust.whatsapp ? `• ${cust.whatsapp}` : ''}
                       </p>

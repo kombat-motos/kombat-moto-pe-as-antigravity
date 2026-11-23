@@ -800,6 +800,7 @@ try {
 } catch (e) {}
 
 try { db.exec("ALTER TABLE customers ADD COLUMN credit_status TEXT DEFAULT 'LIBERADO'"); } catch (e) {}
+try { db.exec("ALTER TABLE customers ADD COLUMN blocked_for_sales INTEGER DEFAULT 0"); } catch (e) {}
 try {
   db.exec("DELETE FROM collection_history WHERE credit_id IN (SELECT id FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE status = 'Cancelado' OR payment_status = 'Cancelado' OR cancelled_at IS NOT NULL))");
   db.exec("DELETE FROM credit WHERE sale_id IN (SELECT id FROM sales WHERE status = 'Cancelado' OR payment_status = 'Cancelado' OR cancelled_at IS NOT NULL)");
@@ -2245,9 +2246,13 @@ async function startServer() {
   app.get("/api/customers", authenticateToken, (req, res) => {
     const customers = db.prepare("SELECT * FROM customers WHERE user_id = ? ORDER BY name ASC").all(req.user!.id) as any[];
     
-    // Auto-correção dinâmica: garante que clientes sem atraso superior a 30 dias nunca sejam retornados como bloqueados
+    // Auto-correção dinâmica: garante que inadimplentes > 30 dias fiquem bloqueados,
+    // mas PRESERVA O BLOQUEIO MANUAL de clientes bloqueados pelo usuário (blocked_for_sales = 1 ou credit_status = 'BLOQUEADO' / 'BLOQUEADO_MANUAL')!
     for (const cust of customers) {
-      if (cust.credit_status && cust.credit_status.includes('BLOQUEADO')) {
+      if (cust.blocked_for_sales === 1 || cust.credit_status === 'BLOQUEADO' || cust.credit_status === 'BLOQUEADO_MANUAL') {
+        continue; // Preserva o bloqueio manual determinado pelo usuário
+      }
+      if (cust.credit_status && cust.credit_status === 'BLOQUEADO_AUTOMATICO') {
         const isBlocked = checkIfCustomerHasOverdueOver30(cust.id);
         if (!isBlocked) {
           cust.credit_status = 'LIBERADO';
@@ -2356,6 +2361,13 @@ async function startServer() {
           safeFinNotes, safeGenNotes,
           customerId, userId
         );
+
+        if (req.body.credit_status !== undefined || req.body.blocked_for_sales !== undefined) {
+          const isBlocked = (req.body.credit_status && String(req.body.credit_status).includes('BLOQUEADO')) || req.body.blocked_for_sales === 1 || req.body.blocked_for_sales === true;
+          try {
+            db.prepare("UPDATE customers SET credit_status = ?, blocked_for_sales = ? WHERE id = ?").run(isBlocked ? (req.body.credit_status || 'BLOQUEADO') : 'LIBERADO', isBlocked ? 1 : 0, customerId);
+          } catch (e) {}
+        }
         
         // Sync CRM clientes
         const exists = db.prepare("SELECT id FROM clientes WHERE id = ? AND user_id = ?").get(customerId, userId);
@@ -3307,20 +3319,77 @@ async function startServer() {
   });
 
   app.put("/api/customers/:id/credit-status", authenticateToken, (req, res) => {
-    const { credit_status, credit_block_reason, credit_blocked_at } = req.body;
-    db.prepare(`
-      UPDATE customers 
-      SET credit_status = ?, credit_block_reason = ?, credit_blocked_at = ?, credit_blocked_by = ?
-      WHERE id = ? AND user_id = ?
-    `).run(credit_status, credit_block_reason, credit_blocked_at, req.user!.id, req.params.id, req.user!.id);
+    const { credit_status, credit_block_reason, credit_blocked_at, blocked_for_sales } = req.body;
+    const isBlocked = (credit_status && credit_status.includes('BLOQUEADO')) || blocked_for_sales === 1 || blocked_for_sales === true;
+    const finalCreditStatus = isBlocked ? (credit_status || 'BLOQUEADO') : 'LIBERADO';
+    const finalBlockedForSales = isBlocked ? 1 : 0;
+    const finalReason = isBlocked ? (credit_block_reason || 'Bloqueio de novas vendas solicitado pelo administrador') : null;
+    const finalBlockedAt = isBlocked ? (credit_blocked_at || new Date().toISOString()) : null;
+    const currentUserId = req.user?.id || 1;
+
+    try {
+      db.prepare(`
+        UPDATE customers 
+        SET credit_status = ?, credit_block_reason = ?, credit_blocked_at = ?, credit_blocked_by = ?, blocked_for_sales = ?
+        WHERE id = ?
+      `).run(finalCreditStatus, finalReason, finalBlockedAt, currentUserId, finalBlockedForSales, req.params.id);
+    } catch (e: any) {
+      db.prepare(`
+        UPDATE customers 
+        SET credit_status = ?, credit_block_reason = ?, credit_blocked_at = ?, credit_blocked_by = ?
+        WHERE id = ?
+      `).run(finalCreditStatus, finalReason, finalBlockedAt, currentUserId, req.params.id);
+    }
     
     // Log history
-    db.prepare(`
-      INSERT INTO collection_history (user_id, customer_id, action_type, message, status)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(req.user!.id, req.params.id, credit_status.includes('BLOQUEADO') ? 'BLOQUEIO_MANUAL' : 'DESBLOQUEIO_MANUAL', credit_block_reason, 'Concluído');
+    try {
+      db.prepare(`
+        INSERT INTO collection_history (user_id, customer_id, action_type, message, status)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(currentUserId, req.params.id, isBlocked ? 'BLOQUEIO_MANUAL' : 'DESBLOQUEIO_MANUAL', finalReason, 'Concluído');
+    } catch (e) {}
     
-    res.json({ success: true });
+    const updated = db.prepare("SELECT * FROM customers WHERE id = ?").get(req.params.id);
+    res.json({ success: true, customer: updated });
+  });
+
+  app.put("/api/customers/:id/toggle-block", authenticateToken, (req, res) => {
+    const customerId = req.params.id;
+    const currentUserId = req.user?.id || 1;
+    const customer = db.prepare("SELECT * FROM customers WHERE id = ?").get(customerId) as any;
+    if (!customer) {
+      return res.status(404).json({ error: "Cliente não encontrado" });
+    }
+
+    const currentlyBlocked = customer.blocked_for_sales === 1 || customer.credit_status === 'BLOQUEADO' || customer.credit_status === 'BLOQUEADO_MANUAL';
+    const nextBlocked = !currentlyBlocked;
+    const nextStatus = nextBlocked ? 'BLOQUEADO' : 'LIBERADO';
+    const nextReason = nextBlocked ? (req.body?.reason || 'Bloqueio de novas vendas manual solicitado pelo administrador') : null;
+    const nextBlockedAt = nextBlocked ? new Date().toISOString() : null;
+
+    try {
+      db.prepare(`
+        UPDATE customers 
+        SET credit_status = ?, credit_block_reason = ?, credit_blocked_at = ?, credit_blocked_by = ?, blocked_for_sales = ?
+        WHERE id = ?
+      `).run(nextStatus, nextReason, nextBlockedAt, currentUserId, nextBlocked ? 1 : 0, customerId);
+    } catch (e: any) {
+      db.prepare(`
+        UPDATE customers 
+        SET credit_status = ?, credit_block_reason = ?, credit_blocked_at = ?, credit_blocked_by = ?
+        WHERE id = ?
+      `).run(nextStatus, nextReason, nextBlockedAt, currentUserId, customerId);
+    }
+
+    try {
+      db.prepare(`
+        INSERT INTO collection_history (user_id, customer_id, action_type, message, status)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(currentUserId, customerId, nextBlocked ? 'BLOQUEIO_MANUAL' : 'DESBLOQUEIO_MANUAL', nextReason || 'Alteração de status de vendas', 'Concluído');
+    } catch (e) {}
+
+    const updated = db.prepare("SELECT * FROM customers WHERE id = ?").get(customerId);
+    res.json({ success: true, isBlocked: nextBlocked, customer: updated });
   });
 
   app.put("/api/credit/:id/promise", authenticateToken, (req, res) => {
