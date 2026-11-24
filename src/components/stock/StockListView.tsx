@@ -9,7 +9,10 @@ import {
   ArrowUp, 
   ArrowDown, 
   Check, 
-  MapPin 
+  MapPin,
+  ChevronDown,
+  ChevronRight,
+  Layers
 } from 'lucide-react';
 import { Product, SortField, SortDirection } from './types';
 
@@ -46,6 +49,14 @@ const StockListViewComponent: React.FC<StockListViewProps> = ({
 }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [displayCount, setDisplayCount] = useState(60);
+  const [expandedProductIds, setExpandedProductIds] = useState<number[]>([]);
+
+  const toggleExpandVariants = (e: React.MouseEvent, productId: number) => {
+    e.stopPropagation();
+    setExpandedProductIds(prev => 
+      prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]
+    );
+  };
 
   React.useEffect(() => {
     setDisplayCount(60);
@@ -200,13 +211,13 @@ const StockListViewComponent: React.FC<StockListViewProps> = ({
                 }
 
                 return (
-                  <tr
-                    key={product.id}
-                    onClick={() => onOpenProductDetail(product)}
-                    className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${
-                      isSelected ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
-                    }`}
-                  >
+                  <React.Fragment key={product.id}>
+                    <tr
+                      onClick={() => onOpenProductDetail(product)}
+                      className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer ${
+                        isSelected ? 'bg-rose-50/40 dark:bg-rose-950/20' : ''
+                      }`}
+                    >
                     {/* Checkbox */}
                     <td className="py-2.5 px-3 text-center" onClick={e => e.stopPropagation()}>
                       <input
@@ -240,8 +251,27 @@ const StockListViewComponent: React.FC<StockListViewProps> = ({
 
                     {/* Descrição / Categoria */}
                     <td className="py-2.5 px-4">
-                      <div className="font-bold text-slate-900 dark:text-slate-100 line-clamp-1 text-xs sm:text-sm">
-                        {product.description}
+                      <div className="flex items-center gap-1.5">
+                        {product.has_variants === 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => toggleExpandVariants(e, product.id)}
+                            className="p-1 rounded bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                            title="Expandir/recolher variações deste produto"
+                          >
+                            {expandedProductIds.includes(product.id) ? (
+                              <ChevronDown size={14} />
+                            ) : (
+                              <ChevronRight size={14} />
+                            )}
+                            <span className="text-[10px]">
+                              {product.variants?.length || product.variants_count || 0} var.
+                            </span>
+                          </button>
+                        )}
+                        <div className="font-bold text-slate-900 dark:text-slate-100 line-clamp-1 text-xs sm:text-sm">
+                          {product.description}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         {product.category && (
@@ -422,6 +452,58 @@ const StockListViewComponent: React.FC<StockListViewProps> = ({
                       </div>
                     </td>
                   </tr>
+
+                  {/* Linhas filhas das variações expandidas */}
+                  {expandedProductIds.includes(product.id) && Array.isArray(product.variants) && product.variants.map((v: any) => {
+                    let varAttrs = '';
+                    if (typeof v.attribute_combination === 'object' && v.attribute_combination) {
+                      varAttrs = Object.entries(v.attribute_combination).map(([k, val]) => `${k}: ${val}`).join(' | ');
+                    } else if (typeof v.attribute_combination === 'string') {
+                      try {
+                        const parsed = JSON.parse(v.attribute_combination);
+                        varAttrs = Object.entries(parsed).map(([k, val]) => `${k}: ${val}`).join(' | ');
+                      } catch (e) {
+                        varAttrs = v.attribute_combination;
+                      }
+                    }
+
+                    return (
+                      <tr 
+                        key={`var-${product.id}-${v.id}`}
+                        className="bg-slate-50/50 dark:bg-slate-900/60 text-xs border-l-4 border-l-rose-500 hover:bg-rose-50/20 dark:hover:bg-rose-950/10 transition-colors"
+                      >
+                        <td className="py-1.5 px-3"></td>
+                        <td className="py-1.5 px-2 text-center text-slate-400">↳</td>
+                        <td className="py-1.5 px-4 font-medium text-slate-700 dark:text-slate-300">
+                          <span className="font-bold text-rose-600 dark:text-rose-400 mr-2">Variação:</span>
+                          {varAttrs || v.sku || 'Opção'}
+                        </td>
+                        <td className="py-1.5 px-3 font-mono text-[10px] text-slate-500">
+                          {v.sku && <div>SKU: {v.sku}</div>}
+                          {v.barcode && <div>EAN: {v.barcode}</div>}
+                        </td>
+                        <td className="py-1.5 px-3 text-[11px] text-slate-500">-</td>
+                        <td className="py-1.5 px-3 text-[11px] text-slate-400">-</td>
+                        <td className="py-1.5 px-3 text-[11px] text-slate-600 dark:text-slate-400">
+                          {v.location ? `Local: ${v.location}` : '-'}
+                        </td>
+                        <td className="py-1.5 px-4 text-right font-mono font-bold text-slate-800 dark:text-slate-200">
+                          {formatBRL(Number(v.sale_price) || Number(product.sale_price))}
+                        </td>
+                        <td className="py-1.5 px-4 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            Number(v.stock) > 0 
+                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' 
+                              : 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300'
+                          }`}>
+                            {v.stock} un.
+                          </span>
+                        </td>
+                        <td className="py-1.5 px-3 text-right"></td>
+                      </tr>
+                    );
+                  })}
+                </React.Fragment>
                 );
               })
             )}

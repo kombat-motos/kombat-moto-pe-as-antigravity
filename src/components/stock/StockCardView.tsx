@@ -134,6 +134,11 @@ const StockCardViewComponent: React.FC<StockCardViewProps> = ({
 
                 {/* Marca e Categoria */}
                 <div className="flex items-center gap-1.5 mt-1">
+                  {product.has_variants === 1 && (
+                    <span className="px-1.5 py-0.5 bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-900 rounded text-[9px] font-black uppercase tracking-wider">
+                      {product.variants?.length || product.variants_count || 0} VARIAÇÕES
+                    </span>
+                  )}
                   {product.brand && (
                     <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded text-[9px] font-black uppercase tracking-wider">
                       {product.brand}

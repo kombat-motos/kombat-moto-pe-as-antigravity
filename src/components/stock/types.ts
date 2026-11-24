@@ -8,10 +8,13 @@ export interface Product {
   sale_price_credit?: number;
   sale_price_wholesale?: number;
   stock: number;
+  min_stock?: number;
   unit: string;
   category?: string;
   brand?: string;
   location?: string;
+  sector?: string;
+  shelf?: string;
   image_url?: string;
   image_url2?: string;
   image_url3?: string;
@@ -19,6 +22,9 @@ export interface Product {
   application?: string;
   distributor?: string;
   alt_code?: string;
+  has_variants?: number;
+  variants_count?: number;
+  variants?: any[];
 }
 
 export type QuickFilterType = 

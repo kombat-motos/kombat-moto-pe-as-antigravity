@@ -551,6 +551,87 @@ db.exec(`
     used_at TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS product_variants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    sku TEXT,
+    barcode TEXT,
+    original_code TEXT,
+    alt_code TEXT,
+    purchase_price REAL DEFAULT 0,
+    sale_price REAL NOT NULL,
+    sale_price_credit REAL DEFAULT 0,
+    sale_price_wholesale REAL DEFAULT 0,
+    stock INTEGER DEFAULT 0,
+    min_stock INTEGER DEFAULT 0,
+    location TEXT,
+    sector TEXT,
+    shelf TEXT,
+    image_url TEXT,
+    status TEXT DEFAULT 'Ativo',
+    attribute_combination TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+  );
+
+  CREATE TABLE IF NOT EXISTS product_attributes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS product_attribute_values (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    attribute_id INTEGER NOT NULL,
+    value TEXT NOT NULL,
+    FOREIGN KEY (attribute_id) REFERENCES product_attributes (id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS product_applications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    brand TEXT NOT NULL,
+    model TEXT NOT NULL,
+    engine_cc TEXT,
+    year_start TEXT,
+    year_end TEXT,
+    version TEXT,
+    notes TEXT,
+    FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS product_suppliers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    supplier_name TEXT NOT NULL,
+    supplier_code TEXT,
+    lead_time_days INTEGER DEFAULT 0,
+    last_cost REAL DEFAULT 0,
+    FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS product_stock_movements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    variant_id INTEGER,
+    type TEXT NOT NULL, -- 'ENTRADA', 'SAIDA', 'VENDA', 'CANCELAMENTO', 'AJUSTE', 'DEVOLUCAO'
+    quantity INTEGER NOT NULL,
+    previous_stock INTEGER,
+    new_stock INTEGER,
+    reason TEXT,
+    reference_id TEXT, -- sale_id, os_id, etc.
+    username TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE,
+    FOREIGN KEY (variant_id) REFERENCES product_variants (id) ON DELETE SET NULL,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+  );
 `);
 
 // Helper to perform verifiable pre-migration backup
@@ -688,6 +769,22 @@ const migrations = [
   "ALTER TABLE credit ADD COLUMN total_parcels INTEGER DEFAULT 1",
   "ALTER TABLE credit ADD COLUMN identifier TEXT",
   "ALTER TABLE products ADD COLUMN sale_price_wholesale REAL DEFAULT 0",
+  "ALTER TABLE products ADD COLUMN has_variants INTEGER DEFAULT 0",
+  "ALTER TABLE products ADD COLUMN min_stock INTEGER DEFAULT 0",
+  "ALTER TABLE products ADD COLUMN sector TEXT",
+  "ALTER TABLE products ADD COLUMN shelf TEXT",
+  "ALTER TABLE products ADD COLUMN ncm TEXT",
+  "ALTER TABLE products ADD COLUMN cest TEXT",
+  "ALTER TABLE products ADD COLUMN cfop TEXT",
+  "ALTER TABLE products ADD COLUMN origin TEXT",
+  "ALTER TABLE products ADD COLUMN icms_cst TEXT",
+  "ALTER TABLE products ADD COLUMN status TEXT DEFAULT 'Ativo'",
+  "ALTER TABLE sale_items ADD COLUMN variant_id INTEGER",
+  "ALTER TABLE sale_items ADD COLUMN variant_description TEXT",
+  "ALTER TABLE orcamento_itens ADD COLUMN variant_id INTEGER",
+  "ALTER TABLE orcamento_itens ADD COLUMN variant_description TEXT",
+  "ALTER TABLE servico_pecas ADD COLUMN variant_id INTEGER",
+  "ALTER TABLE servico_pecas ADD COLUMN variant_description TEXT",
   "ALTER TABLE cash_transactions ADD COLUMN reversed_from_id INTEGER",
   "ALTER TABLE cash_transactions ADD COLUMN is_reversed BOOLEAN DEFAULT 0"
 ];
@@ -730,6 +827,14 @@ createIndexSafely(db, "idx_motorcycles_customer", "motorcycles", ["customer_id"]
 createIndexSafely(db, "idx_motorcycles_plate", "motorcycles", ["plate"]);
 createIndexSafely(db, "idx_audit_logs_corr", "audit_logs", ["correlation_id"]);
 createIndexSafely(db, "idx_single_use_tokens", "single_use_tokens", ["id"]);
+createIndexSafely(db, "idx_variants_product", "product_variants", ["product_id"]);
+createIndexSafely(db, "idx_variants_user", "product_variants", ["user_id"]);
+createIndexSafely(db, "idx_variants_sku", "product_variants", ["user_id", "sku"]);
+createIndexSafely(db, "idx_variants_barcode", "product_variants", ["user_id", "barcode"]);
+createIndexSafely(db, "idx_applications_product", "product_applications", ["product_id"]);
+createIndexSafely(db, "idx_suppliers_product", "product_suppliers", ["product_id"]);
+createIndexSafely(db, "idx_stock_mov_product", "product_stock_movements", ["product_id"]);
+createIndexSafely(db, "idx_stock_mov_variant", "product_stock_movements", ["variant_id"]);
 
 // Migração rápida para desintoxicar produtos com Base64 gigante na tabela products
 try {
@@ -2434,13 +2539,70 @@ async function startServer() {
   });
 
   app.get("/api/products", authenticateToken, (req, res) => {
-    const products = db.prepare("SELECT * FROM products WHERE user_id = ? ORDER BY description ASC").all(req.user!.id);
-    res.json(products);
+    const products = db.prepare(`
+      SELECT p.*,
+        (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.id) as variants_count,
+        (SELECT json_group_array(json_object(
+          'id', pv.id,
+          'product_id', pv.product_id,
+          'sku', pv.sku,
+          'barcode', pv.barcode,
+          'original_code', pv.original_code,
+          'alt_code', pv.alt_code,
+          'purchase_price', pv.purchase_price,
+          'sale_price', pv.sale_price,
+          'sale_price_credit', pv.sale_price_credit,
+          'sale_price_wholesale', pv.sale_price_wholesale,
+          'stock', pv.stock,
+          'min_stock', pv.min_stock,
+          'location', pv.location,
+          'sector', pv.sector,
+          'shelf', pv.shelf,
+          'image_url', pv.image_url,
+          'status', pv.status,
+          'attribute_combination', pv.attribute_combination
+        )) FROM product_variants pv WHERE pv.product_id = p.id) as variants_json
+      FROM products p 
+      WHERE p.user_id = ? 
+      ORDER BY p.description ASC
+    `).all(req.user!.id) as any[];
+
+    const parsed = products.map(prod => {
+      let variants = [];
+      try {
+        variants = prod.variants_json ? JSON.parse(prod.variants_json) : [];
+      } catch (e) {
+        variants = [];
+      }
+      delete prod.variants_json;
+      return {
+        ...prod,
+        variants
+      };
+    });
+
+    res.json(parsed);
   });
 
   app.get("/api/products/barcode/:barcode", authenticateToken, (req, res) => {
     try {
       const barcode = req.params.barcode.trim();
+      // Primeiro busca na tabela de variações para precisão máxima
+      const variant = db.prepare(`
+        SELECT pv.*, p.description as parent_description, p.brand as parent_brand, p.unit as parent_unit, p.category as parent_category
+        FROM product_variants pv
+        JOIN products p ON p.id = pv.product_id
+        WHERE pv.user_id = ? AND (pv.barcode = ? OR pv.sku = ? OR pv.original_code = ? OR pv.alt_code = ?)
+      `).get(req.user!.id, barcode, barcode, barcode, barcode) as any;
+
+      if (variant) {
+        return res.json({
+          ...variant,
+          is_variant: true,
+          description: `${variant.parent_description} (${variant.sku || 'Var'})`
+        });
+      }
+
       const product = db.prepare("SELECT * FROM products WHERE user_id = ? AND (barcode = ? OR sku = ? OR alt_code = ?)").get(req.user!.id, barcode, barcode, barcode);
       if (!product) {
         return res.status(404).json({ error: "Produto não encontrado" });
@@ -2761,6 +2923,244 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // ==========================================
+  // ERP 2.0 - ROTAS DE VARIAÇÕES, APLICAÇÕES E HISTÓRICO
+  // ==========================================
+  app.get("/api/products/:id/details", authenticateToken, (req, res) => {
+    try {
+      const productId = req.params.id;
+      const userId = req.user!.id;
+      const product = db.prepare("SELECT * FROM products WHERE id = ? AND user_id = ?").get(productId, userId);
+      if (!product) return res.status(404).json({ error: "Produto não encontrado" });
+
+      const variants = db.prepare("SELECT * FROM product_variants WHERE product_id = ? AND user_id = ? ORDER BY id ASC").all(productId, userId);
+      const applications = db.prepare("SELECT * FROM product_applications WHERE product_id = ? ORDER BY id ASC").all(productId);
+      const suppliers = db.prepare("SELECT * FROM product_suppliers WHERE product_id = ? ORDER BY id ASC").all(productId);
+      const movements = db.prepare("SELECT * FROM product_stock_movements WHERE product_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 50").all(productId, userId);
+
+      res.json({
+        product,
+        variants,
+        applications,
+        suppliers,
+        movements
+      });
+    } catch (err: any) {
+      console.error('ERRO AO BUSCAR DETALHES COMPLETOS DO PRODUTO:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Salvar Produto Completo ERP (com variações, aplicações, fornecedores e movimentação inicial)
+  app.post("/api/products/erp-save", authenticateToken, (req, res) => {
+    const userId = req.user!.id;
+    const { product, variants, applications, suppliers } = req.body;
+
+    if (!product || !product.description) {
+      return res.status(400).json({ error: "Descrição do produto é obrigatória" });
+    }
+
+    try {
+      const saveTx = db.transaction(() => {
+        let productId = product.id ? parseInt(product.id) : null;
+        const finalImg1 = sanitizeProductImage(product.image_url);
+        const finalImg2 = sanitizeProductImage(product.image_url2);
+        const finalImg3 = sanitizeProductImage(product.image_url3);
+        const finalImg4 = sanitizeProductImage(product.image_url4);
+
+        const hasVariants = (Array.isArray(variants) && variants.length > 0) ? 1 : (product.has_variants ? 1 : 0);
+        
+        // Se tem variações, o estoque do produto pai é a soma das variações
+        let computedStock = Number(product.stock) || 0;
+        if (hasVariants === 1 && Array.isArray(variants)) {
+          computedStock = variants.reduce((acc: number, v: any) => acc + (Number(v.stock) || 0), 0);
+        }
+
+        if (productId) {
+          // Atualiza produto existente
+          db.prepare(`
+            UPDATE products 
+            SET description = ?, sku = ?, barcode = ?, purchase_price = ?, sale_price = ?, sale_price_credit = ?, 
+                sale_price_wholesale = ?, stock = ?, min_stock = ?, unit = ?, image_url = ?, image_url2 = ?, 
+                image_url3 = ?, image_url4 = ?, brand = ?, application = ?, category = ?, location = ?, 
+                sector = ?, shelf = ?, distributor = ?, alt_code = ?, has_variants = ?, ncm = ?, cest = ?, 
+                cfop = ?, origin = ?, icms_cst = ?, status = ?
+            WHERE id = ? AND user_id = ?
+          `).run(
+            product.description, product.sku, product.barcode, Number(product.purchase_price) || 0, 
+            Number(product.sale_price) || 0, Number(product.sale_price_credit) || 0, Number(product.sale_price_wholesale) || 0, 
+            computedStock, Number(product.min_stock) || 0, product.unit || 'Unitário', finalImg1, finalImg2, 
+            finalImg3, finalImg4, product.brand, product.application, product.category, product.location, 
+            product.sector, product.shelf, product.distributor, product.alt_code, hasVariants, product.ncm, product.cest, 
+            product.cfop, product.origin, product.icms_cst, product.status || 'Ativo',
+            productId, userId
+          );
+        } else {
+          // Insere novo produto
+          const info = db.prepare(`
+            INSERT INTO products (
+              user_id, description, sku, barcode, purchase_price, sale_price, sale_price_credit, 
+              sale_price_wholesale, stock, min_stock, unit, image_url, image_url2, image_url3, image_url4, 
+              brand, application, category, location, sector, shelf, distributor, alt_code, has_variants, 
+              ncm, cest, cfop, origin, icms_cst, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            userId, product.description, product.sku, product.barcode, Number(product.purchase_price) || 0, 
+            Number(product.sale_price) || 0, Number(product.sale_price_credit) || 0, Number(product.sale_price_wholesale) || 0, 
+            computedStock, Number(product.min_stock) || 0, product.unit || 'Unitário', finalImg1, finalImg2, 
+            finalImg3, finalImg4, product.brand, product.application, product.category, product.location, 
+            product.sector, product.shelf, product.distributor, product.alt_code, hasVariants, product.ncm, product.cest, 
+            product.cfop, product.origin, product.icms_cst, product.status || 'Ativo'
+          );
+          productId = parseInt(info.lastInsertRowid.toString());
+
+          // Registra movimentação inicial se estoque > 0
+          if (computedStock > 0 && (!Array.isArray(variants) || variants.length === 0)) {
+            db.prepare(`
+              INSERT INTO product_stock_movements (user_id, product_id, type, quantity, previous_stock, new_stock, reason, username)
+              VALUES (?, ?, 'ENTRADA', ?, 0, ?, 'Saldo inicial no cadastro', ?)
+            `).run(userId, productId, computedStock, computedStock, req.user?.username || 'admin');
+          }
+        }
+
+        // Processa variações se houver
+        if (Array.isArray(variants)) {
+          const existingVariantIds = new Set(
+            (db.prepare("SELECT id FROM product_variants WHERE product_id = ?").all(productId) as any[]).map(v => v.id)
+          );
+          const submittedVariantIds = new Set<number>();
+
+          const insertVar = db.prepare(`
+            INSERT INTO product_variants (
+              product_id, user_id, sku, barcode, original_code, alt_code, purchase_price, sale_price,
+              sale_price_credit, sale_price_wholesale, stock, min_stock, location, sector, shelf,
+              image_url, status, attribute_combination
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `);
+
+          const updateVar = db.prepare(`
+            UPDATE product_variants 
+            SET sku = ?, barcode = ?, original_code = ?, alt_code = ?, purchase_price = ?, sale_price = ?,
+                sale_price_credit = ?, sale_price_wholesale = ?, stock = ?, min_stock = ?, location = ?,
+                sector = ?, shelf = ?, image_url = ?, status = ?, attribute_combination = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND product_id = ?
+          `);
+
+          for (const v of variants) {
+            const vCost = (v.purchase_price !== undefined && v.purchase_price !== '') ? Number(v.purchase_price) : (Number(product.purchase_price) || 0);
+            const vSale = (v.sale_price !== undefined && v.sale_price !== '') ? Number(v.sale_price) : (Number(product.sale_price) || 0);
+            const vCredit = (v.sale_price_credit !== undefined && v.sale_price_credit !== '') ? Number(v.sale_price_credit) : (Number(product.sale_price_credit) || 0);
+            const vWholesale = (v.sale_price_wholesale !== undefined && v.sale_price_wholesale !== '') ? Number(v.sale_price_wholesale) : (Number(product.sale_price_wholesale) || 0);
+            const vStock = Number(v.stock) || 0;
+            const vMinStock = Number(v.min_stock) || 0;
+            const vComb = typeof v.attribute_combination === 'object' ? JSON.stringify(v.attribute_combination) : (v.attribute_combination || '{}');
+
+            if (v.id && existingVariantIds.has(v.id)) {
+              submittedVariantIds.add(v.id);
+              updateVar.run(
+                v.sku || null, v.barcode || null, v.original_code || null, v.alt_code || null,
+                vCost, vSale, vCredit, vWholesale, vStock, vMinStock,
+                v.location || null, v.sector || null, v.shelf || null,
+                v.image_url || null, v.status || 'Ativo', vComb,
+                v.id, productId
+              );
+            } else {
+              const resVar = insertVar.run(
+                productId, userId, v.sku || null, v.barcode || null, v.original_code || null, v.alt_code || null,
+                vCost, vSale, vCredit, vWholesale, vStock, vMinStock,
+                v.location || null, v.sector || null, v.shelf || null,
+                v.image_url || null, v.status || 'Ativo', vComb
+              );
+              const newVarId = parseInt(resVar.lastInsertRowid.toString());
+              if (vStock > 0) {
+                db.prepare(`
+                  INSERT INTO product_stock_movements (user_id, product_id, variant_id, type, quantity, previous_stock, new_stock, reason, username)
+                  VALUES (?, ?, ?, 'ENTRADA', ?, 0, ?, 'Saldo inicial da variação no cadastro', ?)
+                `).run(userId, productId, newVarId, vStock, vStock, req.user?.username || 'admin');
+              }
+            }
+          }
+
+          // Remove variações que foram excluídas pelo operador
+          for (const oldId of existingVariantIds) {
+            if (!submittedVariantIds.has(oldId)) {
+              db.prepare("DELETE FROM product_variants WHERE id = ? AND product_id = ?").run(oldId, productId);
+            }
+          }
+        }
+
+        // Processa aplicações
+        if (Array.isArray(applications)) {
+          db.prepare("DELETE FROM product_applications WHERE product_id = ?").run(productId);
+          const insertApp = db.prepare(`
+            INSERT INTO product_applications (product_id, brand, model, engine_cc, year_start, year_end, version, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `);
+          for (const app of applications) {
+            if (app.model) {
+              insertApp.run(productId, app.brand || '', app.model, app.engine_cc || '', app.year_start || '', app.year_end || '', app.version || '', app.notes || '');
+            }
+          }
+        }
+
+        // Processa fornecedores
+        if (Array.isArray(suppliers)) {
+          db.prepare("DELETE FROM product_suppliers WHERE product_id = ?").run(productId);
+          const insertSup = db.prepare(`
+            INSERT INTO product_suppliers (product_id, supplier_name, supplier_code, lead_time_days, last_cost)
+            VALUES (?, ?, ?, ?, ?)
+          `);
+          for (const sup of suppliers) {
+            if (sup.supplier_name) {
+              insertSup.run(productId, sup.supplier_name, sup.supplier_code || '', Number(sup.lead_time_days) || 0, Number(sup.last_cost) || 0);
+            }
+          }
+        }
+
+        return productId;
+      });
+
+      const savedId = saveTx();
+      res.json({ success: true, id: savedId });
+    } catch (err: any) {
+      console.error('ERRO AO SALVAR PRODUTO ERP:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Atualização em lote de variações de um produto
+  app.put("/api/products/:id/variants/batch", authenticateToken, (req, res) => {
+    const productId = req.params.id;
+    const userId = req.user!.id;
+    const { updates } = req.body; // { field: 'sale_price' | 'min_stock' | 'location', value: any, variantIds?: number[] }
+
+    if (!updates || !updates.field) {
+      return res.status(400).json({ error: "Campo de atualização inválido" });
+    }
+
+    try {
+      const allowedFields = ['sale_price', 'sale_price_credit', 'sale_price_wholesale', 'purchase_price', 'min_stock', 'location', 'sector', 'shelf', 'status'];
+      if (!allowedFields.includes(updates.field)) {
+        return res.status(400).json({ error: "Campo não permitido para edição em lote" });
+      }
+
+      let sql = `UPDATE product_variants SET ${updates.field} = ? WHERE product_id = ? AND user_id = ?`;
+      const params: any[] = [updates.value, productId, userId];
+
+      if (Array.isArray(updates.variantIds) && updates.variantIds.length > 0) {
+        const placeholders = updates.variantIds.map(() => '?').join(',');
+        sql += ` AND id IN (${placeholders})`;
+        params.push(...updates.variantIds);
+      }
+
+      db.prepare(sql).run(...params);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('ERRO NA ATUALIZAÇÃO EM LOTE DE VARIAÇÕES:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Mechanics
   app.get("/api/mechanics", authenticateToken, (req, res) => {
     const data = db.prepare(`SELECT * FROM mechanics WHERE user_id = ?`).all(req.user!.id);
@@ -2906,17 +3306,39 @@ async function startServer() {
         }
       }
       
-      // 2. Insert Items & Update Stock
-      const insertItem = db.prepare("INSERT INTO sale_items (sale_id, product_id, description, quantity, price, type) VALUES (?, ?, ?, ?, ?, ?)");
+      // 2. Insert Items & Update Stock (suporta Variações e Produtos Simples)
+      const insertItem = db.prepare("INSERT INTO sale_items (sale_id, product_id, description, quantity, price, type, variant_id, variant_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
       const updateStock = db.prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+      const updateVariantStock = db.prepare("UPDATE product_variants SET stock = stock - ? WHERE id = ?");
+      const insertStockMovement = db.prepare(`
+        INSERT INTO product_stock_movements (user_id, product_id, variant_id, type, quantity, reason, reference_id, username)
+        VALUES (?, ?, ?, 'VENDA', ?, 'Venda PDV/Balcão', ?, ?)
+      `);
+
       if (sale_items) {
         for (const item of sale_items) {
           const safePrice = parseFloat(item.price) || 0;
           const safeQty = parseInt(item.quantity) || 0;
           const safeProdId = item.product_id ? parseInt(item.product_id) : null;
-          insertItem.run(id, safeProdId, item.description, safeQty, safePrice, item.type || 'Peça');
+          const safeVariantId = item.variant_id ? parseInt(item.variant_id) : null;
+          const variantDesc = item.variant_description || null;
+
+          insertItem.run(id, safeProdId, item.description, safeQty, safePrice, item.type || 'Peça', safeVariantId, variantDesc);
+
           if (safeProdId && (item.type === 'Peça' || !item.type)) {
+            // Se possui variação específica
+            if (safeVariantId) {
+              updateVariantStock.run(safeQty, safeVariantId);
+            }
+            // Atualiza o estoque geral do produto pai
             updateStock.run(safeQty, safeProdId);
+
+            // Registra movimento de auditoria de estoque
+            try {
+              insertStockMovement.run(req.user!.id, safeProdId, safeVariantId, safeQty, id, req.user?.username || 'admin');
+            } catch (movErr) {
+              console.warn('[STOCK MOVEMENT AUDIT WARN]', movErr);
+            }
           }
         }
       }
@@ -3114,10 +3536,23 @@ async function startServer() {
         // 1. Reverter estoque dos itens (apenas se ainda não havia sido cancelada)
         if (sale.status !== 'Cancelado' && !sale.cancelled_at) {
           const updateStock = db.prepare("UPDATE products SET stock = stock + ? WHERE id = ?");
+          const updateVariantStock = db.prepare("UPDATE product_variants SET stock = stock + ? WHERE id = ?");
+          const insertRevertMov = db.prepare(`
+            INSERT INTO product_stock_movements (user_id, product_id, variant_id, type, quantity, reason, reference_id, username)
+            VALUES (?, ?, ?, 'CANCELAMENTO', ?, 'Cancelamento de venda', ?, ?)
+          `);
+
           for (const item of items) {
             if (item.product_id && (item.type === 'Peça' || !item.type)) {
               try {
-                updateStock.run(Number(item.quantity) || 0, item.product_id);
+                const qty = Number(item.quantity) || 0;
+                if (item.variant_id) {
+                  updateVariantStock.run(qty, item.variant_id);
+                }
+                updateStock.run(qty, item.product_id);
+                try {
+                  insertRevertMov.run(currentUserId, item.product_id, item.variant_id || null, qty, resolvedSaleId, currentUsername);
+                } catch (e) {}
               } catch (stkErr) {
                 console.warn("[STOCK REVERT WARN]", stkErr);
               }

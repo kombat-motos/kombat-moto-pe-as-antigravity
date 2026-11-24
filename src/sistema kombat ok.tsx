@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useDeferredValue, useMemo, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useDeferredValue, useMemo, useCallback } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -102,6 +102,8 @@ import { calculateBillingDueDate } from './utils/billingDate';
 import { searchSmartProducts } from './utils/smartSearch';
 import { hasPermission, normalizeRole, isAdmin, canViewCostPrice } from './types/auth';
 import UserManagementModule from './components/UserManagementModule';
+import ProductRegistrationModalERP from './components/products/ProductRegistrationModalERP';
+import ProductVariantSelectorModal from './components/products/ProductVariantSelectorModal';
 
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -161,10 +163,13 @@ interface Product {
   sale_price_credit?: number;
   sale_price_wholesale?: number;
   stock: number;
+  min_stock?: number;
   unit: string;
   category?: string;
   brand?: string;
   location?: string;
+  sector?: string;
+  shelf?: string;
   image_url?: string;
   image_url2?: string;
   image_url3?: string;
@@ -172,6 +177,9 @@ interface Product {
   application?: string;
   distributor?: string;
   alt_code?: string;
+  has_variants?: number;
+  variants_count?: number;
+  variants?: any[];
 }
 
 interface Lead {
@@ -207,6 +215,8 @@ interface RegisteredService {
 
 interface SaleItem {
   product_id?: number;
+  variant_id?: number;
+  variant_description?: string;
   description: string;
   quantity: number;
   price: number;
@@ -992,6 +1002,8 @@ export default function App() {
   const [massWholesaleUpdateForm, setMassWholesaleUpdateForm] = useState<{type: 'percent'|'fixed', action: 'increase'|'decrease', baseField: 'sale_price'|'purchase_price', value: string}>({ type: 'percent', action: 'decrease', baseField: 'sale_price', value: '' });
   const [isMotorcycleModalOpen, setIsMotorcycleModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isVariantSelectorOpen, setIsVariantSelectorOpen] = useState(false);
+  const [productForVariantSelection, setProductForVariantSelection] = useState<Product | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [editingMotorcycle, setEditingMotorcycle] = useState<Motorcycle | null>(null);
   const [editingService, setEditingService] = useState<RegisteredService | null>(null);
@@ -2288,11 +2300,18 @@ export default function App() {
   };
 
   const handleAddPdvItem = (product: Product) => {
-    const existing = pdvForm.items.find(i => i.product_id === product.id);
+    // Se o produto possuir variações cadastradas, abre o seletor de variação
+    if (product.has_variants === 1 && Array.isArray(product.variants) && product.variants.length > 0) {
+      setProductForVariantSelection(product);
+      setIsVariantSelectorOpen(true);
+      return;
+    }
+
+    const existing = pdvForm.items.find(i => i.product_id === product.id && !i.variant_id);
     if (existing) {
       setPdvForm({
         ...pdvForm,
-        items: pdvForm.items.map(i => i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i)
+        items: pdvForm.items.map(i => (i.product_id === product.id && !i.variant_id) ? { ...i, quantity: i.quantity + 1 } : i)
       });
     } else {
       let newPrice = product.sale_price;
@@ -2304,6 +2323,47 @@ export default function App() {
       });
     }
     setPdvSearchProduct('');
+  };
+
+  const handleSelectPdvVariant = (variant: any, effectivePrice: number) => {
+    if (!productForVariantSelection) return;
+
+    let varDesc = '';
+    if (typeof variant.attribute_combination === 'object' && variant.attribute_combination) {
+      varDesc = Object.values(variant.attribute_combination).join(' / ');
+    } else if (typeof variant.attribute_combination === 'string') {
+      try {
+        varDesc = Object.values(JSON.parse(variant.attribute_combination)).join(' / ');
+      } catch (e) {
+        varDesc = variant.attribute_combination;
+      }
+    }
+    const fullDesc = `${productForVariantSelection.description} (${varDesc || variant.sku})`;
+
+    const existing = pdvForm.items.find(i => i.variant_id === variant.id);
+    if (existing) {
+      setPdvForm({
+        ...pdvForm,
+        items: pdvForm.items.map(i => i.variant_id === variant.id ? { ...i, quantity: i.quantity + 1 } : i)
+      });
+    } else {
+      setPdvForm({
+        ...pdvForm,
+        items: [
+          ...pdvForm.items,
+          {
+            product_id: productForVariantSelection.id,
+            variant_id: variant.id,
+            variant_description: varDesc,
+            description: fullDesc,
+            quantity: 1,
+            price: effectivePrice
+          }
+        ]
+      });
+    }
+    setPdvSearchProduct('');
+    setProductForVariantSelection(null);
   };
 
   const handleChangePdvChargeType = (type: 'vista' | 'credito_30_dias' | 'atacado') => {
@@ -8698,283 +8758,34 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           existingCustomers={customers}
         />
 
-        <Modal
+        {/* KOMBAT ERP 2.0 - CENTRAL PROFISSIONAL DE CADASTRO DE PRODUTOS */}
+        <ProductRegistrationModalERP
           isOpen={isProductModalOpen}
           onClose={() => {
             setIsProductModalOpen(false);
             setEditingProduct(null);
-            setProductForm({ description: '', sku: '', barcode: '', purchase_price: '', sale_price: '', sale_price_credit: '', sale_price_wholesale: '', stock: '', unit: 'Unitário', image_url: '', image_url2: '', image_url3: '', image_url4: '', brand: '', location: '', application: '', distributor: '', alt_code: '' });
           }}
-          title={editingProduct ? "Editar Produto" : "Adicionar Produto ao Estoque"}
-          maxWidth="max-w-4xl"
-        >
-          <form onSubmit={handleAddProduct} className="grid grid-cols-1 md:grid-cols-5 gap-5">
-            {/* Coluna da Esquerda - Dados do Produto */}
-            <div className="md:col-span-3 space-y-3">
-              {/* Linha 1: Descrição do Produto | Marca */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <div className="flex justify-between items-center mb-0.5">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Descrição do Produto</label>
-                  </div>
-                  <input
-                    type="text" required autoFocus tabIndex={1} placeholder="Ex: Pneu Traseiro 90/90-18"
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                    value={productForm.description}
-                    onChange={e => setProductForm({ ...productForm, description: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Marca</label>
-                  <input
-                    type="text" tabIndex={2} placeholder="Ex: Honda, Pirelli"
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                    value={productForm.brand}
-                    onChange={e => setProductForm({ ...productForm, brand: e.target.value })}
-                  />
-                </div>
-              </div>
+          productToEdit={editingProduct}
+          existingProducts={products}
+          formatBRL={formatBRL}
+          onProductSaved={() => {
+            fetchData();
+          }}
+        />
 
-              {/* Linha 2: Distribuidor | Código Alternativo (Similar) | Localização no Estoque */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Distribuidor</label>
-                  <input
-                    type="text" tabIndex={3} placeholder="Ex: Distribuidora X"
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                    value={productForm.distributor}
-                    onChange={e => setProductForm({ ...productForm, distributor: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Cod. Alternativo</label>
-                  <input
-                    type="text" tabIndex={4} placeholder="Ex: Similar X"
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                    value={productForm.alt_code}
-                    onChange={e => setProductForm({ ...productForm, alt_code: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Localização</label>
-                  <input
-                    type="text" tabIndex={5} placeholder="Ex: Prateleira A"
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                    value={productForm.location}
-                    onChange={e => setProductForm({ ...productForm, location: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              {/* Linha 3: SKU / Código Interno | Código de Barras (EAN) */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">SKU / Código Interno (Vazio para autogerar)</label>
-                  <input
-                    type="text" tabIndex={6} placeholder="Autogerado se vazio"
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                    value={productForm.sku}
-                    onChange={e => setProductForm({ ...productForm, sku: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Código de Barras (EAN)</label>
-                  <input
-                    type="text" tabIndex={7} placeholder="Ex: EAN"
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                    value={productForm.barcode}
-                    onChange={e => setProductForm({ ...productForm, barcode: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              {/* Linha 4: Unidade de Medida | Estoque Inicial | Preço Compra (R$) | Preço Venda (R$) | Venda a Crédito | Venda Atacado */}
-              <div className="grid grid-cols-6 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Unidade</label>
-                  <select
-                    tabIndex={8}
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                    value={productForm.unit}
-                    onChange={e => setProductForm({ ...productForm, unit: e.target.value })}
-                  >
-                    <option value="Unitário">Unitário</option>
-                    <option value="Par">Par</option>
-                    <option value="Kit">Kit</option>
-                    <option value="Litro">Litro</option>
-                    <option value="Conjunto">Conjunto</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Est. Inicial</label>
-                  <input
-                    type="number" required tabIndex={9}
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all dark:bg-slate-900 dark:border-slate-700"
-                    value={productForm.stock}
-                    onChange={e => setProductForm({ ...productForm, stock: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Compra (R$)</label>
-                  <input
-                    type="number" step="0.01" required tabIndex={10}
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
-                    value={productForm.purchase_price}
-                    onChange={e => setProductForm({ ...productForm, purchase_price: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Venda (R$)</label>
-                  <input
-                    type="number" step="0.01" required tabIndex={11}
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-rose-600 dark:bg-slate-900 dark:border-slate-700"
-                    value={productForm.sale_price}
-                    onChange={e => setProductForm({ ...productForm, sale_price: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Venda 30d</label>
-                  <input
-                    type="number" step="0.01" tabIndex={11}
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-purple-600 dark:bg-slate-900 dark:border-slate-700"
-                    value={productForm.sale_price_credit || ''}
-                    onChange={e => setProductForm({ ...productForm, sale_price_credit: e.target.value })}
-                    placeholder="Auto"
-                    title="Preço a Crédito 30 Dias"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Venda Atacado</label>
-                  <input
-                    type="number" step="0.01" tabIndex={11}
-                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all font-bold text-emerald-600 dark:bg-slate-900 dark:border-slate-700"
-                    value={productForm.sale_price_wholesale || ''}
-                    onChange={e => setProductForm({ ...productForm, sale_price_wholesale: e.target.value })}
-                    placeholder="Auto"
-                    title="Preço Atacado"
-                  />
-                </div>
-              </div>
-
-              {/* Linha 5: Aplicação das Peças */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-0.5">Aplicação das Peças</label>
-                <textarea
-                  tabIndex={12}
-                  className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-400 rounded-lg focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all resize-none h-12 dark:bg-slate-900 dark:border-slate-700"
-                  placeholder="Ex: Honda CG 160 (2016-2023), Fan, Titan..."
-                  value={productForm.application}
-                  onChange={e => setProductForm({ ...productForm, application: e.target.value })}
-                />
-              </div>
-
-              {/* Painel IA Kombat Assistant para Cadastros Rápidos */}
-              <div className="p-3 bg-zinc-900/90 border border-zinc-800 rounded-xl space-y-2 relative overflow-hidden shadow-inner mt-4">
-                <div className="flex items-center space-x-2">
-                  <div className="p-1.5 bg-red-600/10 text-red-500 rounded-md">
-                    <Sparkles size={14} className={isAutofilling ? "animate-spin" : "animate-pulse"} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-white text-xs">IA Kombat Assistant</h4>
-                    <p className="text-[10px] text-zinc-400">Cole informações desorganizadas e deixe a IA extrair tudo (preços, estoque, marcas, etc).</p>
-                  </div>
-                </div>
-                
-                <div className="relative">
-                  <textarea
-                    id="aiPromptInput"
-                    className="w-full px-3 py-2 text-sm bg-zinc-950 border border-zinc-700 rounded-lg focus:ring-1 focus:ring-red-500 outline-none resize-none h-16 text-zinc-200 placeholder-zinc-600"
-                    placeholder="Ex: Pneu traseiro 90/90-18 pirelli custa 90 vender por 150 estoque 10 prat A"
-                  />
-                  <button 
-                    type="button"
-                    onClick={handleAutofillWithAI}
-                    disabled={isAutofilling}
-                    className="absolute right-2 bottom-2 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold px-3 py-1.5 rounded transition-all disabled:opacity-50 flex items-center gap-1 cursor-pointer"
-                  >
-                    <Sparkles size={12} />
-                    {isAutofilling ? "Gerando..." : "Autopreencher com IA"}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Coluna da Direita - Fotos e Ação */}
-            <div className="md:col-span-2 flex flex-col justify-between space-y-3">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-800 uppercase tracking-tight dark:text-slate-100">Fotos do Produto</label>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { key: 'image_url', label: 'Capa' },
-                    { key: 'image_url2', label: 'Foto 2' },
-                    { key: 'image_url3', label: 'Foto 3' },
-                    { key: 'image_url4', label: 'Foto 4' }
-                  ].map((photo) => (
-                    <div key={photo.key} className="space-y-1">
-                      <div className="relative aspect-square bg-slate-100 border border-slate-350 rounded-xl overflow-hidden group dark:bg-slate-800 dark:border-slate-700 flex items-center justify-center">
-                        {(productForm as any)[photo.key] ? (
-                          <img src={(productForm as any)[photo.key]} alt={photo.label} className="w-full h-full object-contain p-1" />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
-                            <ImageIcon size={20} />
-                            <span className="text-[9px] font-bold uppercase mt-0.5">{photo.label}</span>
-                          </div>
-                        )}
-                        
-                        <label className={`absolute inset-0 bg-black/40 ${!(productForm as any)[photo.key] ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-center justify-center cursor-pointer transition-all`}>
-                          <div className="flex flex-col items-center gap-0.5">
-                            <Camera size={16} className="text-white" />
-                            <span className="text-[8px] text-white font-bold uppercase">Capturar</span>
-                          </div>
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            capture="environment" 
-                            className="hidden" 
-                            onChange={(e) => handleProductFormImageUpload(e, photo.key)}
-                          />
-                        </label>
-                        
-                        {(productForm as any)[photo.key] && (
-                          <button 
-                            type="button"
-                            onClick={() => setProductForm({ ...productForm, [photo.key]: '' })}
-                            className="absolute top-1 right-1 p-0.5 bg-white/80 text-rose-600 rounded-full hover:bg-white shadow-sm transition-all dark:bg-slate-800"
-                          >
-                            <X size={10} />
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="URL..."
-                        className="w-full text-[9px] px-1.5 py-0.5 bg-white border border-slate-300 rounded focus:outline-none focus:border-rose-500 dark:bg-slate-800 dark:border-slate-700"
-                        value={(productForm as any)[photo.key]}
-                        onChange={e => setProductForm({ ...productForm, [photo.key]: e.target.value })}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <button 
-                type="submit" 
-                tabIndex={13} 
-                disabled={isSavingProduct}
-                className="w-full py-2 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-md shadow-rose-100/50 dark:shadow-none mt-2 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {isSavingProduct ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Gravando...</span>
-                  </>
-                ) : (
-                  editingProduct ? "Salvar Alterações" : "Cadastrar Produto"
-                )}
-              </button>
-            </div>
-          </form>
-        </Modal>
+        {/* SELETOR DE VARIAÇÕES PARA O PDV */}
+        <ProductVariantSelectorModal
+          isOpen={isVariantSelectorOpen}
+          onClose={() => {
+            setIsVariantSelectorOpen(false);
+            setProductForVariantSelection(null);
+          }}
+          product={productForVariantSelection}
+          variants={productForVariantSelection?.variants || []}
+          chargeType={pdvForm.charge_type || 'vista'}
+          formatBRL={formatBRL}
+          onSelectVariant={handleSelectPdvVariant}
+        />
 
         <Modal
           isOpen={isMotorcycleModalOpen}

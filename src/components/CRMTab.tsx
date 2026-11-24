@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  BarChart3, LayoutDashboard, MessageCircle, Target, FileText, 
-  Wrench, BookOpen, Tag, Clock, Users, ShieldAlert, Brain 
+3import React, { useState, useEffect } from 'react';
+import {
+  BarChart3, LayoutDashboard, MessageCircle, Target, FileText,
+  Wrench, BookOpen, Tag, Clock, Users, ShieldAlert, Brain
 } from 'lucide-react';
 
 // Subcomponents
@@ -405,11 +405,10 @@ export default function CRMTab({
             <button
               key={item.id}
               onClick={() => setActiveSubTab(item.id as SubTab)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-200 ${
-                active 
-                  ? 'bg-rose-600 text-white shadow-md shadow-rose-100 dark:shadow-none' 
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-200 ${active
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-100 dark:shadow-none'
                   : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-slate-400'
-              }`}
+                }`}
             >
               <Icon size={14} />
               <span>{item.label}</span>
