@@ -6,3 +6,6 @@ nixpkgs = ["nodejs_20"]
 [deploy]
 startCommand = "npm run start"
 restartPolicyType = "ON_FAILURE"
+
+[environments.production.variables]
+NODE_ENV = "production"

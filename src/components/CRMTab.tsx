@@ -1,4 +1,4 @@
-3import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart3, LayoutDashboard, MessageCircle, Target, FileText,
   Wrench, BookOpen, Tag, Clock, Users, ShieldAlert, Brain

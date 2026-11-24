@@ -7978,22 +7978,23 @@ ${promptText}`,
   });
 
   // Serve frontend (MUST BE LAST ROUTE)
-    if (process.env.NODE_ENV !== "production") {
-      const vite = await createViteServer({
-        server: { 
-          middlewareMode: true,
-          host: '0.0.0.0',
-          hmr: { port: 24678 }
-        },
-        appType: "spa",
-      });
-      app.use(vite.middlewares);
-    } else {
-      app.use(express.static(path.join(__dirname, "dist")));
-      app.get("*", (req, res) => {
-        res.sendFile(path.join(__dirname, "dist", "index.html"));
-      });
-    }
+  const isProduction = process.env.NODE_ENV === "production" || fs.existsSync(path.join(__dirname, "dist", "index.html"));
+  if (!isProduction) {
+    const vite = await createViteServer({
+      server: { 
+        middlewareMode: true,
+        host: '0.0.0.0',
+        hmr: { port: 24678 }
+      },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    app.use(express.static(path.join(__dirname, "dist")));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(__dirname, "dist", "index.html"));
+    });
+  }
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`\n=================================================`);
