@@ -1460,7 +1460,34 @@ export default function App() {
   useEffect(() => {
     if (pdvSearchProduct) {
       const query = pdvSearchProduct.trim();
-      const match = products.find(p => p.barcode === query || p.sku === query);
+      
+      // 1. Primeiro verifica se coincide diretamente com código de barras ou SKU de uma variação
+      for (const p of products) {
+        if (p.variants && Array.isArray(p.variants) && p.variants.length > 0) {
+          const matchedVar = p.variants.find((v: any) => 
+            (v.barcode && v.barcode.trim() === query) || 
+            (v.sku && v.sku.trim().toLowerCase() === query.toLowerCase()) ||
+            (v.alt_code && v.alt_code.trim().toLowerCase() === query.toLowerCase())
+          );
+          if (matchedVar) {
+            // Seleciona diretamente a variação correspondente
+            setProductForVariantSelection(p);
+            handleSelectPdvVariant({
+              variant: matchedVar,
+              quantity: 1,
+              price: (pdvForm.charge_type === 'credito_30_dias' || pdvForm.charge_type === 'fiado') && matchedVar.sale_price_credit ? Number(matchedVar.sale_price_credit) : (pdvForm.charge_type === 'atacado' && matchedVar.sale_price_wholesale ? Number(matchedVar.sale_price_wholesale) : Number(matchedVar.sale_price || p.sale_price)),
+              sku: matchedVar.sku || p.sku || '',
+              barcode: matchedVar.barcode || p.barcode || '',
+              unit: p.unit || 'UN'
+            });
+            setPdvSearchProduct('');
+            return;
+          }
+        }
+      }
+
+      // 2. Se não foi variação específica, busca pelo produto principal
+      const match = products.find(p => p.barcode === query || (p.sku && p.sku.toLowerCase() === query.toLowerCase()) || (p.alt_code && p.alt_code.toLowerCase() === query.toLowerCase()));
       if (match) {
         handleAddPdvItem(match);
         setPdvSearchProduct('');
@@ -2301,7 +2328,8 @@ export default function App() {
 
   const handleAddPdvItem = (product: Product) => {
     // Se o produto possuir variações cadastradas, abre o seletor de variação
-    if (product.has_variants === 1 && Array.isArray(product.variants) && product.variants.length > 0) {
+    const hasVariants = (product.has_variants === 1 || product.has_variants === true || (product.variants_count && product.variants_count > 0)) && Array.isArray(product.variants) && product.variants.length > 0;
+    if (hasVariants) {
       setProductForVariantSelection(product);
       setIsVariantSelectorOpen(true);
       return;
@@ -2315,36 +2343,30 @@ export default function App() {
       });
     } else {
       let newPrice = product.sale_price;
-      if (pdvForm.charge_type === 'credito_30_dias' && product.sale_price_credit) newPrice = product.sale_price_credit;
+      if ((pdvForm.charge_type === 'credito_30_dias' || pdvForm.charge_type === 'fiado') && product.sale_price_credit) newPrice = product.sale_price_credit;
       if (pdvForm.charge_type === 'atacado' && product.sale_price_wholesale) newPrice = product.sale_price_wholesale;
       setPdvForm({
         ...pdvForm,
-        items: [...pdvForm.items, { product_id: product.id, description: product.description, quantity: 1, price: newPrice }]
+        items: [...pdvForm.items, { product_id: product.id, sku: product.sku || '', description: product.description, quantity: 1, price: newPrice }]
       });
     }
     setPdvSearchProduct('');
   };
 
-  const handleSelectPdvVariant = (variant: any, effectivePrice: number) => {
+  const handleSelectPdvVariant = (selected: any) => {
     if (!productForVariantSelection) return;
 
-    let varDesc = '';
-    if (typeof variant.attribute_combination === 'object' && variant.attribute_combination) {
-      varDesc = Object.values(variant.attribute_combination).join(' / ');
-    } else if (typeof variant.attribute_combination === 'string') {
-      try {
-        varDesc = Object.values(JSON.parse(variant.attribute_combination)).join(' / ');
-      } catch (e) {
-        varDesc = variant.attribute_combination;
-      }
-    }
-    const fullDesc = `${productForVariantSelection.description} (${varDesc || variant.sku})`;
+    const variant = selected.variant || selected;
+    const qty = selected.quantity || 1;
+    const effectivePrice = selected.price !== undefined ? selected.price : (Number(variant.sale_price) || Number(productForVariantSelection.sale_price));
+    const fullDesc = selected.fullDescription || `${productForVariantSelection.description} (${selected.variantDescription || variant.sku})`;
+    const varDesc = selected.variantDescription || '';
 
     const existing = pdvForm.items.find(i => i.variant_id === variant.id);
     if (existing) {
       setPdvForm({
         ...pdvForm,
-        items: pdvForm.items.map(i => i.variant_id === variant.id ? { ...i, quantity: i.quantity + 1 } : i)
+        items: pdvForm.items.map(i => i.variant_id === variant.id ? { ...i, quantity: i.quantity + qty } : i)
       });
     } else {
       setPdvForm({
@@ -2355,8 +2377,9 @@ export default function App() {
             product_id: productForVariantSelection.id,
             variant_id: variant.id,
             variant_description: varDesc,
+            sku: selected.sku || variant.sku || productForVariantSelection.sku || '',
             description: fullDesc,
-            quantity: 1,
+            quantity: qty,
             price: effectivePrice
           }
         ]
@@ -2364,6 +2387,7 @@ export default function App() {
     }
     setPdvSearchProduct('');
     setProductForVariantSelection(null);
+    setIsVariantSelectorOpen(false);
   };
 
   const handleChangePdvChargeType = (type: 'vista' | 'credito_30_dias' | 'atacado') => {

@@ -348,7 +348,19 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
           const qNorm = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
           const qWords = qNorm.split(/\s+/).filter(Boolean);
           matched = sortedProducts.filter(p => {
-            const fullText = `${p.description || ''} ${p.brand || ''} ${p.sku || ''} ${p.barcode || ''} ${p.application || ''} ${p.category || ''}`
+            let variantText = '';
+            if (p.variants && Array.isArray(p.variants)) {
+              variantText = p.variants.map((v: any) => {
+                let comb = '';
+                if (typeof v.attribute_combination === 'object' && v.attribute_combination) {
+                  comb = Object.values(v.attribute_combination).join(' ');
+                } else if (typeof v.attribute_combination === 'string') {
+                  comb = v.attribute_combination;
+                }
+                return `${v.sku || ''} ${v.barcode || ''} ${comb}`;
+              }).join(' ');
+            }
+            const fullText = `${p.description || ''} ${p.brand || ''} ${p.sku || ''} ${p.barcode || ''} ${p.application || ''} ${p.category || ''} ${variantText}`
               .toLowerCase()
               .normalize('NFD')
               .replace(/[\u0300-\u036f]/g, '');
@@ -362,7 +374,21 @@ const PDVTabComponent: React.FC<PDVTabProps> = ({
           const desc = (p.description || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
           const sku = (p.sku || '').toLowerCase();
           const bar = (p.barcode || '');
-          return desc.includes(qLower) || sku.includes(qLower) || bar.includes(qLower);
+          let hasVarMatch = false;
+          if (p.variants && Array.isArray(p.variants)) {
+            hasVarMatch = p.variants.some((v: any) => {
+              const vSku = (v.sku || '').toLowerCase();
+              const vBar = (v.barcode || '');
+              let comb = '';
+              if (typeof v.attribute_combination === 'object' && v.attribute_combination) {
+                comb = Object.values(v.attribute_combination).join(' ').toLowerCase();
+              } else if (typeof v.attribute_combination === 'string') {
+                comb = v.attribute_combination.toLowerCase();
+              }
+              return vSku.includes(qLower) || vBar.includes(qLower) || comb.includes(qLower);
+            });
+          }
+          return desc.includes(qLower) || sku.includes(qLower) || bar.includes(qLower) || hasVarMatch;
         });
       }
     }

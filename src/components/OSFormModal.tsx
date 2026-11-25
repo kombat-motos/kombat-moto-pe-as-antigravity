@@ -31,11 +31,15 @@ import {
 import Modal from './Modal';
 import SmartCustomerSearch from './common/SmartCustomerSearch';
 import SmartProductSearch from './common/SmartProductSearch';
+import ProductVariantSelectorModal, { SelectedVariantResult } from './products/ProductVariantSelectorModal';
 import { CustomerItem, MotorcycleItem, ProductItem, ServiceItem } from '../utils/smartSearch';
 import { calculateBillingDueDate } from '../utils/billingDate';
 
 export interface SaleItem {
   product_id?: number;
+  variant_id?: number;
+  variant_description?: string;
+  sku?: string;
   description: string;
   quantity: number;
   price: number;
@@ -111,6 +115,10 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
   const [newInternalDesc, setNewInternalDesc] = useState('');
   const [newInternalPrice, setNewInternalPrice] = useState('');
   const [customerSearchText, setCustomerSearchText] = useState('');
+
+  // Estados para seleção de variação na O.S.
+  const [isOsVariantModalOpen, setIsOsVariantModalOpen] = useState(false);
+  const [productForOsVariant, setProductForOsVariant] = useState<any | null>(null);
 
   // Sincroniza busca de cliente ao abrir modal ou editar O.S.
   useEffect(() => {
@@ -608,12 +616,20 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
                 services={registeredServices}
                 chargeType={osForm.charge_type || 'vista'}
                 onSelectProduct={(p: ProductItem) => {
-                  const existingIdx = osForm.items.findIndex(i => i.product_id === p.id);
+                  // Se o produto possuir variações cadastradas, abre o modal de seleção de variação
+                  const hasVariants = (p.has_variants === 1 || p.has_variants === true || (p.variants_count && p.variants_count > 0)) && Array.isArray(p.variants) && p.variants.length > 0;
+                  if (hasVariants) {
+                    setProductForOsVariant(p);
+                    setIsOsVariantModalOpen(true);
+                    return;
+                  }
+
+                  const existingIdx = osForm.items.findIndex(i => i.product_id === p.id && !i.variant_id);
                   if (existingIdx >= 0) {
                     handleItemQuantityChange(existingIdx, 1);
                   } else {
                     let price = p.sale_price;
-                    if (osForm.charge_type === 'credito_30_dias' && p.sale_price_credit) price = p.sale_price_credit;
+                    if ((osForm.charge_type === 'credito_30_dias' || osForm.charge_type === 'fiado') && p.sale_price_credit) price = p.sale_price_credit;
                     if (osForm.charge_type === 'atacado' && p.sale_price_wholesale) price = p.sale_price_wholesale;
                     setOsForm(prev => ({
                       ...prev,
@@ -621,6 +637,7 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
                         ...prev.items,
                         {
                           product_id: p.id,
+                          sku: p.sku || '',
                           description: p.description,
                           quantity: 1,
                           price,
@@ -1240,6 +1257,45 @@ export const OSFormModal: React.FC<OSFormModalProps> = ({
           </div>
         </div>
       )}
+
+      {/* SELETOR DE VARIAÇÃO COMPARTILHADO PARA ORDEM DE SERVIÇO */}
+      <ProductVariantSelectorModal
+        isOpen={isOsVariantModalOpen}
+        onClose={() => {
+          setIsOsVariantModalOpen(false);
+          setProductForOsVariant(null);
+        }}
+        product={productForOsVariant}
+        variants={productForOsVariant?.variants || []}
+        chargeType={osForm.charge_type || 'vista'}
+        formatBRL={formatBRL}
+        titleContext="Ordem de Serviço"
+        onSelectVariant={(selected: SelectedVariantResult) => {
+          const existingIdx = osForm.items.findIndex(i => i.variant_id === selected.variant.id);
+          if (existingIdx >= 0) {
+            handleItemQuantityChange(existingIdx, selected.quantity);
+          } else {
+            setOsForm(prev => ({
+              ...prev,
+              items: [
+                ...prev.items,
+                {
+                  product_id: productForOsVariant.id,
+                  variant_id: selected.variant.id,
+                  variant_description: selected.variantDescription,
+                  sku: selected.sku,
+                  description: selected.fullDescription,
+                  quantity: selected.quantity,
+                  price: selected.price,
+                  type: 'Peça',
+                },
+              ],
+            }));
+          }
+          setIsOsVariantModalOpen(false);
+          setProductForOsVariant(null);
+        }}
+      />
     </Modal>
   );
 };

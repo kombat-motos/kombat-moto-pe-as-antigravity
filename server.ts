@@ -3453,22 +3453,36 @@ async function startServer() {
       if (itemsToUpdate !== null) {
         const oldItems = db.prepare("SELECT * FROM sale_items WHERE sale_id = ?").all(req.params.id) as any[];
         const updateStockAdd = db.prepare("UPDATE products SET stock = stock + ? WHERE id = ?");
-        for(const item of oldItems) {
-          if(item.product_id && (item.type === 'Peça' || !item.type)) {
-            updateStockAdd.run(item.quantity, item.product_id);
+        const updateVariantStockAdd = db.prepare("UPDATE product_variants SET stock = stock + ? WHERE id = ?");
+
+        for (const item of oldItems) {
+          if (item.product_id && (item.type === 'Peça' || !item.type)) {
+            const qty = Number(item.quantity) || 0;
+            if (item.variant_id) {
+              updateVariantStockAdd.run(qty, item.variant_id);
+            }
+            updateStockAdd.run(qty, item.product_id);
           }
         }
 
         db.prepare("DELETE FROM sale_items WHERE sale_id = ?").run(req.params.id);
 
-        const insertItem = db.prepare("INSERT INTO sale_items (sale_id, product_id, description, quantity, price, type) VALUES (?, ?, ?, ?, ?, ?)");
+        const insertItem = db.prepare("INSERT INTO sale_items (sale_id, product_id, description, quantity, price, type, variant_id, variant_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         const updateStockSub = db.prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+        const updateVariantStockSub = db.prepare("UPDATE product_variants SET stock = stock - ? WHERE id = ?");
+
         for (const item of itemsToUpdate) {
           const safePrice = parseFloat(item.price) || 0;
           const safeQty = parseInt(item.quantity) || 0;
           const safeProdId = item.product_id ? parseInt(item.product_id) : null;
-          insertItem.run(req.params.id, safeProdId, item.description, safeQty, safePrice, item.type || 'Peça');
+          const safeVariantId = item.variant_id ? parseInt(item.variant_id) : null;
+          const variantDesc = item.variant_description || null;
+
+          insertItem.run(req.params.id, safeProdId, item.description, safeQty, safePrice, item.type || 'Peça', safeVariantId, variantDesc);
           if (safeProdId && (item.type === 'Peça' || !item.type)) {
+            if (safeVariantId) {
+              updateVariantStockSub.run(safeQty, safeVariantId);
+            }
             updateStockSub.run(safeQty, safeProdId);
           }
         }

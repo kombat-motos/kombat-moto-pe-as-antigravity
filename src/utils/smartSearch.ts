@@ -392,12 +392,23 @@ export function searchSmartProducts(
     const altCodeNorm = normalizeText(p.alt_code || '');
     const locNorm = normalizeText(p.location || '');
 
-    // Verificação de Correspondência Exata em Código / SKU / Barcode / Referência
+    // Verificação de Correspondência Exata em Código / SKU / Barcode / Referência (incluindo Variações)
     const rawQClean = cleanQ.replace(/\s+/g, '');
+    let matchedVariantExact = false;
+    if (p.variants && Array.isArray(p.variants)) {
+      matchedVariantExact = p.variants.some((v: any) => {
+        const vSku = normalizeText(v.sku || '');
+        const vBar = normalizeText(v.barcode || '').replace(/\s+/g, '');
+        const vAlt = normalizeText(v.alt_code || '');
+        return (vSku && vSku === cleanQ) || (vBar && vBar === rawQClean) || (vAlt && vAlt === cleanQ);
+      });
+    }
+
     if (
       (skuNorm && skuNorm === cleanQ) ||
       (barcodeNorm && barcodeNorm === rawQClean) ||
-      (altCodeNorm && altCodeNorm === cleanQ)
+      (altCodeNorm && altCodeNorm === cleanQ) ||
+      matchedVariantExact
     ) {
       results.push({
         item: p,
@@ -408,8 +419,23 @@ export function searchSmartProducts(
       continue;
     }
 
+    // Informações textuais de variações para indexação na busca
+    let varSearchable = '';
+    if (p.variants && Array.isArray(p.variants)) {
+      varSearchable = p.variants.map((v: any) => {
+        let comb = '';
+        if (typeof v.attribute_combination === 'object' && v.attribute_combination) {
+          comb = Object.values(v.attribute_combination).join(' ');
+        } else if (typeof v.attribute_combination === 'string') {
+          comb = v.attribute_combination;
+        }
+        return `${v.sku || ''} ${v.barcode || ''} ${comb}`;
+      }).join(' ');
+      varSearchable = normalizeText(varSearchable);
+    }
+
     // Campo consolidado para busca rápida
-    const fullSearchable = `${descNorm} ${appNorm} ${brandNorm} ${catNorm} ${skuNorm} ${barcodeNorm} ${altCodeNorm} ${locNorm}`;
+    const fullSearchable = `${descNorm} ${appNorm} ${brandNorm} ${catNorm} ${skuNorm} ${barcodeNorm} ${altCodeNorm} ${locNorm} ${varSearchable}`;
     const allWords = fullSearchable.split(/\s+/).filter(Boolean);
     const descWords = descNorm.split(/\s+/).filter(Boolean);
     const appWords = appNorm.split(/\s+/).filter(Boolean);
