@@ -8025,4 +8025,4 @@ startServer().catch(err => {
   process.exit(1);
 });
 
-// Force redeploy - 2026-09-04 10:35:00 - Revise all customer credit blocks
+// Force redeploy - 2026-11-25 17:42:00 - Deploy completo das variacoes no PDV e OS
