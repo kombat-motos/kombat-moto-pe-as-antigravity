@@ -66,7 +66,7 @@ export const ProductVariantSelectorModal: React.FC<ProductVariantSelectorModalPr
 
   // Reinicia estados ao abrir com novo produto
   React.useEffect(() => {
-    if (isOpen && variants.length > 0) {
+    if (isOpen && variants && variants.length > 0) {
       // Seleciona a primeira variação que tenha estoque disponível por padrão
       const firstWithStock = variants.find(v => (v.stock || 0) > 0 && v.status !== 'Inativo');
       if (firstWithStock) {
@@ -79,8 +79,6 @@ export const ProductVariantSelectorModal: React.FC<ProductVariantSelectorModalPr
     }
   }, [isOpen, product?.id, variants]);
 
-  if (!isOpen || !product) return null;
-
   const getEffectivePrice = (v: ProductVariantItem): number => {
     if ((chargeType === 'credito_30_dias' || chargeType === 'fiado') && v.sale_price_credit && Number(v.sale_price_credit) > 0) {
       return Number(v.sale_price_credit);
@@ -88,7 +86,7 @@ export const ProductVariantSelectorModal: React.FC<ProductVariantSelectorModalPr
     if (chargeType === 'atacado' && v.sale_price_wholesale && Number(v.sale_price_wholesale) > 0) {
       return Number(v.sale_price_wholesale);
     }
-    return Number(v.sale_price) || Number(product.sale_price) || 0;
+    return Number(v.sale_price) || Number(product?.sale_price) || 0;
   };
 
   const getVariantLabel = (v: ProductVariantItem): string => {
@@ -111,6 +109,7 @@ export const ProductVariantSelectorModal: React.FC<ProductVariantSelectorModalPr
 
   // Separa e ordena: primeiro as variações COM estoque, depois as SEM estoque (em vermelho e bloqueadas)
   const processedVariants = useMemo(() => {
+    if (!variants || !Array.isArray(variants)) return [];
     const list = [...variants];
     // Filtro de busca interna rápida por cor, ano, sku, barcode ou nome
     const filtered = searchTerm.trim() === ''
@@ -132,6 +131,9 @@ export const ProductVariantSelectorModal: React.FC<ProductVariantSelectorModalPr
       return getVariantLabel(a).localeCompare(getVariantLabel(b));
     });
   }, [variants, searchTerm]);
+
+  // Se não estiver aberto ou não tiver produto, NÃO RENDERIZA NADA (mas todos os hooks já foram chamados)
+  if (!isOpen || !product) return null;
 
   const selectedVariant = variants.find(v => v.id === selectedVariantId) || null;
   const effectivePrice = selectedVariant ? getEffectivePrice(selectedVariant) : 0;
