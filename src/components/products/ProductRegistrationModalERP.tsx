@@ -27,7 +27,9 @@ import {
   Calculator,
   Sliders,
   Eye,
-  Check
+  Check,
+  Edit2,
+  PlusCircle
 } from 'lucide-react';
 import { Product } from '../stock/types';
 
@@ -89,6 +91,7 @@ interface ProductRegistrationModalERPProps {
   onProductSaved: (savedProduct: any) => void;
   formatBRL: (val: number) => string;
   existingProducts?: Product[];
+  onResetToNewProduct?: () => void;
 }
 
 type TabType =
@@ -121,13 +124,45 @@ export const ProductRegistrationModalERP: React.FC<ProductRegistrationModalERPPr
   productToEdit,
   onProductSaved,
   formatBRL,
-  existingProducts = []
+  existingProducts = [],
+  onResetToNewProduct
 }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('geral');
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isFullMode, setIsFullMode] = useState(true);
+
+  // Estado para Modal de Variação Individual (Adicionar / Editar)
+  const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
+  const [editingVariantIndex, setEditingVariantIndex] = useState<number | null>(null);
+  const [variantForm, setVariantForm] = useState<{
+    attribute_combination: Record<string, string>;
+    sku: string;
+    barcode: string;
+    purchase_price: string | number;
+    sale_price: string | number;
+    sale_price_credit: string | number;
+    sale_price_wholesale: string | number;
+    stock: string | number;
+    min_stock: string | number;
+    location: string;
+    status: 'Ativo' | 'Inativo';
+  }>({
+    attribute_combination: {},
+    sku: '',
+    barcode: '',
+    purchase_price: '',
+    sale_price: '',
+    sale_price_credit: '',
+    sale_price_wholesale: '',
+    stock: '0',
+    min_stock: '0',
+    location: '',
+    status: 'Ativo'
+  });
+  const [newVariantCustomKey, setNewVariantCustomKey] = useState('');
+  const [newVariantCustomVal, setNewVariantCustomVal] = useState('');
 
   // Form State Principal
   const [productType, setProductType] = useState<'simples' | 'com_variacoes'>('simples');
@@ -305,12 +340,41 @@ export const ProductRegistrationModalERP: React.FC<ProductRegistrationModalERPPr
         const data = await res.json();
         if (data.variants && data.variants.length > 0) {
           setProductType('com_variacoes');
-          setVariants(data.variants.map((v: any) => ({
+          const parsedVariants = data.variants.map((v: any) => ({
             ...v,
             attribute_combination: typeof v.attribute_combination === 'string'
               ? JSON.parse(v.attribute_combination || '{}')
               : (v.attribute_combination || {})
-          })));
+          }));
+          setVariants(parsedVariants);
+
+          // Sincronizar atributos existentes para visualização nos cards superiores
+          const discoveredAttrs: Record<string, Set<string>> = {};
+          parsedVariants.forEach((pv: any) => {
+            if (pv.attribute_combination && typeof pv.attribute_combination === 'object') {
+              Object.entries(pv.attribute_combination).forEach(([k, val]) => {
+                if (!discoveredAttrs[k]) discoveredAttrs[k] = new Set();
+                if (val && typeof val === 'string' && val.trim()) {
+                  discoveredAttrs[k].add(val.trim());
+                }
+              });
+            }
+          });
+
+          setAttributes(prev => {
+            const next = [...prev];
+            Object.entries(discoveredAttrs).forEach(([k, valSet]) => {
+              const existingIdx = next.findIndex(a => a.name.toLowerCase() === k.toLowerCase());
+              const valList = Array.from(valSet);
+              if (existingIdx >= 0) {
+                const merged = Array.from(new Set([...next[existingIdx].values, ...valList]));
+                next[existingIdx] = { ...next[existingIdx], values: merged };
+              } else {
+                next.push({ name: k, values: valList });
+              }
+            });
+            return next;
+          });
         } else {
           setProductType('simples');
           setVariants([]);
@@ -492,6 +556,129 @@ export const ProductRegistrationModalERP: React.FC<ProductRegistrationModalERPPr
     alert('Edição em lote aplicada às variações!');
   };
 
+  // Cadastrar Próximo Produto (Novo) sem sobrescrever o já cadastrado
+  const handleCadastrarProximoProduto = async () => {
+    if (formData.description.trim() && hasUnsavedChanges) {
+      const confirmSave = window.confirm(
+        'Deseja SALVAR o produto atual antes de cadastrar o próximo?\n\n' +
+        '• Clique em OK para Gravar este produto e abrir a tela limpa para o novo produto.\n' +
+        '• Clique em Cancelar para abrir a tela limpa imediatamente sem gravar.'
+      );
+      if (confirmSave) {
+        await handleSave(true);
+        return;
+      }
+    }
+    resetForm();
+    if (onResetToNewProduct) {
+      onResetToNewProduct();
+    }
+    setActiveTab('geral');
+  };
+
+  // Abrir Modal para Adicionar Nova Variação Individual
+  const handleOpenAddVariantModal = () => {
+    setEditingVariantIndex(null);
+    const baseAttrs: Record<string, string> = {};
+    attributes.forEach(a => {
+      baseAttrs[a.name] = '';
+    });
+    // Se tiver marca do produto e MARCA não estiver preenchida, sugerir
+    if (formData.brand && !baseAttrs['MARCA'] && !baseAttrs['Marca']) {
+      baseAttrs['MARCA'] = formData.brand;
+    }
+
+    const nextCount = variants.length + 1;
+    const baseSku = formData.sku || (formData.description ? formData.description.substring(0, 3).toUpperCase() : 'VAR');
+
+    setVariantForm({
+      attribute_combination: baseAttrs,
+      sku: `${baseSku}-${nextCount}`,
+      barcode: '',
+      purchase_price: formData.purchase_price ?? '',
+      sale_price: formData.sale_price ?? '',
+      sale_price_credit: formData.sale_price_credit ?? '',
+      sale_price_wholesale: formData.sale_price_wholesale ?? '',
+      stock: '0',
+      min_stock: formData.min_stock || '0',
+      location: formData.location || '',
+      status: 'Ativo'
+    });
+    setNewVariantCustomKey('');
+    setNewVariantCustomVal('');
+    setIsVariantModalOpen(true);
+  };
+
+  // Abrir Modal para Editar Variação Existente
+  const handleEditVariant = (idx: number) => {
+    const v = variants[idx];
+    if (!v) return;
+    setEditingVariantIndex(idx);
+    setVariantForm({
+      attribute_combination: { ...(v.attribute_combination || {}) },
+      sku: v.sku || '',
+      barcode: v.barcode || '',
+      purchase_price: v.purchase_price ?? '',
+      sale_price: v.sale_price ?? '',
+      sale_price_credit: v.sale_price_credit ?? '',
+      sale_price_wholesale: v.sale_price_wholesale ?? '',
+      stock: v.stock ?? '0',
+      min_stock: v.min_stock ?? '0',
+      location: v.location || '',
+      status: v.status || 'Ativo'
+    });
+    setNewVariantCustomKey('');
+    setNewVariantCustomVal('');
+    setIsVariantModalOpen(true);
+  };
+
+  // Salvar Variação Individual
+  const handleSaveVariantForm = () => {
+    const cleanAttrs: Record<string, string> = {};
+    Object.entries(variantForm.attribute_combination).forEach(([k, val]) => {
+      if (val && typeof val === 'string' && val.trim()) {
+        cleanAttrs[k.trim()] = val.trim();
+      }
+    });
+
+    if (Object.keys(cleanAttrs).length === 0 && !variantForm.sku.trim()) {
+      alert('Por favor, informe ao menos um atributo (ex: Cor ou Marca) ou o SKU da variação.');
+      return;
+    }
+
+    const savedVariant: ProductVariant = {
+      ...variantForm,
+      attribute_combination: cleanAttrs,
+      sku: variantForm.sku.trim() || `VAR-${Date.now().toString().slice(-4)}`
+    };
+
+    if (editingVariantIndex !== null) {
+      setVariants(prev => prev.map((item, i) => (i === editingVariantIndex ? { ...item, ...savedVariant } : item)));
+    } else {
+      setVariants(prev => [...prev, savedVariant]);
+      setProductType('com_variacoes');
+    }
+
+    // Sincronizar com os chips de atributos
+    setAttributes(prev => {
+      const next = [...prev];
+      Object.entries(cleanAttrs).forEach(([attrName, attrVal]) => {
+        const found = next.find(a => a.name.toLowerCase() === attrName.toLowerCase());
+        if (found) {
+          if (!found.values.includes(attrVal)) {
+            found.values = [...found.values, attrVal];
+          }
+        } else {
+          next.push({ name: attrName, values: [attrVal] });
+        }
+      });
+      return next;
+    });
+
+    setHasUnsavedChanges(true);
+    setIsVariantModalOpen(false);
+  };
+
   // Assistente de IA Ozzy Virtual para interpretação inteligente
   const handleOzzyInterpret = () => {
     if (!ozzyPrompt.trim()) return;
@@ -619,8 +806,11 @@ export const ProductRegistrationModalERP: React.FC<ProductRegistrationModalERPPr
 
       if (andCreateNext) {
         resetForm();
+        if (onResetToNewProduct) {
+          onResetToNewProduct();
+        }
         setActiveTab('geral');
-        alert('Produto gravado com sucesso! Pronto para cadastrar o próximo.');
+        alert('Produto gravado com sucesso! Tela limpa pronta para cadastrar o próximo produto.');
       } else {
         onClose();
       }
@@ -674,6 +864,17 @@ export const ProductRegistrationModalERP: React.FC<ProductRegistrationModalERPPr
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Botão Cadastrar Próximo Produto */}
+            <button
+              type="button"
+              onClick={handleCadastrarProximoProduto}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 shadow-md shadow-blue-950/40 transition-all cursor-pointer border border-blue-500/50"
+              title="Salvar produto atual e cadastrar o próximo produto em tela limpa sem sobrescrever"
+            >
+              <PlusCircle size={14} />
+              + Cadastrar Próximo Produto
+            </button>
+
             {/* Seletor Rápido vs Completo */}
             <button
               type="button"
@@ -1123,39 +1324,61 @@ export const ProductRegistrationModalERP: React.FC<ProductRegistrationModalERPPr
 
                 {/* Edição em Lote para as Variações */}
                 {variants.length > 0 && (
-                  <div className="bg-slate-900/40 p-3 rounded-xl border border-slate-800 flex flex-wrap items-center gap-3">
-                    <span className="text-xs font-bold text-slate-300 flex items-center gap-1">
-                      <Sliders size={13} className="text-rose-500" />
-                      Edição em Lote:
-                    </span>
-                    <input
-                      type="number"
-                      placeholder="Preço Venda (R$)"
-                      className="w-32 px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white outline-none"
-                      value={batchPrice}
-                      onChange={e => setBatchPrice(e.target.value)}
-                    />
-                    <input
-                      type="number"
-                      placeholder="Estoque Mín."
-                      className="w-28 px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white outline-none"
-                      value={batchMinStock}
-                      onChange={e => setBatchMinStock(e.target.value)}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Localização"
-                      className="w-32 px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white outline-none"
-                      value={batchLocation}
-                      onChange={e => setBatchLocation(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleApplyBatchEdit}
-                      className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold text-xs rounded-lg border border-slate-700 cursor-pointer"
-                    >
-                      Aplicar a Todas
-                    </button>
+                  <div className="bg-slate-900/40 p-3 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-xs font-bold text-slate-300 flex items-center gap-1">
+                        <Sliders size={13} className="text-rose-500" />
+                        Edição em Lote:
+                      </span>
+                      <input
+                        type="number"
+                        placeholder="Preço Venda (R$)"
+                        className="w-32 px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white outline-none"
+                        value={batchPrice}
+                        onChange={e => setBatchPrice(e.target.value)}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Estoque Mín."
+                        className="w-28 px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white outline-none"
+                        value={batchMinStock}
+                        onChange={e => setBatchMinStock(e.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Localização"
+                        className="w-32 px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white outline-none"
+                        value={batchLocation}
+                        onChange={e => setBatchLocation(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyBatchEdit}
+                        className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold text-xs rounded-lg border border-slate-700 cursor-pointer"
+                      >
+                        Aplicar a Todas
+                      </button>
+                    </div>
+
+                    {/* BOTÕES DE ADICIONAR VARIAÇÃO E NOVO PRODUTO SOLICITADOS NA CAIXA VERMELHA */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleOpenAddVariantModal}
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-md shadow-emerald-950/40 cursor-pointer transition-all border border-emerald-500/50"
+                        title="Adicionar nova variação com cores, marcas e dados individuais sem alterar as existentes"
+                      >
+                        <Plus size={14} /> + Adicionar Nova Variação
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCadastrarProximoProduto}
+                        className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-md shadow-blue-950/40 cursor-pointer transition-all border border-blue-500/50"
+                        title="Gravar este produto e cadastrar o próximo produto com outra marca sem sobrescrever o atual"
+                      >
+                        <PlusCircle size={14} /> + Cadastrar Próximo Produto
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -1171,9 +1394,26 @@ export const ProductRegistrationModalERP: React.FC<ProductRegistrationModalERPPr
                   </div>
 
                   {variants.length === 0 ? (
-                    <div className="p-8 text-center bg-slate-900/30 rounded-2xl border border-dashed border-slate-800 text-slate-400 text-xs">
-                      Nenhuma variação gerada ainda. Adicione atributos acima (ex: Cor: Preto, Vermelho) e clique em{' '}
-                      <strong>Gerar / Atualizar Matriz</strong>.
+                    <div className="p-8 text-center bg-slate-900/30 rounded-2xl border border-dashed border-slate-800 text-slate-400 text-xs space-y-3">
+                      <div>
+                        Nenhuma variação gerada ainda. Adicione atributos acima ou cadastre variações e marcas individualmente.
+                      </div>
+                      <div className="flex items-center justify-center gap-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleOpenAddVariantModal}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-emerald-950/40 cursor-pointer transition-all"
+                        >
+                          <Plus size={14} /> + Adicionar Nova Variação Manual
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCadastrarProximoProduto}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-blue-950/40 cursor-pointer transition-all"
+                        >
+                          <PlusCircle size={14} /> + Cadastrar Próximo Produto
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="overflow-x-auto rounded-xl border border-slate-800">
@@ -1196,15 +1436,25 @@ export const ProductRegistrationModalERP: React.FC<ProductRegistrationModalERPPr
                           {variants.map((v, idx) => (
                             <tr key={idx} className="hover:bg-slate-900/50 transition-colors">
                               <td className="py-2 px-3 font-semibold text-white">
-                                <div className="flex flex-wrap gap-1">
+                                <div className="flex flex-wrap items-center gap-1">
                                   {Object.entries(v.attribute_combination).map(([attr, val]) => (
                                     <span
                                       key={attr}
-                                      className="px-2 py-0.5 rounded bg-slate-800 text-[11px] text-slate-200"
+                                      onClick={() => handleEditVariant(idx)}
+                                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-200 cursor-pointer border border-slate-700 transition-colors"
+                                      title="Clique para editar este atributo"
                                     >
                                       <strong>{attr}:</strong> {val}
                                     </span>
                                   ))}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditVariant(idx)}
+                                    className="p-1 text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer ml-1"
+                                    title="Editar atributos desta variação (Cor, Marca, etc.)"
+                                  >
+                                    <Edit2 size={12} />
+                                  </button>
                                 </div>
                               </td>
                               <td className="py-2 px-3">
@@ -1316,17 +1566,27 @@ export const ProductRegistrationModalERP: React.FC<ProductRegistrationModalERPPr
                                 </button>
                               </td>
                               <td className="py-2 px-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setVariants(prev => prev.filter((_, i) => i !== idx));
-                                    setHasUnsavedChanges(true);
-                                  }}
-                                  className="p-1 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
-                                  title="Remover variação"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditVariant(idx)}
+                                    className="p-1 text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
+                                    title="Editar detalhes completos da variação"
+                                  >
+                                    <Edit2 size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setVariants(prev => prev.filter((_, i) => i !== idx));
+                                      setHasUnsavedChanges(true);
+                                    }}
+                                    className="p-1 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                                    title="Remover variação"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -2178,6 +2438,17 @@ export const ProductRegistrationModalERP: React.FC<ProductRegistrationModalERPPr
             <button
               type="button"
               disabled={isSaving}
+              onClick={handleCadastrarProximoProduto}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl border border-blue-500/60 flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-blue-950/40"
+              title="Finalizar este produto e cadastrar o próximo produto limpo sem sobrescrever o atual"
+            >
+              <PlusCircle size={14} />
+              + Cadastrar Próximo Produto
+            </button>
+
+            <button
+              type="button"
+              disabled={isSaving}
               onClick={() => handleSave(true)}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 flex items-center gap-1.5 transition-all cursor-pointer"
             >
@@ -2196,6 +2467,204 @@ export const ProductRegistrationModalERP: React.FC<ProductRegistrationModalERPPr
             </button>
           </div>
         </footer>
+
+        {/* ========================================================= */}
+        {/* MODAL PARA ADICIONAR / EDITAR VARIAÇÃO INDIVIDUAL         */}
+        {/* ========================================================= */}
+        {isVariantModalOpen && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-xl bg-[#0f172a] border border-slate-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col text-slate-100 animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-5 py-3.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold">
+                    <Plus size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">
+                      {editingVariantIndex !== null ? 'Editar Variação' : 'Adicionar Nova Variação Individual'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Cadastre marca, cor e estoque sem alterar as variações já existentes
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsVariantModalOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+                {/* Seção de Atributos (Cor, Marca, Tamanho, etc.) */}
+                <div className="space-y-2">
+                  <span className="font-bold text-slate-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Layers size={13} className="text-rose-400" />
+                    Atributos da Variação (Cor, Marca, etc.)
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                    {Object.entries(variantForm.attribute_combination).map(([attrKey, attrVal]) => (
+                      <div key={attrKey} className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">{attrKey}</label>
+                        <input
+                          type="text"
+                          className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white outline-none focus:border-rose-500"
+                          placeholder={`Ex: ${attrKey === 'MARCA' || attrKey === 'Marca' ? 'MELC, PRO TORK...' : 'VERDE, PRETO...'}`}
+                          value={attrVal}
+                          onChange={e =>
+                            setVariantForm(prev => ({
+                              ...prev,
+                              attribute_combination: {
+                                ...prev.attribute_combination,
+                                [attrKey]: e.target.value
+                              }
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+
+                    {/* Adicionar outro atributo na hora */}
+                    <div className="sm:col-span-2 pt-2 border-t border-slate-800/80 flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Novo Atributo (Ex: Marca, Ano, Lado)"
+                        className="w-1/2 px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-[11px] text-white outline-none"
+                        value={newVariantCustomKey}
+                        onChange={e => setNewVariantCustomKey(e.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Valor (Ex: PRO TORK)"
+                        className="w-1/2 px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-[11px] text-white outline-none"
+                        value={newVariantCustomVal}
+                        onChange={e => setNewVariantCustomVal(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (newVariantCustomKey.trim() && newVariantCustomVal.trim()) {
+                            setVariantForm(prev => ({
+                              ...prev,
+                              attribute_combination: {
+                                ...prev.attribute_combination,
+                                [newVariantCustomKey.trim()]: newVariantCustomVal.trim()
+                              }
+                            }));
+                            setNewVariantCustomKey('');
+                            setNewVariantCustomVal('');
+                          }
+                        }}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-lg border border-slate-700 text-[11px] cursor-pointer whitespace-nowrap"
+                      >
+                        + Adicionar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SKU e Código de Barras */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">SKU / Código da Peça</label>
+                    <input
+                      type="text"
+                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white font-mono outline-none"
+                      value={variantForm.sku}
+                      onChange={e => setVariantForm({ ...variantForm, sku: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Código de Barras (EAN)</label>
+                    <input
+                      type="text"
+                      placeholder="Opcional"
+                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white font-mono outline-none"
+                      value={variantForm.barcode}
+                      onChange={e => setVariantForm({ ...variantForm, barcode: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Preços */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Preço de Custo (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white outline-none"
+                      value={variantForm.purchase_price}
+                      onChange={e => setVariantForm({ ...variantForm, purchase_price: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase text-rose-400">Preço de Venda à Vista (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white font-bold text-rose-400 outline-none"
+                      value={variantForm.sale_price}
+                      onChange={e => setVariantForm({ ...variantForm, sale_price: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Estoque e Localização */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Estoque Inicial</label>
+                    <input
+                      type="number"
+                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white font-bold outline-none"
+                      value={variantForm.stock}
+                      onChange={e => setVariantForm({ ...variantForm, stock: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Estoque Mínimo</label>
+                    <input
+                      type="number"
+                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white outline-none"
+                      value={variantForm.min_stock}
+                      onChange={e => setVariantForm({ ...variantForm, min_stock: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Localização</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: PRAT. 03"
+                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white outline-none"
+                      value={variantForm.location}
+                      onChange={e => setVariantForm({ ...variantForm, location: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-5 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsVariantModalOpen(false)}
+                  className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveVariantForm}
+                  className="px-5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-950/40 cursor-pointer"
+                >
+                  {editingVariantIndex !== null ? 'Atualizar Variação' : 'Confirmar e Adicionar à Grade'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

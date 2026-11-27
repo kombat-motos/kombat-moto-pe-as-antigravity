@@ -8795,6 +8795,9 @@ Busque as informações da placa: ${plate} no site https://buscaplacas.com.br/ e
           onProductSaved={() => {
             fetchData();
           }}
+          onResetToNewProduct={() => {
+            setEditingProduct(null);
+          }}
         />
 
         {/* SELETOR DE VARIAÇÕES PARA O PDV */}
